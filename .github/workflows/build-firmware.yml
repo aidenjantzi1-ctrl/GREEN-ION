@@ -45,6 +45,9 @@ jobs:
           PY
           node --check /tmp/green-ion-dashboard.js
 
+      - name: Test RKT4 integrity and interrupted-flight recovery
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+
       - name: Compile V8.7
         run: |
           mkdir -p build
