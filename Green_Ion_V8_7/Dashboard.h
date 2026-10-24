@@ -408,6 +408,10 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <div class="row"><span>Saved recordings</span><strong id="fileCount">--</strong></div>
   <div class="row"><span>SD test result</span><strong id="sdTestResult">--</strong></div>
   <div class="row"><span>Write errors</span><strong id="storageWriteErrors">--</strong></div>
+  <div class="row"><span>Recording integrity</span><strong id="integrityStatus">--</strong></div>
+  <div class="row"><span>Recovered interrupted flights</span><strong id="recoveredFlights">--</strong></div>
+  <div class="row"><span>Last recovered sample count</span><strong id="recoveredSamples">--</strong></div>
+  <div class="row"><span>ESP32 reset reason code</span><strong id="resetReason">--</strong></div>
   <div class="row"><span>Missed samples</span><strong id="storageMissed">--</strong></div>
   <div class="row"><span>Actual sample rate</span><strong id="storageRate">--</strong></div>
   <button id="refresh" class="secondary">REFRESH FILES</button>
@@ -674,6 +678,10 @@ function renderGuide(d){
 function render(d,collect=true) {
  state=d;
  renderGuide(d);
+ $("integrityStatus").textContent=d.integrityStatus||"Unknown";
+ $("recoveredFlights").textContent=d.recoveredFlights??0;
+ $("recoveredSamples").textContent=d.recoveredSamples??0;
+ $("resetReason").textContent=d.resetReason||"Unknown";
  $("connection").textContent="● LIVE";
  $("connection").style.color="#72e5ab";
 
