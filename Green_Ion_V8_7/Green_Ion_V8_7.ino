@@ -1531,8 +1531,10 @@ void csvAPI() {
   uint8_t header[32];
   if (f.read(header, sizeof(header)) != sizeof(header) ||
       memcmp(header, "RKT4", 4) != 0 ||
+      read16(header + 4) != 2 ||
       read16(header + 6) != 32 ||
-      read16(header + 8) != 16) {
+      read16(header + 8) != 16 ||
+      (read16(header + 10) != 10 && read16(header + 10) != 25 && read16(header + 10) != 50)) {
     f.close();
     web.send(422, "text/plain", "Invalid RKT4 file");
     return;
