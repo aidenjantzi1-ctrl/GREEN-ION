@@ -95,7 +95,7 @@ Use a module that is electrically compatible with 3.3 V logic. The firmware can 
 3. Confirm the calibration success message and verify that live altitude is near zero.
 4. If recording, insert the microSD card and run the SD diagnostic. Confirm that storage is verified and that the battery is not critical.
 5. Press **Arm**.
-6. Enter a flight label and motor designation, choose 10, 25, or 50 samples per second, and save the settings before arming. Use 25 Hz as the normal balance; use 50 Hz when fast-motion detail matters and the SD wiring has tested reliably.
+6. Select Flight or Test for the next automatic recording label, choose a motor designation, select 10, 25, or 50 samples per second, and save the settings before arming. Use 25 Hz as the normal balance; use 50 Hz when fast-motion detail matters and the SD wiring has tested reliably.
 7. Press **Start Recording**. The firmware creates an RKT4 binary log and metadata summary on the card.
 8. Press **Stop & Save** before removing power or the card. From Storage, download the original BIN, a CSV for spreadsheet analysis, and the text summary.
 
@@ -115,17 +115,24 @@ Automatic status colors take priority during safety-critical recorder states. Th
 - **Battery reading is unknown or inaccurate:** The firmware estimates a single-cell LiPo percentage from voltage. USB power, load, ADC tolerance, and battery chemistry affect the estimate.
 - **Upload fails:** Confirm the Feather V2 board and serial port, close other serial programs, and retry while holding BOOT if the board does not enter its bootloader automatically.
 
-## Files
+## Complete version archive
 
-- `Green_Ion_V8_7/Green_Ion_V8_7.ino` — latest V8.7 firmware and embedded dashboard
+- [Full version index (V1–V8.7)](VERSIONS.md) — lists each version and original source availability.
+- [Complete changelog](CHANGELOG.md) — documented changes and evidence limitations.
+- [Historical records V1–V7](history/) — descriptive archive only; no original executable source is available.
 
-- `Green_Ion_V8_7/Green_Ion_V8_7.ino` — latest V8.7 firmware and embedded dashboard
-- `Green_Ion_V8_5/Green_Ion_V8_5.ino` — archived V8.5 firmware
-- `Green_Ion_V8_4/Green_Ion_V8_4.ino` — archived V8.4 firmware
-- `Green_Ion_V8_3/Green_Ion_V8_3.ino` — archived V8.3 firmware
-- `Green_Ion_V8_2/Green_Ion_V8_2.ino` — archived V8.2 firmware
-- `Green_Ion_V8_1/Green_Ion_V8_1.ino` — archived V8.1 firmware
-- `Green_Ion_V8/Green_Ion_V8.ino` — archived V8 firmware
+### Preserved firmware sketches
+
+- [V8 source](Green_Ion_V8/Green_Ion_V8.ino) — preserved Arduino sketch
+- [V8.1 source](Green_Ion_V8_1/Green_Ion_V8_1.ino) — preserved Arduino sketch
+- [V8.2 source](Green_Ion_V8_2/Green_Ion_V8_2.ino) — preserved Arduino sketch
+- [V8.3 source](Green_Ion_V8_3/Green_Ion_V8_3.ino) — preserved Arduino sketch
+- [V8.4 source](Green_Ion_V8_4/Green_Ion_V8_4.ino) — preserved Arduino sketch
+- [V8.5 source](Green_Ion_V8_5/Green_Ion_V8_5.ino) — preserved Arduino sketch
+- [V8.6 source](Green_Ion_V8_6/Green_Ion_V8_6.ino) — preserved Arduino sketch
+- [V8.7 source](Green_Ion_V8_7/Green_Ion_V8_7.ino) — preserved Arduino sketch (latest)
+
+**Important:** Source snapshots begin at V8. Earlier historical records must not be confused with working firmware. GitHub commit dates in October 2026 are preservation dates, not necessarily prototype development dates.
 
 ## GitHub builds and phone downloads
 
@@ -133,7 +140,7 @@ Every firmware change on `main` runs the **Build Green Ion firmware** GitHub Act
 
 ### Install a later update from a phone
 
-1. Install V8.5 or V8.7 over USB once. Earlier firmware does not contain the update endpoint.
+1. Install V8.5 or newer over USB once. Earlier firmware does not contain the update endpoint.
 2. On the phone, open this repository while connected to the internet.
 3. Open **Actions**, select the latest successful **Build Green Ion firmware** run, and download its artifact.
 4. Extract the ZIP and keep the file ending exactly in `.ino.bin`. Do not select a bootloader, partitions, or merged binary.
