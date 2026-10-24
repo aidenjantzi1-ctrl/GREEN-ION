@@ -4,6 +4,16 @@ GREEN ION V8.7 is experimental firmware for an Adafruit ESP32 Feather V2 flight-
 
 > **Safety scope:** GREEN ION is a data recorder only. It must never control ignition, staging, parachute deployment, or any recovery system.
 
+## V8.8 recording-reliability development (in progress)
+
+- Buffered RKT4 samples continue to flush approximately every 500 ms. A checkpoint journal is updated about every 5 seconds while recording, recording the last flushed file size and sample count.
+- After a reset, firmware scans for outstanding `FLTxxxx.JRN` files and appends `status=recovered_interrupted` to the companion TXT metadata. It reports the count of complete 16-byte samples, partial trailing bytes, and whether the RKT4 header is valid. Original BIN files are preserved; CSV export ignores partial trailing records.
+- If a completed flight has a leftover journal from an interruption during cleanup, the recovery scan removes that journal without relabeling the completed flight.
+- The Storage diagnostics display recording integrity, recovered flights and sample count, and ESP32 reset reason code. Reset reason is a numeric ESP32 enum, not an explanation of the physical cause.
+- Synthetic RKT4 regression tests and dashboard syntax checks run in GitHub Actions before firmware compilation.
+
+**Limits:** The journal is a recovery marker, not a transactional filesystem. Power loss can still lose buffered or unwritten data; physical SD card damage is not repairable by firmware. A recording with an incomplete final sample remains a raw BIN with trailing bytes. Test interruption recovery with a disposable ground recording before relying on it in flight. This version does not alter ignition or recovery hardware.
+
 ## Current dashboard — guided recording and analysis
 
 The dashboard works in modern browsers on phones, tablets, and computers over the Feather's local **GREEN-ION** Wi-Fi network. The **Launch Assistant** follows the logger's real status and guides you through controller access, BMP388 health checks, SD verification, calibration, mission setup, starting the recorder, stopping after recovery, and reviewing saved files. The physical checklist is informational and does not control ignition or recovery.
