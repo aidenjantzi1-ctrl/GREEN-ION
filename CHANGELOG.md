@@ -8,6 +8,16 @@ Every known or referenced version from **V1 through V8.7** is listed here. See [
 
 This repository starts with complete source snapshots at V8. The V1–V7 history below is reconstructed from available conversation text and serial-output captures. Entries marked **documented by output** describe behavior visible in those captures but do not have preserved source in this repository. Entries marked **undocumented** are retained as version placeholders and do not claim features that could not be verified.
 
+## V8.8 recording reliability (development, October 24, 2026)
+
+- Added a five-second flight checkpoint journal alongside the existing 500 ms binary flushes.
+- Added startup recovery of interrupted recordings, RKT4 header validation, complete-sample counting and trailing-partial-byte reporting.
+- Preserved original BIN files during recovery; marked recovered metadata as interrupted, not complete.
+- Prevented false interruption reports if a reset occurs between successful metadata finalization and journal cleanup.
+- Added recording integrity, recovered flight count, last recovered sample count and numeric ESP32 reset reason to the dashboard.
+- Strengthened CSV header validation and added synthetic RKT4 tests to the GitHub Actions workflow.
+- Hardware power-loss and SD-card interruption testing remains outstanding; successful compilation is not a guarantee of crash consistency.
+
 ## V8.7 integrated launch workflow and report update (October 24, 2026)
 
 - Extracted the embedded dashboard into `Green_Ion_V8_7/Dashboard.h` to avoid Arduino's HTML/JS sketch preprocessing failure; restored successful firmware builds.
