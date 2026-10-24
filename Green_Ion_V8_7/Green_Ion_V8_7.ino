@@ -35,6 +35,7 @@
 #include <Adafruit_BMP3XX.h>
 #include <Adafruit_NeoPixel.h>
 #include <esp_sleep.h>
+#include <esp_system.h>
 #include <Update.h>
 #include <Preferences.h>
 #include <math.h>
@@ -63,6 +64,7 @@ uint16_t sampleRateHz = 25;
 uint32_t sampleIntervalUs = 40000;
 const uint32_t CONTROL_LEASE_MS = 30000;
 const uint32_t FLUSH_MS = 500;
+const uint32_t CHECKPOINT_MS = 5000;
 const uint32_t MAX_FLIGHT_MS = 600000;
 const uint32_t CAL_MS = 50;
 const uint32_t LANDING_MS = 20000;
@@ -135,6 +137,11 @@ uint32_t flightStartMs = 0;
 uint32_t finalDurationMs = 0;
 uint32_t lastSampleUs = 0;
 uint32_t lastFlushMs = 0;
+uint32_t lastCheckpointMs = 0;
+uint32_t recoveredFlights = 0;
+uint32_t lastRecoveredSamples = 0;
+String resetReasonText = "unknown";
+String integrityStatus = "Not checked";
 
 uint32_t samples = 0;
 uint32_t invalidSamples = 0;
@@ -143,6 +150,7 @@ uint32_t writeErrors = 0;
 
 String filename = "(none)";
 String metadataFilename = "";
+String checkpointFilename = "";
 String flightLabel = "Flight 1";
 String missionKind = "flight";
 uint32_t nextFlightNumber = 1;
@@ -554,6 +562,95 @@ bool verifySD() {
   return sdVerified;
 }
 
+// ---------- RKT4 INTEGRITY AND RECOVERY ----------
+// A complete RKT4 file has a 32-byte header followed by 16-byte samples.
+// A torn final record is preserved in the original BIN but excluded from CSV.
+// This is best-effort power-loss recovery, not guaranteed flash durability.
+String journalName(String bin) {
+  bin.replace(".BIN", ".JRN");
+  return bin;
+}
+
+bool validRKT4Header(File &f) {
+  if (!f || f.size() < 32) return false;
+  uint8_t h[32];
+  if (!f.seek(0) || f.read(h, 32) != 32) return false;
+  uint16_t version = (uint16_t)h[4] | ((uint16_t)h[5] << 8);
+  uint16_t headerSize = (uint16_t)h[6] | ((uint16_t)h[7] << 8);
+  uint16_t recordSize = (uint16_t)h[8] | ((uint16_t)h[9] << 8);
+  uint16_t rate = (uint16_t)h[10] | ((uint16_t)h[11] << 8);
+  return memcmp(h, "RKT4", 4) == 0 && version == 2 &&
+         headerSize == 32 && recordSize == 16 &&
+         (rate == 10 || rate == 25 || rate == 50);
+}
+
+bool saveCheckpoint() {
+  if (!recording || !flightFile || !sdOK || sdFault) return false;
+  File j = SD.open(checkpointFilename, FILE_WRITE);
+  if (!j) {
+    errorText = "Checkpoint unavailable; flight BIN logging continues";
+    return false;
+  }
+  // Checkpoints are hints only; recovery trusts actual flushed file size.
+  j.println("GREEN-ION-CHECKPOINT-1");
+  j.println("file=" + filename.substring(1));
+  j.println("samples=" + String(samples));
+  j.println("committed_bytes=" + String((uint32_t)flightFile.size()));
+  j.println("elapsed_ms=" + String(millis() - flightStartMs));
+  j.flush();
+  j.close();
+  lastCheckpointMs = millis();
+  return true;
+}
+
+void recoverInterruptedFlights() {
+  if (!sdOK) return;
+  File root = SD.open("/");
+  if (!root) return;
+  File entry = root.openNextFile();
+  while (entry) {
+    String name = entry.name();
+    int slash = name.lastIndexOf('/');
+    if (slash >= 0) name = name.substring(slash + 1);
+    bool isJournal = !entry.isDirectory() && name.length() == 11 &&
+                     name.startsWith("FLT") && name.endsWith(".JRN");
+    for (int i = 3; i < 7 && isJournal; i++)
+      if (!isDigit(name[i])) isJournal = false;
+    entry.close();
+    if (isJournal) {
+      String bin = name; bin.replace(".JRN", ".BIN");
+      String meta = name; meta.replace(".JRN", ".TXT");
+      File log = SD.open("/" + bin, FILE_READ);
+      bool valid = validRKT4Header(log);
+      uint32_t count = valid ? (log.size() - 32) / 16 : 0;
+      uint32_t tail = valid ? (log.size() - 32) % 16 : 0;
+      log.close();
+      File summary = SD.open("/" + meta, FILE_APPEND);
+      if (summary) {
+        summary.println("status=recovered_interrupted");
+        summary.println("finish_reason=Unexpected reset or power interruption");
+        summary.println("recovered_samples=" + String(count));
+        summary.println("trailing_partial_bytes=" + String(tail));
+        summary.println("rkt4_header_valid=" + String(valid ? "yes" : "no"));
+        summary.flush();
+        summary.close();
+        if (SD.remove("/" + name)) {
+          recoveredFlights++;
+          lastRecoveredSamples = count;
+        }
+      } else {
+        integrityStatus = "Recovery pending: cannot write metadata";
+      }
+    }
+    entry = root.openNextFile();
+  }
+  root.close();
+  if (recoveredFlights)
+    integrityStatus = String(recoveredFlights) + " interrupted flight(s) recovered; verify CSV";
+  else if (integrityStatus != "Recovery pending: cannot write metadata")
+    integrityStatus = "No interrupted recordings detected";
+}
+
 // ---------- FLIGHT LOGGING ----------
 
 bool flushLog() {
@@ -574,6 +671,7 @@ bool flushLog() {
       armed = false;
       used = 0;
       flightFile.close();
+      integrityStatus = "SD write failed; partial flight may remain";
       return false;
     }
     offset += n;
@@ -620,6 +718,7 @@ bool writeFlightMetadataStart() {
   meta.print("starting_battery_v=");
   meta.println(batteryMv / 1000.0f, 3);
   meta.println("status=recording");
+  meta.println("rkt4_format=2");
   meta.flush();
   meta.close();
   return true;
@@ -632,7 +731,9 @@ void writeFlightMetadataEnd() {
     return;
   }
 
-  meta.println("status=complete");
+  meta.println("status=" + String(sdFault ? "incomplete_sd_error" : "complete"));
+  meta.println("integrity=" + integrityStatus);
+  meta.println("write_errors=" + String(writeErrors));
   meta.println("finish_reason=" + finishReason);
   meta.print("duration_s=");
   meta.println(finalDurationMs / 1000.0f, 2);
@@ -666,7 +767,9 @@ void stopFlight(String reason) {
   finishReason = saved && !sdFault
     ? reason : "SD write failure";
 
+  integrityStatus = saved && !sdFault ? "Saved and flushed" : "Incomplete: SD error";
   writeFlightMetadataEnd();
+  if (saved && !sdFault && checkpointFilename.length()) SD.remove(checkpointFilename);
 
   message = saved && !sdFault
     ? "Saved " + filename
@@ -713,6 +816,7 @@ bool beginFlight() {
   flightLabel=String(missionKind=="test"?"Test ":"Flight ")+String(chosenFlightNumber);
   metadataFilename = filename;
   metadataFilename.replace(".BIN", ".TXT");
+  checkpointFilename = journalName(filename);
 
   flightFile = SD.open(filename, FILE_WRITE);
 
@@ -748,6 +852,7 @@ bool beginFlight() {
   }
 
   used = 0;
+  integrityStatus = "Recording; buffered samples flush every 500 ms";
   samples = 0;
   invalidSamples = 0;
   missedSamples = 0;
@@ -758,6 +863,7 @@ bool beginFlight() {
 
   flightStartMs = millis();
   lastFlushMs = millis();
+  lastCheckpointMs = millis();
   lastSampleUs = micros();
   finalDurationMs = 0;
 
@@ -769,6 +875,7 @@ bool beginFlight() {
   nv.putUInt("nextid",nextFlightNumber);
   recording = true;
   armed = false;
+  saveCheckpoint();
   manualLed = false;
 
   finishReason = "";
@@ -1245,6 +1352,10 @@ void statusAPI() {
   s += ",\"invalid\":" + String(invalidSamples);
   s += ",\"missed\":" + String(missedSamples);
   s += ",\"sdErrors\":" + String(writeErrors);
+  s += ",\"integrityStatus\":\"" + je(integrityStatus) + "\"";
+  s += ",\"recoveredFlights\":" + String(recoveredFlights);
+  s += ",\"recoveredSamples\":" + String(lastRecoveredSamples);
+  s += ",\"resetReason\":\"" + je(resetReasonText) + "\"";
   s += ",\"sampleRate\":" + String(sampleRateHz);
   s += ",\"missionKind\":\""+je(missionKind)+"\"";
   s += ",\"nextFlightNumber\":"+String(nextFlightNumber);
@@ -1826,6 +1937,7 @@ void setupRoutes() {
 void setup() {
   Serial.begin(115200);
   delay(350);
+  resetReasonText = String((int)esp_reset_reason());
 
   pinMode(RED_LED, OUTPUT);
   digitalWrite(RED_LED, LOW);
@@ -1858,8 +1970,10 @@ void setup() {
   // Explicit SPI mapping for the wired 3.3 V microSD breakout.
   SPI.begin(5, 21, 19, SD_CS);
 
-  if (initSD())
+  if (initSD()) {
+    recoverInterruptedFlights();
     verifySD();
+  }
 
   setupRoutes();
   startWifi();
@@ -1917,6 +2031,11 @@ void loop() {
 
   if (recording && ms - lastFlushMs >= FLUSH_MS)
     flushLog();
+
+  if (recording && ms - lastCheckpointMs >= CHECKPOINT_MS) {
+    // Only journal bytes that have been flushed to the card.
+    if (flushLog()) saveCheckpoint();
+  }
 
   if (recording &&
       ms - flightStartMs >= MAX_FLIGHT_MS)
