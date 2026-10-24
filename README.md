@@ -1,5 +1,7 @@
 # GREEN ION V8.7
 
+**New to GREEN ION?** Start with the [one-page quick start](docs/QUICK_START.md). For focused next steps, see the [60 prioritized improvement recommendations](docs/IMPROVEMENT_BACKLOG_60.md).
+
 GREEN ION V8.7 is experimental firmware for an Adafruit ESP32 Feather V2 flight-data recorder. It reads a BMP388 barometric sensor, serves a phone-friendly dashboard from its own Wi-Fi access point, and writes RKT4-compatible binary flight logs to an SPI microSD card.
 
 > **Safety scope:** GREEN ION is a data recorder only. It must never control ignition, staging, parachute deployment, or any recovery system.

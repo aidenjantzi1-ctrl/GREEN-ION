@@ -5,6 +5,12 @@ on:
     branches: [main]
     paths:
       - "Green_Ion_V8_7/**"
+      - "tests/**"
+      - ".github/workflows/build-firmware.yml"
+  pull_request:
+    paths:
+      - "Green_Ion_V8_7/**"
+      - "tests/**"
       - ".github/workflows/build-firmware.yml"
   workflow_dispatch:
 
