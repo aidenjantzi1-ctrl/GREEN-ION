@@ -1805,6 +1805,14 @@ input[readonly]{background:#253e54;opacity:.85}
 </div>
 
 <div class="card">
+ <h2>Recorder snapshot</h2>
+ <div class="row"><span>SD card</span><strong id="overviewSD">--</strong></div>
+ <div class="row"><span>Recorded samples</span><strong id="overviewSamples">--</strong></div>
+ <div class="row"><span>Current file</span><strong id="overviewFile">--</strong></div>
+ <button id="openFlightStats" class="secondary" style="width:100%">VIEW SAVED FLIGHTS &amp; STATS</button>
+ </div>
+
+<div class="card">
  <h2>Live altitude history</h2>
  <canvas id="overviewGraph"></canvas>
 </div>
@@ -2035,6 +2043,7 @@ let connectedOnce = false;
 let previousCalibrating = false;
 let sampleRateDirty=false;
 let sampleRateSaving=false;
+let selectedFlight="";
 let rgb = [0,180,255];
 let clientToken="";
 try { clientToken=sessionStorage.getItem("greenIonControlToken")||""; }
@@ -2259,6 +2268,9 @@ function render(d,collect=true) {
 
  $("sdStatus").textContent=d.sdStatus;
  $("sdMounted").textContent=d.sd?"YES":"NO";
+ $("overviewSD").textContent=d.sdVerified?"READY":d.sd?"NEEDS TEST":"NOT DETECTED";
+ $("overviewSamples").textContent=d.samples;
+ $("overviewFile").textContent=d.file;
  $("sdReady").textContent=d.sdVerified?"PASS":"NOT VERIFIED";
  $("ledMode").textContent=d.ledManual?"MANUAL":"AUTO";
 
@@ -2636,6 +2648,7 @@ function bytes(n) {
 }
 
 async function showFlightStats(name) {
+ selectedFlight=name;
  const status=$("flightSummaryStatus");
  const details=$("flightSummaryDetails");
  details.replaceChildren();
@@ -2698,7 +2711,8 @@ async function loadFiles() {
    return;
   }
 
-  for(const f of result.files) {
+  const files=result.files.slice().sort((a,b)=>b.name.localeCompare(a.name));
+  for(const f of files) {
    const row=document.createElement("div");
    row.className="file";
    const text=document.createElement("span");
@@ -2746,6 +2760,7 @@ async function loadFiles() {
    row.append(text,actions);
    list.appendChild(row);
   }
+  if(!selectedFlight && files.length)await showFlightStats(files[0].name);
  }catch(err){
   $("fileList").textContent=err.message;
  }
@@ -2786,6 +2801,7 @@ $("pause").onclick=()=>{
 $("clear").onclick=clearHistory;
 $("graphWindow").onchange=drawAll;
 $("refresh").onclick=loadFiles;
+$("openFlightStats").onclick=()=>openTab("storage",document.querySelector('[data-tab="storage"]'));
 
 $("effect").onchange=applyLed;
 $("brightness").oninput=()=>{
