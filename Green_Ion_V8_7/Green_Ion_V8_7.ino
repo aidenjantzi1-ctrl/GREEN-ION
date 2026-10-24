@@ -631,7 +631,7 @@ void recoverInterruptedFlights() {
       File previousMeta = SD.open("/" + meta, FILE_READ);
       if (previousMeta) {
         while (previousMeta.available()) {
-          String line = previousMeta.readStringUntil('\\n');
+          String line = previousMeta.readStringUntil('\n');
           line.trim();
           if (line == "status=complete") alreadyComplete = true;
         }
