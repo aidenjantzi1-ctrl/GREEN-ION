@@ -1,11 +1,12 @@
-# GREEN ION V8
+# GREEN ION V8.1
 
-GREEN ION V8 is experimental firmware for an Adafruit ESP32 Feather V2 flight-data recorder. It reads a BMP388 barometric sensor, serves a phone-friendly dashboard from its own Wi-Fi access point, and can write RKT4-compatible binary flight logs to an optional SPI microSD card.
+GREEN ION V8.1 is experimental firmware for an Adafruit ESP32 Feather V2 flight-data recorder. It reads a BMP388 barometric sensor, serves a phone-friendly dashboard from its own Wi-Fi access point, and can write RKT4-compatible binary flight logs to an optional SPI microSD card.
 
 > **Safety scope:** GREEN ION is a data recorder only. It must never control ignition, staging, parachute deployment, or any recovery system.
 
 ## Features
 
+- Non-blocking pressure calibration with live progress feedback
 - Live relative altitude after calibration, even when the recorder is not armed
 - Estimated LiPo battery percentage and measured voltage
 - BMP388, battery, and microSD preflight status
@@ -38,7 +39,7 @@ Install these libraries through Arduino Library Manager:
 
 The ESP32 board package supplies `WiFi`, `WebServer`, `Wire`, `SPI`, and `SD`.
 
-Open `Green_Ion_V8/Green_Ion_V8.ino`, select the correct serial port, and upload. Open Serial Monitor at **115200 baud** for startup and diagnostic messages.
+Open `Green_Ion_V8_1/Green_Ion_V8_1.ino`, select the correct serial port, and upload. Open Serial Monitor at **115200 baud** for startup and diagnostic messages.
 
 ## Wiring
 
@@ -68,7 +69,7 @@ Use a module that is electrically compatible with 3.3 V logic. The firmware can 
 
 ## Connect to the dashboard
 
-1. Power the Feather and wait for `GREEN ION V8 READY` in Serial Monitor.
+1. Power the Feather and wait for `GREEN ION V8.1 READY` in Serial Monitor.
 2. On a phone, tablet, or computer, open Wi-Fi settings.
 3. Join **GREEN-ION**.
 4. Enter the password **GreenIon2026**.
@@ -103,7 +104,8 @@ Automatic status colors take priority during safety-critical recorder states. Th
 
 ## Files
 
-- `Green_Ion_V8/Green_Ion_V8.ino` — complete firmware and embedded dashboard
+- `Green_Ion_V8_1/Green_Ion_V8_1.ino` — latest V8.1 firmware and embedded dashboard
+- `Green_Ion_V8/Green_Ion_V8.ino` — archived V8 firmware
 
 ## License and use
 
