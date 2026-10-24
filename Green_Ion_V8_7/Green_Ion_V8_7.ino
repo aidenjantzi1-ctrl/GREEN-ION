@@ -2891,11 +2891,25 @@ function printableReport(title,body){
  const w=window.open("","_blank");if(!w){alert("Enable pop-ups for the printable report.");return;}
  w.document.open();w.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+safeHTML(title)+'</title><style>body{font:14px/1.5 system-ui,Arial;color:#172b40;max-width:800px;margin:25px auto;padding:0 16px}h1{font-size:24px}h2{font-size:18px;margin-top:24px}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #ddd;text-align:left}th{width:48%}img{max-width:100%;height:auto}.toolbar{background:#eef4f8;padding:12px}@media print{.toolbar{display:none}body{margin:0}table,img{break-inside:avoid}}</style></head><body><div class="toolbar"><button onclick="window.print()">PRINT / SAVE PDF</button> · On iPhone: Print, then share the preview to Files.</div><h1>'+safeHTML(title)+'</h1>'+body+'<p>Experimental barometric estimates. Not for flight-critical decisions.</p></body></html>');w.document.close();
 }
+function reportGraph(rows,column,title){
+ const valid=rows.filter(r=>r[4]===1&&Number.isFinite(r[0])&&Number.isFinite(r[column]));
+ if(valid.length<2)return "<p>"+safeHTML(title)+": insufficient data.</p>";
+ const c=document.createElement("canvas");c.width=1000;c.height=310;const ctx=c.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,1000,310);
+ let low=Infinity,high=-Infinity;for(const r of valid){low=Math.min(low,r[column]);high=Math.max(high,r[column]);}if(low===high)high=low+1;
+ const t0=valid[0][0],duration=Math.max(.001,valid[valid.length-1][0]-t0);
+ ctx.fillStyle="#152a40";ctx.font="16px Arial";ctx.fillText(title,65,22);ctx.font="12px Arial";ctx.fillText(high.toFixed(2),5,43);ctx.fillText(low.toFixed(2),5,270);ctx.fillText(duration.toFixed(2)+" seconds",850,298);
+ ctx.strokeStyle="#c4d0dd";ctx.strokeRect(65,35,910,235);ctx.strokeStyle="#176da0";ctx.lineWidth=2;ctx.beginPath();let started=false;
+ const step=Math.max(1,Math.ceil(valid.length/2000));for(let i=0;i<valid.length;i+=step){const r=valid[i],x=65+(r[0]-t0)/duration*910,y=35+(high-r[column])/(high-low)*235;if(!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);}ctx.stroke();
+ if(column===5){for(const [name,time] of flightPhases.filter(p=>["Launch detected","Apogee","Landing detected"].includes(p[0]))){const x=65+(time-t0)/duration*910;ctx.setLineDash([4,4]);ctx.strokeStyle="#c88c27";ctx.beginPath();ctx.moveTo(x,35);ctx.lineTo(x,270);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle="#152a40";ctx.fillText(name.split(" ")[0],Math.min(900,x+3),50);}}
+ return "<h2>"+safeHTML(title)+"</h2><img alt='"+safeHTML(title)+"' src='"+c.toDataURL("image/png")+"'>";
+}
 function exportFlightPDF(){
  if(!selectedFlight||!savedFlightSeries.length){alert("Load a saved flight first.");return;}
  const phases=flightPhases.map(([n,t,a])=>[n,t.toFixed(2)+" s · "+a.toFixed(1)+" m"]);
  const perf=[...$("flightPerformance").querySelectorAll(".row")].map(r=>[r.querySelector("span")?.textContent,r.querySelector("strong")?.textContent]);
- printableReport("GREEN-ION flight — "+selectedFlight,"<h2>Flight details</h2>"+pdfRows(Object.entries(flightMeta))+"<h2>Estimated phases</h2>"+pdfRows(phases)+"<h2>Performance</h2>"+pdfRows(perf)+"<h2>Recorded graph</h2><img src='"+$("savedFlightGraph").toDataURL("image/png")+"'>");
+ const extra=[...$("flightExtraMetrics").querySelectorAll(".row")].map(r=>[r.querySelector("span")?.textContent,r.querySelector("strong")?.textContent]);
+ const charts=[[5,"Altitude (m)"],[6,"Vertical speed (m/s)"],[7,"Estimated acceleration (m/s²)"],[8,"Estimated vertical apparent G"],[3,"Battery voltage (V)"],[1,"Pressure (Pa)"],[2,"Temperature (°C)"]].map(([column,title])=>reportGraph(savedFlightSeries,column,title)).join("");
+ printableReport("GREEN-ION flight — "+selectedFlight,"<h2>Flight metadata</h2>"+pdfRows(Object.entries(flightMeta))+"<h2>Estimated phases</h2>"+pdfRows(phases)+"<h2>Flight performance</h2>"+pdfRows(perf)+"<h2>Battery and acceleration</h2>"+pdfRows(extra)+charts);
 }
 function exportComparePDF(){
  const c=comparisonMeta;
