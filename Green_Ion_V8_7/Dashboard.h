@@ -248,6 +248,7 @@ input[readonly]{background:#253e54;opacity:.85}
  </select>
  <button id="saveRate" class="secondary"
   style="width:100%">APPLY SAMPLE RATE</button>
+ <div class="notice" id="settingsSaveState" aria-live="polite">Flight settings will appear here.</div>
  <p class="muted">Change the rate before arming. Higher rates
  capture fast motion with larger files and more SD writes.</p>
  <div class="row"><span>Status</span>
@@ -262,7 +263,7 @@ input[readonly]{background:#253e54;opacity:.85}
  </div>
  <div class="actions">
   <button id="calibrate">1 · CALIBRATE</button>
-  <button id="arm" class="warning">2 · ARM</button>
+  <button id="arm" class="warning">2 · SAVE SETTINGS & ARM LOGGER</button>
   <button id="start" class="wide green">3 · START RECORDING</button>
   <button id="stop" class="danger">STOP &amp; SAVE</button>
   <button id="disconnect" class="secondary">DISCONNECT WI-FI</button>
@@ -530,6 +531,7 @@ let paused = false;
 let connectedOnce = false;
 let previousCalibrating = false;
 let sampleRateDirty=false;
+let missionDirty=false;
 let sampleRateSaving=false;
 let selectedFlight="";
 let rgb = [0,180,255];
@@ -636,7 +638,7 @@ function renderGuide(d){
  else if(!d.sdVerified||d.sdFault){step=1;tab="storage";action="sdtest";message="Test the microSD card. The test writes, reads, and removes a temporary file without deleting flight recordings.";stage="TEST SD";}
  else if(!d.calibrated){step=2;action="calibrate";message="Calibrate altitude while the rocket is stationary near its launch position.";stage="CALIBRATE";}
  else if(d.batteryCritical){step=2;action="sysV";tab="system";message="Battery critically low. Recharge or replace the battery before recording.";stage="BATTERY";}
- else{step=2;action="saveMission";message="Preflight checks passed. Confirm the motor and sample rate, save settings, then arm the recorder.";stage="READY";}
+ else{step=2;action="arm";message="Preflight checks passed. Confirm motor and sample rate, then choose SAVE SETTINGS & ARM LOGGER. Any unsaved changes will be saved automatically.";stage="READY";}
  guideTarget=action;window.guideTab=tab;
  $("guideStage").textContent=stage;
  $("guideMessage").textContent=message;
@@ -826,10 +828,11 @@ function render(d,collect=true) {
   (imperial?" °F":" °C");
 
  $("flightLabel").value=(d.armed||d.recording)?d.flightLabel:(d.missionKind==="test"?"Test ":"Flight ")+d.nextFlightNumber;
- if(document.activeElement!==$("missionKind"))$("missionKind").value=d.missionKind;
- if(document.activeElement!==$("motorLabel"))
+ if(!missionDirty&&document.activeElement!==$("missionKind"))$("missionKind").value=d.missionKind;
+ if(!missionDirty&&document.activeElement!==$("motorLabel"))
   $("motorLabel").value=d.motorLabel;
  if(!sampleRateDirty && !sampleRateSaving)$("sampleRate").value=String(d.sampleRate);
+ $("settingsSaveState").textContent=(missionDirty||sampleRateDirty)?"Unsaved settings · Save manually, or choose SAVE SETTINGS & ARM LOGGER to apply both before arming.":"Flight details and sample rate match the recorder.";
  $("launched").textContent=d.launched?"YES":"NO";
  $("finish").textContent=d.finish||"--";
  $("uptime").textContent=d.uptime+" s";
@@ -952,6 +955,7 @@ async function saveMission() {
    kind:$("missionKind").value,
    motor:$("motorLabel").value
   });
+  missionDirty=false;
   notice(result.message,true);
  }catch(err){
   notice(err.message,false);
@@ -959,6 +963,17 @@ async function saveMission() {
   busy=false;
   await poll();
  }
+}
+
+async function saveThenArm(){
+ if(busy)return;
+ busy=true;notice("Saving flight settings and checking preflight...");
+ try{
+  if(missionDirty){await api("mission","POST",{kind:$("missionKind").value,motor:$("motorLabel").value});missionDirty=false;}
+  if(sampleRateDirty){await api("settings","POST",{rate:$("sampleRate").value});sampleRateDirty=false;}
+  const result=await api("arm","POST");notice(result.message,true);
+ }catch(err){notice("Cannot arm logger: "+err.message,false);}
+ finally{busy=false;await poll();}
 }
 
 async function takeControl() {
@@ -1517,12 +1532,13 @@ document.querySelectorAll("[data-tab]").forEach(b=>{
 
 $("calibrate").onclick=()=>command("calibrate");
 $("testCalibrate").onclick=()=>command("calibrate");
-$("arm").onclick=()=>command("arm");
+$("arm").onclick=saveThenArm;
 $("start").onclick=()=>command("start");
 $("saveMission").onclick=saveMission;
 $("saveRate").onclick=saveRate;
 $("sampleRate").addEventListener("change",()=>{sampleRateDirty=true;});
-$("missionKind").addEventListener("change",()=>{if(state && !state.armed && !state.recording)$("flightLabel").value=($("missionKind").value==="test"?"Test ":"Flight ")+state.nextFlightNumber;});
+$("missionKind").addEventListener("change",()=>{missionDirty=true;if(state && !state.armed && !state.recording)$("flightLabel").value=($("missionKind").value==="test"?"Test ":"Flight ")+state.nextFlightNumber;});
+$("motorLabel").addEventListener("input",()=>{missionDirty=true;});
 $("takeControl").onclick=takeControl;
 $("releaseControl").onclick=releaseControl;
 $("installFirmware").onclick=installFirmware;
