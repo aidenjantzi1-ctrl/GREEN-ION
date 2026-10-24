@@ -2,6 +2,13 @@
 
 This repository starts with complete source snapshots at V8. Earlier version notes are retained only at the level supported by the available conversation history; no V1–V7 source files were available to verify.
 
+## V8.6 — Flight Control Edition
+
+- Added a renewable controller lease so many phones can view while only one can change settings or recorder state.
+- Added clear view-only/controller status and a Take Control action to the dashboard.
+- Required the controller token for flight commands, SD deletion, LED changes, shutdown, and firmware installation.
+- Kept read-only status, file listing, and downloads available to observers.
+
 ## V8.5 — Phone Update Edition
 
 - Added safe upload of GitHub-built `.ino.bin` firmware from the phone dashboard.

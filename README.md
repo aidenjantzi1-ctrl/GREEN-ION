@@ -1,6 +1,6 @@
-# GREEN ION V8.5
+# GREEN ION V8.6
 
-GREEN ION V8.5 is experimental firmware for an Adafruit ESP32 Feather V2 flight-data recorder. It reads a BMP388 barometric sensor, serves a phone-friendly dashboard from its own Wi-Fi access point, and writes RKT4-compatible binary flight logs to an SPI microSD card.
+GREEN ION V8.6 is experimental firmware for an Adafruit ESP32 Feather V2 flight-data recorder. It reads a BMP388 barometric sensor, serves a phone-friendly dashboard from its own Wi-Fi access point, and writes RKT4-compatible binary flight logs to an SPI microSD card.
 
 > **Safety scope:** GREEN ION is a data recorder only. It must never control ignition, staging, parachute deployment, or any recovery system.
 
@@ -15,6 +15,7 @@ GREEN ION V8.5 is experimental firmware for an Adafruit ESP32 Feather V2 flight-
 - Adaptive altitude smoothing that damps stationary jitter and responds faster to large flight changes
 - Dashboard-selectable 10, 25, or 50 Hz logging, stored in each RKT4 header
 - Phone firmware updates using the main `.ino.bin` produced by GitHub Actions
+- Multiple simultaneous viewers with one renewable 30-second controller lease
 - Live relative altitude after calibration, even when the recorder is not armed
 - Estimated LiPo battery percentage and measured voltage
 - BMP388, battery, and microSD preflight status
@@ -47,7 +48,7 @@ Install these libraries through Arduino Library Manager:
 
 The ESP32 board package supplies `WiFi`, `WebServer`, `Wire`, `SPI`, and `SD`.
 
-Open `Green_Ion_V8_5/Green_Ion_V8_5.ino`, select the correct serial port, and upload. Open Serial Monitor at **115200 baud** for startup and diagnostic messages. This first V8.5 installation must be performed over USB; after V8.5 is running, later GitHub-built updates can be installed from the dashboard on a phone.
+Open `Green_Ion_V8_6/Green_Ion_V8_6.ino`, select the correct serial port, and upload. Open Serial Monitor at **115200 baud** for startup and diagnostic messages. The first installation of V8.5 or newer must be performed over USB; afterward, later GitHub-built updates can be installed from the dashboard on a phone.
 
 ## Wiring
 
@@ -77,7 +78,7 @@ Use a module that is electrically compatible with 3.3 V logic. The firmware can 
 
 ## Connect to the dashboard
 
-1. Power the Feather and wait for `GREEN ION V8.5` in Serial Monitor.
+1. Power the Feather and wait for `GREEN ION V8.6` in Serial Monitor.
 2. On a phone, tablet, or computer, open Wi-Fi settings.
 3. Join **GREEN-ION**.
 4. Enter the password **GreenIon2026**.
@@ -113,7 +114,8 @@ Automatic status colors take priority during safety-critical recorder states. Th
 
 ## Files
 
-- `Green_Ion_V8_5/Green_Ion_V8_5.ino` — latest V8.5 firmware and embedded dashboard
+- `Green_Ion_V8_6/Green_Ion_V8_6.ino` — latest V8.6 firmware and embedded dashboard
+- `Green_Ion_V8_5/Green_Ion_V8_5.ino` — archived V8.5 firmware
 - `Green_Ion_V8_4/Green_Ion_V8_4.ino` — archived V8.4 firmware
 - `Green_Ion_V8_3/Green_Ion_V8_3.ino` — archived V8.3 firmware
 - `Green_Ion_V8_2/Green_Ion_V8_2.ino` — archived V8.2 firmware
@@ -122,11 +124,11 @@ Automatic status colors take priority during safety-critical recorder states. Th
 
 ## GitHub builds and phone downloads
 
-Every firmware change on `main` runs the **Build Green Ion firmware** GitHub Actions workflow. Open the latest successful workflow run and download the `green-ion-v8.5-phone-update` artifact. It contains the complete `.ino` source and the main `Green_Ion_V8_5.ino.bin` firmware image.
+Every firmware change on `main` runs the **Build Green Ion firmware** GitHub Actions workflow. Open the latest successful workflow run and download the `green-ion-v8.6-phone-update` artifact. It contains the complete `.ino` source and the main `Green_Ion_V8_6.ino.bin` firmware image.
 
 ### Install a later update from a phone
 
-1. Install V8.5 over USB once. Earlier firmware does not contain the update endpoint.
+1. Install V8.5 or V8.6 over USB once. Earlier firmware does not contain the update endpoint.
 2. On the phone, open this repository while connected to the internet.
 3. Open **Actions**, select the latest successful **Build Green Ion firmware** run, and download its artifact.
 4. Extract the ZIP and keep the file ending exactly in `.ino.bin`. Do not select a bootloader, partitions, or merged binary.
