@@ -1425,13 +1425,15 @@ void csvAPI() {
   web.send(200, "text/csv", "");
   web.sendContent(
     "time_s,pressure_pa,temperature_c,battery_v,valid,"
-    "altitude_m,vertical_speed_mps\r\n"
+    "altitude_m,vertical_speed_mps,estimated_acceleration_mps2,estimated_vertical_apparent_g\r\n"
   );
 
   uint8_t record[16];
   uint32_t firstStamp = 0;
   uint32_t previousStamp = 0;
   float previousAltitude = NAN;
+  float previousVelocity = NAN;
+  uint32_t previousVelocityStamp = 0;
 
   while (f.available() >= 16) {
     if (f.read(record, sizeof(record)) != sizeof(record)) break;
@@ -1464,15 +1466,28 @@ void csvAPI() {
       previousStamp = stamp;
     }
 
+    float acceleration = NAN;
+    float apparentG = NAN;
+    if (isfinite(velocity) && isfinite(previousVelocity) && stamp != previousVelocityStamp) {
+      float dt = (uint32_t)(stamp - previousVelocityStamp) / 1000000.0f;
+      if (dt > 0.01f && dt < 2.0f) {
+        acceleration = (velocity - previousVelocity) / dt;
+        apparentG = 1.0f + acceleration / 9.80665f;
+      }
+    }
+    if (isfinite(velocity)) { previousVelocity = velocity; previousVelocityStamp = stamp; }
+
     String row;
-    row.reserve(150);
+    row.reserve(190);
     row += String(relativeTime, 4) + ",";
     row += jn(pressure, 2) + ",";
     row += jn(temperature, 2) + ",";
     row += String(millivolts / 1000.0f, 3) + ",";
     row += valid ? "1," : "0,";
     row += jn(altitude, 3) + ",";
-    row += jn(velocity, 3) + "\r\n";
+    row += jn(velocity, 3) + ",";
+    row += jn(acceleration, 3) + ",";
+    row += jn(apparentG, 3) + "\r\n";
     web.sendContent(row);
     yield();
   }
