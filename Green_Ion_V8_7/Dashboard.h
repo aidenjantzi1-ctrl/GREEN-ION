@@ -615,14 +615,21 @@ function openTab(name,button) {
 }
 
 let guideTarget="takeControl";
+let previousRecording=false;
+let justFinishedRecording=false;
 function jumpToControl(id,tab="overview"){
  const button=document.querySelector('[data-tab="'+tab+'"]');
  if(button)openTab(tab,button);
  const target=$(id);if(target){target.scrollIntoView({behavior:"smooth",block:"center"});target.focus({preventScroll:true});}
 }
 function renderGuide(d){
+ if(previousRecording&&!d.recording){justFinishedRecording=true;}
+ if(d.recording)justFinishedRecording=false;
+ previousRecording=d.recording;
  let step=0,action="takeControl",tab="overview",message="Take control to set up the recorder.",stage="CONNECT";
- if(d.recording){step=3;action="stop";message="Recording in progress. Let the logger capture the flight. Stop and save after recovery if it has not already stopped.";stage="RECORDING";}
+ if(d.recording){step=3;action="stop";message="Recording "+(Number(d.duration)||0).toFixed(1)+" seconds · "+(d.samples||0)+" samples. The SD logger continues independently of the Wi-Fi dashboard. Stop and save after recovery if not already stopped.";stage="RECORDING";}
+ else if(justFinishedRecording){step=4;tab="storage";action="refresh";stage="REVIEW";message="Recording has ended. Open Storage, confirm the saved file and inspect the flight PDF report.";}
+ else if(d.simulation){step=1;tab="testing";action="simstop";stage="SIMULATING";message="Simulation is active. Stop it before performing real preflight checks.";}
  else if(d.armed){step=3;action="start";message="Recorder armed. Start recording before the physical launch and verify samples are increasing.";stage="ARMED";}
  else if(!d.controller){step=0;action="takeControl";message=d.controlAvailable?"Take control to calibrate and change settings.":"Another browser has control. You can still view live data and saved files.";stage="CONNECT";}
  else if(!d.sensor||!d.reading){step=1;tab="testing";action="testCalibrate";message="Check the BMP388 sensor and its I²C wiring before proceeding.";stage="SENSOR CHECK";}
@@ -634,7 +641,7 @@ function renderGuide(d){
  $("guideStage").textContent=stage;
  $("guideMessage").textContent=message;
  $("guideProgress").style.width=(step===0?7:step===1?30:step===2?55:step===3?80:100)+"%";
- $("guideNext").textContent=action==="stop"?"GO TO STOP & SAVE":action==="start"?"GO TO START RECORDING":action==="sdtest"?"GO TO SD TEST":"VIEW NEXT STEP";
+ $("guideNext").textContent=action==="stop"?"GO TO STOP & SAVE":action==="start"?"GO TO START RECORDING":action==="sdtest"?"GO TO SD TEST":action==="refresh"?"GO TO SAVED FLIGHTS":"VIEW NEXT STEP";
  $("guideNext").disabled=!d.controlAvailable&&!d.controller&&step!==3;
  [...$("guideSteps").children].forEach((el,i)=>{el.classList.toggle("done",i<step);el.classList.toggle("current",i===step);});
 }
@@ -704,7 +711,7 @@ function render(d,collect=true) {
   d.controller?"#72e5ab":"#ffdd88";
  $("controlLease").textContent=
   d.controller?d.controlLeaseSeconds+" s (auto-renewing)":
-  d.controlAvailable?"Available":"Used by another phone";
+  d.controlAvailable?"Available":"Used by another browser";
  $("takeControl").disabled=
   busy||d.controller||!d.controlAvailable;
  $("releaseControl").disabled=busy||!d.controller;
@@ -893,7 +900,7 @@ async function testSDCard() {
    throw Error("Stop recording, disarm and finish calibration first.");
   if(!state.controller){
    if(!state.controlAvailable)
-    throw Error("Another phone controls Green Ion. Release its control or wait 30 seconds.");
+    throw Error("Another browser controls GREEN-ION. Release its control or wait for its lease to expire.");
    feedback.textContent="Taking control to run SD test...";
    await api("control","POST");
   }
@@ -1117,10 +1124,12 @@ function draw(id,key,convert) {
 }
 
 function drawAll() {
- draw("overviewGraph","altitude",distance);
- draw("altGraph","altitude",distance);
- draw("pressureGraph","pressure",pressure);
- draw("tempGraph","temperature",temp);
+ if($("overview").classList.contains("active"))draw("overviewGraph","altitude",distance);
+ if($("testing").classList.contains("active")){
+  draw("altGraph","altitude",distance);
+  draw("pressureGraph","pressure",pressure);
+  draw("tempGraph","temperature",temp);
+ }
 }
 
 function clearHistory() {
@@ -1321,7 +1330,7 @@ async function compareFlights(){
  }catch(err){el.textContent=err.message;}
 }
 
-async function showFlightStats(name) {
+async function showFlightStats(name,scrollToReport=true) {
  selectedFlight=name;
  const status=$("flightSummaryStatus");
  const details=$("flightSummaryDetails");
@@ -1372,7 +1381,7 @@ async function showFlightStats(name) {
   if(!details.childElementCount)throw Error("Summary has no readable statistics");
   status.textContent="Showing saved statistics for "+name;
   loadSavedGraph(name);
-  $("flightSummaryCard").scrollIntoView({behavior:"smooth",block:"start"});
+  if(scrollToReport)$("flightSummaryCard").scrollIntoView({behavior:"smooth",block:"start"});
  }catch(err){status.textContent=err.message;}
 }
 
@@ -1431,7 +1440,7 @@ async function loadFiles() {
    for(const f of files){const option=document.createElement("option");option.value=f.name;option.textContent=f.name;el.appendChild(option);}
    if(files.some(f=>f.name===previous))el.value=previous;
   }
-  if(files.length>1&&!$("compareB").value)$("compareB").selectedIndex=1;
+  if(files.length>1&&$("compareA").value===$("compareB").value)$("compareB").selectedIndex=1;
   for(const f of files) {
    const row=document.createElement("div");
    row.className="file";
@@ -1481,9 +1490,9 @@ async function loadFiles() {
    row.append(text,actions);
    list.appendChild(row);
   }
-  if(!selectedFlight && files.length)await showFlightStats(files[0].name);
+  if(!selectedFlight && files.length)await showFlightStats(files[0].name,false);
  }catch(err){
-  $("fileList").textContent=err.message;
+  $("fileList").textContent="Cannot list recordings: "+err.message+(state?.recording?" · Wait until recording finishes.":" · Check the SD card and retry.");
  }
 }
 
@@ -1549,7 +1558,7 @@ window.addEventListener("error",e=>{
 window.addEventListener("resize",()=>{drawAll();drawSavedGraph();});
 
 notice("Dashboard loaded. Connecting to ESP32...");
-setInterval(poll,500);
+setInterval(poll,1200);
 poll();
 </script>
 </body>
