@@ -1,6 +1,6 @@
 # Green Ion changelog
 
-This repository starts with complete source snapshots at V8. Earlier version notes are retained only at the level supported by the available conversation history; no V1–V7 source files were available to verify.
+This repository starts with complete source snapshots at V8. The V1–V7 history below is reconstructed from available conversation text and serial-output captures. Entries marked **documented by output** describe behavior visible in those captures but do not have preserved source in this repository. Entries marked **undocumented** are retained as version placeholders and do not claim features that could not be verified.
 
 ## V8.6 — Flight Control Edition
 
@@ -49,28 +49,55 @@ This repository starts with complete source snapshots at V8. Earlier version not
 
 ## V7
 
-- Undocumented early version. No verified source or complete change record was available when this changelog was created.
+- **Undocumented.** No V7 source, serial output, or reliable feature list was available.
+- The existence of a distinct V7 release could not be independently verified from the preserved materials.
 
 ## V6
 
-- Undocumented early version. No verified source or complete change record was available when this changelog was created.
+- **Undocumented.** No V6 source, serial output, or reliable feature list was available.
+- The existence of a distinct V6 release could not be independently verified from the preserved materials.
 
 ## V5
 
-- Undocumented early version. No verified source or complete change record was available when this changelog was created.
+- **Undocumented.** No V5 source, serial output, or reliable feature list was available.
+- The existence of a distinct V5 release could not be independently verified from the preserved materials.
 
 ## V4
 
-- Undocumented early version. No verified source or complete change record was available when this changelog was created.
+- **Undocumented.** No V4 source, serial output, or reliable feature list was available.
+- The existence of a distinct V4 release could not be independently verified from the preserved materials.
 
-## V3
+## V3.1 — microSD recorder prototype
 
-- Undocumented early version. No verified source or complete change record was available when this changelog was created.
+- **Documented by output; source not preserved.**
+- Added microSD initialization and allowed the recorder to continue when no card was detected.
+- Retained startup calibration, the armed state, relative altitude, vertical velocity, peak altitude, and battery-voltage reporting.
+- Serial captures show substantially steadier velocity values than the V3 test output, but the exact filtering algorithm is not available for verification.
+
+## V3 — flight-state recorder prototype
+
+- **Documented by output; source not preserved.**
+- Expanded the project from a basic altimeter into a recorder-style state machine.
+- Added `ARMED`, `FLIGHT`, and `LANDED` states with automatic launch detection.
+- Reported relative altitude, vertical velocity, maximum altitude, battery voltage, and recorder state over Serial.
+- Bench-test captures show a detected launch and transition to the landed state.
 
 ## V2
 
-- Undocumented early version. No verified source or complete change record was available when this changelog was created.
+- **Undocumented.** No V2 source, serial output, or reliable feature list was available.
+- The preserved history jumps from the V1.2 altimeter to the V3 recorder test, so no V2 behavior is claimed here.
 
-## V1
+## V1.2 — calibrated relative-altitude prototype
 
-- Undocumented initial version. No verified source or complete change record was available when this changelog was created.
+- **Documented by output; source not preserved.**
+- Detected the BMP388 and added a sensor warm-up period.
+- Established a starting pressure while the sensor was held still.
+- Converted pressure changes into altitude relative to the calibrated starting point.
+- Printed relative altitude, temperature, and pressure over Serial; stationary samples clustered near zero instead of the large offset seen in the earlier prototype.
+
+## V1 — initial BMP388 altimeter prototype
+
+- **Partially documented by output; source not preserved.**
+- Established the first known BMP388 pressure, temperature, and altitude readout.
+- Early serial captures show a large incorrect altitude offset of roughly `-1839 m`, indicating that the initial reference-pressure handling was not yet suitable for relative flight altitude.
+- Exact V1 source and its original release notes were not preserved.
