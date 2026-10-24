@@ -1575,7 +1575,7 @@ const char PAGE[] PROGMEM = R"HTML(
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--txt);
  font:15px/1.5 system-ui,Arial,sans-serif}
-main{max-width:920px;margin:auto;padding:20px 14px 55px}
+main{max-width:1240px;margin:auto;padding:20px clamp(12px,2vw,32px) 55px}
 h1{font-size:27px;margin:0}
 h2{font-size:19px;margin:0 0 16px}
 p{margin-top:12px}
@@ -1606,7 +1606,7 @@ button.green{background:var(--green)}
 button.active{background:var(--blue)!important;color:#081420!important}
 .tabs{display:flex;gap:8px;overflow-x:auto;margin-bottom:18px}
 .tabs button{flex:1;min-width:94px;background:#28445f;color:white}
-.page{display:none}.page.active{display:block}
+.page{display:none}.page.active{display:block}canvas{max-width:100%}@media(min-width:850px){.tabs{overflow-x:visible}.tabs button{min-width:0}.card{padding:24px}}@media(pointer:coarse){button,select,input{min-height:46px}}
 .metrics{
  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
  gap:12px;margin-bottom:17px}
@@ -1942,11 +1942,11 @@ input[readonly]{background:#253e54;opacity:.85}
   <p class="muted">Select View stats to read stored flight data directly. No download needed.</p>
   <div class="notice" id="flightSummaryStatus">Choose View stats on a saved flight.</div>
   <div id="flightSummaryDetails"></div>
-  <h3>Estimated flight phases</h3><div id="flightPhases" class="notice">Select a flight.</div><h3>Calculated flight performance</h3>
+  <h3>Battery / estimated acceleration</h3><div id="flightExtraMetrics" class="notice">Load a flight.</div><h3>Estimated flight phases</h3><div id="flightPhases" class="notice">Select a flight.</div><h3>Calculated flight performance</h3>
   <div id="flightPerformance" aria-live="polite">Select a recording to calculate performance.</div>
   <h3>Saved flight graph</h3>
   <label for="savedGraphMetric">Measurement</label>
-  <select id="savedGraphMetric"><option value="5">Altitude (m)</option><option value="1">Pressure (Pa)</option><option value="2">Temperature (°C)</option><option value="6">Vertical speed (m/s)</option></select>
+  <select id="savedGraphMetric"><option value="5">Altitude (m)</option><option value="1">Pressure (Pa)</option><option value="2">Temperature (°C)</option><option value="6">Vertical speed (m/s)</option><option value="3">Battery (V)</option><option value="7">Estimated acceleration (m/s²)</option><option value="8">Estimated vertical apparent G</option></select>
   <canvas id="savedFlightGraph" style="width:100%;height:220px"></canvas>
   <div class="notice" id="savedGraphStatus">Select a flight to load its graph.</div><button id="exportFlightPDF" class="secondary" style="width:100%">PRINT / SAVE FLIGHT PDF</button>
  </div>
@@ -2692,10 +2692,23 @@ async function loadSavedGraph(name){
   const lines=csv.trim().split(/\r?\n/);
   savedFlightSeries=lines.slice(1).map(line=>line.split(",").map(Number)).filter(r=>r.length>=7&&Number.isFinite(r[0]));
   label.textContent=savedFlightSeries.length+" samples loaded from "+name;
+  enrichFlightSeries(savedFlightSeries);
   renderFlightPerformance(savedFlightSeries);
   computePhases(savedFlightSeries);
   drawSavedGraph();
  }catch(err){savedFlightSeries=[];label.textContent=err.message;$("flightPerformance").textContent="Performance unavailable: "+err.message;drawSavedGraph();}
+}
+function enrichFlightSeries(rows){
+ const valid=rows.filter(r=>r[4]===1&&Number.isFinite(r[0])&&Number.isFinite(r[5]));
+ for(const r of rows){r[7]=NaN;r[8]=NaN;}
+ const velocities=valid.map((r,i)=>{const a=valid[Math.max(0,i-3)],b=valid[Math.min(valid.length-1,i+3)],dt=b[0]-a[0];return dt>.05&&dt<3?(b[5]-a[5])/dt:NaN;});
+ for(let i=0;i<valid.length;i++){const a=Math.max(0,i-3),b=Math.min(valid.length-1,i+3),dt=valid[b][0]-valid[a][0];if(dt>.05&&dt<3&&Number.isFinite(velocities[a])&&Number.isFinite(velocities[b])){valid[i][7]=(velocities[b]-velocities[a])/dt;valid[i][8]=1+valid[i][7]/9.80665;}}
+ const battery=rows.filter(r=>Number.isFinite(r[3])&&r[3]>0),acc=valid.map(r=>r[7]).filter(Number.isFinite),g=valid.map(r=>r[8]).filter(Number.isFinite);
+ const first=battery.length?battery[0][3]:NaN,last=battery.length?battery[battery.length-1][3]:NaN;
+ const metrics=[["Starting battery",first,"V"],["Ending battery",last,"V"],["Minimum battery",battery.length?Math.min(...battery.map(r=>r[3])):NaN,"V"],["Battery voltage drop",first-last,"V"],["Maximum estimated upward acceleration",acc.length?Math.max(...acc):NaN,"m/s²"],["Maximum estimated downward acceleration",acc.length?Math.min(...acc):NaN,"m/s²"],["Peak estimated vertical apparent G",g.length?Math.max(...g):NaN,"g"]];
+ const out=$("flightExtraMetrics");out.replaceChildren();
+ for(const [name,value,unit] of metrics){const row=document.createElement("div");row.className="row";const label=document.createElement("span");label.textContent=name;const val=document.createElement("strong");val.textContent=Number.isFinite(value)?value.toFixed(3)+" "+unit:"Unavailable";row.append(label,val);out.appendChild(row);}
+ const note=document.createElement("p");note.className="muted";note.textContent="Acceleration and vertical apparent G are noisy estimates from barometric altitude, not direct accelerometer readings. Apparent G assumes a vertical rocket and is not total 3D G-force.";out.appendChild(note);
 }
 function computePhases(rows){
  const pts=rows.filter(r=>r[4]===1&&Number.isFinite(r[0])&&Number.isFinite(r[5]));
