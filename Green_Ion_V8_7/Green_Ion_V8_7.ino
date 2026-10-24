@@ -1809,6 +1809,8 @@ input[readonly]{background:#253e54;opacity:.85}
 
 <div class="card">
  <h2>Recorder snapshot</h2>
+ <div class="row"><span>Preflight readiness</span><strong id="preflightScore">--</strong></div>
+ <div class="notice" id="preflightDetail">Waiting for checks.</div>
  <div class="row"><span>SD card</span><strong id="overviewSD">--</strong></div>
  <div class="row"><span>Recorded samples</span><strong id="overviewSamples">--</strong></div>
  <div class="row"><span>Current file</span><strong id="overviewFile">--</strong></div>
@@ -1927,7 +1929,12 @@ input[readonly]{background:#253e54;opacity:.85}
    <strong id="storageUsed">--</strong></div>
   <div class="row"><span>Saved recordings</span><strong id="fileCount">--</strong></div>
   <div class="row"><span>SD test result</span><strong id="sdTestResult">--</strong></div>
+  <div class="row"><span>Write errors</span><strong id="storageWriteErrors">--</strong></div>
+  <div class="row"><span>Missed samples</span><strong id="storageMissed">--</strong></div>
+  <div class="row"><span>Actual sample rate</span><strong id="storageRate">--</strong></div>
   <button id="refresh" class="secondary">REFRESH FILES</button>
+  <label for="fileSort">Sort recordings</label>
+  <select id="fileSort"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="size">Largest first</option></select>
   <div id="fileList"></div>
  </div>
  <div class="card" id="flightSummaryCard">
@@ -1935,6 +1942,17 @@ input[readonly]{background:#253e54;opacity:.85}
   <p class="muted">Select View stats to read stored flight data directly. No download needed.</p>
   <div class="notice" id="flightSummaryStatus">Choose View stats on a saved flight.</div>
   <div id="flightSummaryDetails"></div>
+  <h3>Saved flight graph</h3>
+  <label for="savedGraphMetric">Measurement</label>
+  <select id="savedGraphMetric"><option value="5">Altitude (m)</option><option value="1">Pressure (Pa)</option><option value="2">Temperature (°C)</option><option value="6">Vertical speed (m/s)</option></select>
+  <canvas id="savedFlightGraph" style="width:100%;height:220px"></canvas>
+  <div class="notice" id="savedGraphStatus">Select a flight to load its graph.</div>
+ </div>
+ <div class="card"><h2>Compare flights</h2>
+  <p class="muted">Select two saved recordings to compare their summary statistics.</p>
+  <select id="compareA"></select><select id="compareB"></select>
+  <button id="compareFlights" class="secondary" style="width:100%">COMPARE FLIGHTS</button>
+  <div id="comparisonResults" role="status"></div>
  </div>
 </section>
 
@@ -2271,6 +2289,13 @@ function render(d,collect=true) {
  $("calResult").textContent=d.calStatus;
 
  $("sdStatus").textContent=d.sdStatus;
+ const checks=[["Sensor",d.sensor&&d.reading],["Calibration",d.calibrated&&!d.calibrating],["SD",d.sd&&d.sdVerified&&!d.sdFault],["Battery",!d.batteryCritical&&(!d.batteryPresent||!d.batteryLow)],["Idle",!d.recording&&!d.armed]];
+ const passed=checks.filter(x=>x[1]).length;
+ $("preflightScore").textContent=passed+"/"+checks.length+" checks";
+ $("preflightDetail").textContent=checks.map(x=>(x[1]?"PASS ":"CHECK ")+x[0]).join(" · ")+(d.batteryPresent?"":" · Battery not detected");
+ $("storageWriteErrors").textContent=d.sdErrors;
+ $("storageMissed").textContent=d.missed;
+ $("storageRate").textContent=d.sampleRate+" Hz";
  $("sdMounted").textContent=d.sd?"YES":"NO";
  $("overviewSD").textContent=d.sdVerified?"READY":d.sd?"NEEDS TEST":"NOT DETECTED";
  $("overviewSamples").textContent=d.samples;
@@ -2651,6 +2676,71 @@ function bytes(n) {
  return n+" bytes";
 }
 
+let savedFlightSeries=[];
+async function loadSavedGraph(name){
+ const label=$("savedGraphStatus");
+ label.textContent="Loading recorded samples...";
+ try{
+  const response=await fetch("/api/csv?name="+encodeURIComponent(name),{cache:"no-store"});
+  if(!response.ok)throw Error("Could not load recorded CSV ("+response.status+")");
+  const csv=await response.text();
+  const lines=csv.trim().split(/\r?\n/);
+  savedFlightSeries=lines.slice(1).map(line=>line.split(",").map(Number)).filter(r=>r.length>=7&&Number.isFinite(r[0]));
+  label.textContent=savedFlightSeries.length+" samples loaded from "+name;
+  drawSavedGraph();
+ }catch(err){savedFlightSeries=[];label.textContent=err.message;drawSavedGraph();}
+}
+function drawSavedGraph(){
+ const canvas=$("savedFlightGraph"),rect=canvas.getBoundingClientRect();
+ const width=Math.max(250,Math.round(rect.width||300)),height=220;
+ canvas.width=width*devicePixelRatio;canvas.height=height*devicePixelRatio;
+ const ctx=canvas.getContext("2d");ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+ ctx.clearRect(0,0,width,height);
+ const column=Number($("savedGraphMetric").value);
+ const pts=savedFlightSeries.filter(r=>Number.isFinite(r[column]));
+ if(pts.length<2)return;
+ const x0=pts[0][0],x1=pts[pts.length-1][0],values=pts.map(r=>r[column]);
+ let lo=Math.min(...values.slice(0,1000)),hi=Math.max(...values.slice(0,1000));
+ for(const v of values){if(v<lo)lo=v;if(v>hi)hi=v;}
+ if(hi===lo)hi=lo+1;
+ ctx.strokeStyle="#35536e";ctx.strokeRect(44,12,width-58,height-43);
+ ctx.fillStyle="#eff8ff";ctx.font="11px system-ui";
+ ctx.fillText(hi.toFixed(1),3,19);ctx.fillText(lo.toFixed(1),3,height-31);
+ ctx.fillText((x1-x0).toFixed(1)+" s",width-65,height-8);
+ ctx.strokeStyle="#7bdbff";ctx.lineWidth=1.7;ctx.beginPath();
+ const step=Math.max(1,Math.ceil(pts.length/1400));
+ for(let i=0;i<pts.length;i+=step){const r=pts[i];
+  const x=44+(r[0]-x0)/Math.max(.001,x1-x0)*(width-58);
+  const y=12+(hi-r[column])/(hi-lo)*(height-43);
+  if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+ }
+ ctx.stroke();
+}
+async function readFlightMetadata(name){
+ const response=await fetch("/api/flightstats?name="+encodeURIComponent(name),{cache:"no-store"});
+ if(!response.ok)throw Error(name+": summary missing");
+ const result={};for(const line of (await response.text()).split(/\r?\n/)){
+  const ix=line.indexOf("=");if(ix>0)result[line.slice(0,ix).trim()]=line.slice(ix+1).trim();
+ }return result;
+}
+async function compareFlights(){
+ const el=$("comparisonResults");el.replaceChildren();
+ const a=$("compareA").value,b=$("compareB").value;
+ if(!a||!b||a===b){el.textContent="Select two different flights.";return;}
+ el.textContent="Loading comparison...";
+ try{
+  const [one,two]=await Promise.all([readFlightMetadata(a),readFlightMetadata(b)]);
+  el.replaceChildren();
+  for(const [key,title] of [["peak_altitude_m","Peak altitude (m)"],["duration_s","Duration (s)"],["samples","Samples"],["missed_samples","Missed samples"],["invalid_samples","Invalid samples"],["temperature_max_c","Max temperature (°C)"]]){
+   if(!(key in one)&&!(key in two))continue;
+   const row=document.createElement("div");row.className="row";
+   const label=document.createElement("span");label.textContent=title;
+   const value=document.createElement("strong");value.textContent=(one[key]||"—")+" / "+(two[key]||"—");
+   row.append(label,value);el.appendChild(row);
+  }
+ }catch(err){el.textContent=err.message;}
+}
+
 async function showFlightStats(name) {
  selectedFlight=name;
  const status=$("flightSummaryStatus");
@@ -2696,6 +2786,7 @@ async function showFlightStats(name) {
   }
   if(!details.childElementCount)throw Error("Summary has no readable statistics");
   status.textContent="Showing saved statistics for "+name;
+  loadSavedGraph(name);
   $("flightSummaryCard").scrollIntoView({behavior:"smooth",block:"start"});
  }catch(err){status.textContent=err.message;}
 }
@@ -2716,7 +2807,14 @@ async function loadFiles() {
    return;
   }
 
-  const files=result.files.slice().sort((a,b)=>b.name.localeCompare(a.name));
+  const sort=$("fileSort").value;
+  const files=result.files.slice().sort((a,b)=>sort==="old"?a.name.localeCompare(b.name):sort==="size"?b.size-a.size:b.name.localeCompare(a.name));
+  for(const id of ["compareA","compareB"]){
+   const el=$(id),previous=el.value;el.replaceChildren();
+   for(const f of files){const option=document.createElement("option");option.value=f.name;option.textContent=f.name;el.appendChild(option);}
+   if(files.some(f=>f.name===previous))el.value=previous;
+  }
+  if(files.length>1&&!$("compareB").value)$("compareB").selectedIndex=1;
   for(const f of files) {
    const row=document.createElement("div");
    row.className="file";
@@ -2807,6 +2905,9 @@ $("pause").onclick=()=>{
 $("clear").onclick=clearHistory;
 $("graphWindow").onchange=drawAll;
 $("refresh").onclick=loadFiles;
+$("fileSort").onchange=loadFiles;
+$("savedGraphMetric").onchange=drawSavedGraph;
+$("compareFlights").onclick=compareFlights;
 $("openFlightStats").onclick=()=>openTab("storage",document.querySelector('[data-tab="storage"]'));
 
 $("effect").onchange=applyLed;
@@ -2824,7 +2925,7 @@ $("ledauto").onclick=()=>led({manual:0});
 window.addEventListener("error",e=>{
  notice("Dashboard error: "+e.message,false);
 });
-window.addEventListener("resize",drawAll);
+window.addEventListener("resize",()=>{drawAll();drawSavedGraph();});
 
 notice("Dashboard loaded. Connecting to ESP32...");
 setInterval(poll,500);
