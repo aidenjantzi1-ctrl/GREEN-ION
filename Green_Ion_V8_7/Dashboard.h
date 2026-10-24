@@ -1194,10 +1194,15 @@ function bytes(n) {
 }
 
 let savedFlightSeries=[];
+let loadedFlightName="";
+let graphRequestId=0;
+function extreme(values,minimum){let result=minimum?Infinity:-Infinity;for(const value of values){if(!Number.isFinite(value))continue;result=minimum?Math.min(result,value):Math.max(result,value);}return Number.isFinite(result)?result:NaN;}
 let flightPhases=[];
 let flightMeta={};
 let comparisonMeta=null;
 async function loadSavedGraph(name){
+ const requestId=++graphRequestId;
+ loadedFlightName="";
  const label=$("savedGraphStatus");
  label.textContent="Loading recorded samples...";
  try{
@@ -1205,13 +1210,16 @@ async function loadSavedGraph(name){
   if(!response.ok)throw Error("Could not load recorded CSV ("+response.status+")");
   const csv=await response.text();
   const lines=csv.trim().split(/\r?\n/);
-  savedFlightSeries=lines.slice(1).map(line=>line.split(",").map(Number)).filter(r=>r.length>=7&&Number.isFinite(r[0]));
+  const parsed=lines.slice(1).map(line=>line.split(",").map(Number)).filter(r=>r.length>=7&&Number.isFinite(r[0]));
+  if(requestId!==graphRequestId||selectedFlight!==name)return;
+  savedFlightSeries=parsed;
+  loadedFlightName=name;
   label.textContent=savedFlightSeries.length+" samples loaded from "+name;
   enrichFlightSeries(savedFlightSeries);
   renderFlightPerformance(savedFlightSeries);
   computePhases(savedFlightSeries);
   drawSavedGraph();
- }catch(err){savedFlightSeries=[];label.textContent=err.message;$("flightPerformance").textContent="Performance unavailable: "+err.message;drawSavedGraph();}
+ }catch(err){if(requestId!==graphRequestId)return;savedFlightSeries=[];loadedFlightName="";label.textContent=err.message;$("flightPerformance").textContent="Performance unavailable: "+err.message;drawSavedGraph();}
 }
 function enrichFlightSeries(rows){
  const valid=rows.filter(r=>r[4]===1&&Number.isFinite(r[0])&&Number.isFinite(r[5]));
@@ -1220,7 +1228,7 @@ function enrichFlightSeries(rows){
  for(let i=0;i<valid.length;i++){const a=Math.max(0,i-3),b=Math.min(valid.length-1,i+3),dt=valid[b][0]-valid[a][0];if(dt>.05&&dt<3&&Number.isFinite(velocities[a])&&Number.isFinite(velocities[b])){valid[i][7]=(velocities[b]-velocities[a])/dt;valid[i][8]=1+valid[i][7]/9.80665;}}
  const battery=rows.filter(r=>Number.isFinite(r[3])&&r[3]>0),acc=valid.map(r=>r[7]).filter(Number.isFinite),g=valid.map(r=>r[8]).filter(Number.isFinite);
  const first=battery.length?battery[0][3]:NaN,last=battery.length?battery[battery.length-1][3]:NaN;
- const metrics=[["Starting battery",first,"V"],["Ending battery",last,"V"],["Minimum battery",battery.length?Math.min(...battery.map(r=>r[3])):NaN,"V"],["Battery voltage drop",first-last,"V"],["Maximum estimated upward acceleration",acc.length?Math.max(...acc):NaN,"m/s²"],["Maximum estimated downward acceleration",acc.length?Math.min(...acc):NaN,"m/s²"],["Peak estimated vertical apparent G",g.length?Math.max(...g):NaN,"g"]];
+ const metrics=[["Starting battery",first,"V"],["Ending battery",last,"V"],["Minimum battery",battery.length?extreme(battery.map(r=>r[3]),true):NaN,"V"],["Battery voltage drop",first-last,"V"],["Maximum estimated upward acceleration",acc.length?extreme(acc,false):NaN,"m/s²"],["Maximum estimated downward acceleration",acc.length?extreme(acc,true):NaN,"m/s²"],["Peak estimated vertical apparent G",g.length?extreme(g,false):NaN,"g"]];
  const out=$("flightExtraMetrics");out.replaceChildren();
  for(const [name,value,unit] of metrics){const row=document.createElement("div");row.className="row";const label=document.createElement("span");label.textContent=name;const val=document.createElement("strong");val.textContent=Number.isFinite(value)?value.toFixed(3)+" "+unit:"Unavailable";row.append(label,val);out.appendChild(row);}
  const note=document.createElement("p");note.className="muted";note.textContent="Acceleration and vertical apparent G are noisy estimates from barometric altitude, not direct accelerometer readings. Apparent G assumes a vertical rocket and is not total 3D G-force.";out.appendChild(note);
@@ -1259,8 +1267,8 @@ function renderFlightPerformance(rows){
  }
  const rise=velocities.filter(p=>launch&&p.t>=launch[0]&&p.t<=peak[0]);
  const fall=velocities.filter(p=>p.t>=peak[0]&&(!landed||p.t<=landed[0]));
- const maxRise=rise.length?Math.max(...rise.map(p=>p.v)):NaN;
- const maxFall=fall.length?Math.min(...fall.map(p=>p.v)):NaN;
+ const maxRise=rise.length?extreme(rise.map(p=>p.v),false):NaN;
+ const maxFall=fall.length?extreme(fall.map(p=>p.v),true):NaN;
  const rate=Number(window.currentFlightSampleRate)||25;
  const recorded=Number(window.currentFlightSamples)||rows.length;
  const missed=Number(window.currentFlightMissed)||0;
@@ -1347,6 +1355,8 @@ async function compareFlights(){
 
 async function showFlightStats(name,scrollToReport=true) {
  selectedFlight=name;
+ savedFlightSeries=[];
+ loadedFlightName="";
  const status=$("flightSummaryStatus");
  const details=$("flightSummaryDetails");
  details.replaceChildren();
@@ -1419,7 +1429,7 @@ function reportGraph(rows,column,title){
  return "<h2>"+safeHTML(title)+"</h2><img alt='"+safeHTML(title)+"' src='"+c.toDataURL("image/png")+"'>";
 }
 function exportFlightPDF(){
- if(!selectedFlight||!savedFlightSeries.length){alert("Load a saved flight first.");return;}
+ if(!selectedFlight||loadedFlightName!==selectedFlight||!savedFlightSeries.length){alert("Select a saved flight and wait for the graph to finish loading.");return;}
  const phases=flightPhases.map(([n,t,a])=>[n,t.toFixed(2)+" s · "+a.toFixed(1)+" m"]);
  const perf=[...$("flightPerformance").querySelectorAll(".row")].map(r=>[r.querySelector("span")?.textContent,r.querySelector("strong")?.textContent]);
  const extra=[...$("flightExtraMetrics").querySelectorAll(".row")].map(r=>[r.querySelector("span")?.textContent,r.querySelector("strong")?.textContent]);
