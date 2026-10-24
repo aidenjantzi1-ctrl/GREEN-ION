@@ -27,6 +27,24 @@ jobs:
           arduino-cli lib install "Adafruit BMP3XX Library"
           arduino-cli lib install "Adafruit NeoPixel"
 
+      - name: Validate dashboard JavaScript and markup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s = Path('Green_Ion_V8_7/Dashboard.h').read_text()
+          match = re.search(r'<script>(.*?)</script>', s, re.S)
+          assert match, 'Dashboard script missing'
+          ids = re.findall(r'\\bid="([^"]+)"', s)
+          assert len(ids) == len(set(ids)), 'Duplicate dashboard id'
+          refs = re.findall(r'\\$\\("([^"]+)"\\)', match.group(1))
+          missing = sorted(set(refs) - set(ids))
+          assert not missing, f'Dashboard references unknown IDs: {missing}'
+          Path('/tmp/green-ion-dashboard.js').write_text(match.group(1))
+          print(f'Checked {len(ids)} IDs and {len(refs)} references')
+          PY
+          node --check /tmp/green-ion-dashboard.js
+
       - name: Compile V8.7
         run: |
           mkdir -p build
