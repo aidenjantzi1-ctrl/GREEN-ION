@@ -688,6 +688,7 @@ bool beginFlight() {
   }
 
   bool found = false;
+  uint32_t chosenFlightNumber = 0;
 
   for (int i = (int)nextFlightNumber; i <= 9999; i++) {
     char path[24];
@@ -697,6 +698,7 @@ bool beginFlight() {
 
     if (!SD.exists(path)) {
       filename = path;
+      chosenFlightNumber = (uint32_t)i;
       found = true;
       break;
     }
@@ -707,7 +709,8 @@ bool beginFlight() {
     return false;
   }
 
-  flightLabel=String(missionKind=="test"?"Test ":"Flight ")+String(nextFlightNumber);
+  // Keep the displayed Flight/Test number consistent with the actual file.
+  flightLabel=String(missionKind=="test"?"Test ":"Flight ")+String(chosenFlightNumber);
   metadataFilename = filename;
   metadataFilename.replace(".BIN", ".TXT");
 
@@ -762,7 +765,7 @@ bool beginFlight() {
   launched = false;
   landingCandidate = false;
 
-  nextFlightNumber++;
+  nextFlightNumber = chosenFlightNumber + 1;
   nv.putUInt("nextid",nextFlightNumber);
   recording = true;
   armed = false;
@@ -2752,6 +2755,7 @@ async function loadFiles() {
     try {
      await api("delete?name="+
       encodeURIComponent(f.name),"POST");
+     if(selectedFlight===f.name)selectedFlight="";
      loadFiles();
     }catch(err){alert(err.message)}
    };
