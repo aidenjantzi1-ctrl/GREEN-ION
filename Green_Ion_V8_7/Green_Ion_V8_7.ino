@@ -1497,6 +1497,27 @@ void metadataAPI() {
   f.close();
 }
 
+// Serve saved flight statistics inline to the dashboard, without downloading.
+void flightStatsAPI() {
+  if (!sdOK || recording) {
+    web.send(409, "text/plain", "SD busy or unavailable");
+    return;
+  }
+  String n = web.arg("name");
+  if (!validFile(n)) {
+    web.send(400, "text/plain", "Invalid flight filename");
+    return;
+  }
+  File f = SD.open("/" + companionFile(n), FILE_READ);
+  if (!f) {
+    web.send(404, "text/plain", "Flight summary unavailable");
+    return;
+  }
+  web.sendHeader("Cache-Control", "no-store");
+  web.streamFile(f, "text/plain");
+  f.close();
+}
+
 void deleteAPI() {
   if (!requireControl()) return;
 
@@ -1855,6 +1876,11 @@ input[readonly]{background:#253e54;opacity:.85}
    <strong id="storageUsed">--</strong></div>
   <button id="refresh" class="secondary">REFRESH FILES</button>
   <div id="fileList"></div>
+ </div>
+ <div class="card" id="flightSummaryCard">
+  <h2>Saved flight summary</h2>
+  <div class="notice" id="flightSummaryStatus">Choose View stats on a saved flight.</div>
+  <div id="flightSummaryDetails"></div>
  </div>
 </section>
 
@@ -2534,6 +2560,45 @@ function bytes(n) {
  return n+" bytes";
 }
 
+async function showFlightStats(name) {
+ const status=$("flightSummaryStatus");
+ const details=$("flightSummaryDetails");
+ details.replaceChildren();
+ status.textContent="Loading "+name+"...";
+ try {
+  const response=await fetch("/api/flightstats?name="+encodeURIComponent(name),
+   {cache:"no-store"});
+  const content=await response.text();
+  if(!response.ok)throw Error(content||"Cannot read flight summary");
+  const values={};
+  for(const line of content.split(/\\r?\\n/)) {
+   const ix=line.indexOf("=");
+   if(ix>0)values[line.slice(0,ix).trim()]=line.slice(ix+1).trim();
+  }
+  const fields=[
+   ["Flight","label"],["Motor","motor"],["Status","status"],
+   ["Finish reason","finish_reason"],["Duration (s)","duration_s"],
+   ["Peak altitude (m)","peak_altitude_m"],
+   ["Samples recorded","samples"],["Invalid samples","invalid_samples"],
+   ["Missed samples","missed_samples"],["Sampling rate (Hz)","sample_rate_hz"],
+   ["Minimum pressure (Pa)","minimum_pressure_pa"],
+   ["Minimum temperature (°C)","temperature_min_c"],
+   ["Maximum temperature (°C)","temperature_max_c"],
+   ["Starting battery (V)","starting_battery_v"]
+  ];
+  for(const [label,key] of fields){
+   if(!(key in values))continue;
+   const row=document.createElement("div");row.className="row";
+   const title=document.createElement("span");title.textContent=label;
+   const value=document.createElement("strong");value.textContent=values[key];
+   row.append(title,value);details.appendChild(row);
+  }
+  if(!details.childElementCount)throw Error("Summary has no readable statistics");
+  status.textContent="Showing saved statistics for "+name;
+  $("flightSummaryCard").scrollIntoView({behavior:"smooth",block:"start"});
+ }catch(err){status.textContent=err.message;}
+}
+
 async function loadFiles() {
  try {
   const result=await api("files");
@@ -2569,8 +2634,12 @@ async function loadFiles() {
    };
 
    const summary=document.createElement("button");
-   summary.textContent="Summary";
-   summary.onclick=()=>{
+   summary.textContent="View stats";
+   summary.onclick=()=>showFlightStats(f.name);
+
+   const txt=document.createElement("button");
+   txt.textContent="TXT";
+   txt.onclick=()=>{
     location.href="/api/metadata?name="+
      encodeURIComponent(f.name);
    };
@@ -2587,7 +2656,7 @@ async function loadFiles() {
     }catch(err){alert(err.message)}
    };
 
-   actions.append(dl,csv,summary,rm);
+   actions.append(summary,dl,csv,txt,rm);
    row.append(text,actions);
    list.appendChild(row);
   }
@@ -2875,6 +2944,7 @@ void setupRoutes() {
   web.on("/api/download", HTTP_GET, downloadAPI);
   web.on("/api/csv", HTTP_GET, csvAPI);
   web.on("/api/metadata", HTTP_GET, metadataAPI);
+  web.on("/api/flightstats", HTTP_GET, flightStatsAPI);
   web.on("/api/delete", HTTP_POST, deleteAPI);
   web.on(
     "/api/update",
