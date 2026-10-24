@@ -8,6 +8,17 @@ Every known or referenced version from **V1 through V8.7** is listed here. See [
 
 This repository starts with complete source snapshots at V8. The V1–V7 history below is reconstructed from available conversation text and serial-output captures. Entries marked **documented by output** describe behavior visible in those captures but do not have preserved source in this repository. Entries marked **undocumented** are retained as version placeholders and do not claim features that could not be verified.
 
+## V8.7 dashboard and SD reliability updates (October 24, 2026)
+
+- Fixed the apparently unresponsive **Detect & Test SD Card** button: it now remains clickable in view-only mode, requests the controller lease automatically if available, and displays actionable progress and errors. If another phone holds control, it explains why the test cannot run.
+- SD verification checks temporary-file write, readback, cleanup and at least 1 MB free. Added mounted, verified, free-space, and saved-recording diagnostics.
+- Explicitly initialized ESP32 SPI for the documented breakout wiring: SCK GPIO5, MISO GPIO21, MOSI GPIO19, CS GPIO33. Confirm this wiring matches the physical board before using the updated firmware.
+- Improved narrow-phone spacing, file action buttons, cards and status rows.
+- Added an Overview recorder snapshot and a shortcut to saved flight stats. Storage now automatically opens the latest saved flight summary, with direct View stats buttons for others.
+- Added saved-flight valid-sample percentage and imperial peak-altitude conversion (when Imperial is selected). Stats are read from saved TXT metadata; unavailable measurements are not invented.
+- Corrected the status API version to 8.7.
+- GitHub Actions compiles the sketch to the main `.ino.bin`; a successful build and real hardware verification are separate checks.
+
 ## V8.7 — Dashboard Reliability Edition
 
 - Fixed sample-rate selection being overwritten by the 500 ms status refresh.
