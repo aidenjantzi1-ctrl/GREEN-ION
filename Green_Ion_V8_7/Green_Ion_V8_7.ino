@@ -1942,6 +1942,8 @@ input[readonly]{background:#253e54;opacity:.85}
   <p class="muted">Select View stats to read stored flight data directly. No download needed.</p>
   <div class="notice" id="flightSummaryStatus">Choose View stats on a saved flight.</div>
   <div id="flightSummaryDetails"></div>
+  <h3>Calculated flight performance</h3>
+  <div id="flightPerformance" aria-live="polite">Select a recording to calculate performance.</div>
   <h3>Saved flight graph</h3>
   <label for="savedGraphMetric">Measurement</label>
   <select id="savedGraphMetric"><option value="5">Altitude (m)</option><option value="1">Pressure (Pa)</option><option value="2">Temperature (°C)</option><option value="6">Vertical speed (m/s)</option></select>
@@ -2687,8 +2689,59 @@ async function loadSavedGraph(name){
   const lines=csv.trim().split(/\r?\n/);
   savedFlightSeries=lines.slice(1).map(line=>line.split(",").map(Number)).filter(r=>r.length>=7&&Number.isFinite(r[0]));
   label.textContent=savedFlightSeries.length+" samples loaded from "+name;
+  renderFlightPerformance(savedFlightSeries);
   drawSavedGraph();
- }catch(err){savedFlightSeries=[];label.textContent=err.message;drawSavedGraph();}
+ }catch(err){savedFlightSeries=[];label.textContent=err.message;$("flightPerformance").textContent="Performance unavailable: "+err.message;drawSavedGraph();}
+}
+function renderFlightPerformance(rows){
+ const target=$("flightPerformance");target.replaceChildren();
+ // RKT4 CSV: time, pressure, temperature, battery, valid, altitude, velocity.
+ const pts=rows.filter(r=>r[4]===1&&Number.isFinite(r[0])&&Number.isFinite(r[5]));
+ if(pts.length<3){target.textContent="Insufficient valid samples for flight analysis.";return;}
+ const peak=pts.reduce((best,p)=>p[5]>best[5]?p:best,pts[0]);
+ // Threshold-based launch detection; not a motor ignition timestamp.
+ const launch=pts.find(p=>p[5]>=5);
+ const afterPeak=pts.filter(p=>p[0]>peak[0]);
+ const landed=afterPeak.find(p=>Math.abs(p[5])<=5);
+ const ascent=launch?pts.filter(p=>p[0]>=launch[0]&&p[0]<=peak[0]):[];
+ const descent=landed?pts.filter(p=>p[0]>=peak[0]&&p[0]<=landed[0]):[];
+ // Use 5-sample moving slopes to reduce barometer noise. Still estimates.
+ const velocities=[];
+ for(let i=2;i<pts.length-2;i++){
+  const left=pts[i-2],right=pts[i+2],dt=right[0]-left[0];
+  if(dt>.03&&dt<2&&Number.isFinite(dt))velocities.push({t:pts[i][0],v:(right[5]-left[5])/dt});
+ }
+ const rise=velocities.filter(p=>launch&&p.t>=launch[0]&&p.t<=peak[0]);
+ const fall=velocities.filter(p=>p.t>=peak[0]&&(!landed||p.t<=landed[0]));
+ const maxRise=rise.length?Math.max(...rise.map(p=>p.v)):NaN;
+ const maxFall=fall.length?Math.min(...fall.map(p=>p.v)):NaN;
+ const rate=Number(window.currentFlightSampleRate)||25;
+ const recorded=Number(window.currentFlightSamples)||rows.length;
+ const missed=Number(window.currentFlightMissed)||0;
+ const invalid=Number(window.currentFlightInvalid)||0;
+ const expected=recorded+missed;
+ const completeness=expected>0?100*Math.max(0,recorded-invalid)/expected:NaN;
+ const ascentTime=launch?peak[0]-launch[0]:NaN;
+ const descentTime=landed?landed[0]-peak[0]:NaN;
+ const metrics=[
+  ["Maximum ascent speed",maxRise,"m/s"],
+  ["Maximum descent speed",Number.isFinite(maxFall)?Math.abs(maxFall):NaN,"m/s"],
+  ["Time to apogee",ascentTime,"s"],
+  ["Ascent duration",ascentTime,"s"],
+  ["Descent duration",descentTime,"s"],
+  ["Average ascent speed",ascentTime>0?(peak[5]-launch[5])/ascentTime:NaN,"m/s"],
+  ["Average descent speed",descentTime>0?(peak[5]-landed[5])/descentTime:NaN,"m/s"],
+  ["Recording completeness",completeness,"%"]
+ ];
+ for(const [name,value,unit] of metrics){
+  const row=document.createElement("div");row.className="row";
+  const label=document.createElement("span");label.textContent=name;
+  const val=document.createElement("strong");val.textContent=Number.isFinite(value)?value.toFixed(unit==="%"?1:2)+" "+unit:"Not determined";
+  row.append(label,val);target.appendChild(row);
+ }
+ const note=document.createElement("p");note.className="muted";
+ note.textContent="Speed is estimated from smoothed barometric altitude. Launch uses a 5 m threshold; landing uses a return within 5 m of ground. No detected launch/landing means related times are unavailable. Completeness counts invalid and missed samples; it is not a guarantee of accuracy.";
+ target.appendChild(note);
 }
 function drawSavedGraph(){
  const canvas=$("savedFlightGraph"),rect=canvas.getBoundingClientRect();
@@ -2757,6 +2810,10 @@ async function showFlightStats(name) {
    const ix=line.indexOf("=");
    if(ix>0)values[line.slice(0,ix).trim()]=line.slice(ix+1).trim();
   }
+  window.currentFlightSamples=values.samples;
+  window.currentFlightMissed=values.missed_samples;
+  window.currentFlightInvalid=values.invalid_samples;
+  window.currentFlightSampleRate=values.sample_rate_hz;
   if(values.samples && values.invalid_samples){
    const total=Number(values.samples),invalid=Number(values.invalid_samples);
    if(total>0 && Number.isFinite(invalid))
