@@ -1,0 +1,42 @@
+name: Build Green Ion firmware
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Green_Ion_V8_3/**"
+      - ".github/workflows/build-firmware.yml"
+  workflow_dispatch:
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: arduino/setup-arduino-cli@v2
+
+      - name: Install ESP32 board package
+        run: |
+          arduino-cli config init
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+
+      - name: Install libraries
+        run: |
+          arduino-cli lib install "Adafruit BMP3XX Library"
+          arduino-cli lib install "Adafruit NeoPixel"
+
+      - name: Compile V8.3
+        run: |
+          mkdir -p build
+          arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --output-dir build Green_Ion_V8_3
+
+      - name: Package phone-downloadable firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: green-ion-v8.3-firmware
+          path: |
+            build/*.bin
+            Green_Ion_V8_3/Green_Ion_V8_3.ino
+          if-no-files-found: error
