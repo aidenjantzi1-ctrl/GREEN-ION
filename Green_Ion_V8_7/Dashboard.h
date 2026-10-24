@@ -132,6 +132,18 @@ input[readonly]{background:#253e54;opacity:.85}
 }
 @media(max-width:360px){.metrics{grid-template-columns:1fr}.file div{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){.control-buttons{grid-template-columns:1fr}.actions{gap:12px}.tabs button{padding-inline:10px}}
+body.sunlight{--bg:#f3f7fb;--card:#fff;--line:#aac4d4;--txt:#15283c;--muted:#536b7b;--blue:#006c98;--green:#006f47;--red:#aa1e37;--yellow:#805700}
+body.sunlight .notice{background:#e3edf5;color:#172b40}
+body.sunlight .check{background:#e8f0f6}
+body.sunlight select,body.sunlight input[type=text],body.sunlight input[type=file]{background:#fff;color:#172b40;border:1px solid #779eb6}
+body.sunlight input[readonly]{background:#eaf0f5;color:#172b40}
+body.sunlight .guide-steps span{background:#dfeaf3;color:#223a4a}
+body.sunlight .guide-steps span.done{background:#dbf1e3;color:#115d39}
+body.sunlight .guide-steps span.current{background:#badced;color:#10344c;outline:2px solid #006c98}
+body.sunlight .progress{background:#d2dfeb}
+body.sunlight .value.big{color:#006c98}
+body.sunlight .tabs button.active{background:#006c98!important;color:#fff!important}
+@media(min-width:900px){#testing.page.active,#system.page.active,#storage.page.active{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}#storage #flightSummaryCard{grid-column:1/-1}#storage .card,#testing .card,#system .card{margin-bottom:0}.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
 </style>
 </head>
 <body>
@@ -148,6 +160,7 @@ input[readonly]{background:#253e54;opacity:.85}
  <div>
  <button id="metric" class="secondary active">Metric</button>
  <button id="imperial" class="secondary">Imperial</button>
+ <button id="sunlightMode" class="secondary" aria-pressed="false">Sunlight mode</button>
  </div>
 </div>
 
@@ -424,6 +437,13 @@ input[readonly]{background:#253e54;opacity:.85}
 </section>
 
 <section id="system" class="page">
+ <div class="card"><h2>Help and connection</h2>
+  <details open><summary>Connect from a phone, iPad or computer</summary><p>Connect to <strong>GREEN-ION</strong> Wi-Fi and open <strong>http://192.168.4.1</strong>. This local Wi-Fi does not provide internet access; remain connected to use the recorder.</p></details>
+  <details><summary>Buttons disabled or view-only?</summary><p>Use <strong>Take Control</strong> on Overview. Only one browser may change recorder settings at a time. Recording or arming temporarily disables some settings.</p></details>
+  <details><summary>SD testing or download trouble?</summary><p>Finish recording and disarm, then run <strong>Detect &amp; Test SD Card</strong> under Storage. The check uses only a temporary file. Download saved recordings after logging ends.</p></details>
+  <details><summary>Updating the firmware</summary><p>Install only the main <strong>.ino.bin</strong> file from a successful GitHub Actions build. Keep power connected, and perform a ground test after updating.</p></details>
+  <details><summary>Reading the flight calculations</summary><p>Altitude comes from atmospheric pressure. Derived speed, acceleration, apparent G, flight phases and landing estimates have uncertainty. Onboard SD logging continues without a live Wi-Fi connection once recording has started.</p></details>
+ </div>
  <div class="card">
   <h2>Install firmware from this phone</h2>
   <p>Download the main <strong>.ino.bin</strong> file from the
@@ -524,6 +544,9 @@ input[readonly]{background:#253e54;opacity:.85}
 
 const $ = id => document.getElementById(id);
 let state = null;
+let sunlight=false;
+try{sunlight=localStorage.getItem("greenIonSunlight")==="1";}catch(e){}
+document.body.classList.toggle("sunlight",sunlight);
 let imperial = false;
 let busy = false;
 let polling = false;
@@ -595,6 +618,7 @@ function check(name,pass) {
  return e;
 }
 
+function setSunlight(x){sunlight=!!x;document.body.classList.toggle("sunlight",sunlight);$("sunlightMode").textContent=sunlight?"Dark mode":"Sunlight mode";$("sunlightMode").setAttribute("aria-pressed",sunlight?"true":"false");try{localStorage.setItem("greenIonSunlight",sunlight?"1":"0");}catch(e){}drawAll();drawSavedGraph();}
 function setUnits(x) {
  imperial=x;
  $("metric").classList.toggle("active",!x);
@@ -1121,7 +1145,7 @@ function draw(id,key,convert) {
   ctx.beginPath();
   ctx.moveTo(24,y);ctx.lineTo(width-10,y);ctx.stroke();
  }
- ctx.fillStyle="#aac2d7";
+ ctx.fillStyle=sunlight?"#264b65":"#aac2d7";
  ctx.font="11px system-ui";
  ctx.fillText(number(hi),24,13);
  ctx.fillText(number(lo),24,186);
@@ -1311,7 +1335,7 @@ function drawSavedGraph(){
  for(const v of values){if(v<lo)lo=v;if(v>hi)hi=v;}
  if(hi===lo)hi=lo+1;
  ctx.strokeStyle="#35536e";ctx.strokeRect(44,12,width-58,height-43);
- ctx.fillStyle="#eff8ff";ctx.font="11px system-ui";
+ ctx.fillStyle=sunlight?"#223f56":"#eff8ff";ctx.font="11px system-ui";
  ctx.fillText(hi.toFixed(1),3,19);ctx.fillText(lo.toFixed(1),3,height-31);
  ctx.fillText((x1-x0).toFixed(1)+" s",width-65,height-8);
  ctx.strokeStyle="#7bdbff";ctx.lineWidth=1.7;ctx.beginPath();
@@ -1324,7 +1348,7 @@ function drawSavedGraph(){
  ctx.stroke();
  ctx.save();ctx.font="10px system-ui";ctx.setLineDash([4,4]);
  for(const [name,t] of flightPhases.filter(p=>["Launch detected","Apogee","Landing detected"].includes(p[0]))){
-  const x=44+(t-x0)/Math.max(.001,x1-x0)*(width-58);ctx.strokeStyle=name==="Apogee"?"#ffdd88":"#72e5ab";ctx.beginPath();ctx.moveTo(x,12);ctx.lineTo(x,height-31);ctx.stroke();ctx.fillStyle="#eff8ff";ctx.fillText(name.split(" ")[0],Math.min(width-90,Math.max(44,x+2)),22);
+  const x=44+(t-x0)/Math.max(.001,x1-x0)*(width-58);ctx.strokeStyle=name==="Apogee"?"#ffdd88":"#72e5ab";ctx.beginPath();ctx.moveTo(x,12);ctx.lineTo(x,height-31);ctx.stroke();ctx.fillStyle=sunlight?"#223f56":"#eff8ff";ctx.fillText(name.split(" ")[0],Math.min(width-90,Math.max(44,x+2)),22);
  }ctx.restore();
 }
 async function readFlightMetadata(name){
@@ -1535,6 +1559,9 @@ async function loadFiles() {
 
 $("metric").onclick=()=>setUnits(false);
 $("imperial").onclick=()=>setUnits(true);
+$("sunlightMode").onclick=()=>setSunlight(!sunlight);
+$("sunlightMode").textContent=sunlight?"Dark mode":"Sunlight mode";
+$("sunlightMode").setAttribute("aria-pressed",sunlight?"true":"false");
 
 document.querySelectorAll("[data-tab]").forEach(b=>{
  b.onclick=()=>openTab(b.dataset.tab,b);
