@@ -14,6 +14,16 @@ GREEN ION V8.7 is experimental firmware for an Adafruit ESP32 Feather V2 flight-
 
 **Limits:** The journal is a recovery marker, not a transactional filesystem. Power loss can still lose buffered or unwritten data; physical SD card damage is not repairable by firmware. A recording with an incomplete final sample remains a raw BIN with trailing bytes. Test interruption recovery with a disposable ground recording before relying on it in flight. This version does not alter ignition or recovery hardware.
 
+### V8.8 ground-test protocol (before flight use)
+
+1. Install the compiled firmware only after its GitHub Actions run succeeds. Keep the ESP32 powered from a stable source.
+2. Insert a noncritical FAT/FAT32 microSD card, connect to the dashboard, and run **Detect & Test SD Card**. Confirm the read/write check passes.
+3. Create a **Test** recording for 15–30 seconds and stop it normally. Confirm the new BIN and TXT files appear and that the TXT ends with `status=complete`. Download the CSV and inspect the sample timestamps.
+4. Start another disposable Test recording, wait at least ten seconds for checkpoints, then interrupt power. Restore power and reconnect. In Storage, confirm **Recovered interrupted flights** increased and inspect the TXT for `status=recovered_interrupted`, `recovered_samples`, and `trailing_partial_bytes`. Confirm the BIN remains downloadable and its CSV opens.
+5. Repeat at different points during recording, including soon after starting. Expect the most recent buffered samples to be lost after abrupt power loss; a very early interruption may leave only a header or a small recording.
+6. Perform a third normal stop and restart to ensure completed recordings are **not** incorrectly relabeled as interrupted. Check that other flight files are untouched.
+7. Test on battery power, then verify sensor calibration, logging rates, SD write errors, battery voltage, PDF export, and firmware update functionality. Only consider flight use after all tests pass.
+
 ## Current dashboard — guided recording and analysis
 
 The dashboard works in modern browsers on phones, tablets, and computers over the Feather's local **GREEN-ION** Wi-Fi network. The **Launch Assistant** follows the logger's real status and guides you through controller access, BMP388 health checks, SD verification, calibration, mission setup, starting the recorder, stopping after recovery, and reviewing saved files. The physical checklist is informational and does not control ignition or recovery.
