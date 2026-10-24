@@ -2,6 +2,15 @@
 
 This repository starts with complete source snapshots at V8. The V1–V7 history below is reconstructed from available conversation text and serial-output captures. Entries marked **documented by output** describe behavior visible in those captures but do not have preserved source in this repository. Entries marked **undocumented** are retained as version placeholders and do not claim features that could not be verified.
 
+## V8.7 — Dashboard Reliability Edition
+
+- Fixed sample-rate selection being overwritten by the 500 ms status refresh.
+- Persisted 10/25/50 Hz sampling in ESP32 Preferences across restarts.
+- Added automatic sequential recording labels, with Flight/Test selection.
+- Added searchable motor suggestions while supporting custom designations.
+- Fixed overlapping Take/Release Control buttons on narrow screens and improved padding.
+- Preserved earlier V8.6 code under its original folder.
+
 ## V8.6 — Flight Control Edition
 
 - Added a renewable controller lease so many phones can view while only one can change settings or recorder state.
