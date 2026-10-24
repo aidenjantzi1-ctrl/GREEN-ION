@@ -495,11 +495,16 @@ bool verifySD() {
   }
 
   if (!sdOK && !initSD()) return false;
+  sdStatus = "SD test running: writing and reading test file";
+  sdVerified = false;
 
   const char *path = "/GITEST.TMP";
   const char *pattern = "GREEN-ION-V82";
 
-  SD.remove(path);
+  if (SD.exists(path) && !SD.remove(path)) {
+    sdStatus = "SD test failed: cannot clear old test file";
+    return false;
+  }
 
   File f = SD.open(path, FILE_WRITE);
   if (!f) {
@@ -531,16 +536,19 @@ bool verifySD() {
   char result[24] = {0};
   size_t count = f.readBytes(result, len);
   f.close();
-  SD.remove(path);
+  bool cleanupOK = SD.remove(path);
 
   sdVerified =
-    count == len &&
+    cleanupOK && count == len &&
     memcmp(result, pattern, len) == 0 &&
     sdFree() >= 1048576ULL;
 
   sdStatus = sdVerified
-    ? "SD ready: read/write OK"
-    : "SD verify failed or insufficient space";
+    ? "SD ready: write, read, cleanup and free space OK"
+    : !cleanupOK ? "SD test failed: could not delete test file"
+    : count != len || memcmp(result, pattern, len) != 0
+      ? "SD test failed: data readback mismatch"
+      : "SD test failed: less than 1 MB free";
 
   if (sdVerified) sdFault = false;
   return sdVerified;
@@ -1175,7 +1183,7 @@ void statusAPI() {
 
   s = "{";
 
-  s += "\"version\":\"8.6\"";
+  s += "\"version\":\"8.7\"";
   s += ",\"controller\":" + jb(thisController);
   s += ",\"controlAvailable\":" + jb(controlAvailable);
   s += ",\"controlLeaseSeconds\":";
@@ -1643,6 +1651,35 @@ select,input[type=range],input[type=text],input[type=file]{display:block;width:1
 input,select,button{max-width:100%;box-sizing:border-box}
 input[readonly]{background:#253e54;opacity:.85}
 .file div{display:flex;flex-wrap:wrap;gap:8px}
+.file{align-items:flex-start;gap:12px}
+.file>span:first-child{font-weight:700;overflow-wrap:anywhere}
+.file button{flex:1 1 auto;min-height:42px;padding:10px 13px}
+#flightSummaryDetails .row{gap:20px}
+#sdtest{width:100%;margin-top:18px}
+#sdTestFeedback{margin-top:12px}
+#fileList{display:grid;gap:8px;margin-top:14px}
+#fileList .file{padding:14px 0}
+#flightSummaryCard{scroll-margin-top:16px}
+.tabs{scrollbar-width:thin}
+.page .card{margin-bottom:20px}
+.row span{min-width:0}
+@media(max-width:600px){
+ main{padding:14px 12px 56px}
+ .metrics{gap:10px}
+ .metric{min-width:0}
+ .value{font-size:clamp(21px,5vw,32px)}
+ .card{padding:17px 15px}
+ .actions{grid-template-columns:1fr 1fr;gap:12px}
+ .file{display:block}
+ .file>span:first-child{display:block;margin-bottom:10px}
+ .file div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .file button{width:100%;min-width:0}
+ .tabs{gap:6px}
+ .tabs button{min-width:92px}
+ .row{padding:13px 0}
+ .row strong{max-width:60%}
+}
+@media(max-width:360px){.metrics{grid-template-columns:1fr}.file div{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){.control-buttons{grid-template-columns:1fr}.actions{gap:12px}.tabs button{padding-inline:10px}}
 </style>
 </head>
@@ -1866,19 +1903,24 @@ input[readonly]{background:#253e54;opacity:.85}
  <div class="card">
   <h2>microSD diagnostics</h2>
   <div class="notice" id="sdStatus">Not tested.</div>
-  <button id="sdtest">DETECT &amp; TEST SD CARD</button>
-  <p class="muted">SD is needed for recording,
-  not for basic sensor testing.</p>
+  <div class="row"><span>Card mounted</span><strong id="sdMounted">--</strong></div>
+  <div class="row"><span>Read/write test</span><strong id="sdReady">--</strong></div>
+  <div class="row"><span>Free space</span><strong id="sdFreeSpace">--</strong></div>
+  <button id="sdtest" class="wide">DETECT &amp; TEST SD CARD</button>
+  <div class="notice" id="sdTestFeedback" role="status" aria-live="polite">Tap to test. This button can request control automatically.</div>
+  <p class="muted">This test creates, reads, and removes a temporary file. It does not erase saved flights. Wait until recording and calibration have stopped.</p>
  </div>
  <div class="card">
   <h2>Flight files</h2>
   <div class="row"><span>Space used</span>
    <strong id="storageUsed">--</strong></div>
+  <div class="row"><span>Saved recordings</span><strong id="fileCount">--</strong></div>
   <button id="refresh" class="secondary">REFRESH FILES</button>
   <div id="fileList"></div>
  </div>
  <div class="card" id="flightSummaryCard">
   <h2>Saved flight summary</h2>
+  <p class="muted">Select View stats to read stored flight data directly. No download needed.</p>
   <div class="notice" id="flightSummaryStatus">Choose View stats on a saved flight.</div>
   <div id="flightSummaryDetails"></div>
  </div>
@@ -2172,7 +2214,9 @@ function render(d,collect=true) {
   lock||d.recording||d.armed||d.simulation;
  $("simstop").disabled=
   lock||!d.simulation;
- $("sdtest").disabled=lock||d.recording||d.armed;
+ // Keep the SD test clickable in view-only mode: it requests control
+ // and reports errors instead of silently appearing unresponsive.
+ $("sdtest").disabled=deviceLock||d.recording||d.armed;
  $("shutdown").disabled=lock;
  $("installFirmware").disabled=
   lock||d.armed||d.recording||d.simulation||d.batteryCritical;
@@ -2214,6 +2258,8 @@ function render(d,collect=true) {
  $("calResult").textContent=d.calStatus;
 
  $("sdStatus").textContent=d.sdStatus;
+ $("sdMounted").textContent=d.sd?"YES":"NO";
+ $("sdReady").textContent=d.sdVerified?"PASS":"NOT VERIFIED";
  $("ledMode").textContent=d.ledManual?"MANUAL":"AUTO";
 
  $("sysPct").textContent=
@@ -2299,6 +2345,35 @@ async function poll() {
   if(!connectedOnce)notice(err.message,false);
  }finally{
   polling=false;
+ }
+}
+
+async function testSDCard() {
+ if(busy)return;
+ busy=true;
+ const feedback=$("sdTestFeedback");
+ feedback.textContent="Checking controller access...";
+ try {
+  if(!state)throw Error("Waiting for the recorder connection. Retry in a moment.");
+  if(state.recording||state.armed||state.calibrating)
+   throw Error("Stop recording, disarm and finish calibration first.");
+  if(!state.controller){
+   if(!state.controlAvailable)
+    throw Error("Another phone controls Green Ion. Release its control or wait 30 seconds.");
+   feedback.textContent="Taking control to run SD test...";
+   await api("control","POST");
+  }
+  feedback.textContent="Writing, reading and deleting a temporary test file...";
+  const result=await api("sdtest","POST");
+  feedback.textContent=result.message;
+  notice(result.message,true);
+  await loadFiles();
+ }catch(err){
+  feedback.textContent="SD TEST: "+err.message;
+  notice("SD TEST: "+err.message,false);
+ }finally{
+  busy=false;
+  await poll();
  }
 }
 
@@ -2575,11 +2650,20 @@ async function showFlightStats(name) {
    const ix=line.indexOf("=");
    if(ix>0)values[line.slice(0,ix).trim()]=line.slice(ix+1).trim();
   }
+  if(values.samples && values.invalid_samples){
+   const total=Number(values.samples),invalid=Number(values.invalid_samples);
+   if(total>0 && Number.isFinite(invalid))
+    values.valid_percent=(100*(total-invalid)/total).toFixed(1)+"%";
+  }
+  if(values.peak_altitude_m && imperial)
+   values.peak_altitude_ft=(Number(values.peak_altitude_m)*3.280839895).toFixed(1);
   const fields=[
    ["Flight","label"],["Motor","motor"],["Status","status"],
    ["Finish reason","finish_reason"],["Duration (s)","duration_s"],
    ["Peak altitude (m)","peak_altitude_m"],
-   ["Samples recorded","samples"],["Invalid samples","invalid_samples"],
+   ["Peak altitude (ft)","peak_altitude_ft"],
+   ["Samples recorded","samples"],["Valid samples (%)","valid_percent"],
+   ["Invalid samples","invalid_samples"],
    ["Missed samples","missed_samples"],["Sampling rate (Hz)","sample_rate_hz"],
    ["Minimum pressure (Pa)","minimum_pressure_pa"],
    ["Minimum temperature (°C)","temperature_min_c"],
@@ -2604,11 +2688,13 @@ async function loadFiles() {
   const result=await api("files");
   $("storageUsed").textContent=
    bytes(result.used)+" / "+bytes(result.total);
+  $("sdFreeSpace").textContent=bytes(Math.max(0,result.total-result.used));
+  $("fileCount").textContent=result.files.length;
   const list=$("fileList");
   list.replaceChildren();
 
   if(!result.files.length) {
-   list.textContent="No flight files.";
+   list.textContent="No flight files yet. Save a test recording to see it here.";
    return;
   }
 
@@ -2688,7 +2774,7 @@ $("stop").onclick=()=>{
 };
 $("simulate").onclick=()=>command("simulate");
 $("simstop").onclick=()=>command("simstop");
-$("sdtest").onclick=()=>command("sdtest");
+$("sdtest").onclick=testSDCard;
 $("shutdown").onclick=shutdown;
 $("disconnect").onclick=disconnect;
 
@@ -3012,7 +3098,8 @@ void setup() {
   uint16_t rate=nv.getUShort("samplehz",25);
   if(!setSampleRate(rate))setSampleRate(25);
 
-  SPI.begin();
+  // Explicit SPI mapping for the wired 3.3 V microSD breakout.
+  SPI.begin(5, 21, 19, SD_CS);
 
   if (initSD())
     verifySD();
