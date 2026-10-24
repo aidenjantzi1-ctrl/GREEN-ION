@@ -625,6 +625,21 @@ void recoverInterruptedFlights() {
       uint32_t count = valid ? (log.size() - 32) / 16 : 0;
       uint32_t tail = valid ? (log.size() - 32) % 16 : 0;
       log.close();
+      // If power failed after metadata was completed but before journal
+      // cleanup, the recording is complete and must not be mislabeled.
+      bool alreadyComplete = false;
+      File previousMeta = SD.open("/" + meta, FILE_READ);
+      if (previousMeta) {
+        while (previousMeta.available()) {
+          String line = previousMeta.readStringUntil('\\n');
+          line.trim();
+          if (line == "status=complete") alreadyComplete = true;
+        }
+        previousMeta.close();
+      }
+      if (alreadyComplete) {
+        SD.remove("/" + name);
+      } else {
       File summary = SD.open("/" + meta, FILE_APPEND);
       if (summary) {
         summary.println("status=recovered_interrupted");
@@ -640,6 +655,7 @@ void recoverInterruptedFlights() {
         }
       } else {
         integrityStatus = "Recovery pending: cannot write metadata";
+      }
       }
     }
     entry = root.openNextFile();
