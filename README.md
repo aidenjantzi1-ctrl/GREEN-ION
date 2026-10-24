@@ -4,6 +4,12 @@ GREEN ION V8.7 is experimental firmware for an Adafruit ESP32 Feather V2 flight-
 
 > **Safety scope:** GREEN ION is a data recorder only. It must never control ignition, staging, parachute deployment, or any recovery system.
 
+## Current phone dashboard changes
+
+The **Storage** page shows saved flight summaries and statistics directly, without a download. **View stats** opens a selected flight; the latest saved flight is shown automatically. The Overview tab has a recorder snapshot and a direct shortcut to the saved flights. The **Detect & Test SD Card** button automatically requests control when available and displays a specific success or failure message; it writes and removes only a temporary test file. Use this test before each flight. On the documented wired microSD breakout the firmware now explicitly uses SCK GPIO5, MISO GPIO21, MOSI GPIO19, and CS GPIO33.
+
+**Before flying:** confirm your physical SPI wiring, wait for a successful GitHub Actions build, install the new firmware, and verify SD read/write, test recording, CSV/TXT downloads and battery power on the actual Feather. Source changes alone do not verify hardware operation.
+
 ## Features
 
 - Non-blocking pressure calibration with live progress feedback
