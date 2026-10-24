@@ -1411,11 +1411,23 @@ function exportFlightPDF(){
  const charts=[[5,"Altitude (m)"],[6,"Vertical speed (m/s)"],[7,"Estimated acceleration (m/s²)"],[8,"Estimated vertical apparent G"],[3,"Battery voltage (V)"],[1,"Pressure (Pa)"],[2,"Temperature (°C)"]].map(([column,title])=>reportGraph(savedFlightSeries,column,title)).join("");
  printableReport("GREEN-ION flight — "+selectedFlight,"<h2>Flight metadata</h2>"+pdfRows(Object.entries(flightMeta))+"<h2>Estimated phases</h2>"+pdfRows(phases)+"<h2>Flight performance</h2>"+pdfRows(perf)+"<h2>Battery and acceleration</h2>"+pdfRows(extra)+charts);
 }
+function compareBarGraph(a,b,key,title,unit){
+ const x=Number(a[key]),y=Number(b[key]);
+ if(!Number.isFinite(x)||!Number.isFinite(y))return "<p>"+safeHTML(title)+": not enough data for a graph.</p>";
+ const c=document.createElement("canvas");c.width=1000;c.height=230;
+ const ctx=c.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);
+ ctx.fillStyle="#172b40";ctx.font="18px Arial";ctx.fillText(title,34,28);
+ const max=Math.max(1,x,y)*1.1;
+ const vals=[[x,"First flight","#1976a4"],[y,"Second flight","#30a077"]];
+ vals.forEach(([v,label,color],i)=>{const top=55+i*82;ctx.fillStyle="#2a3949";ctx.font="15px Arial";ctx.fillText(label,34,top);ctx.fillStyle="#e6edf3";ctx.fillRect(34,top+9,820,28);ctx.fillStyle=color;ctx.fillRect(34,top+9,Math.max(0,Math.min(820,v/max*820)),28);ctx.fillStyle="#172b40";ctx.fillText(v.toFixed(2)+" "+unit,870,top+28);});
+ return "<h2>"+safeHTML(title)+"</h2><img alt='"+safeHTML(title)+"' src='"+c.toDataURL("image/png")+"'>";
+}
 function exportComparePDF(){
  const c=comparisonMeta;
  if(!c||c.a!==$("compareA").value||c.b!==$("compareB").value){alert("Compare the selected flights first.");return;}
  const fields=[["Motor","motor"],["Peak altitude (m)","peak_altitude_m"],["Duration (s)","duration_s"],["Samples","samples"],["Missed samples","missed_samples"],["Invalid samples","invalid_samples"],["Max temperature (°C)","temperature_max_c"]];
- printableReport("GREEN-ION motor comparison", "<p>"+safeHTML(c.a)+" vs "+safeHTML(c.b)+" · Values are first / second flight. Different rockets and weather affect results.</p>"+pdfRows(fields.map(([label,key])=>[label,(c.one[key]??"—")+" / "+(c.two[key]??"—")])));
+ const graphs=compareBarGraph(c.one,c.two,"peak_altitude_m","Peak altitude","m")+compareBarGraph(c.one,c.two,"duration_s","Recording duration","s")+compareBarGraph(c.one,c.two,"samples","Samples recorded","samples")+compareBarGraph(c.one,c.two,"starting_battery_v","Starting battery voltage","V");
+ printableReport("GREEN-ION motor comparison", "<p>"+safeHTML(c.a)+" ("+safeHTML(c.one.motor||"No motor label")+") vs "+safeHTML(c.b)+" ("+safeHTML(c.two.motor||"No motor label")+") · Values in the table are first / second flight. Comparisons do not control for rocket mass, atmospheric conditions, or launch configuration.</p>"+pdfRows(fields.map(([label,key])=>[label,(c.one[key]??"—")+" / "+(c.two[key]??"—")]))+graphs);
 }
 async function loadFiles() {
  try {
