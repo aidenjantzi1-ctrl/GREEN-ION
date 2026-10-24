@@ -8,6 +8,19 @@ Every known or referenced version from **V1 through V8.7** is listed here. See [
 
 This repository starts with complete source snapshots at V8. The V1–V7 history below is reconstructed from available conversation text and serial-output captures. Entries marked **documented by output** describe behavior visible in those captures but do not have preserved source in this repository. Entries marked **undocumented** are retained as version placeholders and do not claim features that could not be verified.
 
+## V8.7 integrated launch workflow and report update (October 24, 2026)
+
+- Extracted the embedded dashboard into `Green_Ion_V8_7/Dashboard.h` to avoid Arduino's HTML/JS sketch preprocessing failure; restored successful firmware builds.
+- Added CI validation of dashboard JavaScript syntax, duplicate IDs, and references to missing UI elements; the GitHub Actions artifact includes both the .ino and header source files.
+- Added a contextual Launch Assistant, progress stages, physical preflight checklist, recovery review shortcut, and connection/troubleshooting help. Confirmed the system remains a **logger only** with no ignition or deployment controls.
+- Added Sunlight high-contrast display mode, more responsive tablet/desktop cards, and improved button, status and file list layout.
+- Kept unsaved motor and recording-type inputs from being reset by status polling. The Arm Logger action saves any changed mission and sampling-rate settings before arming.
+- Reduced live polling from 500 ms to 1.2 seconds and only draws live graphs on visible tabs to reduce ESP32 and mobile-browser work.
+- Improved Storage navigation so opening recent flight stats does not scroll away from SD diagnostics; corrected motor comparison selection; guarded asynchronous graph loads and long-flight calculations.
+- Expanded downloadable/printable flight reports with altitude, velocity, estimated acceleration, vertical apparent G, battery voltage, pressure and temperature graphs, plus metadata, phases, and quality metrics.
+- Added graphs to motor comparison printable PDF and included estimated acceleration and apparent vertical G columns in CSV exports. The raw RKT4 binary format is unchanged, and those estimates are not IMU readings.
+- Hardware testing is still needed after firmware compilation; archived versions and their evidence remain preserved.
+
 ## V8.7 dashboard and SD reliability updates (October 24, 2026)
 
 - Fixed the apparently unresponsive **Detect & Test SD Card** button: it now remains clickable in view-only mode, requests the controller lease automatically if available, and displays actionable progress and errors. If another phone holds control, it explains why the test cannot run.
