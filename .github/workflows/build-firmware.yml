@@ -57,4 +57,5 @@ jobs:
           path: |
             build/Green_Ion_V8_7.ino.bin
             Green_Ion_V8_7/Green_Ion_V8_7.ino
+            Green_Ion_V8_7/Dashboard.h
           if-no-files-found: error
