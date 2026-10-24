@@ -4,11 +4,19 @@ GREEN ION V8.7 is experimental firmware for an Adafruit ESP32 Feather V2 flight-
 
 > **Safety scope:** GREEN ION is a data recorder only. It must never control ignition, staging, parachute deployment, or any recovery system.
 
-## Current phone dashboard changes
+## Current dashboard — guided recording and analysis
 
-The **Storage** page shows saved flight summaries and statistics directly, without a download. **View stats** opens a selected flight; the latest saved flight is shown automatically. The Overview tab has a recorder snapshot and a direct shortcut to the saved flights. The **Detect & Test SD Card** button automatically requests control when available and displays a specific success or failure message; it writes and removes only a temporary test file. Use this test before each flight. On the documented wired microSD breakout the firmware now explicitly uses SCK GPIO5, MISO GPIO21, MOSI GPIO19, and CS GPIO33.
+The dashboard works in modern browsers on phones, tablets, and computers over the Feather's local **GREEN-ION** Wi-Fi network. The **Launch Assistant** follows the logger's real status and guides you through controller access, BMP388 health checks, SD verification, calibration, mission setup, starting the recorder, stopping after recovery, and reviewing saved files. The physical checklist is informational and does not control ignition or recovery.
 
-**Before flying:** confirm your physical SPI wiring, wait for a successful GitHub Actions build, install the new firmware, and verify SD read/write, test recording, CSV/TXT downloads and battery power on the actual Feather. Source changes alone do not verify hardware operation.
+The interface includes an optional **Sunlight mode**, responsive two-column tablet/desktop layouts, large touch controls, clearer explanations, and a built-in Help section in System. One browser at a time holds the controller lease; all other devices may view status and exported files.
+
+Storage shows recorded flight summaries, automatically loads the newest saved flight without unexpectedly scrolling away from the SD controls, and offers **BIN**, **CSV**, **TXT**, and printable PDF reports. Reports include flight metadata, estimated launch/apogee/landing markers, derived climb/descent statistics, sample-quality calculations, battery voltage, acceleration/G estimates, and seven graphs. The motor comparison PDF includes side-by-side flight statistics and comparison graphs. On iPad/iPhone choose **Print / Save PDF**, then share the print preview to Files; computers may print to PDF.
+
+**Sample-rate and mission changes:** The dashboard preserves unsaved form fields during status refreshes, and **SAVE SETTINGS & ARM LOGGER** applies outstanding motor/mission/sample-rate edits before arming. The recorder's selected 10/25/50 Hz rate is saved in ESP32 Preferences.
+
+**Hardware and data limitations:** Flight acceleration and apparent vertical G are calculated from barometric altitude, not a true accelerometer. The original 16-byte RKT4 binary records remain unchanged and contain sampled battery voltage, pressure and temperature. CSV conversion adds estimated acceleration and G columns. Exact ignition/burnout/deployment events, absolute position and true 3D acceleration are not measurable with this sensor set. A separate, independently tested recovery system is essential.
+
+**Before flying:** Wait for a successful GitHub Actions build; install the new image; verify wiring and SD read/write on the physical Feather; record a ground test; download CSV and TXT; generate and inspect a PDF; and confirm battery operation. Compilation does not verify real hardware operation.
 
 ## Features
 
@@ -94,18 +102,17 @@ Use a module that is electrically compatible with 3.3 V logic. The firmware can 
 5. If the device warns that the network has no internet, choose to stay connected. This is expected: GREEN ION is a local device network and does not provide internet access.
 6. Open **http://192.168.4.1** in a browser.
 
-## Preflight and recording
+## Full launch workflow
 
-1. Confirm that the BMP388 is healthy and the dashboard is receiving live readings.
-2. Press **Calibrate** while the recorder is stationary. The firmware averages valid pressure samples and sets the current height to zero.
-3. Confirm the calibration success message and verify that live altitude is near zero.
-4. If recording, insert the microSD card and run the SD diagnostic. Confirm that storage is verified and that the battery is not critical.
-5. Press **Arm**.
-6. Select Flight or Test for the next automatic recording label, choose a motor designation, select 10, 25, or 50 samples per second, and save the settings before arming. Use 25 Hz as the normal balance; use 50 Hz when fast-motion detail matters and the SD wiring has tested reliably.
-7. Press **Start Recording**. The firmware creates an RKT4 binary log and metadata summary on the card.
-8. Press **Stop & Save** before removing power or the card. From Storage, download the original BIN, a CSV for spreadsheet analysis, and the text summary.
-
-Keep a separate, independently tested recovery system. Test the recorder on the ground before every use.
+1. **Install and connect:** Verify that the Feather, BMP388, microSD module, and battery are secured, then join **GREEN-ION** Wi-Fi and open **http://192.168.4.1** in your browser. It is normal for this Wi-Fi to have no internet.
+2. **Take control:** Open Overview and press **TAKE CONTROL**. Other connected devices may view the status but cannot change settings without taking the control lease.
+3. **Check health:** Follow the Launch Assistant. Confirm fresh BMP388 readings and a suitable battery reading. Open Storage and press **DETECT & TEST SD CARD**; confirm a successful read/write verification and sufficient space.
+4. **Set the recording:** Choose Flight or Test, type/select the motor label, and select 10, 25, or 50 samples per second. At 25 Hz you typically get a useful compromise between detail and file size. Editing these fields marks them unsaved; **SAVE SETTINGS & ARM LOGGER** applies the changes before arming.
+5. **Calibrate:** With the rocket stationary near its launch point and the pressure vent unobstructed, run **CALIBRATE**. Verify successful calibration and altitude near zero. Follow motor and launch-range safety procedures separately.
+6. **Arm the logger and start logging:** Arm only after preflight checks pass. Press **START RECORDING** before the physical launch and check the file and sample count. GREEN-ION **does not** initiate ignition or control any recovery equipment.
+7. **During flight:** The onboard recorder operates independently of the phone or Wi-Fi signal. Wi-Fi disconnects or range loss must not be treated as an SD failure; do not rely on a live connection to run a flight.
+8. **After recovery:** If it has not already stopped automatically, press **STOP & SAVE** after recovering the rocket. Do not remove power or the card while a recording is active.
+9. **Review and export:** In Storage select **View stats**, inspect phase markers, sensor diagnostics, battery and acceleration estimates, choose graph variables, and use **PRINT / SAVE FLIGHT PDF**. Use **Compare Flights** and **PRINT / SAVE MOTOR COMPARISON PDF** for comparisons. Keep the original BIN file for later reanalysis.
 
 ## LED status
 
@@ -146,7 +153,7 @@ After a recording has been saved to microSD, connect to the `GREEN-ION` Wi-Fi da
 
 ## GitHub builds and phone downloads
 
-Every firmware change on `main` runs the **Build Green Ion firmware** GitHub Actions workflow. Open the latest successful workflow run and download the `green-ion-v8.7-phone-update` artifact. It contains the complete `.ino` source and the main `Green_Ion_V8_7.ino.bin` firmware image.
+Every firmware change on `main` runs the **Build Green Ion firmware** GitHub Actions workflow. Open the latest successful workflow run and download the `green-ion-v8.7-phone-update` artifact. It contains the `.ino` sketch, required `Dashboard.h` header, and main `Green_Ion_V8_7.ino.bin` firmware image. Preserve the `.ino` and `.h` together if recompiling from source.
 
 ### Install a later update from a phone
 
