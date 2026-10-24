@@ -7,7 +7,7 @@ const char PAGE[] PROGMEM = R"HTML(
 <meta charset="UTF-8">
 <meta name="viewport"
  content="width=device-width, initial-scale=1">
-<title>Green Ion V8.7</title>
+<title>GREEN-ION · Flight Dashboard</title>
 <style>
 :root{
  --bg:#081420;
@@ -54,7 +54,7 @@ button.green{background:var(--green)}
 button.active{background:var(--blue)!important;color:#081420!important}
 .tabs{display:flex;gap:8px;overflow-x:auto;margin-bottom:18px}
 .tabs button{flex:1;min-width:94px;background:#28445f;color:white}
-.page{display:none}.page.active{display:block}canvas{max-width:100%}@media(min-width:850px){.tabs{overflow-x:visible}.tabs button{min-width:0}.card{padding:24px}}@media(pointer:coarse){button,select,input{min-height:46px}}
+.page{display:none}.page.active{display:block} .launch-guide{border-color:#49849d}.guide-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.guide-top p{margin:0 0 12px}.guide-top strong{color:var(--green);text-align:right;letter-spacing:.05em}.guide-steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin:10px 0 16px}.guide-steps span{text-align:center;font-size:11px;line-height:1.3;padding:10px 3px;border-radius:8px;background:#223b52;color:#b9ccd9}.guide-steps span.done{background:#224d3f;color:#b5f2d1}.guide-steps span.current{background:#34546f;color:#fff;outline:1px solid #7bdbff}.guide-message{font-size:16px;font-weight:600;padding:12px 0}.guide-actions{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:10px}.checklist{margin-top:15px;border-top:1px solid var(--line);padding-top:12px}.checklist summary{cursor:pointer;font-weight:650}.checklist li{margin:9px 0}.file{gap:10px}.file>span:last-child{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.file button{min-height:40px}button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--green);outline-offset:2px}@media(max-width:570px){.guide-steps{gap:3px}.guide-steps span{font-size:10px;padding:8px 1px}.guide-actions{grid-template-columns:1fr}.guide-top{align-items:center}.file{display:block}.file>span:last-child{justify-content:flex-start;margin-top:9px}}canvas{max-width:100%}@media(min-width:850px){.tabs{overflow-x:visible}.tabs button{min-width:0}.card{padding:24px}}@media(pointer:coarse){button,select,input{min-height:46px}}
 .metrics{
  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
  gap:12px;margin-bottom:17px}
@@ -138,7 +138,7 @@ input[readonly]{background:#253e54;opacity:.85}
 <main>
 <header>
  <div><h1>GREEN ION</h1>
- <small>V8.7 · Flight Control Edition</small></div>
+ <small>Flight logger · browser dashboard</small></div>
  <div class="status" id="connection">CONNECTING</div>
 </header>
 
@@ -151,7 +151,7 @@ input[readonly]{background:#253e54;opacity:.85}
  </div>
 </div>
 
-<nav class="tabs">
+<nav class="tabs" aria-label="Dashboard sections">
  <button class="active" data-tab="overview">Overview</button>
  <button data-tab="testing">Testing</button>
  <button data-tab="lights">Lights</button>
@@ -160,6 +160,24 @@ input[readonly]{background:#253e54;opacity:.85}
 </nav>
 
 <section id="overview" class="page active">
+<div class="card launch-guide" id="launchGuide">
+ <div class="guide-top"><div><h2>Launch assistant</h2><p class="muted">Follow each stage from setup to flight report. This is a data logger, not an ignition controller.</p></div><strong id="guideStage">CONNECT</strong></div>
+ <div class="progress" aria-hidden="true"><div id="guideProgress" style="width:0%"></div></div>
+ <div class="guide-steps" id="guideSteps" aria-label="Launch workflow">
+  <span>1 · Connect</span><span>2 · Prepare</span><span>3 · Calibrate</span><span>4 · Record</span><span>5 · Review</span>
+ </div>
+ <div class="guide-message" id="guideMessage" role="status">Connecting to the recorder...</div>
+ <div class="guide-actions"><button id="guideNext" class="green">VIEW NEXT STEP</button><button id="guideStorage" class="secondary">SAVED FLIGHTS</button></div>
+ <details class="checklist"><summary>Physical launch checklist</summary>
+  <ul><li>Secure the Feather, BMP388, battery and SD wiring so connections cannot move during flight.</li>
+  <li>Confirm the rocket and launch range are prepared according to the motor manufacturer's instructions and the applicable safety code.</li>
+  <li>Check that the motor designation and sample rate are saved; test the SD card before arming.</li>
+  <li>Calibrate with the rocket stationary on the pad; keep the pressure vent unobstructed.</li>
+  <li>Start recording before launch. Do not depend on Wi-Fi remaining connected during flight.</li>
+  <li>After recovery, stop and save if still recording; then verify the file and export the report.</li></ul>
+  <p class="muted">The checklist is informational. GREEN-ION does not fire the motor or control deployment.</p>
+ </details>
+</div>
 
 <div class="metrics">
  <div class="metric">
@@ -206,13 +224,11 @@ input[readonly]{background:#253e54;opacity:.85}
   RELEASE CONTROL
  </button>
  </div>
- <p class="muted">Any number of phones may view. Only the active
- controller can change settings or operate the recorder. The lease
- renews while this dashboard remains connected.</p>
+ <p class="muted">Phones, tablets and computers may all view the dashboard. One connected browser at a time can change recorder settings. The control lease renews while that browser is connected.</p>
 </div>
 
 <div class="card">
- <h2>Flight controls</h2>
+ <h2>Prepare and record</h2><p class="muted">Set the flight information, calibrate on the ground, then arm and start recording before launch.</p>
  <label for="missionKind">Recording type</label>
  <select id="missionKind"><option value="flight">Flight</option><option value="test">Test</option></select>
  <label for="flightLabel">Automatic label</label>
@@ -256,13 +272,13 @@ input[readonly]{background:#253e54;opacity:.85}
 </div>
 
 <div class="card">
- <h2>Recorder snapshot</h2>
+ <h2>Recorder health</h2>
  <div class="row"><span>Preflight readiness</span><strong id="preflightScore">--</strong></div>
  <div class="notice" id="preflightDetail">Waiting for checks.</div>
  <div class="row"><span>SD card</span><strong id="overviewSD">--</strong></div>
  <div class="row"><span>Recorded samples</span><strong id="overviewSamples">--</strong></div>
  <div class="row"><span>Current file</span><strong id="overviewFile">--</strong></div>
- <button id="openFlightStats" class="secondary" style="width:100%">VIEW SAVED FLIGHTS &amp; STATS</button>
+ <button id="openFlightStats" class="secondary" style="width:100%">OPEN SAVED FLIGHTS AND REPORTS</button>
  </div>
 
 <div class="card">
@@ -598,8 +614,33 @@ function openTab(name,button) {
  drawAll();
 }
 
+let guideTarget="takeControl";
+function jumpToControl(id,tab="overview"){
+ const button=document.querySelector('[data-tab="'+tab+'"]');
+ if(button)openTab(tab,button);
+ const target=$(id);if(target){target.scrollIntoView({behavior:"smooth",block:"center"});target.focus({preventScroll:true});}
+}
+function renderGuide(d){
+ let step=0,action="takeControl",tab="overview",message="Take control to set up the recorder.",stage="CONNECT";
+ if(d.recording){step=3;action="stop";message="Recording in progress. Let the logger capture the flight. Stop and save after recovery if it has not already stopped.";stage="RECORDING";}
+ else if(d.armed){step=3;action="start";message="Recorder armed. Start recording before the physical launch and verify samples are increasing.";stage="ARMED";}
+ else if(!d.controller){step=0;action="takeControl";message=d.controlAvailable?"Take control to calibrate and change settings.":"Another browser has control. You can still view live data and saved files.";stage="CONNECT";}
+ else if(!d.sensor||!d.reading){step=1;tab="testing";action="testCalibrate";message="Check the BMP388 sensor and its I²C wiring before proceeding.";stage="SENSOR CHECK";}
+ else if(!d.sdVerified||d.sdFault){step=1;tab="storage";action="sdtest";message="Test the microSD card. The test writes, reads, and removes a temporary file without deleting flight recordings.";stage="TEST SD";}
+ else if(!d.calibrated){step=2;action="calibrate";message="Calibrate altitude while the rocket is stationary near its launch position.";stage="CALIBRATE";}
+ else if(d.batteryCritical){step=2;action="sysV";tab="system";message="Battery critically low. Recharge or replace the battery before recording.";stage="BATTERY";}
+ else{step=2;action="saveMission";message="Preflight checks passed. Confirm the motor and sample rate, save settings, then arm the recorder.";stage="READY";}
+ guideTarget=action;window.guideTab=tab;
+ $("guideStage").textContent=stage;
+ $("guideMessage").textContent=message;
+ $("guideProgress").style.width=(step===0?7:step===1?30:step===2?55:step===3?80:100)+"%";
+ $("guideNext").textContent=action==="stop"?"GO TO STOP & SAVE":action==="start"?"GO TO START RECORDING":action==="sdtest"?"GO TO SD TEST":"VIEW NEXT STEP";
+ $("guideNext").disabled=!d.controlAvailable&&!d.controller&&step!==3;
+ [...$("guideSteps").children].forEach((el,i)=>{el.classList.toggle("done",i<step);el.classList.toggle("current",i===step);});
+}
 function render(d,collect=true) {
  state=d;
+ renderGuide(d);
  $("connection").textContent="● LIVE";
  $("connection").style.color="#72e5ab";
 
@@ -833,6 +874,8 @@ async function poll() {
  }catch(err) {
   $("connection").textContent="● OFFLINE";
   $("connection").style.color="#ff91a0";
+  $("guideStage").textContent="OFFLINE";
+  $("guideMessage").textContent="Recorder disconnected. Check that this device is connected to GREEN-ION Wi-Fi, then refresh.";
   if(!connectedOnce)notice(err.message,false);
  }finally{
   polling=false;
@@ -1485,6 +1528,8 @@ $("compareFlights").onclick=compareFlights;
 $("exportFlightPDF").onclick=exportFlightPDF;
 $("exportComparePDF").onclick=exportComparePDF;
 $("openFlightStats").onclick=()=>openTab("storage",document.querySelector('[data-tab="storage"]'));
+$("guideNext").onclick=()=>jumpToControl(guideTarget,window.guideTab||"overview");
+$("guideStorage").onclick=()=>openTab("storage",document.querySelector('[data-tab="storage"]'));
 
 $("effect").onchange=applyLed;
 $("brightness").oninput=()=>{
