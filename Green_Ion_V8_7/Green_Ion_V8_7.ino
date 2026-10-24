@@ -1942,19 +1942,19 @@ input[readonly]{background:#253e54;opacity:.85}
   <p class="muted">Select View stats to read stored flight data directly. No download needed.</p>
   <div class="notice" id="flightSummaryStatus">Choose View stats on a saved flight.</div>
   <div id="flightSummaryDetails"></div>
-  <h3>Calculated flight performance</h3>
+  <h3>Estimated flight phases</h3><div id="flightPhases" class="notice">Select a flight.</div><h3>Calculated flight performance</h3>
   <div id="flightPerformance" aria-live="polite">Select a recording to calculate performance.</div>
   <h3>Saved flight graph</h3>
   <label for="savedGraphMetric">Measurement</label>
   <select id="savedGraphMetric"><option value="5">Altitude (m)</option><option value="1">Pressure (Pa)</option><option value="2">Temperature (°C)</option><option value="6">Vertical speed (m/s)</option></select>
   <canvas id="savedFlightGraph" style="width:100%;height:220px"></canvas>
-  <div class="notice" id="savedGraphStatus">Select a flight to load its graph.</div>
+  <div class="notice" id="savedGraphStatus">Select a flight to load its graph.</div><button id="exportFlightPDF" class="secondary" style="width:100%">PRINT / SAVE FLIGHT PDF</button>
  </div>
  <div class="card"><h2>Compare flights</h2>
   <p class="muted">Select two saved recordings to compare their summary statistics.</p>
   <select id="compareA"></select><select id="compareB"></select>
   <button id="compareFlights" class="secondary" style="width:100%">COMPARE FLIGHTS</button>
-  <div id="comparisonResults" role="status"></div>
+  <div id="comparisonResults" role="status"></div><button id="exportComparePDF" class="secondary" style="width:100%">PRINT / SAVE MOTOR COMPARISON PDF</button>
  </div>
 </section>
 
@@ -2679,6 +2679,9 @@ function bytes(n) {
 }
 
 let savedFlightSeries=[];
+let flightPhases=[];
+let flightMeta={};
+let comparisonMeta=null;
 async function loadSavedGraph(name){
  const label=$("savedGraphStatus");
  label.textContent="Loading recorded samples...";
@@ -2690,8 +2693,23 @@ async function loadSavedGraph(name){
   savedFlightSeries=lines.slice(1).map(line=>line.split(",").map(Number)).filter(r=>r.length>=7&&Number.isFinite(r[0]));
   label.textContent=savedFlightSeries.length+" samples loaded from "+name;
   renderFlightPerformance(savedFlightSeries);
+  computePhases(savedFlightSeries);
   drawSavedGraph();
  }catch(err){savedFlightSeries=[];label.textContent=err.message;$("flightPerformance").textContent="Performance unavailable: "+err.message;drawSavedGraph();}
+}
+function computePhases(rows){
+ const pts=rows.filter(r=>r[4]===1&&Number.isFinite(r[0])&&Number.isFinite(r[5]));
+ flightPhases=[];const out=$("flightPhases");out.replaceChildren();
+ if(pts.length<6){out.textContent="Not enough valid samples.";return;}
+ const li=pts.findIndex((r,i)=>i+2<pts.length&&r[5]>=5&&pts[i+1][5]>=5&&pts[i+2][5]>=5);
+ if(li<0){out.textContent="No sustained 5 m launch detected.";return;}
+ const launch=pts[li],peak=pts.slice(li).reduce((a,b)=>a[5]>b[5]?a:b);
+ const pi=pts.indexOf(peak);
+ const di=pts.findIndex((r,i)=>i>pi+2&&i+2<pts.length&&Math.abs(r[5])<=5&&Math.abs(pts[i+1][5])<=5&&Math.abs(pts[i+2][5])<=5);
+ flightPhases=[["Launch detected",launch[0],launch[5]],["Ascent / coast",launch[0],launch[5]],["Apogee",peak[0],peak[5]],["Descent",peak[0],peak[5]]];
+ if(di>=0)flightPhases.push(["Landing detected",pts[di][0],pts[di][5]]);
+ for(const [name,t,alt] of flightPhases){const row=document.createElement("div");row.className="row";const l=document.createElement("span");l.textContent=name;const v=document.createElement("strong");v.textContent=t.toFixed(2)+" s · "+alt.toFixed(1)+" m";row.append(l,v);out.appendChild(row);}
+ const note=document.createElement("p");note.className="muted";note.textContent="Estimated from barometric altitude; launch and landing use sustained 5 m thresholds. Motor burnout, powered ascent, and parachute deployment cannot be determined reliably.";out.appendChild(note);
 }
 function renderFlightPerformance(rows){
  const target=$("flightPerformance");target.replaceChildren();
@@ -2768,6 +2786,10 @@ function drawSavedGraph(){
   if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
  }
  ctx.stroke();
+ ctx.save();ctx.font="10px system-ui";ctx.setLineDash([4,4]);
+ for(const [name,t] of flightPhases.filter(p=>["Launch detected","Apogee","Landing detected"].includes(p[0]))){
+  const x=44+(t-x0)/Math.max(.001,x1-x0)*(width-58);ctx.strokeStyle=name==="Apogee"?"#ffdd88":"#72e5ab";ctx.beginPath();ctx.moveTo(x,12);ctx.lineTo(x,height-31);ctx.stroke();ctx.fillStyle="#eff8ff";ctx.fillText(name.split(" ")[0],Math.min(width-90,Math.max(44,x+2)),22);
+ }ctx.restore();
 }
 async function readFlightMetadata(name){
  const response=await fetch("/api/flightstats?name="+encodeURIComponent(name),{cache:"no-store"});
@@ -2783,6 +2805,7 @@ async function compareFlights(){
  el.textContent="Loading comparison...";
  try{
   const [one,two]=await Promise.all([readFlightMetadata(a),readFlightMetadata(b)]);
+  comparisonMeta={a,b,one,two};
   el.replaceChildren();
   for(const [key,title] of [["peak_altitude_m","Peak altitude (m)"],["duration_s","Duration (s)"],["samples","Samples"],["missed_samples","Missed samples"],["invalid_samples","Invalid samples"],["temperature_max_c","Max temperature (°C)"]]){
    if(!(key in one)&&!(key in two))continue;
@@ -2810,6 +2833,7 @@ async function showFlightStats(name) {
    const ix=line.indexOf("=");
    if(ix>0)values[line.slice(0,ix).trim()]=line.slice(ix+1).trim();
   }
+  flightMeta=values;
   window.currentFlightSamples=values.samples;
   window.currentFlightMissed=values.missed_samples;
   window.currentFlightInvalid=values.invalid_samples;
@@ -2848,6 +2872,24 @@ async function showFlightStats(name) {
  }catch(err){status.textContent=err.message;}
 }
 
+function safeHTML(v){return String(v??"—").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function pdfRows(rows){return "<table>"+rows.map(([k,v])=>"<tr><th>"+safeHTML(k)+"</th><td>"+safeHTML(v)+"</td></tr>").join("")+"</table>";}
+function printableReport(title,body){
+ const w=window.open("","_blank");if(!w){alert("Enable pop-ups for the printable report.");return;}
+ w.document.open();w.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+safeHTML(title)+'</title><style>body{font:14px/1.5 system-ui,Arial;color:#172b40;max-width:800px;margin:25px auto;padding:0 16px}h1{font-size:24px}h2{font-size:18px;margin-top:24px}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #ddd;text-align:left}th{width:48%}img{max-width:100%;height:auto}.toolbar{background:#eef4f8;padding:12px}@media print{.toolbar{display:none}body{margin:0}table,img{break-inside:avoid}}</style></head><body><div class="toolbar"><button onclick="window.print()">PRINT / SAVE PDF</button> · On iPhone: Print, then share the preview to Files.</div><h1>'+safeHTML(title)+'</h1>'+body+'<p>Experimental barometric estimates. Not for flight-critical decisions.</p></body></html>');w.document.close();
+}
+function exportFlightPDF(){
+ if(!selectedFlight||!savedFlightSeries.length){alert("Load a saved flight first.");return;}
+ const phases=flightPhases.map(([n,t,a])=>[n,t.toFixed(2)+" s · "+a.toFixed(1)+" m"]);
+ const perf=[...$("flightPerformance").querySelectorAll(".row")].map(r=>[r.querySelector("span")?.textContent,r.querySelector("strong")?.textContent]);
+ printableReport("GREEN-ION flight — "+selectedFlight,"<h2>Flight details</h2>"+pdfRows(Object.entries(flightMeta))+"<h2>Estimated phases</h2>"+pdfRows(phases)+"<h2>Performance</h2>"+pdfRows(perf)+"<h2>Recorded graph</h2><img src='"+$("savedFlightGraph").toDataURL("image/png")+"'>");
+}
+function exportComparePDF(){
+ const c=comparisonMeta;
+ if(!c||c.a!==$("compareA").value||c.b!==$("compareB").value){alert("Compare the selected flights first.");return;}
+ const fields=[["Motor","motor"],["Peak altitude (m)","peak_altitude_m"],["Duration (s)","duration_s"],["Samples","samples"],["Missed samples","missed_samples"],["Invalid samples","invalid_samples"],["Max temperature (°C)","temperature_max_c"]];
+ printableReport("GREEN-ION motor comparison", "<p>"+safeHTML(c.a)+" vs "+safeHTML(c.b)+" · Values are first / second flight. Different rockets and weather affect results.</p>"+pdfRows(fields.map(([label,key])=>[label,(c.one[key]??"—")+" / "+(c.two[key]??"—")])));
+}
 async function loadFiles() {
  try {
   const result=await api("files");
@@ -2965,6 +3007,8 @@ $("refresh").onclick=loadFiles;
 $("fileSort").onchange=loadFiles;
 $("savedGraphMetric").onchange=drawSavedGraph;
 $("compareFlights").onclick=compareFlights;
+$("exportFlightPDF").onclick=exportFlightPDF;
+$("exportComparePDF").onclick=exportComparePDF;
 $("openFlightStats").onclick=()=>openTab("storage",document.querySelector('[data-tab="storage"]'));
 
 $("effect").onchange=applyLed;
