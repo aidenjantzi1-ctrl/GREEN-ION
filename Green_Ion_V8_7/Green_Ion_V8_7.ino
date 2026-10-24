@@ -1926,6 +1926,7 @@ input[readonly]{background:#253e54;opacity:.85}
   <div class="row"><span>Space used</span>
    <strong id="storageUsed">--</strong></div>
   <div class="row"><span>Saved recordings</span><strong id="fileCount">--</strong></div>
+  <div class="row"><span>SD test result</span><strong id="sdTestResult">--</strong></div>
   <button id="refresh" class="secondary">REFRESH FILES</button>
   <div id="fileList"></div>
  </div>
@@ -2706,6 +2707,7 @@ async function loadFiles() {
    bytes(result.used)+" / "+bytes(result.total);
   $("sdFreeSpace").textContent=bytes(Math.max(0,result.total-result.used));
   $("fileCount").textContent=result.files.length;
+  $("sdTestResult").textContent=state?.sdVerified?"PASS":"NOT VERIFIED";
   const list=$("fileList");
   list.replaceChildren();
 
