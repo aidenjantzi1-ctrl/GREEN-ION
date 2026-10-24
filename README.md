@@ -134,6 +134,10 @@ Automatic status colors take priority during safety-critical recorder states. Th
 
 **Important:** Source snapshots begin at V8. Earlier historical records must not be confused with working firmware. GitHub commit dates in October 2026 are preservation dates, not necessarily prototype development dates.
 
+## View flight statistics on your phone
+
+After a recording has been saved to microSD, connect to the `GREEN-ION` Wi-Fi dashboard and open **Storage → Flight files**. Tap **View stats** next to a recording to see the saved flight summary directly on the dashboard: Flight/Test label, motor, duration, peak altitude, sample rate, samples and quality counts, pressure and temperature ranges, and starting battery voltage when available. The **BIN**, **CSV**, and **TXT** download options remain available. A summary is available only if the recording's companion `.TXT` metadata file was successfully saved; this viewer does not reconstruct missing summaries. Firmware compilation and hardware testing are still required before flight use.
+
 ## GitHub builds and phone downloads
 
 Every firmware change on `main` runs the **Build Green Ion firmware** GitHub Actions workflow. Open the latest successful workflow run and download the `green-ion-v8.7-phone-update` artifact. It contains the complete `.ino` source and the main `Green_Ion_V8_7.ino.bin` firmware image.
