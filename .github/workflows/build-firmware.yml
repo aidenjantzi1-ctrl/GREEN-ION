@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "Green_Ion_V8_4/**"
+      - "Green_Ion_V8_5/**"
       - ".github/workflows/build-firmware.yml"
   workflow_dispatch:
 
@@ -27,16 +27,16 @@ jobs:
           arduino-cli lib install "Adafruit BMP3XX Library"
           arduino-cli lib install "Adafruit NeoPixel"
 
-      - name: Compile V8.4
+      - name: Compile V8.5
         run: |
           mkdir -p build
-          arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --output-dir build Green_Ion_V8_4
+          arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --output-dir build Green_Ion_V8_5
 
       - name: Package phone-downloadable firmware
         uses: actions/upload-artifact@v4
         with:
-          name: green-ion-v8.4-firmware
+          name: green-ion-v8.5-phone-update
           path: |
-            build/*.bin
-            Green_Ion_V8_4/Green_Ion_V8_4.ino
+            build/Green_Ion_V8_5.ino.bin
+            Green_Ion_V8_5/Green_Ion_V8_5.ino
           if-no-files-found: error
