@@ -2571,7 +2571,7 @@ async function showFlightStats(name) {
   const content=await response.text();
   if(!response.ok)throw Error(content||"Cannot read flight summary");
   const values={};
-  for(const line of content.split(/\\r?\\n/)) {
+  for(const line of content.split(/\r?\n/)) {
    const ix=line.indexOf("=");
    if(ix>0)values[line.slice(0,ix).trim()]=line.slice(ix+1).trim();
   }
