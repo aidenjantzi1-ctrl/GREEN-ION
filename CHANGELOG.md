@@ -1,5 +1,11 @@
 # Green Ion changelog
 
+Every known or referenced version from **V1 through V8.7** is listed here. See [VERSIONS.md](VERSIONS.md) for the complete archive index and exact preserved sketch links.
+
+**Evidence:** Actual firmware snapshots exist for V8–V8.7. V1, V1.2, V3 and V3.1 have documented development or serial-output evidence, but original source has not been preserved. V2 and V4–V7 are undocumented placeholders, not confirmed releases. No missing source is fabricated.
+
+**Dates:** October 24, 2026 repository commits are archive/commit dates, not necessarily original prototype creation dates.
+
 This repository starts with complete source snapshots at V8. The V1–V7 history below is reconstructed from available conversation text and serial-output captures. Entries marked **documented by output** describe behavior visible in those captures but do not have preserved source in this repository. Entries marked **undocumented** are retained as version placeholders and do not claim features that could not be verified.
 
 ## V8.7 — Dashboard Reliability Edition
@@ -110,3 +116,16 @@ This repository starts with complete source snapshots at V8. The V1–V7 history
 - Established the first known BMP388 pressure, temperature, and altitude readout.
 - Early serial captures show a large incorrect altitude offset of roughly `-1839 m`, indicating that the initial reference-pressure handling was not yet suitable for relative flight altitude.
 - Exact V1 source and its original release notes were not preserved.
+
+## Original-source and archive links
+
+- [V8 source](Green_Ion_V8/Green_Ion_V8.ino)
+- [V8.1 source](Green_Ion_V8_1/Green_Ion_V8_1.ino)
+- [V8.2 source](Green_Ion_V8_2/Green_Ion_V8_2.ino)
+- [V8.3 source](Green_Ion_V8_3/Green_Ion_V8_3.ino)
+- [V8.4 source](Green_Ion_V8_4/Green_Ion_V8_4.ino)
+- [V8.5 source](Green_Ion_V8_5/Green_Ion_V8_5.ino)
+- [V8.6 source](Green_Ion_V8_6/Green_Ion_V8_6.ino)
+- [V8.7 source](Green_Ion_V8_7/Green_Ion_V8_7.ino)
+
+Earlier historical records (not compilable firmware): [V1](history/V1/README.md) · [V1.2](history/V1_2/README.md) · [V2](history/V2/README.md) · [V3](history/V3/README.md) · [V3.1](history/V3_1/README.md) · [V4](history/V4/README.md) · [V5](history/V5/README.md) · [V6](history/V6/README.md) · [V7](history/V7/README.md).
