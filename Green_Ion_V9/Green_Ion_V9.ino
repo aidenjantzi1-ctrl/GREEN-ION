@@ -674,7 +674,11 @@ bool verifySD() {
     return false;
   }
 
-  if (!sdOK && !initSD()) return false;
+  // Always remount for an idle SD retest. A previously detected card may
+  // have been removed or replaced while the recorder was idle.
+  SD.end();
+  sdOK = false;
+  if (!initSD()) return false;
   sdStatus = "SD test running: writing and reading test file";
   sdVerified = false;
 
