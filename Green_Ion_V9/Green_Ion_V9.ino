@@ -2071,8 +2071,15 @@ void filesAPI() {
       if (!first) output += ",";
       first = false;
       output += "{\"name\":\"" + n + "\",\"size\":";
-      // Keep each listed recording size in the widest available integer form.
-      output += u64Text((uint64_t)f.size());
+      // This checks only RKT4 record-length alignment, not sensor validity.
+      // A 32-byte header with zero complete 16-byte samples is not usable.
+      const uint64_t binBytes = (uint64_t)f.size();
+      const bool recordLengthOK = binBytes >= 48 &&
+        ((binBytes - 32) % 16) == 0;
+      const bool hasSummary = SD.exists("/" + companionFile(n));
+      output += u64Text(binBytes);
+      output += ",\"recordLengthOK\":" + jb(recordLengthOK);
+      output += ",\"hasSummary\":" + jb(hasSummary);
       output += ",\"protected\":" + jb(SD.exists("/" + protectionFile(n))) + "}";
     }
 

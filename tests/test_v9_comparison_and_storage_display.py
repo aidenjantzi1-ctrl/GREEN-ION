@@ -28,7 +28,8 @@ def run_node(script):
 class FirmwareAndMarkupTests(unittest.TestCase):
     def test_file_listing_avoids_uint32_size_cast(self):
         files = section(INO, "void filesAPI() {", "\nvoid downloadAPI() {")
-        self.assertIn("u64Text((uint64_t)f.size())", files)
+        self.assertIn("const uint64_t binBytes = (uint64_t)f.size();", files)
+        self.assertIn("u64Text(binBytes)", files)
         self.assertNotIn("(uint32_t)f.size()", files)
 
     def test_comparison_is_visible_and_has_select_labels(self):

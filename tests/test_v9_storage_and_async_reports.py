@@ -92,7 +92,7 @@ const fetch=url=>new Promise(resolve=>{pending[url]=resolve;});
 function element(){return {children:[],textContent:"",value:"",
  replaceChildren(){this.children=[];this.textContent="";},
  appendChild(v){this.children.push(v);},append(...v){this.children.push(...v);}};}
-const elements={compareA:element(),compareB:element(),comparisonResults:element()};
+const elements={compareA:element(),compareB:element(),comparisonResults:element(),comparisonSources:element()};
 const $=id=>elements[id];
 const document={createElement:()=>element()};
 let comparisonRequestId=0,comparisonMeta=null;
