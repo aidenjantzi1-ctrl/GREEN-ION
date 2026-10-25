@@ -87,5 +87,34 @@ const api=async()=>({total:8388608,used:100,files:[
         self.assertFalse(complete[5]["disabled"])
 
 
+    def test_refresh_reenables_notes_only_when_txt_appears(self):
+        script = HELPERS + LISTING + DOM + r"""
+let refresh=0;
+$("fileSort").value="size";
+const api=async()=>{
+ refresh++;
+ return {total:8388608,used:100,files:[
+  {name:"FLT0001.BIN",size:64,recordLengthOK:true,
+   hasSummary:refresh>1,protected:false},
+  {name:"FLT0002.BIN",size:128,recordLengthOK:true,
+   hasSummary:true,protected:false}
+ ]};
+};
+function noteDisabled(){
+ const row=$("fileList").children.find(row=>row.children[0].textContent.startsWith("FLT0001"));
+ return row.children[1].children[5].disabled;
+}
+(async()=>{
+ await loadFiles();const first=noteDisabled();
+ await loadFiles();const second=noteDisabled();
+ console.log(JSON.stringify({first,second,refresh}));
+})().catch(e=>{console.error(e);process.exitCode=1;});
+"""
+        result = run_node(script)
+        self.assertTrue(result["first"])
+        self.assertFalse(result["second"])
+        self.assertEqual(result["refresh"], 2)
+
+
 if __name__ == "__main__":
     unittest.main()
