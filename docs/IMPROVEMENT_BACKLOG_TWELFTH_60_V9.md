@@ -16,8 +16,8 @@ Reviewed 2026-10-25 against V9 and draft PR #11. These are **60 additional concr
 10. Distinguish an SD directory read error encountered mid-scan from reaching the directory's normal end.
 11. Return a clear 'partial listing' indicator if memory limits force the firmware to stop enumerating files.
 12. Bound firmware JSON response size for a card containing hundreds of recordings without silently claiming all were listed.
-13. Keep a failed file-list response from replacing the last-known file count with a misleading zero.
-14. Make a missing TXT companion a warning, not a reason to hide the downloadable original BIN.
+13. Return a machine-readable distinction between an unmounted SD filesystem and a temporarily busy recorder, while keeping the user-facing message short.
+14. When a recovered BIN has no TXT, surface any available checkpoint recovery status without generating a guessed replacement summary.
 15. Require a disposable-card bench test before changing the recovery or deletion paths based on new file warnings.
 
 ## P1 — Improve first-use and Storage flow (16–35)
@@ -27,15 +27,15 @@ Reviewed 2026-10-25 against V9 and draft PR #11. These are **60 additional concr
 18. State beside the file list that a correct byte count is not proof that sensor readings are accurate.
 19. Use a single consistent label for the firmware's RKT4 record-size check across Storage, Help, and diagnostics.
 20. Keep a file row's action buttons grouped under its filename at phone widths below 360 CSS pixels.
-21. Show 'File list unavailable' without wiping a previously opened flight graph that the user is still reviewing.
-22. After a failed file refresh, disable actions that require a current directory listing while keeping existing downloaded data readable.
+21. Add an explicit 'last reviewed flight' label when a saved graph remains on screen after a newer recording is created.
+22. Rate-limit repeated manual file refresh clicks on a slow card to avoid queuing multiple overlapping directory scans.
 23. Show an unobtrusive retry instruction after a 409 'SD busy' file-list response; do not prompt the user to format the card.
 24. Do not automatically begin a large CSV download merely because the user opens the Storage tab.
 25. Explain that the browser can lose the recorder's local Wi-Fi when the device joins another network; provide a one-step reconnect hint.
 26. Use a visible filename in every download error so the operator knows which recording failed.
 27. Keep a successful Protect/Unprotect result in the same row until the next refresh, rather than requiring a modal dialog.
 28. On narrow screens, allow long flight labels to wrap without pushing the Delete button outside the viewport.
-29. Keep the two comparison selectors stable when sorting files and ensure the chosen pair remains visibly labeled.
+29. Preserve the operator's comparison pair when navigating away from and back to Storage within the same browser session.
 30. Give a disabled Compare button a nearby text explanation when only one readable TXT summary exists.
 31. Label a BIN-only recording 'raw file available' instead of 'no flight' when its summary is missing.
 32. Do not silently auto-switch the reviewed flight if a refresh discovers a newer recording.
@@ -59,7 +59,7 @@ Reviewed 2026-10-25 against V9 and draft PR #11. These are **60 additional concr
 47. Print both recording filenames in a comparison chart's caption so screenshots retain their source identity.
 48. Place the warning about uncertain phase detection before estimated flight duration in the PDF.
 49. Allow an optional one-line 'test conditions' note in the existing TXT notes mechanism, rather than introducing a separate report editor.
-50. Verify that PDF print preview uses the same missing-value rules as the on-screen summary for zero, blank and invalid numbers.
+50. Bench-test the PDF report's readable font size on both US Letter and A4 print settings, without adding a separate report-layout menu.
 
 ## P3 — Bench tests and maintenance; defer until core passes (51–60)
 
