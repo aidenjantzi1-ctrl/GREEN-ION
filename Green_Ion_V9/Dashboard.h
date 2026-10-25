@@ -1624,10 +1624,15 @@ async function loadFiles() {
    for(const id of ["compareA","compareB"])$(id).replaceChildren();
    comparisonMeta=null;comparisonRequestId++;
    $("compareFlights").disabled=true;
+   $("comparisonResults").textContent="Save two recordings to compare.";
    list.textContent="No flight files yet. Save a test recording to see it here.";
    return;
   }
   $("compareFlights").disabled=result.files.length<2;
+  if(result.files.length<2){
+   comparisonMeta=null;comparisonRequestId++;
+   $("comparisonResults").textContent="Save another recording to compare.";
+  }
 
   const sort=$("fileSort").value;
   const files=result.files.slice().sort((a,b)=>sort==="old"?a.name.localeCompare(b.name):sort==="size"?b.size-a.size:b.name.localeCompare(a.name));
