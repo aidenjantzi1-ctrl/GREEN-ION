@@ -62,6 +62,13 @@ const safeHTML = v => String(v);
         result = self.graph(rows)
         self.assertGreaterEqual(result["operations"].count("M"), 2)
 
+    def test_large_time_gap_splits_line(self):
+        result = self.graph([
+            self.sample(0), self.sample(0.1),
+            self.sample(4), self.sample(4.1),
+        ])
+        self.assertEqual(result["operations"], ["M", "L", "M", "L"])
+
     def test_insufficient_data_is_explained(self):
         result = self.graph([self.sample(0, False), self.sample(1)])
         self.assertIn("insufficient data", result["html"])
