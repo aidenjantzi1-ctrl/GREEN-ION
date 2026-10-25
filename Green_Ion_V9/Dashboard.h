@@ -1277,6 +1277,8 @@ function extreme(values,minimum){let result=minimum?Infinity:-Infinity;for(const
 let flightPhases=[];
 let flightMeta={};
 let comparisonMeta=null;
+let flightSummaryRequestId=0;
+let comparisonRequestId=0;
 async function loadSavedGraph(name){
  const requestId=++graphRequestId;
  loadedFlightName="";
@@ -1296,7 +1298,7 @@ async function loadSavedGraph(name){
   computePhases(savedFlightSeries);
   renderFlightPerformance(savedFlightSeries);
   drawSavedGraph();
- }catch(err){if(requestId!==graphRequestId)return;savedFlightSeries=[];loadedFlightName="";label.textContent=err.message;$("flightPerformance").textContent="Performance unavailable: "+err.message;drawSavedGraph();}
+ }catch(err){if(requestId!==graphRequestId||selectedFlight!==name)return;savedFlightSeries=[];loadedFlightName="";label.textContent=err.message;$("flightPerformance").textContent="Performance unavailable: "+err.message;drawSavedGraph();}
 }
 // Split samples at invalid pressure readings and at missing/rewound time.
 // Never estimate motion across a sensor dropout, even if the gap is short.
@@ -1453,12 +1455,15 @@ async function readFlightMetadata(name){
  }return result;
 }
 async function compareFlights(){
+ const requestId=++comparisonRequestId;
+ comparisonMeta=null;
  const el=$("comparisonResults");el.replaceChildren();
  const a=$("compareA").value,b=$("compareB").value;
  if(!a||!b||a===b){el.textContent="Select two different flights.";return;}
  el.textContent="Loading comparison...";
  try{
   const [one,two]=await Promise.all([readFlightMetadata(a),readFlightMetadata(b)]);
+  if(requestId!==comparisonRequestId||$("compareA").value!==a||$("compareB").value!==b)return;
   comparisonMeta={a,b,one,two};
   el.replaceChildren();
   for(const [key,title] of [["peak_altitude_m","Peak altitude (m)"],["duration_s","Duration (s)"],["samples","Samples"],["missed_samples","Missed samples"],["invalid_samples","Invalid samples"],["temperature_max_c","Max temperature (°C)"]]){
@@ -1468,13 +1473,23 @@ async function compareFlights(){
    const value=document.createElement("strong");value.textContent=(one[key]||"—")+" / "+(two[key]||"—");
    row.append(label,value);el.appendChild(row);
   }
- }catch(err){el.textContent=err.message;}
+ }catch(err){if(requestId===comparisonRequestId&&$("compareA").value===a&&$("compareB").value===b)el.textContent=err.message;}
 }
 
 async function showFlightStats(name,scrollToReport=true) {
+ const requestId=++flightSummaryRequestId;
  selectedFlight=name;
+ // Invalidate any graph download still running for the previously selected flight.
+ graphRequestId++;
  savedFlightSeries=[];
  loadedFlightName="";
+ flightMeta={};
+ flightPhases=[];
+ $("savedGraphStatus").textContent="Waiting for recorded samples...";
+ $("flightPerformance").textContent="Waiting for recorded samples...";
+ $("flightPhases").textContent="Waiting for recorded samples...";
+ $("flightExtraMetrics").replaceChildren();
+ drawSavedGraph();
  const status=$("flightSummaryStatus");
  const details=$("flightSummaryDetails");
  details.replaceChildren();
@@ -1483,6 +1498,7 @@ async function showFlightStats(name,scrollToReport=true) {
   const response=await fetch("/api/flightstats?name="+encodeURIComponent(name),
    {cache:"no-store"});
   const content=await response.text();
+  if(requestId!==flightSummaryRequestId||selectedFlight!==name)return;
   if(!response.ok)throw Error(content||"Cannot read flight summary");
   const values={};
   for(const line of content.split(/\r?\n/)) {
@@ -1525,7 +1541,7 @@ async function showFlightStats(name,scrollToReport=true) {
   status.textContent="Showing saved statistics for "+name;
   loadSavedGraph(name);
   if(scrollToReport)$("flightSummaryCard").scrollIntoView({behavior:"smooth",block:"start"});
- }catch(err){status.textContent=err.message;}
+ }catch(err){if(requestId===flightSummaryRequestId&&selectedFlight===name)status.textContent=err.message;}
 }
 
 function safeHTML(v){return String(v??"—").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
