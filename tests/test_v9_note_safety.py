@@ -69,13 +69,14 @@ const api=async()=>({total:8388608,used:100,files:[
  await loadFiles();
  const rows=$("fileList").children.map(row=>{
   const buttons=row.children[1].children;
-  return buttons.map(b=>({text:b.textContent,disabled:b.disabled,title:b.title}));
+  return {name:row.children[0].textContent.split(" · ")[0],
+   buttons:buttons.map(b=>({text:b.textContent,disabled:b.disabled,title:b.title}))};
  });
  console.log(JSON.stringify(rows));
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """
-        rows = run_node(script)
-        missing, complete = rows
+        rows = {row["name"]: row["buttons"] for row in run_node(script)}
+        missing, complete = rows["FLT0001.BIN"], rows["FLT0002.BIN"]
         self.assertEqual(missing[0]["text"], "View data")
         self.assertFalse(missing[1]["disabled"])  # BIN
         self.assertFalse(missing[2]["disabled"])  # CSV
