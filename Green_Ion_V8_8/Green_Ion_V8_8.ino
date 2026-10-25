@@ -39,6 +39,7 @@
 #include <Update.h>
 #include <Preferences.h>
 #include <math.h>
+#include "BuildInfo.h"
 
 #ifndef GREEN_ION_GIT_SHA
 #define GREEN_ION_GIT_SHA "local-build"
