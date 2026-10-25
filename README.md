@@ -6,6 +6,8 @@ GREEN ION V8.8 is experimental firmware for an Adafruit ESP32 Feather V2 flight-
 
 ## V8.8 recording-reliability development (in progress)
 
+**Proposed review update:** [V8.8 reliability and simple preflight fixes](docs/IMPROVEMENT_BACKLOG_THIRD_60_V88.md) includes 60 additional prioritized ideas. Only a small set of correctness and usability changes is implemented on its review branch; the rest are deferred. Do not install or merge before CI and physical SD-card tests.
+
 V8.8 has a standalone source snapshot in `Green_Ion_V8_8/`. Download the `green-ion-v8.8-phone-update` artifact only after its GitHub Actions run succeeds.
 
 V8.8 adds a real 10-second ground test, altitude-noise and frozen-sensor checks, SD flush timing and heartbeat, configurable 2/5/10/20-minute recording limits, phone-provided date/time, firmware/build metadata, battery sag tracking, a postflight confidence score, an FNV-1a log checksum, protected flights, recovery notes, and a downloadable diagnostic report.
