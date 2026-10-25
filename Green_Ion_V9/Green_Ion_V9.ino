@@ -2324,9 +2324,19 @@ void deleteAPI() {
     return;
   }
 
-  bool ok = SD.remove("/" + n);
-  SD.remove("/" + companionFile(n));
-  respond(ok, ok ? "Flight deleted" : "Delete failed");
+  const String binPath = "/" + n;
+  if (!SD.exists(binPath)) {
+    respond(false, "Flight BIN not found; nothing deleted");
+    return;
+  }
+  // Never remove a TXT summary if deleting its original BIN fails.
+  if (!SD.remove(binPath)) {
+    respond(false, "Could not delete BIN; TXT summary preserved");
+    return;
+  }
+  const String txtPath = "/" + companionFile(n);
+  const bool summaryRemoved = !SD.exists(txtPath) || SD.remove(txtPath);
+  respond(summaryRemoved, summaryRemoved ? "Flight deleted" : "BIN deleted; TXT cleanup failed");
 }
 
 void protectAPI() {
