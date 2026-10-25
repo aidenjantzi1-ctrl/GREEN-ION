@@ -1630,7 +1630,7 @@ async function loadFiles() {
   const result=await api("files");
   // Reject malformed or ambiguous listings before offering file actions.
   if(!result||!Array.isArray(result.files))throw Error("Invalid file list response; reconnect and retry");
-  if(!result.files.every(f=>f&&typeof f==="object"&&typeof f.name==="string"&&/^FLT\d{4}\.BIN$/.test(f.name)))
+  if(!result.files.every(f=>f&&typeof f==="object"&&typeof f.name==="string"&&/^FLT(?!0000)\d{4}\.BIN$/.test(f.name)))
    throw Error("Invalid recording name; reconnect and retry");
   const fileNames=result.files.map(f=>f.name);
   if(new Set(fileNames).size!==fileNames.length)throw Error("Duplicate recording names; reconnect and retry");
