@@ -2082,9 +2082,10 @@ void filesAPI() {
   root.close();
 
   output += "],\"total\":";
-  output += String((uint32_t)SD.totalBytes());
+  // SD capacities can exceed 4 GiB; never narrow the reported byte counts.
+  output += u64Text(SD.totalBytes());
   output += ",\"used\":";
-  output += String((uint32_t)SD.usedBytes());
+  output += u64Text(SD.usedBytes());
   output += "}";
 
   web.send(200, "application/json", output);
@@ -2145,6 +2146,13 @@ void csvAPI() {
       (read16(header + 10) != 10 && read16(header + 10) != 25 && read16(header + 10) != 50)) {
     f.close();
     web.send(422, "text/plain", "Invalid RKT4 file");
+    return;
+  }
+
+  // A valid header alone is not a flight: do not export an empty CSV.
+  if (f.size() < sizeof(header) + 16U) {
+    f.close();
+    web.send(422, "text/plain", "RKT4 recording has no complete samples");
     return;
   }
 
