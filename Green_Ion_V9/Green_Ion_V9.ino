@@ -454,6 +454,21 @@ int batteryPercent() {
 // ---------- BMP388 ----------
 
 // Keep all settings and destructive maintenance actions out of active workflows.
+// Reject malformed numeric settings before narrowing to smaller integer types.
+// String.toInt() accepts suffixes, and casting before validation can wrap values.
+bool parseChoiceNumber(const String &raw, uint16_t &value) {
+  if (raw.length() == 0 || raw.length() > 5) return false;
+  uint32_t parsed = 0;
+  for (size_t i = 0; i < raw.length(); ++i) {
+    char c = raw.charAt(i);
+    if (c < '0' || c > '9') return false;
+    parsed = parsed * 10 + (c - '0');
+    if (parsed > 65535UL) return false;
+  }
+  value = (uint16_t)parsed;
+  return true;
+}
+
 bool flightSettingsLocked() {
   return prepareActive || armed || recording || launchWatch ||
          calibrating || groundTestActive || simulating || shutdownPending ||
@@ -2396,16 +2411,19 @@ void setupRoutes() {
       return;
     }
 
-    uint16_t requested = (uint16_t)web.arg("rate").toInt();
-    uint8_t requestedLimit = (uint8_t)web.arg("limit").toInt();
-    bool validRate = requested == 10 || requested == 25 || requested == 50;
-    bool validLimit = requestedLimit == 2 || requestedLimit == 5 ||
-      requestedLimit == 10 || requestedLimit == 20;
+    uint16_t requested = 0;
+    uint16_t requestedLimitNumber = 0;
+    bool parsedRate = parseChoiceNumber(web.arg("rate"), requested);
+    bool parsedLimit = parseChoiceNumber(web.arg("limit"), requestedLimitNumber);
+    bool validRate = parsedRate && (requested == 10 || requested == 25 || requested == 50);
+    bool validLimit = parsedLimit && (requestedLimitNumber == 2 || requestedLimitNumber == 5 ||
+      requestedLimitNumber == 10 || requestedLimitNumber == 20);
     // Validate the whole request before changing the rate or preferences.
     if (!validRate || !validLimit) {
       respond(false, "Choose 10/25/50 Hz and a 2/5/10/20 minute limit");
       return;
     }
+    uint8_t requestedLimit = (uint8_t)requestedLimitNumber;
     bool changed = requested != sampleRateHz ||
                    requestedLimit != recordingLimitMin;
     bool ok = setSampleRate(requested);
@@ -2465,18 +2483,22 @@ void setupRoutes() {
 
     uint16_t requestedRate = sampleRateHz;
     if (web.hasArg("rate")) {
-      requestedRate = (uint16_t)web.arg("rate").toInt();
-      if (requestedRate != 10 && requestedRate != 25 && requestedRate != 50) {
+      uint16_t parsedRate = 0;
+      if (!parseChoiceNumber(web.arg("rate"), parsedRate) ||
+          (parsedRate != 10 && parsedRate != 25 && parsedRate != 50)) {
         respond(false, "Choose 10, 25, or 50 Hz"); return;
       }
+      requestedRate = parsedRate;
     }
     uint8_t requestedLimit = recordingLimitMin;
     if (web.hasArg("limit")) {
-      requestedLimit = (uint8_t)web.arg("limit").toInt();
-      if (requestedLimit != 2 && requestedLimit != 5 &&
-          requestedLimit != 10 && requestedLimit != 20) {
+      uint16_t parsedLimit = 0;
+      if (!parseChoiceNumber(web.arg("limit"), parsedLimit) ||
+          (parsedLimit != 2 && parsedLimit != 5 &&
+           parsedLimit != 10 && parsedLimit != 20)) {
         respond(false, "Choose a 2, 5, 10, or 20 minute limit"); return;
       }
+      requestedLimit = (uint8_t)parsedLimit;
     }
 
     bool useEpoch = web.hasArg("epoch");

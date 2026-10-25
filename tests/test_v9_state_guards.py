@@ -36,9 +36,9 @@ class StateGuardTests(unittest.TestCase):
         body = route("prepare", "arm")
         self.assertLess(body.index("if (flightSettingsLocked())"),
                         body.index("requestedKind = web.arg"))
-        self.assertLess(body.index('requestedRate != 10'),
+        self.assertLess(body.index('parsedRate != 10'),
                         body.index("if (!startPrepareAll())"))
-        self.assertLess(body.index('requestedLimit != 2'),
+        self.assertLess(body.index('parsedLimit != 2'),
                         body.index("if (!startPrepareAll())"))
         self.assertLess(body.index("if (!startPrepareAll())"),
                         body.index("missionKind = requestedKind;"))
