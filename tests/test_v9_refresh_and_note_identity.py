@@ -58,6 +58,11 @@ class FirmwareNoteIdentity(unittest.TestCase):
     def test_note_save_does_not_jump_to_report(self):
         self.assertIn("await showFlightStats(f.name,false);", DASH)
 
+    def test_user_instructions_explain_note_refusal(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("existing TXT summary identifies the selected BIN", readme)
+        self.assertIn("recorder refuses to append", readme)
+
 
 @unittest.skipUnless(shutil.which("node"), "Node.js required")
 class BrowserStorageOrdering(unittest.TestCase):
