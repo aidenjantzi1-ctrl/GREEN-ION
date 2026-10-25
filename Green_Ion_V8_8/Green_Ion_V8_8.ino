@@ -39,10 +39,9 @@
 #include <Update.h>
 #include <Preferences.h>
 #include <math.h>
-#include "BuildInfo.h"
 
 #ifndef GREEN_ION_GIT_SHA
-#define GREEN_ION_GIT_SHA "local-build"
+#define GREEN_ION_GIT_SHA "v8.8-standalone"
 #endif
 
 const char *FIRMWARE_VERSION = "8.8";

@@ -52,7 +52,6 @@ jobs:
       - name: Compile V8.8
         run: |
           mkdir -p build
-          sed -i "s/source-release/${GITHUB_SHA}/" Green_Ion_V8_8/BuildInfo.h
           arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --output-dir build Green_Ion_V8_8
 
       - name: Package phone-downloadable firmware
@@ -63,5 +62,4 @@ jobs:
             build/Green_Ion_V8_8.ino.bin
             Green_Ion_V8_8/Green_Ion_V8_8.ino
             Green_Ion_V8_8/Dashboard.h
-            Green_Ion_V8_8/BuildInfo.h
           if-no-files-found: error
