@@ -2364,11 +2364,26 @@ void noteAPI() {
   if (!validFile(n) || !SD.exists("/" + n) || !note.length()) {
     respond(false, "Choose a flight and enter a note"); return;
   }
-  File f = SD.open("/" + companionFile(n), FILE_APPEND);
+  // FILE_APPEND can create a missing TXT: never turn a BIN-only flight into
+  // a misleading partial summary just because someone added a note.
+  const String summaryPath = "/" + companionFile(n);
+  if (!SD.exists(summaryPath)) {
+    respond(false, "TXT summary missing; original BIN unchanged");
+    return;
+  }
+  File f = SD.open(summaryPath, FILE_APPEND);
   if (!f) { respond(false, "Could not open flight summary"); return; }
-  f.println("user_note=" + note);
+  const String line = "user_note=" + note + "\n";
+  const size_t written = f.print(line);
   f.flush();
   f.close();
+  if (written != line.length()) {
+    // An incomplete append must not be reported as a saved note.
+    sdVerified = false;
+    sdStatus = "Note write incomplete; inspect TXT and retest SD";
+    respond(false, "Note write incomplete; inspect TXT and retest SD");
+    return;
+  }
   respond(true, "Note saved with flight");
 }
 
