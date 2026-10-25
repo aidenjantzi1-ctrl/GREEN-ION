@@ -1692,7 +1692,7 @@ async function loadFiles() {
    };
 
    const summary=document.createElement("button");
-   summary.textContent="View stats";
+   summary.textContent=f.hasSummary===false?"View data":"View stats";
    summary.onclick=()=>showFlightStats(f.name);
 
    const txt=document.createElement("button");
@@ -1701,6 +1701,8 @@ async function loadFiles() {
     location.href="/api/metadata?name="+
      encodeURIComponent(f.name);
    };
+   txt.disabled=f.hasSummary===false;
+   txt.title=f.hasSummary===false?"TXT summary missing; BIN and CSV are still available":"Download saved TXT summary";
 
    const rm=document.createElement("button");
    rm.textContent="Delete";
@@ -1728,6 +1730,8 @@ async function loadFiles() {
 
    const note=document.createElement("button");
    note.textContent="Add note";
+   note.disabled=f.hasSummary===false;
+   note.title=f.hasSummary===false?"Cannot add notes without the original TXT summary":"Append a note to this flight summary";
    note.onclick=async()=>{const value=prompt("Recovery or flight note for "+f.name+":");if(!value)return;try{await api("note?name="+encodeURIComponent(f.name)+"&note="+encodeURIComponent(value),"POST");await showFlightStats(f.name);}catch(err){alert(err.message)}};
 
    rm.disabled=!!f.protected;
