@@ -457,6 +457,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <label for="compareA">First recording</label><select id="compareA"></select>
   <label for="compareB">Second recording</label><select id="compareB"></select>
   <button id="compareFlights" class="secondary" style="width:100%">COMPARE FLIGHTS</button>
+  <p id="comparisonSources" class="muted" aria-live="polite"></p>
   <div id="comparisonResults" role="status"></div><button id="exportComparePDF" class="secondary" style="width:100%">PRINT / SAVE MOTOR COMPARISON PDF</button>
  </div>
 </section>
@@ -1461,7 +1462,9 @@ function drawSavedGraph(){
 }
 async function readFlightMetadata(name){
  const response=await fetch("/api/flightstats?name="+encodeURIComponent(name),{cache:"no-store"});
- if(!response.ok)throw Error(name+": summary missing");
+ if(!response.ok)throw Error(response.status===404
+  ?name+": TXT summary missing; original BIN can still be downloaded."
+  :name+": cannot read saved summary ("+response.status+"). Check SD and retry.");
  const result={};for(const line of (await response.text()).split(/\r?\n/)){
   const ix=line.indexOf("=");if(ix>0)result[line.slice(0,ix).trim()]=line.slice(ix+1).trim();
  }return result;
@@ -1472,7 +1475,8 @@ async function compareFlights(){
  const el=$("comparisonResults");el.replaceChildren();
  const a=$("compareA").value,b=$("compareB").value;
  if(!a||!b||a===b){el.textContent="Select two different flights.";return;}
- el.textContent="Loading comparison...";
+ $("comparisonSources").textContent="First: "+a+" · Second: "+b;
+  el.textContent="Loading comparison for the selected recordings...";
  try{
   const [one,two]=await Promise.all([readFlightMetadata(a),readFlightMetadata(b)]);
   if(requestId!==comparisonRequestId||$("compareA").value!==a||$("compareB").value!==b)return;
@@ -1588,7 +1592,7 @@ function exportFlightPDF(){
  const perf=[...$("flightPerformance").querySelectorAll(".row")].map(r=>[r.querySelector("span")?.textContent,r.querySelector("strong")?.textContent]);
  const extra=[...$("flightExtraMetrics").querySelectorAll(".row")].map(r=>[r.querySelector("span")?.textContent,r.querySelector("strong")?.textContent]);
  const charts=[[5,"Altitude (m)"],[6,"Vertical speed (m/s)"],[7,"Estimated acceleration (m/s²)"],[8,"Estimated vertical apparent G"],[3,"Battery voltage (V)"],[1,"Pressure (Pa)"],[2,"Temperature (°C)"]].map(([column,title])=>reportGraph(savedFlightSeries,column,title)).join("");
- printableReport("GREEN-ION flight — "+selectedFlight,"<h2>Flight metadata</h2>"+pdfRows(Object.entries(flightMeta))+"<h2>Estimated phases</h2>"+pdfRows(phases)+"<h2>Flight performance</h2>"+pdfRows(perf)+"<h2>Battery and acceleration</h2>"+pdfRows(extra)+charts);
+ printableReport("GREEN-ION flight — "+selectedFlight,"<p><strong>Source BIN:</strong> "+safeHTML(selectedFlight)+". Graph time is seconds since the first recorded sample, not ignition. Motion values are barometric estimates.</p><h2>Flight metadata</h2>"+pdfRows(Object.entries(flightMeta))+"<h2>Estimated phases</h2>"+pdfRows(phases)+"<h2>Flight performance</h2>"+pdfRows(perf)+"<h2>Battery and acceleration</h2>"+pdfRows(extra)+charts);
 }
 function compareBarGraph(a,b,key,title,unit){
  const x=comparisonNumber(a[key]),y=comparisonNumber(b[key]);
@@ -1617,12 +1621,20 @@ async function loadFiles() {
   $("sdFreeSpace").textContent=storageValid?bytes(total-used):"Unknown — retest SD card";
   $("fileCount").textContent=result.files.length;
   $("sdTestResult").textContent=state?.sdVerified?"PASS":"NOT VERIFIED";
+  // If a file disappears during refresh, do not keep its old comparison.
+  const names=new Set(result.files.map(f=>f.name));
+  if(comparisonMeta&&(!names.has(comparisonMeta.a)||!names.has(comparisonMeta.b))){
+   comparisonMeta=null;comparisonRequestId++;
+   $("comparisonSources").textContent="";
+   $("comparisonResults").textContent="A compared recording is no longer on the SD card. Choose two available files.";
+  }
   const list=$("fileList");
   list.replaceChildren();
 
   if(!result.files.length) {
    for(const id of ["compareA","compareB"])$(id).replaceChildren();
    comparisonMeta=null;comparisonRequestId++;
+   $("comparisonSources").textContent="";
    $("compareFlights").disabled=true;
    $("comparisonResults").textContent="Save two recordings to compare.";
    list.textContent="No flight files yet. Save a test recording to see it here.";
@@ -1631,6 +1643,7 @@ async function loadFiles() {
   $("compareFlights").disabled=result.files.length<2;
   if(result.files.length<2){
    comparisonMeta=null;comparisonRequestId++;
+   $("comparisonSources").textContent="";
    $("comparisonResults").textContent="Save another recording to compare.";
   }
 
@@ -1647,6 +1660,9 @@ async function loadFiles() {
    row.className="file";
    const text=document.createElement("span");
    text.textContent=f.name+" · "+bytes(f.size);
+   // Only length and companion-file presence are checked in this listing.
+   if(f.recordLengthOK===false)text.textContent+=" · Check BIN length";
+   if(f.hasSummary===false)text.textContent+=" · TXT missing";
 
    const actions=document.createElement("span");
    const dl=document.createElement("button");
@@ -1711,6 +1727,13 @@ async function loadFiles() {
   if(!selectedFlight && files.length)await showFlightStats(files[0].name,false);
  }catch(err){
   $("fileList").textContent="Cannot list recordings: "+err.message+(state?.recording?" · Wait until recording finishes.":" · Check the SD card and retry.");
+  $("fileCount").textContent="—";
+  $("storageUsed").textContent="Capacity unavailable";
+  $("sdFreeSpace").textContent="Unknown — retry Refresh Files";
+  comparisonMeta=null;comparisonRequestId++;
+  $("comparisonSources").textContent="";
+  $("compareFlights").disabled=true;
+  $("comparisonResults").textContent="File list unavailable. Refresh files before comparing.";
  }
 }
 
@@ -1760,6 +1783,11 @@ $("refresh").onclick=loadFiles;
 $("fileSort").onchange=loadFiles;
 $("savedGraphMetric").onchange=drawSavedGraph;
 $("compareFlights").onclick=compareFlights;
+for(const id of ["compareA","compareB"])$(id).onchange=()=>{
+ comparisonMeta=null;comparisonRequestId++;
+ $("comparisonSources").textContent="";
+ $("comparisonResults").textContent="Selection changed. Press Compare Flights.";
+};
 $("exportFlightPDF").onclick=exportFlightPDF;
 $("exportComparePDF").onclick=exportComparePDF;
 $("openFlightStats").onclick=()=>openTab("storage",document.querySelector('[data-tab="storage"]'));
