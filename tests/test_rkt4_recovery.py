@@ -76,12 +76,16 @@ class RecoveryTests(unittest.TestCase):
             "/api/diagnostics",
         ):
             self.assertIn(token, DASH)
+        self.assertNotIn("Launch assistant", DASH)
+        self.assertNotIn("Compare flights", DASH)
+        self.assertNotIn("comparisonMeta", DASH)
 
     def test_v9_automatic_flight_contract(self):
         for token in (
             "PREBUFFER_CAPACITY", "capturePrelaunch", "writePrebuffer",
             "startLaunchWatch", "wifiLaunchDisconnectPending", "activePhase",
             "phaseParachuteMs", "landingStableSinceMs", "GREENION.CFG",
+            "peakAscentSpeedMps", "fastestDescentMps",
             "nextCardSequence", 'web.on("/api/prepare"',
             'web.on("/api/launchwatch"', 'web.on("/api/cancel"',
         ):

@@ -15,11 +15,13 @@ def allocate_mission(next_mission, occupied):
 def estimate_phases(points):
     phases = ["launch", "powered ascent"]
     speeds = [p[1] for p in points]
-    if any(a > 3 and b < a - 3 for a, b in zip(speeds, speeds[1:])):
+    peak_ascent = max(speeds)
+    if peak_ascent > 8 and any(v < peak_ascent - 5 for v in speeds[1:]):
         phases.append("coast")
     if max(p[0] for p in points) > 8 and any(v <= 0.5 for v in speeds[2:]):
         phases.extend(["apogee", "descent"])
-    if any(a < -8 and b > a + 4 and b < -0.5 for a, b in zip(speeds, speeds[1:])):
+    fastest_descent = min(speeds)
+    if fastest_descent < -8 and any(fastest_descent + 4 < v < -0.5 for v in speeds):
         phases.append("probable parachute")
     return phases
 

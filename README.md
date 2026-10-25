@@ -144,7 +144,7 @@ Use a module that is electrically compatible with 3.3 V logic. The firmware can 
 6. **Arm the logger and start logging:** Arm only after preflight checks pass. Press **START RECORDING** before the physical launch and check the file and sample count. GREEN-ION **does not** initiate ignition or control any recovery equipment.
 7. **During flight:** The onboard recorder operates independently of the phone or Wi-Fi signal. Wi-Fi disconnects or range loss must not be treated as an SD failure; do not rely on a live connection to run a flight.
 8. **After recovery:** If it has not already stopped automatically, press **STOP & SAVE** after recovering the rocket. Do not remove power or the card while a recording is active.
-9. **Review and export:** In Storage select **View stats**, inspect phase markers, sensor diagnostics, battery and acceleration estimates, choose graph variables, and use **PRINT / SAVE FLIGHT PDF**. Use **Compare Flights** and **PRINT / SAVE MOTOR COMPARISON PDF** for comparisons. Keep the original BIN file for later reanalysis.
+9. **Review and export:** In Storage select **View stats**, inspect the selected flight's phase markers, battery and acceleration estimates, choose a graph variable, and use **PRINT / SAVE FLIGHT PDF**. Keep the original BIN file for later reanalysis. V9 intentionally omits cross-flight comparison controls to keep Storage focused.
 
 ## LED status
 

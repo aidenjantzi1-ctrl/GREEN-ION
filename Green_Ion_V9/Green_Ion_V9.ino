@@ -207,7 +207,8 @@ uint16_t prebufferCount = 0;
 uint8_t launchConfirmSamples = 0;
 float launchWatchBaseAltM = 0;
 float altitudeNoiseM = 0.6f;
-float priorPhaseSpeedMps = 0;
+float peakAscentSpeedMps = 0;
+float fastestDescentMps = 0;
 float landingAnchorM = NAN;
 uint32_t landingStableSinceMs = 0;
 String activePhase = "idle";
@@ -1183,7 +1184,8 @@ bool beginFlight() {
   phaseConfidence = 70;
   phaseLaunchMs = 0;
   phaseBoostEndMs = phaseApogeeMs = phaseDescentMs = phaseParachuteMs = phaseLandingMs = 0;
-  priorPhaseSpeedMps = speedMps;
+  peakAscentSpeedMps = max(0.0f, speedMps);
+  fastestDescentMps = 0;
   landingStableSinceMs = 0;
   landingAnchorM = NAN;
   writePrebuffer();
@@ -1219,8 +1221,10 @@ void checkLanding() {
 
   // Pressure-only phase estimates. These are recorded as estimates, never as
   // recovery-control signals.
+  if (activePhase == "powered ascent")
+    peakAscentSpeedMps = max(peakAscentSpeedMps, speedMps);
   if (activePhase == "powered ascent" && elapsed > 500 &&
-      speedMps > 3 && speedMps < priorPhaseSpeedMps - 3) {
+      peakAscentSpeedMps > 8 && speedMps < peakAscentSpeedMps - 5) {
     activePhase = "coast";
     phaseBoostEndMs = elapsed;
     phaseConfidence = max(phaseConfidence, (uint8_t)60);
@@ -1235,14 +1239,14 @@ void checkLanding() {
     activePhase = "descent";
     phaseDescentMs = elapsed;
   }
-  if (activePhase == "descent" && priorPhaseSpeedMps < -8 &&
-      speedMps > priorPhaseSpeedMps + 4 && speedMps < -0.5f) {
+  if (activePhase == "descent")
+    fastestDescentMps = min(fastestDescentMps, speedMps);
+  if (activePhase == "descent" && fastestDescentMps < -8 &&
+      speedMps > fastestDescentMps + 4 && speedMps < -0.5f) {
     activePhase = "probable parachute";
     phaseParachuteMs = elapsed;
     phaseConfidence = max(phaseConfidence, (uint8_t)65);
   }
-  priorPhaseSpeedMps = speedMps;
-
   bool descended = peakM >= 12 && peakM - altM >= 8;
   bool stable = elapsed > 15000 && descended && fabsf(speedMps) <= 1.2f;
   if (!stable) {

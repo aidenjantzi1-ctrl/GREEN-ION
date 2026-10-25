@@ -174,25 +174,6 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 </nav>
 
 <section id="status" class="page active">
-<div class="card launch-guide" id="launchGuide" style="display:none">
- <div class="guide-top"><div><h2>Launch assistant</h2><p class="muted">Follow each stage from setup to flight report. This is a data logger, not an ignition controller.</p></div><strong id="guideStage">CONNECT</strong></div>
- <div class="progress" aria-hidden="true"><div id="guideProgress" style="width:0%"></div></div>
- <div class="guide-steps" id="guideSteps" aria-label="Launch workflow">
-  <span>1 · Connect</span><span>2 · Prepare</span><span>3 · Calibrate</span><span>4 · Record</span><span>5 · Review</span>
- </div>
- <div class="guide-message" id="guideMessage" role="status">Connecting to the recorder...</div>
- <div class="guide-actions"><button id="guideNext" class="green">VIEW NEXT STEP</button><button id="guideStorage" class="secondary">SAVED FLIGHTS</button></div>
- <details class="checklist"><summary>Physical launch checklist</summary>
-  <ul><li>Secure the Feather, BMP388, battery and SD wiring so connections cannot move during flight.</li>
-  <li>Confirm the rocket and launch range are prepared according to the motor manufacturer's instructions and the applicable safety code.</li>
-  <li>Check that the motor designation and sample rate are saved; test the SD card before arming.</li>
-  <li>Calibrate with the rocket stationary on the pad; keep the pressure vent unobstructed.</li>
-  <li>Start recording before launch. Do not depend on Wi-Fi remaining connected during flight.</li>
-  <li>After recovery, stop and save if still recording; then verify the file and export the report.</li></ul>
-  <p class="muted">The checklist is informational. GREEN-ION does not fire the motor or control deployment.</p>
- </details>
-</div>
-
 <div class="metrics">
  <div class="metric">
   <div class="label">LIVE ALTITUDE</div>
@@ -452,18 +433,12 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <canvas id="savedFlightGraph" style="width:100%;height:220px"></canvas>
   <div class="notice" id="savedGraphStatus">Select a flight to load its graph.</div><button id="exportFlightPDF" class="secondary" style="width:100%">PRINT / SAVE FLIGHT PDF</button>
  </div>
- <div class="card" style="display:none"><h2>Compare flights</h2>
-  <p class="muted">Select two saved recordings to compare their summary statistics.</p>
-  <select id="compareA"></select><select id="compareB"></select>
-  <button id="compareFlights" class="secondary" style="width:100%">COMPARE FLIGHTS</button>
-  <div id="comparisonResults" role="status"></div><button id="exportComparePDF" class="secondary" style="width:100%">PRINT / SAVE MOTOR COMPARISON PDF</button>
- </div>
 </section>
 
 <section id="system" class="page">
  <div class="card"><h2>Help and connection</h2>
   <details open><summary>Connect from a phone, iPad or computer</summary><p>Connect to <strong>GREEN-ION</strong> Wi-Fi and open <strong>http://192.168.4.1</strong>. This local Wi-Fi does not provide internet access; remain connected to use the recorder.</p></details>
-  <details><summary>Buttons disabled or view-only?</summary><p>Use <strong>Take Control</strong> on Overview. Only one browser may change recorder settings at a time. Recording or arming temporarily disables some settings.</p></details>
+  <details><summary>Buttons disabled or view-only?</summary><p>When one device is connected, it receives control automatically. With multiple viewers, use <strong>Take Control</strong> under Utilities. Recording or arming temporarily disables some settings.</p></details>
   <details><summary>SD testing or download trouble?</summary><p>Finish recording and disarm, then run <strong>Detect &amp; Test SD Card</strong> under Storage. The check uses only a temporary file. Download saved recordings after logging ends.</p></details>
   <details><summary>Updating the firmware</summary><p>Install only the main <strong>.ino.bin</strong> file from a successful GitHub Actions build. Keep power connected, and perform a ground test after updating.</p></details>
   <details><summary>Reading the flight calculations</summary><p>Altitude comes from atmospheric pressure. Derived speed, acceleration, apparent G, flight phases and landing estimates have uncertainty. Onboard SD logging continues without a live Wi-Fi connection once recording has started.</p></details>
@@ -670,18 +645,8 @@ function openTab(name,button) {
  drawAll();
 }
 
-let guideTarget="takeControl";
-let previousRecording=false;
-let justFinishedRecording=false;
-function jumpToControl(id,tab="status"){
- const button=document.querySelector('[data-tab="'+tab+'"]');
- if(button)openTab(tab,button);
- const target=$(id);if(target){target.scrollIntoView({behavior:"smooth",block:"center"});target.focus({preventScroll:true});}
-}
-function renderGuide(d){}
 function render(d,collect=true) {
  state=d;
- renderGuide(d);
  $("integrityStatus").textContent=d.integrityStatus||"Unknown";
  $("recoveredFlights").textContent=d.recoveredFlights??0;
  $("recoveredSamples").textContent=d.recoveredSamples??0;
@@ -1274,7 +1239,6 @@ let graphRequestId=0;
 function extreme(values,minimum){let result=minimum?Infinity:-Infinity;for(const value of values){if(!Number.isFinite(value))continue;result=minimum?Math.min(result,value):Math.max(result,value);}return Number.isFinite(result)?result:NaN;}
 let flightPhases=[];
 let flightMeta={};
-let comparisonMeta=null;
 async function loadSavedGraph(name){
  const requestId=++graphRequestId;
  loadedFlightName="";
@@ -1409,25 +1373,6 @@ async function readFlightMetadata(name){
   const ix=line.indexOf("=");if(ix>0)result[line.slice(0,ix).trim()]=line.slice(ix+1).trim();
  }return result;
 }
-async function compareFlights(){
- const el=$("comparisonResults");el.replaceChildren();
- const a=$("compareA").value,b=$("compareB").value;
- if(!a||!b||a===b){el.textContent="Select two different flights.";return;}
- el.textContent="Loading comparison...";
- try{
-  const [one,two]=await Promise.all([readFlightMetadata(a),readFlightMetadata(b)]);
-  comparisonMeta={a,b,one,two};
-  el.replaceChildren();
-  for(const [key,title] of [["peak_altitude_m","Peak altitude (m)"],["duration_s","Duration (s)"],["samples","Samples"],["missed_samples","Missed samples"],["invalid_samples","Invalid samples"],["temperature_max_c","Max temperature (°C)"]]){
-   if(!(key in one)&&!(key in two))continue;
-   const row=document.createElement("div");row.className="row";
-   const label=document.createElement("span");label.textContent=title;
-   const value=document.createElement("strong");value.textContent=(one[key]||"—")+" / "+(two[key]||"—");
-   row.append(label,value);el.appendChild(row);
-  }
- }catch(err){el.textContent=err.message;}
-}
-
 async function showFlightStats(name,scrollToReport=true) {
  selectedFlight=name;
  savedFlightSeries=[];
@@ -1511,24 +1456,6 @@ function exportFlightPDF(){
  const charts=[[5,"Altitude (m)"],[6,"Vertical speed (m/s)"],[7,"Estimated acceleration (m/s²)"],[8,"Estimated vertical apparent G"],[3,"Battery voltage (V)"],[1,"Pressure (Pa)"],[2,"Temperature (°C)"]].map(([column,title])=>reportGraph(savedFlightSeries,column,title)).join("");
  printableReport("GREEN-ION flight — "+selectedFlight,"<h2>Flight metadata</h2>"+pdfRows(Object.entries(flightMeta))+"<h2>Estimated phases</h2>"+pdfRows(phases)+"<h2>Flight performance</h2>"+pdfRows(perf)+"<h2>Battery and acceleration</h2>"+pdfRows(extra)+charts);
 }
-function compareBarGraph(a,b,key,title,unit){
- const x=Number(a[key]),y=Number(b[key]);
- if(!Number.isFinite(x)||!Number.isFinite(y))return "<p>"+safeHTML(title)+": not enough data for a graph.</p>";
- const c=document.createElement("canvas");c.width=1000;c.height=230;
- const ctx=c.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);
- ctx.fillStyle="#172b40";ctx.font="18px Arial";ctx.fillText(title,34,28);
- const max=Math.max(1,x,y)*1.1;
- const vals=[[x,"First flight","#1976a4"],[y,"Second flight","#30a077"]];
- vals.forEach(([v,label,color],i)=>{const top=55+i*82;ctx.fillStyle="#2a3949";ctx.font="15px Arial";ctx.fillText(label,34,top);ctx.fillStyle="#e6edf3";ctx.fillRect(34,top+9,820,28);ctx.fillStyle=color;ctx.fillRect(34,top+9,Math.max(0,Math.min(820,v/max*820)),28);ctx.fillStyle="#172b40";ctx.fillText(v.toFixed(2)+" "+unit,870,top+28);});
- return "<h2>"+safeHTML(title)+"</h2><img alt='"+safeHTML(title)+"' src='"+c.toDataURL("image/png")+"'>";
-}
-function exportComparePDF(){
- const c=comparisonMeta;
- if(!c||c.a!==$("compareA").value||c.b!==$("compareB").value){alert("Compare the selected flights first.");return;}
- const fields=[["Motor","motor"],["Peak altitude (m)","peak_altitude_m"],["Duration (s)","duration_s"],["Samples","samples"],["Missed samples","missed_samples"],["Invalid samples","invalid_samples"],["Max temperature (°C)","temperature_max_c"]];
- const graphs=compareBarGraph(c.one,c.two,"peak_altitude_m","Peak altitude","m")+compareBarGraph(c.one,c.two,"duration_s","Recording duration","s")+compareBarGraph(c.one,c.two,"samples","Samples recorded","samples")+compareBarGraph(c.one,c.two,"starting_battery_v","Starting battery voltage","V");
- printableReport("GREEN-ION motor comparison", "<p>"+safeHTML(c.a)+" ("+safeHTML(c.one.motor||"No motor label")+") vs "+safeHTML(c.b)+" ("+safeHTML(c.two.motor||"No motor label")+") · Values in the table are first / second flight. Comparisons do not control for rocket mass, atmospheric conditions, or launch configuration.</p>"+pdfRows(fields.map(([label,key])=>[label,(c.one[key]??"—")+" / "+(c.two[key]??"—")]))+graphs);
-}
 async function loadFiles() {
  try {
   const result=await api("files");
@@ -1547,12 +1474,6 @@ async function loadFiles() {
 
   const sort=$("fileSort").value;
   const files=result.files.slice().sort((a,b)=>sort==="old"?a.name.localeCompare(b.name):sort==="size"?b.size-a.size:b.name.localeCompare(a.name));
-  for(const id of ["compareA","compareB"]){
-   const el=$(id),previous=el.value;el.replaceChildren();
-   for(const f of files){const option=document.createElement("option");option.value=f.name;option.textContent=f.name;el.appendChild(option);}
-   if(files.some(f=>f.name===previous))el.value=previous;
-  }
-  if(files.length>1&&$("compareA").value===$("compareB").value)$("compareB").selectedIndex=1;
   for(const f of files) {
    const row=document.createElement("div");
    row.className="file";
@@ -1593,7 +1514,7 @@ async function loadFiles() {
     try {
      await api("delete?name="+
       encodeURIComponent(f.name),"POST");
-     selectedFlight="";loadedFlightName="";savedFlightSeries=[];flightPhases=[];flightMeta={};comparisonMeta=null;graphRequestId++;
+     selectedFlight="";loadedFlightName="";savedFlightSeries=[];flightPhases=[];flightMeta={};graphRequestId++;
      $("flightSummaryDetails").replaceChildren();
      $("flightSummaryStatus").textContent="Refreshing after deletion...";
      $("flightPhases").textContent="No flight selected.";
@@ -1670,12 +1591,8 @@ $("graphWindow").onchange=drawAll;
 $("refresh").onclick=loadFiles;
 $("fileSort").onchange=loadFiles;
 $("savedGraphMetric").onchange=drawSavedGraph;
-$("compareFlights").onclick=compareFlights;
 $("exportFlightPDF").onclick=exportFlightPDF;
-$("exportComparePDF").onclick=exportComparePDF;
 $("openFlightStats").onclick=()=>openTab("storage",document.querySelector('[data-tab="storage"]'));
-$("guideNext").onclick=()=>jumpToControl(guideTarget,window.guideTab||"status");
-$("guideStorage").onclick=()=>openTab("storage",document.querySelector('[data-tab="storage"]'));
 
 $("effect").onchange=applyLed;
 $("brightness").oninput=()=>{
