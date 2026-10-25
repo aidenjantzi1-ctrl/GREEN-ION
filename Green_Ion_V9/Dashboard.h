@@ -1268,6 +1268,8 @@ function bytes(n) {
  return n+" bytes";
 }
 
+// Keep blank CSV measurements missing rather than turning them into measured zeroes.
+function parseCSVNumber(value){const trimmed=value.trim();return trimmed===""?NaN:Number(trimmed);}
 let savedFlightSeries=[];
 let loadedFlightName="";
 let graphRequestId=0;
@@ -1285,7 +1287,7 @@ async function loadSavedGraph(name){
   if(!response.ok)throw Error("Could not load recorded CSV ("+response.status+")");
   const csv=await response.text();
   const lines=csv.trim().split(/\r?\n/);
-  const parsed=lines.slice(1).map(line=>line.split(",").map(Number)).filter(r=>r.length>=7&&Number.isFinite(r[0]));
+  const parsed=lines.slice(1).filter(line=>line.trim()).map(line=>line.split(",").map(parseCSVNumber)).filter(r=>r.length>=7&&Number.isFinite(r[0])&&(r[4]===0||r[4]===1));
   if(requestId!==graphRequestId||selectedFlight!==name)return;
   savedFlightSeries=parsed;
   loadedFlightName=name;
