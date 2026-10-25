@@ -1326,18 +1326,33 @@ function enrichFlightSeries(rows){
  const note=document.createElement("p");note.className="muted";note.textContent="Acceleration and vertical apparent G are noisy estimates from barometric altitude, not direct accelerometer readings. Apparent G assumes a vertical rocket and is not total 3D G-force."+(segments.length>1?" Sensor gaps: estimates do not cross "+(segments.length-1)+" interruption(s).":"");out.appendChild(note);
 }
 function computePhases(rows){
- const pts=rows.filter(r=>r[4]===1&&Number.isFinite(r[0])&&Number.isFinite(r[5]));
+ // Launch and landing thresholds require consecutive valid samples, never
+ // three points joined across a sensor outage or a time discontinuity.
+ const segments=validFlightSegments(rows,5),pts=segments.flat();
  flightPhases=[];const out=$("flightPhases");out.replaceChildren();
  if(pts.length<6){out.textContent="Not enough valid samples.";return;}
- const li=pts.findIndex((r,i)=>i+2<pts.length&&r[5]>=5&&pts[i+1][5]>=5&&pts[i+2][5]>=5);
- if(li<0){out.textContent="No sustained 5 m launch detected.";return;}
- const launch=pts[li],peak=pts.slice(li).reduce((a,b)=>a[5]>b[5]?a:b);
- const pi=pts.indexOf(peak);
- const di=pts.findIndex((r,i)=>i>pi+2&&i+2<pts.length&&Math.abs(r[5])<=5&&Math.abs(pts[i+1][5])<=5&&Math.abs(pts[i+2][5])<=5);
+ let launch=null;
+ for(const segment of segments){
+  for(let i=0;i+2<segment.length;i++){
+   if(segment[i][5]>=5&&segment[i+1][5]>=5&&segment[i+2][5]>=5){launch=segment[i];break;}
+  }
+  if(launch)break;
+ }
+ if(!launch){out.textContent="No sustained 5 m launch detected.";return;}
+ const li=pts.indexOf(launch),peak=pts.slice(li).reduce((a,b)=>a[5]>b[5]?a:b);
+ const pi=pts.indexOf(peak),landingCandidates=new Set(pts.slice(pi+3));
+ let landing=null;
+ for(const segment of segments){
+  for(let i=0;i+2<segment.length;i++){
+   if(landingCandidates.has(segment[i])&&Math.abs(segment[i][5])<=5&&
+      Math.abs(segment[i+1][5])<=5&&Math.abs(segment[i+2][5])<=5){landing=segment[i];break;}
+  }
+  if(landing)break;
+ }
  flightPhases=[["Launch detected",launch[0],launch[5]],["Ascent / coast",launch[0],launch[5]],["Apogee",peak[0],peak[5]],["Descent",peak[0],peak[5]]];
- if(di>=0)flightPhases.push(["Landing detected",pts[di][0],pts[di][5]]);
+ if(landing)flightPhases.push(["Landing detected",landing[0],landing[5]]);
  for(const [name,t,alt] of flightPhases){const row=document.createElement("div");row.className="row";const l=document.createElement("span");l.textContent=name;const v=document.createElement("strong");v.textContent=t.toFixed(2)+" s · "+alt.toFixed(1)+" m";row.append(l,v);out.appendChild(row);}
- const note=document.createElement("p");note.className="muted";note.textContent="Estimated from barometric altitude; launch and landing use sustained 5 m thresholds. Motor burnout, powered ascent, and parachute deployment cannot be determined reliably.";out.appendChild(note);
+ const note=document.createElement("p");note.className="muted";note.textContent="Estimated from barometric altitude; launch and landing use three consecutive valid samples at 5 m thresholds. Motor burnout, powered ascent, and parachute deployment cannot be determined reliably.";out.appendChild(note);
 }
 function renderFlightPerformance(rows){
  const target=$("flightPerformance");target.replaceChildren();
