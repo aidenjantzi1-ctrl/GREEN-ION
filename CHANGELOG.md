@@ -14,6 +14,7 @@ Every known or referenced version from **V1 through V9** is listed here. See [VE
 - Added permanent mission numbers plus per-card sequence numbers persisted in `/GREENION.CFG`, independent of visible flight files.
 - Simplified Storage and cleared all cached summaries/graphs after deletion before refreshing the card.
 - Preserved the RKT4 header and 16-byte sample format.
+- Published the verified `.ino.bin` beside the V9 source with a direct phone-download link and installation guide.
 
 ## V8.8 — Field Confidence Edition (October 24, 2026)
 

@@ -1,5 +1,11 @@
 # GREEN ION V9
 
+## Download the phone update
+
+**[Download `Green_Ion_V9.ino.bin` directly](https://raw.githubusercontent.com/aidenjantzi1-ctrl/GREEN-ION/main/Green_Ion_V9/Green_Ion_V9.ino.bin)**
+
+Download the file while your phone still has internet access. Then connect to the `GREEN-ION` Wi-Fi network, open `http://192.168.4.1`, go to **System**, choose the downloaded `.ino.bin`, and tap **Install Firmware & Restart**. The GREEN-ION network itself does not provide internet access.
+
 GREEN ION V9 is experimental firmware for an Adafruit ESP32 Feather V2 flight-data recorder. It reads a BMP388 barometric sensor, serves a phone-friendly dashboard from its own Wi-Fi access point, and writes RKT4-compatible binary flight logs to an SPI microSD card. It never controls ignition or recovery deployment.
 
 > **Safety scope:** GREEN ION is a data recorder only. It must never control ignition, staging, parachute deployment, or any recovery system.
@@ -187,7 +193,7 @@ After a recording has been saved to microSD, connect to the `GREEN-ION` Wi-Fi da
 
 ## GitHub builds and phone downloads
 
-Every firmware change on `main` runs the **Build Green Ion firmware** GitHub Actions workflow. Open the latest successful workflow run and download the `green-ion-v9-phone-update` artifact. It contains the `.ino` sketch, required `Dashboard.h` header, and main `Green_Ion_V9.ino.bin` firmware image. Preserve the `.ino` and `.h` together if recompiling from source.
+Every firmware change on `main` runs the **Build Green Ion firmware** GitHub Actions workflow. The verified `Green_Ion_V9.ino.bin` is kept directly beside the source for easy phone downloads, and the successful workflow also creates the `green-ion-v9-phone-update` backup artifact. Preserve the `.ino` and `.h` together if recompiling from source.
 
 ### Install a later update from a phone
 
