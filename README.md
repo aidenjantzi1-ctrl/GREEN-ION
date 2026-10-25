@@ -8,6 +8,12 @@ GREEN ION V8.8 is experimental firmware for an Adafruit ESP32 Feather V2 flight-
 
 V8.8 has a standalone source snapshot in `Green_Ion_V8_8/`. Download the `green-ion-v8.8-phone-update` artifact only after its GitHub Actions run succeeds.
 
+## Repository layout
+
+- The latest firmware version is the only firmware folder kept at the repository root.
+- Every older firmware snapshot and historical record is stored under [`Past_Versions/`](Past_Versions/).
+- When a new version is released, the formerly current root folder must be moved into `Past_Versions/` before the new version is added at the root.
+
 V8.8 adds a real 10-second ground test, altitude-noise and frozen-sensor checks, SD flush timing and heartbeat, configurable 2/5/10/20-minute recording limits, phone-provided date/time, firmware/build metadata, battery sag tracking, a postflight confidence score, an FNV-1a log checksum, protected flights, recovery notes, and a downloadable diagnostic report.
 
 - Buffered RKT4 samples continue to flush approximately every 500 ms. A checkpoint journal is updated about every 5 seconds while recording, recording the last flushed file size and sample count.
@@ -89,7 +95,7 @@ Install these libraries through Arduino Library Manager:
 
 The ESP32 board package supplies `WiFi`, `WebServer`, `Wire`, `SPI`, and `SD`.
 
-Open `Green_Ion_V8_7/Green_Ion_V8_7.ino`, select the correct serial port, and upload. Open Serial Monitor at **115200 baud** for startup and diagnostic messages. The first installation of V8.5 or newer must be performed over USB; afterward, later GitHub-built updates can be installed from the dashboard on a phone.
+Open `Green_Ion_V8_8/Green_Ion_V8_8.ino`, select the correct serial port, and upload. Open Serial Monitor at **115200 baud** for startup and diagnostic messages. The first installation of V8.5 or newer must be performed over USB; afterward, later GitHub-built updates can be installed from the dashboard on a phone.
 
 ## Wiring
 
@@ -156,19 +162,19 @@ Automatic status colors take priority during safety-critical recorder states. Th
 
 - [Full version index (V1–V8.8 development)](VERSIONS.md) — lists each version and original source availability.
 - [Complete changelog](CHANGELOG.md) — documented changes and evidence limitations.
-- [Historical records V1–V7](history/) — descriptive archive only; no original executable source is available.
+- [All past versions and historical records](Past_Versions/) — archived firmware snapshots plus descriptive early-version records.
 
 ### Preserved firmware sketches
 
-- [V8 source](Green_Ion_V8/Green_Ion_V8.ino) — preserved Arduino sketch
-- [V8.1 source](Green_Ion_V8_1/Green_Ion_V8_1.ino) — preserved Arduino sketch
-- [V8.2 source](Green_Ion_V8_2/Green_Ion_V8_2.ino) — preserved Arduino sketch
-- [V8.3 source](Green_Ion_V8_3/Green_Ion_V8_3.ino) — preserved Arduino sketch
-- [V8.4 source](Green_Ion_V8_4/Green_Ion_V8_4.ino) — preserved Arduino sketch
-- [V8.5 source](Green_Ion_V8_5/Green_Ion_V8_5.ino) — preserved Arduino sketch
-- [V8.6 source](Green_Ion_V8_6/Green_Ion_V8_6.ino) — preserved Arduino sketch
+- [V8 source](Past_Versions/Green_Ion_V8/Green_Ion_V8.ino) — preserved Arduino sketch
+- [V8.1 source](Past_Versions/Green_Ion_V8_1/Green_Ion_V8_1.ino) — preserved Arduino sketch
+- [V8.2 source](Past_Versions/Green_Ion_V8_2/Green_Ion_V8_2.ino) — preserved Arduino sketch
+- [V8.3 source](Past_Versions/Green_Ion_V8_3/Green_Ion_V8_3.ino) — preserved Arduino sketch
+- [V8.4 source](Past_Versions/Green_Ion_V8_4/Green_Ion_V8_4.ino) — preserved Arduino sketch
+- [V8.5 source](Past_Versions/Green_Ion_V8_5/Green_Ion_V8_5.ino) — preserved Arduino sketch
+- [V8.6 source](Past_Versions/Green_Ion_V8_6/Green_Ion_V8_6.ino) — preserved Arduino sketch
 - [V8.8 source](Green_Ion_V8_8/Green_Ion_V8_8.ino) — latest buildable Arduino sketch
-- [V8.7 source](Green_Ion_V8_7/Green_Ion_V8_7.ino) — previous preserved snapshot
+- [V8.7 source](Past_Versions/Green_Ion_V8_7/Green_Ion_V8_7.ino) — previous preserved snapshot
 
 **Important:** Source snapshots begin at V8. Earlier historical records must not be confused with working firmware. GitHub commit dates in October 2026 are preservation dates, not necessarily prototype development dates.
 

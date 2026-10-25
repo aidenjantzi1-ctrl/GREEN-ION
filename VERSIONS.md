@@ -101,14 +101,14 @@ This folder is an archive record, not a compilable Arduino sketch. No original s
 
 ## Compilable firmware snapshots
 
-- [V8](./Green_Ion_V8/Green_Ion_V8.ino)
-- [V8.1](./Green_Ion_V8_1/Green_Ion_V8_1.ino)
-- [V8.2](./Green_Ion_V8_2/Green_Ion_V8_2.ino)
-- [V8.3](./Green_Ion_V8_3/Green_Ion_V8_3.ino)
-- [V8.4](./Green_Ion_V8_4/Green_Ion_V8_4.ino)
-- [V8.5](./Green_Ion_V8_5/Green_Ion_V8_5.ino)
-- [V8.6](./Green_Ion_V8_6/Green_Ion_V8_6.ino)
-- [V8.7](./Green_Ion_V8_7/Green_Ion_V8_7.ino)
+- [V8](./Past_Versions/Green_Ion_V8/Green_Ion_V8.ino)
+- [V8.1](./Past_Versions/Green_Ion_V8_1/Green_Ion_V8_1.ino)
+- [V8.2](./Past_Versions/Green_Ion_V8_2/Green_Ion_V8_2.ino)
+- [V8.3](./Past_Versions/Green_Ion_V8_3/Green_Ion_V8_3.ino)
+- [V8.4](./Past_Versions/Green_Ion_V8_4/Green_Ion_V8_4.ino)
+- [V8.5](./Past_Versions/Green_Ion_V8_5/Green_Ion_V8_5.ino)
+- [V8.6](./Past_Versions/Green_Ion_V8_6/Green_Ion_V8_6.ino)
+- [V8.7](./Past_Versions/Green_Ion_V8_7/Green_Ion_V8_7.ino)
 - [V8.8](./Green_Ion_V8_8/Green_Ion_V8_8.ino)
 
 ## V8.8 recording-reliability development

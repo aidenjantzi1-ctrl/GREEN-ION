@@ -31,7 +31,7 @@ This repository starts with complete source snapshots at V8. The V1–V7 history
 
 ## V8.7 integrated launch workflow and report update (October 24, 2026)
 
-- Extracted the embedded dashboard into `Green_Ion_V8_7/Dashboard.h` to avoid Arduino's HTML/JS sketch preprocessing failure; restored successful firmware builds.
+- Extracted the embedded dashboard into `Past_Versions/Green_Ion_V8_7/Dashboard.h` to avoid Arduino's HTML/JS sketch preprocessing failure; restored successful firmware builds.
 - Added CI validation of dashboard JavaScript syntax, duplicate IDs, and references to missing UI elements; the GitHub Actions artifact includes both the .ino and header source files.
 - Added a contextual Launch Assistant, progress stages, physical preflight checklist, recovery review shortcut, and connection/troubleshooting help. Confirmed the system remains a **logger only** with no ignition or deployment controls.
 - Added Sunlight high-contrast display mode, more responsive tablet/desktop cards, and improved button, status and file list layout.
@@ -164,13 +164,13 @@ This repository starts with complete source snapshots at V8. The V1–V7 history
 
 ## Original-source and archive links
 
-- [V8 source](Green_Ion_V8/Green_Ion_V8.ino)
-- [V8.1 source](Green_Ion_V8_1/Green_Ion_V8_1.ino)
-- [V8.2 source](Green_Ion_V8_2/Green_Ion_V8_2.ino)
-- [V8.3 source](Green_Ion_V8_3/Green_Ion_V8_3.ino)
-- [V8.4 source](Green_Ion_V8_4/Green_Ion_V8_4.ino)
-- [V8.5 source](Green_Ion_V8_5/Green_Ion_V8_5.ino)
-- [V8.6 source](Green_Ion_V8_6/Green_Ion_V8_6.ino)
-- [V8.7 source](Green_Ion_V8_7/Green_Ion_V8_7.ino)
+- [V8 source](Past_Versions/Green_Ion_V8/Green_Ion_V8.ino)
+- [V8.1 source](Past_Versions/Green_Ion_V8_1/Green_Ion_V8_1.ino)
+- [V8.2 source](Past_Versions/Green_Ion_V8_2/Green_Ion_V8_2.ino)
+- [V8.3 source](Past_Versions/Green_Ion_V8_3/Green_Ion_V8_3.ino)
+- [V8.4 source](Past_Versions/Green_Ion_V8_4/Green_Ion_V8_4.ino)
+- [V8.5 source](Past_Versions/Green_Ion_V8_5/Green_Ion_V8_5.ino)
+- [V8.6 source](Past_Versions/Green_Ion_V8_6/Green_Ion_V8_6.ino)
+- [V8.7 source](Past_Versions/Green_Ion_V8_7/Green_Ion_V8_7.ino)
 
-Earlier historical records (not compilable firmware): [V1](history/V1/README.md) · [V1.2](history/V1_2/README.md) · [V2](history/V2/README.md) · [V3](history/V3/README.md) · [V3.1](history/V3_1/README.md) · [V4](history/V4/README.md) · [V5](history/V5/README.md) · [V6](history/V6/README.md) · [V7](history/V7/README.md).
+Earlier historical records (not compilable firmware): [V1](Past_Versions/V1/README.md) · [V1.2](Past_Versions/V1_2/README.md) · [V2](Past_Versions/V2/README.md) · [V3](Past_Versions/V3/README.md) · [V3.1](Past_Versions/V3_1/README.md) · [V4](Past_Versions/V4/README.md) · [V5](Past_Versions/V5/README.md) · [V6](Past_Versions/V6/README.md) · [V7](Past_Versions/V7/README.md).
