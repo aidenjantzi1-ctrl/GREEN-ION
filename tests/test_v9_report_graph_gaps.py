@@ -36,7 +36,7 @@ const safeHTML = v => String(v);
         harness += 'const html=reportGraph(rows,5,"Altitude");\n'
         harness += "console.log(JSON.stringify({operations,html}));\n"
         result = subprocess.run(
-            ["node", "-e", harness], capture_output=True, text=True,
+            ["node", "-"], input=harness, capture_output=True, text=True,
             check=True, timeout=15,
         )
         return json.loads(result.stdout)
