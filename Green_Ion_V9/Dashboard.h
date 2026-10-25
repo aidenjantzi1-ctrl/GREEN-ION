@@ -1298,17 +1298,32 @@ async function loadSavedGraph(name){
   drawSavedGraph();
  }catch(err){if(requestId!==graphRequestId)return;savedFlightSeries=[];loadedFlightName="";label.textContent=err.message;$("flightPerformance").textContent="Performance unavailable: "+err.message;drawSavedGraph();}
 }
+// Split samples at invalid pressure readings and at missing/rewound time.
+// Never estimate motion across a sensor dropout, even if the gap is short.
+function validFlightSegments(rows,column){
+ const segments=[];let current=null;
+ for(const r of rows){
+  if(r[4]!==1||!Number.isFinite(r[0])||!Number.isFinite(r[column])){current=null;continue;}
+  if(!current||r[0]<=current[current.length-1][0]||r[0]-current[current.length-1][0]>2){
+   current=[];segments.push(current);
+  }
+  current.push(r);
+ }
+ return segments;
+}
 function enrichFlightSeries(rows){
- const valid=rows.filter(r=>r[4]===1&&Number.isFinite(r[0])&&Number.isFinite(r[5]));
+ const segments=validFlightSegments(rows,5),valid=segments.flat();
  for(const r of rows){r[7]=NaN;r[8]=NaN;}
- const velocities=valid.map((r,i)=>{const a=valid[Math.max(0,i-3)],b=valid[Math.min(valid.length-1,i+3)],dt=b[0]-a[0];return dt>.05&&dt<3?(b[5]-a[5])/dt:NaN;});
- for(let i=0;i<valid.length;i++){const a=Math.max(0,i-3),b=Math.min(valid.length-1,i+3),dt=valid[b][0]-valid[a][0];if(dt>.05&&dt<3&&Number.isFinite(velocities[a])&&Number.isFinite(velocities[b])){valid[i][7]=(velocities[b]-velocities[a])/dt;valid[i][8]=1+valid[i][7]/9.80665;}}
+ for(const segment of segments){
+  const velocities=segment.map((r,i)=>{const a=segment[Math.max(0,i-3)],b=segment[Math.min(segment.length-1,i+3)],dt=b[0]-a[0];return dt>.05&&dt<3?(b[5]-a[5])/dt:NaN;});
+  for(let i=0;i<segment.length;i++){const a=Math.max(0,i-3),b=Math.min(segment.length-1,i+3),dt=segment[b][0]-segment[a][0];if(dt>.05&&dt<3&&Number.isFinite(velocities[a])&&Number.isFinite(velocities[b])){segment[i][7]=(velocities[b]-velocities[a])/dt;segment[i][8]=1+segment[i][7]/9.80665;}}
+ }
  const battery=rows.filter(r=>Number.isFinite(r[3])&&r[3]>0),acc=valid.map(r=>r[7]).filter(Number.isFinite),g=valid.map(r=>r[8]).filter(Number.isFinite);
  const first=battery.length?battery[0][3]:NaN,last=battery.length?battery[battery.length-1][3]:NaN;
  const metrics=[["Starting battery",first,"V"],["Ending battery",last,"V"],["Minimum battery",battery.length?extreme(battery.map(r=>r[3]),true):NaN,"V"],["Battery voltage drop",first-last,"V"],["Maximum estimated upward acceleration",acc.length?extreme(acc,false):NaN,"m/s²"],["Maximum estimated downward acceleration",acc.length?extreme(acc,true):NaN,"m/s²"],["Peak estimated vertical apparent G",g.length?extreme(g,false):NaN,"g"]];
  const out=$("flightExtraMetrics");out.replaceChildren();
  for(const [name,value,unit] of metrics){const row=document.createElement("div");row.className="row";const label=document.createElement("span");label.textContent=name;const val=document.createElement("strong");val.textContent=Number.isFinite(value)?value.toFixed(3)+" "+unit:"Unavailable";row.append(label,val);out.appendChild(row);}
- const note=document.createElement("p");note.className="muted";note.textContent="Acceleration and vertical apparent G are noisy estimates from barometric altitude, not direct accelerometer readings. Apparent G assumes a vertical rocket and is not total 3D G-force.";out.appendChild(note);
+ const note=document.createElement("p");note.className="muted";note.textContent="Acceleration and vertical apparent G are noisy estimates from barometric altitude, not direct accelerometer readings. Apparent G assumes a vertical rocket and is not total 3D G-force."+(segments.length>1?" Sensor gaps: estimates do not cross "+(segments.length-1)+" interruption(s).":"");out.appendChild(note);
 }
 function computePhases(rows){
  const pts=rows.filter(r=>r[4]===1&&Number.isFinite(r[0])&&Number.isFinite(r[5]));
@@ -1338,9 +1353,11 @@ function renderFlightPerformance(rows){
  const descent=landed?pts.filter(p=>p[0]>=peak[0]&&p[0]<=landed[0]):[];
  // Use 5-sample moving slopes to reduce barometer noise. Still estimates.
  const velocities=[];
- for(let i=2;i<pts.length-2;i++){
-  const left=pts[i-2],right=pts[i+2],dt=right[0]-left[0];
-  if(dt>.03&&dt<2&&Number.isFinite(dt))velocities.push({t:pts[i][0],v:(right[5]-left[5])/dt});
+ for(const segment of validFlightSegments(rows,5)){
+  for(let i=2;i<segment.length-2;i++){
+   const left=segment[i-2],right=segment[i+2],dt=right[0]-left[0];
+   if(dt>.03&&dt<2&&Number.isFinite(dt))velocities.push({t:segment[i][0],v:(right[5]-left[5])/dt});
+  }
  }
  const rise=velocities.filter(p=>launch&&p.t>=launch[0]&&p.t<=peak[0]);
  const fall=velocities.filter(p=>p.t>=peak[0]&&(!landed||p.t<=landed[0]));
@@ -1381,7 +1398,7 @@ function drawSavedGraph(){
  const ctx=canvas.getContext("2d");ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
  ctx.clearRect(0,0,width,height);
  const column=Number($("savedGraphMetric").value);
- const pts=savedFlightSeries.filter(r=>Number.isFinite(r[column]));
+ const segments=validFlightSegments(savedFlightSeries,column),pts=segments.flat();
  if(pts.length<2)return;
  const x0=pts[0][0],x1=pts[pts.length-1][0],values=pts.map(r=>r[column]);
  let lo=Math.min(...values.slice(0,1000)),hi=Math.max(...values.slice(0,1000));
@@ -1393,10 +1410,17 @@ function drawSavedGraph(){
  ctx.fillText((x1-x0).toFixed(1)+" s",width-65,height-8);
  ctx.strokeStyle="#7bdbff";ctx.lineWidth=1.7;ctx.beginPath();
  const step=Math.max(1,Math.ceil(pts.length/1400));
- for(let i=0;i<pts.length;i+=step){const r=pts[i];
-  const x=44+(r[0]-x0)/Math.max(.001,x1-x0)*(width-58);
-  const y=12+(hi-r[column])/(hi-lo)*(height-43);
-  if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+ let index=0;
+ for(const segment of segments){
+  let started=false;
+  for(const r of segment){
+   const take=index++%step===0||r===segment[segment.length-1];
+   if(!take)continue;
+   const x=44+(r[0]-x0)/Math.max(.001,x1-x0)*(width-58);
+   const y=12+(hi-r[column])/(hi-lo)*(height-43);
+   if(!started)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+   started=true;
+  }
  }
  ctx.stroke();
  ctx.save();ctx.font="10px system-ui";ctx.setLineDash([4,4]);
@@ -1496,10 +1520,12 @@ function printableReport(title,body){
 function reportGraph(rows,column,title){
  // Preserve invalid-row boundaries so PDF lines never hide sensor-data gaps.
  const valid=[];
- let segment=0;
+ let segment=0,previousTime=NaN;
  for(const r of rows){
-  if(r[4]===1&&Number.isFinite(r[0])&&Number.isFinite(r[column]))valid.push({r,segment});
-  else segment++;
+  if(r[4]===1&&Number.isFinite(r[0])&&Number.isFinite(r[column])){
+   if(Number.isFinite(previousTime)&&(r[0]<=previousTime||r[0]-previousTime>2))segment++;
+   valid.push({r,segment});previousTime=r[0];
+  }else{segment++;previousTime=NaN;}
  }
  if(valid.length<2)return "<p>"+safeHTML(title)+": insufficient data.</p>";
  const c=document.createElement("canvas");c.width=1000;c.height=310;const ctx=c.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,1000,310);
