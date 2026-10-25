@@ -1574,7 +1574,7 @@ function safeHTML(v){return String(v??"—").replace(/[&<>"']/g,c=>({"&":"&amp;"
 function pdfRows(rows){return "<table>"+rows.map(([k,v])=>"<tr><th>"+safeHTML(k)+"</th><td>"+safeHTML(v)+"</td></tr>").join("")+"</table>";}
 function printableReport(title,body){
  const w=window.open("","_blank");if(!w){alert("Enable pop-ups for the printable report.");return;}
- w.document.open();w.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+safeHTML(title)+'</title><style>body{font:14px/1.5 system-ui,Arial;color:#172b40;max-width:800px;margin:25px auto;padding:0 16px}h1{font-size:24px}h2{font-size:18px;margin-top:24px}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #ddd;text-align:left}th{width:48%}img{max-width:100%;height:auto}.toolbar{background:#eef4f8;padding:12px}@media print{.toolbar{display:none}body{margin:0}table,img{break-inside:avoid}}</style></head><body><div class="toolbar"><button onclick="window.print()">PRINT / SAVE PDF</button> · On iPhone: Print, then share the preview to Files.</div><h1>'+safeHTML(title)+'</h1>'+body+'<p>Experimental barometric estimates. Not for flight-critical decisions.</p></body></html>');w.document.close();
+ w.document.open();w.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+safeHTML(title)+'</title><style>body{font:14px/1.5 system-ui,Arial;color:#172b40;max-width:800px;margin:25px auto;padding:0 16px}h1{font-size:24px}h2{font-size:18px;margin-top:24px}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #ddd;text-align:left;overflow-wrap:anywhere;word-break:break-word}th{width:48%}img{max-width:100%;height:auto}.toolbar{background:#eef4f8;padding:12px}@media print{.toolbar{display:none}body{margin:0}table,img{break-inside:avoid}}</style></head><body><div class="toolbar"><button onclick="window.print()">PRINT / SAVE PDF</button> · On iPhone: Print, then share the preview to Files.</div><h1>'+safeHTML(title)+'</h1>'+body+'<p>Experimental barometric estimates. Not for flight-critical decisions.</p></body></html>');w.document.close();
 }
 function reportGraph(rows,column,title){
  // Preserve invalid-row boundaries so PDF lines never hide sensor-data gaps.
@@ -1628,6 +1628,13 @@ async function loadFiles() {
  const requestId=globalThis.fileListRequestId=(globalThis.fileListRequestId||0)+1;
  try {
   const result=await api("files");
+  // Reject malformed or ambiguous listings before offering file actions.
+  if(!result||!Array.isArray(result.files))throw Error("Invalid file list response; reconnect and retry");
+  if(!result.files.every(f=>f&&typeof f==="object"&&typeof f.name==="string"&&/^FLT\d{4}\.BIN$/.test(f.name)))
+   throw Error("Invalid recording name; reconnect and retry");
+  const fileNames=result.files.map(f=>f.name);
+  if(new Set(fileNames).size!==fileNames.length)throw Error("Duplicate recording names; reconnect and retry");
+  const sizeOK=f=>Number.isSafeInteger(f.size)&&f.size>=0;
   // A slow earlier refresh must never replace a newer Storage listing.
   if(requestId!==globalThis.fileListRequestId)return;
   const total=Number(result.total),used=Number(result.used);
@@ -1663,7 +1670,7 @@ async function loadFiles() {
   }
 
   const sort=$("fileSort").value;
-  const files=result.files.slice().sort((a,b)=>sort==="old"?a.name.localeCompare(b.name):sort==="size"?b.size-a.size:b.name.localeCompare(a.name));
+  const files=result.files.slice().sort((a,b)=>sort==="old"?a.name.localeCompare(b.name):sort==="size"?(sizeOK(b)?b.size:-1)-(sizeOK(a)?a.size:-1):b.name.localeCompare(a.name));
   for(const id of ["compareA","compareB"]){
    const el=$(id),previous=el.value;el.replaceChildren();
    for(const f of files){const option=document.createElement("option");option.value=f.name;option.textContent=f.name;el.appendChild(option);}
@@ -1674,7 +1681,7 @@ async function loadFiles() {
    const row=document.createElement("div");
    row.className="file";
    const text=document.createElement("span");
-   text.textContent=f.name+" · "+bytes(f.size);
+   text.textContent=f.name+" · "+(sizeOK(f)?bytes(f.size):"Size unavailable");
    // Only length and companion-file presence are checked in this listing.
    if(f.recordLengthOK===false)text.textContent+=" · Check BIN length";
    if(f.hasSummary===false)text.textContent+=" · TXT missing";
@@ -1712,6 +1719,8 @@ async function loadFiles() {
    rm.className="danger";
    rm.onclick=async()=>{
     if(!confirm("Delete "+f.name+"?"))return;
+    ++globalThis.fileListRequestId;
+    rm.disabled=true;protect.disabled=true;note.disabled=true;
     try {
      await api("delete?name="+
       encodeURIComponent(f.name),"POST");
@@ -1724,12 +1733,19 @@ async function loadFiles() {
      await loadFiles();
      await poll();
     }catch(err){alert(err.message)}
+    finally{rm.disabled=!!f.protected;protect.disabled=false;note.disabled=f.hasSummary===false;}
    };
 
    const protect=document.createElement("button");
    protect.textContent=f.protected?"Unprotect":"Protect";
    protect.className="secondary";
-   protect.onclick=async()=>{try{await api("protect?name="+encodeURIComponent(f.name)+"&value="+(f.protected?"0":"1"),"POST");await loadFiles();}catch(err){alert(err.message)}};
+   protect.onclick=async()=>{
+    ++globalThis.fileListRequestId;
+    protect.disabled=true;rm.disabled=true;note.disabled=true;
+    try{await api("protect?name="+encodeURIComponent(f.name)+"&value="+(f.protected?"0":"1"),"POST");await loadFiles();}
+    catch(err){alert(err.message)}
+    finally{protect.disabled=false;rm.disabled=!!f.protected;note.disabled=f.hasSummary===false;}
+   };
 
    const note=document.createElement("button");
    note.textContent="Add note";
