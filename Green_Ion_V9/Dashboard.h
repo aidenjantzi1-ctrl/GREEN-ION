@@ -1368,8 +1368,6 @@ function renderFlightPerformance(rows){
  const launch=phaseRow("Launch detected");
  const peak=phaseRow("Apogee")||pts.reduce((best,p)=>p[5]>best[5]?p:best,pts[0]);
  const landed=phaseRow("Landing detected");
- const ascent=launch?pts.filter(p=>p[0]>=launch[0]&&p[0]<=peak[0]):[];
- const descent=landed?pts.filter(p=>p[0]>=peak[0]&&p[0]<=landed[0]):[];
  // Use 5-sample moving slopes to reduce barometer noise. Still estimates.
  const velocities=[];
  for(const segment of validFlightSegments(rows,5)){
@@ -1407,7 +1405,7 @@ function renderFlightPerformance(rows){
   row.append(label,val);target.appendChild(row);
  }
  const note=document.createElement("p");note.className="muted";
- note.textContent="Speed is estimated from smoothed barometric altitude. Launch uses a 5 m threshold; landing uses a return within 5 m of ground. No detected launch/landing means related times are unavailable. Completeness counts invalid and missed samples; it is not a guarantee of accuracy.";
+ note.textContent="Speed is estimated from smoothed barometric altitude. Launch requires three consecutive valid readings at least 5 m above ground; landing requires three consecutive valid readings within 5 m of ground. No detected launch/landing means related times are unavailable. Completeness counts invalid and missed samples; it is not a guarantee of accuracy.";
  target.appendChild(note);
 }
 function drawSavedGraph(){
