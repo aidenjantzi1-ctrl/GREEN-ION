@@ -17,7 +17,7 @@ def section(source, start, end):
 
 
 HELPERS = section(DASH, "function bytes(n) {", "// Keep blank CSV measurements")
-LISTING = section(DASH, "let fileListRequestId=0;", '\n$("metric").onclick=')
+LISTING = section(DASH, "async function loadFiles() {", '\n$("metric").onclick=')
 DOM = r"""
 function element(){
  return {children:[],textContent:"",value:"",title:"",disabled:false,selectedIndex:0,
