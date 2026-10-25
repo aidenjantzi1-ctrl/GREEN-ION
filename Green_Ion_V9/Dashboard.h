@@ -1624,7 +1624,7 @@ async function loadFiles() {
   $("sdTestResult").textContent=state?.sdVerified?"PASS":"NOT VERIFIED";
   // If a file disappears during refresh, do not keep its old comparison.
   const names=new Set(result.files.map(f=>f.name));
-  if(comparisonMeta&&(!names.has(comparisonMeta.a)||!names.has(comparisonMeta.b))){
+  if(result.files.length&&comparisonMeta&&(!names.has(comparisonMeta.a)||!names.has(comparisonMeta.b))){
    comparisonMeta=null;comparisonRequestId++;
    $("comparisonSources").textContent="";
    $("comparisonResults").textContent="A compared recording is no longer on the SD card. Choose two available files.";
