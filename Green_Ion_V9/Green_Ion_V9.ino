@@ -2087,6 +2087,7 @@ void csvAPI() {
 
   uint8_t record[16];
   uint32_t firstStamp = 0;
+  bool hasFirstStamp = false;
   uint32_t previousStamp = 0;
   float previousAltitude = NAN;
   float previousVelocity = NAN;
@@ -2101,7 +2102,7 @@ void csvAPI() {
     uint16_t millivolts = read16(record + 12);
     bool valid = (read16(record + 14) & 1) != 0;
 
-    if (!firstStamp) firstStamp = stamp;
+    if (!hasFirstStamp) { firstStamp = stamp; hasFirstStamp = true; }
 
     float relativeTime =
       (uint32_t)(stamp - firstStamp) / 1000000.0f;
@@ -2116,11 +2117,18 @@ void csvAPI() {
       if (isfinite(previousAltitude) && previousStamp != stamp) {
         float dt =
           (uint32_t)(stamp - previousStamp) / 1000000.0f;
-        if (dt > 0) velocity = (altitude - previousAltitude) / dt;
+        if (dt >= 0.01f && dt <= 2.0f)
+          velocity = (altitude - previousAltitude) / dt;
       }
 
       previousAltitude = altitude;
       previousStamp = stamp;
+    } else {
+      // Never derive velocity or acceleration across an invalid pressure sample.
+      previousAltitude = NAN;
+      previousStamp = 0;
+      previousVelocity = NAN;
+      previousVelocityStamp = 0;
     }
 
     float acceleration = NAN;
