@@ -954,8 +954,8 @@ async function testSDCard() {
  feedback.textContent="Checking controller access...";
  try {
   if(!state)throw Error("Waiting for the recorder connection. Retry in a moment.");
-  if(state.recording||state.armed||state.calibrating)
-   throw Error("Stop recording, disarm and finish calibration first.");
+  if(state.recording||state.armed||state.calibrating||state.groundTestActive||state.prepareActive)
+   throw Error("Finish recording, preparation or the 10-second ground test before checking the SD card.");
   if(!state.controller){
    if(!state.controlAvailable)
     throw Error("Another browser controls GREEN-ION. Release its control or wait for its lease to expire.");

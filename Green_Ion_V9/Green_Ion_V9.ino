@@ -453,6 +453,13 @@ int batteryPercent() {
 
 // ---------- BMP388 ----------
 
+// Keep all settings and destructive maintenance actions out of active workflows.
+bool flightSettingsLocked() {
+  return prepareActive || armed || recording || launchWatch ||
+         calibrating || groundTestActive || simulating || shutdownPending ||
+         updateInProgress;
+}
+
 bool setSampleRate(uint16_t requestedRate) {
   if (requestedRate != 10 &&
       requestedRate != 25 &&
@@ -614,9 +621,9 @@ uint64_t sdFree() {
 }
 
 bool verifySD() {
-  if (recording || armed || calibrating ||
-      shutdownPending) {
-    sdStatus = "SD test blocked: device busy";
+  if (recording || armed || calibrating || groundTestActive ||
+      shutdownPending || updateInProgress) {
+    sdStatus = "SD test blocked: finish recording or ground test first";
     return false;
   }
 
@@ -1371,8 +1378,7 @@ void finishGroundTest() {
 }
 
 bool startPrepareAll() {
-  if (prepareActive || armed || recording || launchWatch || calibrating ||
-      groundTestActive || simulating || shutdownPending) return false;
+  if (flightSettingsLocked()) return false;
   prepareActive = true;
   prepareReady = false;
   prepareStage = 1;
@@ -1713,8 +1719,7 @@ void handleFirmwareUpload() {
       return;
     }
 
-    if (armed || recording || calibrating ||
-        simulating || shutdownPending || criticalBattery()) {
+    if (flightSettingsLocked() || criticalBattery()) {
       updateError =
         "Update blocked: disarm, stop recording and check battery";
       return;
@@ -2368,7 +2373,7 @@ void setupRoutes() {
 
   web.on("/api/mission", HTTP_POST, []() {
     if (!requireControl()) return;
-    if (armed || recording || calibrating || shutdownPending) {
+    if (flightSettingsLocked()) {
       respond(false, "Flight details locked while device is busy");
       return;
     }
@@ -2386,19 +2391,31 @@ void setupRoutes() {
 
   web.on("/api/settings", HTTP_POST, []() {
     if (!requireControl()) return;
-    if (armed || recording || calibrating || shutdownPending) {
+    if (flightSettingsLocked()) {
       respond(false, "Sample rate locked while device is busy");
       return;
     }
 
     uint16_t requested = (uint16_t)web.arg("rate").toInt();
     uint8_t requestedLimit = (uint8_t)web.arg("limit").toInt();
+    bool validRate = requested == 10 || requested == 25 || requested == 50;
     bool validLimit = requestedLimit == 2 || requestedLimit == 5 ||
       requestedLimit == 10 || requestedLimit == 20;
-    bool ok = setSampleRate(requested) && validLimit;
+    // Validate the whole request before changing the rate or preferences.
+    if (!validRate || !validLimit) {
+      respond(false, "Choose 10/25/50 Hz and a 2/5/10/20 minute limit");
+      return;
+    }
+    bool changed = requested != sampleRateHz ||
+                   requestedLimit != recordingLimitMin;
+    bool ok = setSampleRate(requested);
     if (ok) {
       recordingLimitMin = requestedLimit;
       nv.putUChar("limitmin", recordingLimitMin);
+      if (changed) {
+        prepareReady = false;
+        prepareStatus = "Logging settings changed; run preparation again";
+      }
     }
     respond(
       ok,
@@ -2427,39 +2444,72 @@ void setupRoutes() {
 
   web.on("/api/prepare", HTTP_POST, []() {
     if (!requireControl()) return;
-    if (web.hasArg("kind")) {
-      String kind = web.arg("kind");
-      if (kind == "flight" || kind == "test") missionKind = kind;
+    // A rejected request must not change motor, rate or stored limits.
+    if (flightSettingsLocked()) {
+      respond(false, "Preparation unavailable while device is busy");
+      return;
     }
+
+    String requestedKind = missionKind;
+    if (web.hasArg("kind")) {
+      requestedKind = web.arg("kind");
+      if (requestedKind != "flight" && requestedKind != "test") {
+        respond(false, "Select Flight or Test"); return;
+      }
+    }
+    String requestedMotor = motorLabel;
     if (web.hasArg("motor")) {
       String cleaned = cleanLabel(web.arg("motor"), 24);
-      motorLabel = cleaned.length() ? cleaned : "Unspecified";
+      requestedMotor = cleaned.length() ? cleaned : "Unspecified";
     }
+
+    uint16_t requestedRate = sampleRateHz;
     if (web.hasArg("rate")) {
-      if (!setSampleRate((uint16_t)web.arg("rate").toInt())) {
+      requestedRate = (uint16_t)web.arg("rate").toInt();
+      if (requestedRate != 10 && requestedRate != 25 && requestedRate != 50) {
         respond(false, "Choose 10, 25, or 50 Hz"); return;
       }
     }
+    uint8_t requestedLimit = recordingLimitMin;
     if (web.hasArg("limit")) {
-      uint8_t limit = (uint8_t)web.arg("limit").toInt();
-      if (limit != 2 && limit != 5 && limit != 10 && limit != 20) {
+      requestedLimit = (uint8_t)web.arg("limit").toInt();
+      if (requestedLimit != 2 && requestedLimit != 5 &&
+          requestedLimit != 10 && requestedLimit != 20) {
         respond(false, "Choose a 2, 5, 10, or 20 minute limit"); return;
       }
-      recordingLimitMin = limit;
+    }
+
+    bool useEpoch = web.hasArg("epoch");
+    uint64_t requestedEpoch = 0;
+    int16_t requestedOffset = 0;
+    if (useEpoch) {
+      requestedEpoch = strtoull(web.arg("epoch").c_str(), nullptr, 10);
+      if (requestedEpoch < 1600000000000ULL) {
+        respond(false, "Invalid phone time"); return;
+      }
+      requestedOffset = (int16_t)web.arg("offset").toInt();
+    }
+
+    if (!startPrepareAll()) {
+      respond(false, "Preparation unavailable while device is busy");
+      return;
+    }
+    // Commit only after all fields and the idle state have been accepted.
+    missionKind = requestedKind;
+    motorLabel = requestedMotor;
+    if (requestedRate != sampleRateHz) setSampleRate(requestedRate);
+    if (requestedLimit != recordingLimitMin) {
+      recordingLimitMin = requestedLimit;
       nv.putUChar("limitmin", recordingLimitMin);
     }
-    if (web.hasArg("epoch")) {
-      uint64_t value = strtoull(web.arg("epoch").c_str(), nullptr, 10);
-      if (value >= 1600000000000ULL) {
-        phoneEpochMs = value;
-        phoneEpochSetAtMs = millis();
-        phoneUtcOffsetMin = (int16_t)web.arg("offset").toInt();
-      }
+    if (useEpoch) {
+      phoneEpochMs = requestedEpoch;
+      phoneEpochSetAtMs = millis();
+      phoneUtcOffsetMin = requestedOffset;
     }
     flightLabel = "Mission " + String(nextFlightNumber) +
       " · Card Flight " + String(nextCardSequence);
-    bool ok = startPrepareAll();
-    respond(ok, ok ? "Preparation started" : "Preparation unavailable while device is busy");
+    respond(true, "Preparation started");
   });
 
   web.on("/api/arm", HTTP_POST, []() {
@@ -2547,8 +2597,7 @@ void setupRoutes() {
 
   web.on("/api/simulate", HTTP_POST, []() {
     if (!requireControl()) return;
-    if (armed || recording || calibrating ||
-        shutdownPending) {
+    if (flightSettingsLocked()) {
       respond(false, "Recorder busy");
       return;
     }
@@ -2618,6 +2667,10 @@ void setupRoutes() {
     if (!requireControl()) return;
     if (shutdownPending) {
       respond(false, "Shutdown already requested");
+      return;
+    }
+    if (flightSettingsLocked()) {
+      respond(false, "Finish or cancel recording/preparation before shutdown");
       return;
     }
 
