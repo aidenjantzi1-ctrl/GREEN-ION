@@ -2071,7 +2071,8 @@ void filesAPI() {
       if (!first) output += ",";
       first = false;
       output += "{\"name\":\"" + n + "\",\"size\":";
-      output += String((uint32_t)f.size());
+      // Keep each listed recording size in the widest available integer form.
+      output += u64Text((uint64_t)f.size());
       output += ",\"protected\":" + jb(SD.exists("/" + protectionFile(n))) + "}";
     }
 
