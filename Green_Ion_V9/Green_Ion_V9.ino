@@ -250,6 +250,7 @@ float groundTestMaximumAltM = NAN;
 String groundTestResult = "Not run";
 String groundTestDetail = "Run before flight to verify the complete recorder path";
 File groundTestFile;
+char groundTestPath[16] = {0};
 
 // ---------- SHUTDOWN ----------
 
@@ -1361,8 +1362,21 @@ bool startGroundTest() {
     return false;
   }
 
-  SD.remove("/GNDTEST.TMP");
-  groundTestFile = SD.open("/GNDTEST.TMP", FILE_WRITE);
+  // Allocate an unused FAT-compatible filename. Never erase an existing file.
+  groundTestPath[0] = '\0';
+  for (unsigned slot = 0; slot < 16; ++slot) {
+    char candidate[16];
+    snprintf(candidate, sizeof(candidate), "/GND%04u.TMP", slot);
+    if (!SD.exists(candidate)) {
+      strncpy(groundTestPath, candidate, sizeof(groundTestPath) - 1);
+      break;
+    }
+  }
+  if (!groundTestPath[0]) {
+    errorText = "Ground test blocked: no unused temporary filename";
+    return false;
+  }
+  groundTestFile = SD.open(groundTestPath, FILE_WRITE);
   if (!groundTestFile) {
     errorText = "Could not create ground-test file";
     return false;
@@ -1396,8 +1410,13 @@ void finishGroundTest() {
   groundTestMaximumFlushUs = micros() - flushStartedUs;
   size_t bytes = groundTestFile.size();
   groundTestFile.close();
-  SD.remove("/GNDTEST.TMP");
+  bool cleanupOK = SD.remove(groundTestPath);
+  groundTestPath[0] = '\0';
   groundTestActive = false;
+  if (!cleanupOK) {
+    sdVerified = false;
+    sdStatus = "Ground test cleanup failed: retest SD before flight";
+  }
 
   groundTestExpected = (durationMs * sampleRateHz) / 1000UL;
   groundTestMissing = groundTestExpected > groundTestSamples
@@ -1408,7 +1427,7 @@ void finishGroundTest() {
   uint16_t batteryDrop = groundTestStartBatteryMv > groundTestMinimumBatteryMv
     ? groundTestStartBatteryMv - groundTestMinimumBatteryMv : 0;
 
-  bool complete = bytes == groundTestSamples * 16UL;
+  bool complete = bytes == groundTestSamples * 16UL && cleanupOK;
   bool timingGood = groundTestMissing <= max(2UL, groundTestExpected / 50UL);
   bool sensorGood = groundTestInvalid == 0 && !sensorFrozen;
   bool batteryGood = batteryDrop <= 150;
@@ -1425,6 +1444,7 @@ void finishGroundTest() {
     ", battery drop " + String(batteryDrop) + " mV, max write " +
     String(groundTestMaximumWriteUs) + " us, flush " +
     String(groundTestMaximumFlushUs) + " us";
+  if (!cleanupOK) groundTestDetail += ", temporary file cleanup failed; retest SD";
   message = "Ground test " + groundTestResult;
 }
 
@@ -2546,15 +2566,16 @@ void setupRoutes() {
       requestedLimit = (uint8_t)parsedLimit;
     }
 
-    bool useEpoch = web.hasArg("epoch");
+    bool useEpoch = web.hasArg("epoch") || web.hasArg("offset");
     uint64_t requestedEpoch = 0;
     int16_t requestedOffset = 0;
     if (useEpoch) {
-      requestedEpoch = strtoull(web.arg("epoch").c_str(), nullptr, 10);
-      if (requestedEpoch < 1600000000000ULL) {
+      // Preparation must use the same strict clock validation as /api/time.
+      if (!web.hasArg("epoch") || !web.hasArg("offset") ||
+          !parsePhoneEpoch(web.arg("epoch"), requestedEpoch) ||
+          !parsePhoneUtcOffset(web.arg("offset"), requestedOffset)) {
         respond(false, "Invalid phone time"); return;
       }
-      requestedOffset = (int16_t)web.arg("offset").toInt();
     }
 
     if (!startPrepareAll()) {
