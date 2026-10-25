@@ -5,8 +5,8 @@ import struct
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-INO = (ROOT / "Green_Ion_V8_7/Green_Ion_V8_7.ino").read_text()
-DASH = (ROOT / "Green_Ion_V8_7/Dashboard.h").read_text()
+INO = (ROOT / "Green_Ion_V8_8/Green_Ion_V8_8.ino").read_text(encoding="utf-8")
+DASH = (ROOT / "Green_Ion_V8_8/Dashboard.h").read_text(encoding="utf-8")
 
 
 def inspect_rkt4(data):
@@ -57,6 +57,24 @@ class RecoveryTests(unittest.TestCase):
     def test_dashboard_recovery_display(self):
         for token in ('id="integrityStatus"', 'id="recoveredFlights"',
                       'id="recoveredSamples"', 'id="resetReason"'):
+            self.assertIn(token, DASH)
+
+    def test_v88_field_confidence_contract(self):
+        for token in (
+            'FIRMWARE_VERSION = "8.8"', "GREEN_ION_GIT_SHA", "startGroundTest",
+            "finishGroundTest", "sensorFrozen", "flightChecksum", "bin_fnv1a32",
+            "confidence_score", "maximum_voltage_drop_v", "maximum_flush_us",
+            'web.on("/api/time"', 'web.on("/api/protect"', 'web.on("/api/note"',
+            'web.on("/api/diagnostics"', "recordingLimitMin",
+        ):
+            self.assertIn(token, INO)
+
+    def test_v88_dashboard_controls(self):
+        for token in (
+            'id="groundtest"', 'id="recordingLimit"', 'id="sensorFrozen"',
+            'id="maximumFlush"', 'id="flushHeartbeat"', "Add note", "Unprotect",
+            "/api/diagnostics",
+        ):
             self.assertIn(token, DASH)
 
 

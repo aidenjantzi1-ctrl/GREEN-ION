@@ -1,12 +1,14 @@
-# GREEN ION V8.7
+# GREEN ION V8.8
 
-GREEN ION V8.7 is experimental firmware for an Adafruit ESP32 Feather V2 flight-data recorder. It reads a BMP388 barometric sensor, serves a phone-friendly dashboard from its own Wi-Fi access point, and writes RKT4-compatible binary flight logs to an SPI microSD card.
+GREEN ION V8.8 is experimental firmware for an Adafruit ESP32 Feather V2 flight-data recorder. It reads a BMP388 barometric sensor, serves a phone-friendly dashboard from its own Wi-Fi access point, and writes RKT4-compatible binary flight logs to an SPI microSD card.
 
 > **Safety scope:** GREEN ION is a data recorder only. It must never control ignition, staging, parachute deployment, or any recovery system.
 
 ## V8.8 recording-reliability development (in progress)
 
-V8.8 recovery changes are currently compiled from `Green_Ion_V8_7/`; there is no separate V8.8 sketch folder or phone-update artifact yet. Download the current `green-ion-v8.7-phone-update` artifact only after its GitHub Actions run succeeds.
+V8.8 has a standalone source snapshot in `Green_Ion_V8_8/`. Download the `green-ion-v8.8-phone-update` artifact only after its GitHub Actions run succeeds.
+
+V8.8 adds a real 10-second ground test, altitude-noise and frozen-sensor checks, SD flush timing and heartbeat, configurable 2/5/10/20-minute recording limits, phone-provided date/time, firmware/build metadata, battery sag tracking, a postflight confidence score, an FNV-1a log checksum, protected flights, recovery notes, and a downloadable diagnostic report.
 
 - Buffered RKT4 samples continue to flush approximately every 500 ms. A checkpoint journal is updated about every 5 seconds while recording, recording the last flushed file size and sample count.
 - After a reset, firmware scans for outstanding `FLTxxxx.JRN` files and appends `status=recovered_interrupted` to the companion TXT metadata. It reports the count of complete 16-byte samples, partial trailing bytes, and whether the RKT4 header is valid. Original BIN files are preserved; CSV export ignores partial trailing records.
@@ -117,7 +119,7 @@ Use a module that is electrically compatible with 3.3 V logic. The firmware can 
 
 ## Connect to the dashboard
 
-1. Power the Feather and wait for `GREEN ION V8.7` in Serial Monitor.
+1. Power the Feather and wait for `GREEN ION V8.8` in Serial Monitor.
 2. On a phone, tablet, or computer, open Wi-Fi settings.
 3. Join **GREEN-ION**.
 4. Enter the password **GreenIon2026**.
@@ -165,7 +167,8 @@ Automatic status colors take priority during safety-critical recorder states. Th
 - [V8.4 source](Green_Ion_V8_4/Green_Ion_V8_4.ino) — preserved Arduino sketch
 - [V8.5 source](Green_Ion_V8_5/Green_Ion_V8_5.ino) — preserved Arduino sketch
 - [V8.6 source](Green_Ion_V8_6/Green_Ion_V8_6.ino) — preserved Arduino sketch
-- [V8.7 source](Green_Ion_V8_7/Green_Ion_V8_7.ino) — current buildable Arduino sketch, including V8.8 development changes
+- [V8.8 source](Green_Ion_V8_8/Green_Ion_V8_8.ino) — latest buildable Arduino sketch
+- [V8.7 source](Green_Ion_V8_7/Green_Ion_V8_7.ino) — previous preserved snapshot
 
 **Important:** Source snapshots begin at V8. Earlier historical records must not be confused with working firmware. GitHub commit dates in October 2026 are preservation dates, not necessarily prototype development dates.
 
@@ -175,7 +178,7 @@ After a recording has been saved to microSD, connect to the `GREEN-ION` Wi-Fi da
 
 ## GitHub builds and phone downloads
 
-Every firmware change on `main` runs the **Build Green Ion firmware** GitHub Actions workflow. Open the latest successful workflow run and download the `green-ion-v8.7-phone-update` artifact. It contains the `.ino` sketch, required `Dashboard.h` header, and main `Green_Ion_V8_7.ino.bin` firmware image. Preserve the `.ino` and `.h` together if recompiling from source.
+Every firmware change on `main` runs the **Build Green Ion firmware** GitHub Actions workflow. Open the latest successful workflow run and download the `green-ion-v8.8-phone-update` artifact. It contains the `.ino` sketch, required `Dashboard.h` header, and main `Green_Ion_V8_8.ino.bin` firmware image. Preserve the `.ino` and `.h` together if recompiling from source.
 
 ### Install a later update from a phone
 

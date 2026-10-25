@@ -2,7 +2,18 @@
 
 Every known or referenced version from **V1 through V8.8 development** is listed here. See [VERSIONS.md](VERSIONS.md) for the complete archive index and exact preserved sketch links.
 
-**Evidence:** Actual firmware snapshots exist for V8–V8.7. V8.8 recovery work is currently integrated into the buildable V8.7 source folder and is not a separate snapshot or release artifact. V1, V1.2, V3 and V3.1 have documented development or serial-output evidence, but original source has not been preserved. V2 and V4–V7 are undocumented placeholders, not confirmed releases. No missing source is fabricated.
+**Evidence:** Actual firmware snapshots exist for V8–V8.8. V1, V1.2, V3 and V3.1 have documented development or serial-output evidence, but original source has not been preserved. V2 and V4–V7 are undocumented placeholders, not confirmed releases. No missing source is fabricated.
+
+## V8.8 — Field Confidence Edition (October 24, 2026)
+
+- Created the standalone `Green_Ion_V8_8` firmware snapshot and phone-update artifact.
+- Added a 10-second end-to-end ground test covering BMP388 validity, sensor freshness, altitude noise, battery stability, sampling completeness, SD writes, and flush timing, with explicit PASS or REVIEW feedback.
+- Added frozen-pressure detection, live successful-flush heartbeat, and maximum SD write/flush timing.
+- Added configurable 2, 5, 10, or 20 minute automatic recording limits.
+- Added phone-supplied date/time, firmware version, and Git commit build ID to flight metadata.
+- Added minimum battery voltage, maximum voltage drop, postflight confidence score, and FNV-1a checksum metadata while retaining RKT4 binary compatibility.
+- Added flight protection against dashboard deletion and post-recovery notes stored in the TXT companion file.
+- Added a downloadable diagnostic report containing firmware/build, reset, sensor, SD, battery, timing, integrity, and latest error information.
 
 **Dates:** October 24, 2026 repository commits are archive/commit dates, not necessarily original prototype creation dates.
 

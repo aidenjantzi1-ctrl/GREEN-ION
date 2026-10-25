@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "Green_Ion_V8_7/**"
+      - "Green_Ion_V8_8/**"
+      - "tests/**"
       - ".github/workflows/build-firmware.yml"
   workflow_dispatch:
 
@@ -32,7 +33,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-          s = Path('Green_Ion_V8_7/Dashboard.h').read_text()
+          s = Path('Green_Ion_V8_8/Dashboard.h').read_text()
           match = re.search(r'<script>(.*?)</script>', s, re.S)
           assert match, 'Dashboard script missing'
           ids = re.findall(r'\\bid="([^"]+)"', s)
@@ -48,17 +49,17 @@ jobs:
       - name: Test RKT4 integrity and interrupted-flight recovery
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
 
-      - name: Compile V8.7
+      - name: Compile V8.8
         run: |
           mkdir -p build
-          arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --output-dir build Green_Ion_V8_7
+          arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --build-property "build.extra_flags=-DGREEN_ION_GIT_SHA=\\\"${GITHUB_SHA}\\\"" --output-dir build Green_Ion_V8_8
 
       - name: Package phone-downloadable firmware
         uses: actions/upload-artifact@v4
         with:
-          name: green-ion-v8.7-phone-update
+          name: green-ion-v8.8-phone-update
           path: |
-            build/Green_Ion_V8_7.ino.bin
-            Green_Ion_V8_7/Green_Ion_V8_7.ino
-            Green_Ion_V8_7/Dashboard.h
+            build/Green_Ion_V8_8.ino.bin
+            Green_Ion_V8_8/Green_Ion_V8_8.ino
+            Green_Ion_V8_8/Dashboard.h
           if-no-files-found: error
