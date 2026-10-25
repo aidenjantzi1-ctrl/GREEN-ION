@@ -452,9 +452,10 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <canvas id="savedFlightGraph" style="width:100%;height:220px"></canvas>
   <div class="notice" id="savedGraphStatus">Select a flight to load its graph.</div><button id="exportFlightPDF" class="secondary" style="width:100%">PRINT / SAVE FLIGHT PDF</button>
  </div>
- <div class="card" style="display:none"><h2>Compare flights</h2>
-  <p class="muted">Select two saved recordings to compare their summary statistics.</p>
-  <select id="compareA"></select><select id="compareB"></select>
+ <div class="card" id="flightComparisonCard"><h2>Compare saved flights</h2>
+  <p class="muted">After saving two recordings, choose each flight and compare their measurements. Missing values appear as unavailable.</p>
+  <label for="compareA">First recording</label><select id="compareA"></select>
+  <label for="compareB">Second recording</label><select id="compareB"></select>
   <button id="compareFlights" class="secondary" style="width:100%">COMPARE FLIGHTS</button>
   <div id="comparisonResults" role="status"></div><button id="exportComparePDF" class="secondary" style="width:100%">PRINT / SAVE MOTOR COMPARISON PDF</button>
  </div>
@@ -1263,11 +1264,22 @@ for(const hex of colors) {
 }
 
 function bytes(n) {
- if(n>=1048576)return(n/1048576).toFixed(2)+" MB";
- if(n>=1024)return(n/1024).toFixed(1)+" KB";
+ // The SD filesystem reports bytes; use binary units consistently.
+ if(!Number.isFinite(n)||n<0)return "Unknown";
+ if(n>=1073741824)return(n/1073741824).toFixed(2)+" GiB";
+ if(n>=1048576)return(n/1048576).toFixed(2)+" MiB";
+ if(n>=1024)return(n/1024).toFixed(1)+" KiB";
  return n+" bytes";
 }
-
+// Empty or non-numeric metadata must not be presented as a measured zero.
+function summaryValue(value){
+ const s=String(value??"").trim();
+ return !s||["nan","null","undefined"].includes(s.toLowerCase())?"—":s;
+}
+function comparisonNumber(value){
+ const s=summaryValue(value);
+ return s==="—"?NaN:Number(s);
+}
 // Keep blank CSV measurements missing rather than turning them into measured zeroes.
 function parseCSVNumber(value){const trimmed=value.trim();return trimmed===""?NaN:Number(trimmed);}
 let savedFlightSeries=[];
@@ -1470,7 +1482,7 @@ async function compareFlights(){
    if(!(key in one)&&!(key in two))continue;
    const row=document.createElement("div");row.className="row";
    const label=document.createElement("span");label.textContent=title;
-   const value=document.createElement("strong");value.textContent=(one[key]||"—")+" / "+(two[key]||"—");
+   const value=document.createElement("strong");value.textContent=summaryValue(one[key])+" / "+summaryValue(two[key]);
    row.append(label,value);el.appendChild(row);
   }
  }catch(err){if(requestId===comparisonRequestId&&$("compareA").value===a&&$("compareB").value===b)el.textContent=err.message;}
@@ -1579,7 +1591,7 @@ function exportFlightPDF(){
  printableReport("GREEN-ION flight — "+selectedFlight,"<h2>Flight metadata</h2>"+pdfRows(Object.entries(flightMeta))+"<h2>Estimated phases</h2>"+pdfRows(phases)+"<h2>Flight performance</h2>"+pdfRows(perf)+"<h2>Battery and acceleration</h2>"+pdfRows(extra)+charts);
 }
 function compareBarGraph(a,b,key,title,unit){
- const x=Number(a[key]),y=Number(b[key]);
+ const x=comparisonNumber(a[key]),y=comparisonNumber(b[key]);
  if(!Number.isFinite(x)||!Number.isFinite(y))return "<p>"+safeHTML(title)+": not enough data for a graph.</p>";
  const c=document.createElement("canvas");c.width=1000;c.height=230;
  const ctx=c.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);
@@ -1594,23 +1606,28 @@ function exportComparePDF(){
  if(!c||c.a!==$("compareA").value||c.b!==$("compareB").value){alert("Compare the selected flights first.");return;}
  const fields=[["Motor","motor"],["Peak altitude (m)","peak_altitude_m"],["Duration (s)","duration_s"],["Samples","samples"],["Missed samples","missed_samples"],["Invalid samples","invalid_samples"],["Max temperature (°C)","temperature_max_c"]];
  const graphs=compareBarGraph(c.one,c.two,"peak_altitude_m","Peak altitude","m")+compareBarGraph(c.one,c.two,"duration_s","Recording duration","s")+compareBarGraph(c.one,c.two,"samples","Samples recorded","samples")+compareBarGraph(c.one,c.two,"starting_battery_v","Starting battery voltage","V");
- printableReport("GREEN-ION motor comparison", "<p>"+safeHTML(c.a)+" ("+safeHTML(c.one.motor||"No motor label")+") vs "+safeHTML(c.b)+" ("+safeHTML(c.two.motor||"No motor label")+") · Values in the table are first / second flight. Comparisons do not control for rocket mass, atmospheric conditions, or launch configuration.</p>"+pdfRows(fields.map(([label,key])=>[label,(c.one[key]??"—")+" / "+(c.two[key]??"—")]))+graphs);
+ printableReport("GREEN-ION motor comparison", "<p>"+safeHTML(c.a)+" ("+safeHTML(c.one.motor||"No motor label")+") vs "+safeHTML(c.b)+" ("+safeHTML(c.two.motor||"No motor label")+") · Values in the table are first / second flight. Comparisons do not control for rocket mass, atmospheric conditions, or launch configuration.</p>"+pdfRows(fields.map(([label,key])=>[label,summaryValue(c.one[key])+" / "+summaryValue(c.two[key])]))+graphs);
 }
 async function loadFiles() {
  try {
   const result=await api("files");
-  $("storageUsed").textContent=
-   bytes(result.used)+" / "+bytes(result.total);
-  $("sdFreeSpace").textContent=bytes(Math.max(0,result.total-result.used));
+  const total=Number(result.total),used=Number(result.used);
+  const storageValid=Number.isFinite(total)&&Number.isFinite(used)&&total>0&&used>=0&&used<=total;
+  $("storageUsed").textContent=storageValid?bytes(used)+" / "+bytes(total):"Capacity unavailable";
+  $("sdFreeSpace").textContent=storageValid?bytes(total-used):"Unknown — retest SD card";
   $("fileCount").textContent=result.files.length;
   $("sdTestResult").textContent=state?.sdVerified?"PASS":"NOT VERIFIED";
   const list=$("fileList");
   list.replaceChildren();
 
   if(!result.files.length) {
+   for(const id of ["compareA","compareB"])$(id).replaceChildren();
+   comparisonMeta=null;comparisonRequestId++;
+   $("compareFlights").disabled=true;
    list.textContent="No flight files yet. Save a test recording to see it here.";
    return;
   }
+  $("compareFlights").disabled=result.files.length<2;
 
   const sort=$("fileSort").value;
   const files=result.files.slice().sort((a,b)=>sort==="old"?a.name.localeCompare(b.name):sort==="size"?b.size-a.size:b.name.localeCompare(a.name));
@@ -1660,7 +1677,7 @@ async function loadFiles() {
     try {
      await api("delete?name="+
       encodeURIComponent(f.name),"POST");
-     selectedFlight="";loadedFlightName="";savedFlightSeries=[];flightPhases=[];flightMeta={};comparisonMeta=null;graphRequestId++;
+     selectedFlight="";loadedFlightName="";savedFlightSeries=[];flightPhases=[];flightMeta={};comparisonMeta=null;comparisonRequestId++;graphRequestId++;flightSummaryRequestId++;
      $("flightSummaryDetails").replaceChildren();
      $("flightSummaryStatus").textContent="Refreshing after deletion...";
      $("flightPhases").textContent="No flight selected.";
