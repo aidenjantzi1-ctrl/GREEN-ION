@@ -1293,8 +1293,8 @@ async function loadSavedGraph(name){
   loadedFlightName=name;
   label.textContent=savedFlightSeries.length+" samples loaded from "+name;
   enrichFlightSeries(savedFlightSeries);
-  renderFlightPerformance(savedFlightSeries);
   computePhases(savedFlightSeries);
+  renderFlightPerformance(savedFlightSeries);
   drawSavedGraph();
  }catch(err){if(requestId!==graphRequestId)return;savedFlightSeries=[];loadedFlightName="";label.textContent=err.message;$("flightPerformance").textContent="Performance unavailable: "+err.message;drawSavedGraph();}
 }
@@ -1359,11 +1359,15 @@ function renderFlightPerformance(rows){
  // RKT4 CSV: time, pressure, temperature, battery, valid, altitude, velocity.
  const pts=rows.filter(r=>r[4]===1&&Number.isFinite(r[0])&&Number.isFinite(r[5]));
  if(pts.length<3){target.textContent="Insufficient valid samples for flight analysis.";return;}
- const peak=pts.reduce((best,p)=>p[5]>best[5]?p:best,pts[0]);
- // Threshold-based launch detection; not a motor ignition timestamp.
- const launch=pts.find(p=>p[5]>=5);
- const afterPeak=pts.filter(p=>p[0]>peak[0]);
- const landed=afterPeak.find(p=>Math.abs(p[5])<=5);
+ // Use the same sustained launch and landing markers as the phase panel.
+ // A single noisy 5 m reading must not create a flight-duration estimate.
+ const phaseRow=name=>{
+  const phase=flightPhases.find(p=>p[0]===name);
+  return phase?pts.find(p=>p[0]===phase[1]&&p[5]===phase[2]):null;
+ };
+ const launch=phaseRow("Launch detected");
+ const peak=phaseRow("Apogee")||pts.reduce((best,p)=>p[5]>best[5]?p:best,pts[0]);
+ const landed=phaseRow("Landing detected");
  const ascent=launch?pts.filter(p=>p[0]>=launch[0]&&p[0]<=peak[0]):[];
  const descent=landed?pts.filter(p=>p[0]>=peak[0]&&p[0]<=landed[0]):[];
  // Use 5-sample moving slopes to reduce barometer noise. Still estimates.
