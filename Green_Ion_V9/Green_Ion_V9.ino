@@ -2356,6 +2356,20 @@ void protectAPI() {
   respond(ok, ok ? (protect ? "Flight protected" : "Flight unprotected") : "Protection change failed");
 }
 
+// Limit metadata line lengths so a damaged TXT cannot exhaust ESP32 RAM.
+bool readLimitedMetadataLine(File &file, String &line) {
+  line = "";
+  while (file.available()) {
+    int ch = file.read();
+    if (ch < 0) return false;
+    if (ch == '\n') { line.trim(); return true; }
+    if (line.length() >= 160) return false;
+    line += (char)ch;
+  }
+  line.trim();
+  return line.length() > 0;
+}
+
 void noteAPI() {
   if (!requireControl()) return;
   if (!sdOK || recording || armed) { respond(false, "SD busy"); return; }
@@ -2378,19 +2392,20 @@ void noteAPI() {
     respond(false, "Cannot read TXT summary; original BIN unchanged");
     return;
   }
-  String header = existing.readStringUntil('\n');
-  header.trim();
+  String header;
+  bool readable = readLimitedMetadataLine(existing, header);
   bool matchingFile = false;
-  for (int i = 0; i < 16 && existing.available(); i++) {
-    String entry = existing.readStringUntil('\n');
-    entry.trim();
+  for (int i = 0; i < 16 && readable && existing.available(); i++) {
+    String entry;
+    readable = readLimitedMetadataLine(existing, entry);
+    if (!readable) break;
     if (entry.startsWith("file=")) {
       matchingFile = entry.substring(5) == n;
       break;
     }
   }
   existing.close();
-  if (header != "GREEN ION V9 FLIGHT METADATA" || !matchingFile) {
+  if (!readable || header != "GREEN ION V9 FLIGHT METADATA" || !matchingFile) {
     respond(false, "TXT summary incomplete or mismatched; original BIN unchanged");
     return;
   }
