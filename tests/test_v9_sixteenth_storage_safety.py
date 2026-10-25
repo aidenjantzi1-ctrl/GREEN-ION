@@ -52,7 +52,7 @@ class FirmwareNoteBoundaries(unittest.TestCase):
         self.assertIn("readLimitedMetadataLine(existing, entry)", note)
         self.assertIn("if (!readable || header !=", note)
         self.assertNotIn("readStringUntil", note)
-        self.assertLess(note.index("existing.close();"), note.index("FILE_APPEND"))
+        self.assertLess(note.index("existing.close();"), note.index("SD.open(summaryPath, FILE_APPEND)"))
 
     def test_pdf_metadata_wraps_instead_of_overflowing(self):
         self.assertIn("overflow-wrap:anywhere;word-break:break-word", DASH)
