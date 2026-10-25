@@ -286,6 +286,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <button id="stop" class="danger">STOP &amp; SAVE</button>
   <button id="disconnect" class="secondary">DISCONNECT WI-FI</button>
  </div>
+ <p id="armReason" class="muted" role="status" aria-live="polite">Connect to see what is needed before arming.</p>
  <p class="muted">Calibration enables live altitude without
  requiring an SD card or starting a flight.</p>
 </div>
@@ -412,7 +413,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <div class="row"><span>Free space</span><strong id="sdFreeSpace">--</strong></div>
   <button id="sdtest" class="wide">DETECT &amp; TEST SD CARD</button>
   <div class="notice" id="sdTestFeedback" role="status" aria-live="polite">Tap to test. This button can request control automatically.</div>
-  <p class="muted">This test creates, reads, and removes a temporary file. It does not erase saved flights. Wait until recording and calibration have stopped.</p>
+  <p class="muted">This test creates, reads, and removes a temporary file. It does not erase saved flights. Wait until recording and calibration have stopped. If it fails, stop recording, power off, reseat the card and confirm FAT/FAT32 formatting before retrying.</p>
  </div>
  <div class="card">
   <h2>Flight files</h2>
@@ -693,6 +694,21 @@ function renderGuide(d){
  $("guideNext").disabled=!d.controlAvailable&&!d.controller&&step!==3;
  [...$("guideSteps").children].forEach((el,i)=>{el.classList.toggle("done",i<step);el.classList.toggle("current",i===step);});
 }
+function armReadinessReason(d,isBusy){
+ if(d.recording)return "Recording is already in progress.";
+ if(d.armed)return "Logger is armed. Start recording when ready.";
+ if(d.shutdownPending)return "Shutdown pending. Restart the recorder.";
+ if(d.updateInProgress)return "Wait for the firmware update to finish.";
+ if(d.calibrating)return "Wait for calibration to finish.";
+ if(isBusy)return "Wait for the current action to finish.";
+ if(!d.controller)return "Tap Take Control on Overview to change recording settings.";
+ if(d.simulation)return "Stop simulation before arming.";
+ if(!d.sensor||!d.reading)return "BMP388 readings unavailable. Check sensor wiring.";
+ if(!d.calibrated)return "Calibrate while the recorder is stationary.";
+ if(!d.sdVerified||d.sdFault)return "Open Storage and run Detect & Test SD Card.";
+ if(d.batteryCritical)return "Battery critically low. Recharge before arming.";
+ return "Ready to arm. Confirm the mission, motor and sample rate.";
+}
 function render(d,collect=true) {
  state=d;
  renderGuide(d);
@@ -783,6 +799,7 @@ function render(d,collect=true) {
   lock||d.armed||d.recording||d.simulation;
  $("testCalibrate").disabled=$("calibrate").disabled;
 
+ $("armReason").textContent=armReadinessReason(d,busy);
  $("arm").disabled=
   lock||d.armed||d.recording||d.simulation||
   !d.sensor||!d.reading||!d.calibrated||
@@ -1256,6 +1273,8 @@ function bytes(n) {
  return n+" bytes";
 }
 
+// Missing CSV measurements must not be interpreted as measured zeroes.
+function parseCSVNumber(value){const trimmed=value.trim();return trimmed===""?NaN:Number(trimmed);}
 let savedFlightSeries=[];
 let loadedFlightName="";
 let graphRequestId=0;
@@ -1273,7 +1292,7 @@ async function loadSavedGraph(name){
   if(!response.ok)throw Error("Could not load recorded CSV ("+response.status+")");
   const csv=await response.text();
   const lines=csv.trim().split(/\r?\n/);
-  const parsed=lines.slice(1).map(line=>line.split(",").map(Number)).filter(r=>r.length>=7&&Number.isFinite(r[0]));
+  const parsed=lines.slice(1).filter(line=>line.trim()).map(line=>line.split(",").map(parseCSVNumber)).filter(r=>r.length>=7&&Number.isFinite(r[0])&&(r[4]===0||r[4]===1));
   if(requestId!==graphRequestId||selectedFlight!==name)return;
   savedFlightSeries=parsed;
   loadedFlightName=name;
