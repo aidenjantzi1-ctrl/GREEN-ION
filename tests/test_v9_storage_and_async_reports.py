@@ -113,7 +113,8 @@ const readFlightMetadata=name=>new Promise(resolve=>{pending[name]=resolve;});
   results:$("comparisonResults").children.length}));
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """
-        data = node_result(compare + harness)
+        helpers = section(DASH, "function bytes(n) {", "// Keep blank CSV measurements")
+        data = node_result(helpers + compare + harness)
         self.assertEqual(data["a"], "FLT0003.BIN")
         self.assertEqual(data["b"], "FLT0004.BIN")
         self.assertGreater(data["results"], 0)
