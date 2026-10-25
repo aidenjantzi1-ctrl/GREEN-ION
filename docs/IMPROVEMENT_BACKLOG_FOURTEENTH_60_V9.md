@@ -10,7 +10,7 @@ Reviewed 2026-10-25 against the V9 firmware, embedded dashboard, regression suit
 1. Return a distinct HTTP conflict status when a note targets a BIN whose TXT companion vanished between listing and submission.
 2. Reject appending to a zero-byte TXT unless it contains the expected GREEN ION summary preamble; do not silently treat it as a complete flight summary.
 3. Reject appending to a TXT that lacks a recognizable recording filename field, leaving the BIN untouched.
-4. Preserve a clear error if a note append opens successfully but reports fewer bytes written than requested.
+4. Record the expected and accepted byte counts in optional diagnostics after an incomplete note append, without exposing note contents.
 5. Keep an SD write-error latch visible after an incomplete note append until the operator performs a fresh card test.
 6. Detect when a note append begins after an SD card swap and require reloading the file list first.
 7. Do not append a note while a firmware update is being received, even if flight recording is idle.
@@ -66,7 +66,7 @@ Reviewed 2026-10-25 against the V9 firmware, embedded dashboard, regression suit
 
 ## P3 — Specific regression and release checks
 
-51. Test a valid BIN with no TXT and confirm Add note is disabled while BIN and CSV actions remain enabled.
+51. Test that sorting and repeated Storage refreshes preserve the disabled Add note state for BIN-only recordings.
 52. Call the note endpoint directly for a missing TXT and confirm no new TXT is created.
 53. Inject a short FILE_APPEND write in a firmware test double and confirm the endpoint reports failure.
 54. Test a complete BIN/TXT pair and verify a successful note remains readable after reopening the TXT.
