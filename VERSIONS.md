@@ -1,6 +1,6 @@
 # Green Ion — Complete Version Archive
 
-This index records every known or referenced Green Ion version, starting with V1. **Historical placeholder folders do not contain source and must not be used as firmware.** V8.8 is the latest standalone snapshot.
+This index records every known or referenced Green Ion version, starting with V1. **Historical placeholder folders do not contain source and must not be used as firmware.** V9 is the latest standalone snapshot.
 
 ## Original-source availability
 
@@ -23,7 +23,8 @@ This index records every known or referenced Green Ion version, starting with V1
 | V8.5 | Yes — original .ino snapshot | Archived |
 | V8.6 | Yes — original .ino snapshot | Archived |
 | V8.7 | Yes — original .ino snapshot | Archived |
-| V8.8 | Yes — original .ino snapshot | Current |
+| V8.8 | Yes — original .ino snapshot | Archived |
+| V9 | Yes — original .ino snapshot | Current |
 
 ## Historical version notes
 
@@ -109,15 +110,16 @@ This folder is an archive record, not a compilable Arduino sketch. No original s
 - [V8.5](./Past_Versions/Green_Ion_V8_5/Green_Ion_V8_5.ino)
 - [V8.6](./Past_Versions/Green_Ion_V8_6/Green_Ion_V8_6.ino)
 - [V8.7](./Past_Versions/Green_Ion_V8_7/Green_Ion_V8_7.ino)
-- [V8.8](./Green_Ion_V8_8/Green_Ion_V8_8.ino)
+- [V8.8](./Past_Versions/Green_Ion_V8_8/Green_Ion_V8_8.ino)
+- [V9](./Green_Ion_V9/Green_Ion_V9.ino)
 
 ## V8.8 recording-reliability development
 
-V8.8 is a standalone downloadable firmware folder. Its GitHub Actions artifact is named `green-ion-v8.8-phone-update`.
+V8.8 is preserved under `Past_Versions`. V9 is the standalone current firmware folder and its GitHub Actions artifact is named `green-ion-v9-phone-update`.
 
 ## Usage notes
 
-- Use [V8.8](./Green_Ion_V8_8/Green_Ion_V8_8.ino) for the latest buildable source, subject to successful build and hardware verification.
+- Use [V9](./Green_Ion_V9/Green_Ion_V9.ino) for the latest buildable source, subject to successful build and hardware verification.
 - Previous snapshots are retained for comparison and rollback; they have not necessarily passed hardware testing.
 - Git commit dates beginning October 24, 2026 are repository import dates, not necessarily the original dates of the early prototypes.
 - The full feature-by-feature change history is in [CHANGELOG.md](./CHANGELOG.md).

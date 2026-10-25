@@ -1,12 +1,14 @@
-# GREEN ION V8.8
+# GREEN ION V9
 
-GREEN ION V8.8 is experimental firmware for an Adafruit ESP32 Feather V2 flight-data recorder. It reads a BMP388 barometric sensor, serves a phone-friendly dashboard from its own Wi-Fi access point, and writes RKT4-compatible binary flight logs to an SPI microSD card.
+GREEN ION V9 is experimental firmware for an Adafruit ESP32 Feather V2 flight-data recorder. It reads a BMP388 barometric sensor, serves a phone-friendly dashboard from its own Wi-Fi access point, and writes RKT4-compatible binary flight logs to an SPI microSD card. It never controls ignition or recovery deployment.
 
 > **Safety scope:** GREEN ION is a data recorder only. It must never control ignition, staging, parachute deployment, or any recovery system.
 
-## V8.8 recording-reliability development (in progress)
+## V9 automatic flight workflow
 
-V8.8 has a standalone source snapshot in `Green_Ion_V8_8/`. Download the `green-ion-v8.8-phone-update` artifact only after its GitHub Actions run succeeds.
+V9 is the current root-level source in `Green_Ion_V9/`. Download the `green-ion-v9-phone-update` artifact only after its GitHub Actions run succeeds. V8.8 and every earlier release are preserved under `Past_Versions/`.
+
+V9 adds a six-tab dashboard, one-button preparation/calibration/ground testing, automatic single-phone control, a three-second pre-launch RAM buffer, adaptive launch detection, pressure-estimated flight phases, automatic in-flight Wi-Fi shutdown, stable-altitude landing detection, automatic save and Wi-Fi restart, permanent mission numbering, and a per-card sequence that survives file deletion or transfer.
 
 ## Repository layout
 
@@ -24,7 +26,7 @@ V8.8 adds a real 10-second ground test, altitude-noise and frozen-sensor checks,
 
 **Limits:** The journal is a recovery marker, not a transactional filesystem. Power loss can still lose buffered or unwritten data; physical SD card damage is not repairable by firmware. A recording with an incomplete final sample remains a raw BIN with trailing bytes. Test interruption recovery with a disposable ground recording before relying on it in flight. This version does not alter ignition or recovery hardware.
 
-### V8.8 ground-test protocol (before flight use)
+### V9 ground-test protocol (before flight use)
 
 1. Install the compiled firmware only after its GitHub Actions run succeeds. Keep the ESP32 powered from a stable source.
 2. Insert a noncritical FAT/FAT32 microSD card, connect to the dashboard, and run **Detect & Test SD Card**. Confirm the read/write check passes.
@@ -95,7 +97,7 @@ Install these libraries through Arduino Library Manager:
 
 The ESP32 board package supplies `WiFi`, `WebServer`, `Wire`, `SPI`, and `SD`.
 
-Open `Green_Ion_V8_8/Green_Ion_V8_8.ino`, select the correct serial port, and upload. Open Serial Monitor at **115200 baud** for startup and diagnostic messages. The first installation of V8.5 or newer must be performed over USB; afterward, later GitHub-built updates can be installed from the dashboard on a phone.
+Open `Green_Ion_V9/Green_Ion_V9.ino`, keep `Dashboard.h` beside it, select the correct serial port, and upload. Open Serial Monitor at **115200 baud** for startup and diagnostic messages. The first installation must be performed over USB; afterward, later GitHub-built updates can be installed from the dashboard on a phone.
 
 ## Wiring
 
@@ -125,7 +127,7 @@ Use a module that is electrically compatible with 3.3 V logic. The firmware can 
 
 ## Connect to the dashboard
 
-1. Power the Feather and wait for `GREEN ION V8.8` in Serial Monitor.
+1. Power the Feather and wait for `GREEN ION V9` in Serial Monitor.
 2. On a phone, tablet, or computer, open Wi-Fi settings.
 3. Join **GREEN-ION**.
 4. Enter the password **GreenIon2026**.
@@ -160,7 +162,7 @@ Automatic status colors take priority during safety-critical recorder states. Th
 
 ## Complete version archive
 
-- [Full version index (V1–V8.8 development)](VERSIONS.md) — lists each version and original source availability.
+- [Full version index (V1–V9)](VERSIONS.md) — lists each version and original source availability.
 - [Complete changelog](CHANGELOG.md) — documented changes and evidence limitations.
 - [All past versions and historical records](Past_Versions/) — archived firmware snapshots plus descriptive early-version records.
 
@@ -173,7 +175,8 @@ Automatic status colors take priority during safety-critical recorder states. Th
 - [V8.4 source](Past_Versions/Green_Ion_V8_4/Green_Ion_V8_4.ino) — preserved Arduino sketch
 - [V8.5 source](Past_Versions/Green_Ion_V8_5/Green_Ion_V8_5.ino) — preserved Arduino sketch
 - [V8.6 source](Past_Versions/Green_Ion_V8_6/Green_Ion_V8_6.ino) — preserved Arduino sketch
-- [V8.8 source](Green_Ion_V8_8/Green_Ion_V8_8.ino) — latest buildable Arduino sketch
+- [V8.8 source](Past_Versions/Green_Ion_V8_8/Green_Ion_V8_8.ino) — archived previous release
+- [V9 source](Green_Ion_V9/Green_Ion_V9.ino) — latest buildable Arduino sketch
 - [V8.7 source](Past_Versions/Green_Ion_V8_7/Green_Ion_V8_7.ino) — previous preserved snapshot
 
 **Important:** Source snapshots begin at V8. Earlier historical records must not be confused with working firmware. GitHub commit dates in October 2026 are preservation dates, not necessarily prototype development dates.
@@ -184,7 +187,7 @@ After a recording has been saved to microSD, connect to the `GREEN-ION` Wi-Fi da
 
 ## GitHub builds and phone downloads
 
-Every firmware change on `main` runs the **Build Green Ion firmware** GitHub Actions workflow. Open the latest successful workflow run and download the `green-ion-v8.8-phone-update` artifact. It contains the `.ino` sketch, required `Dashboard.h` header, and main `Green_Ion_V8_8.ino.bin` firmware image. Preserve the `.ino` and `.h` together if recompiling from source.
+Every firmware change on `main` runs the **Build Green Ion firmware** GitHub Actions workflow. Open the latest successful workflow run and download the `green-ion-v9-phone-update` artifact. It contains the `.ino` sketch, required `Dashboard.h` header, and main `Green_Ion_V9.ino.bin` firmware image. Preserve the `.ino` and `.h` together if recompiling from source.
 
 ### Install a later update from a phone
 

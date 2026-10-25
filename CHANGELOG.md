@@ -1,8 +1,19 @@
 # Green Ion changelog
 
-Every known or referenced version from **V1 through V8.8 development** is listed here. See [VERSIONS.md](VERSIONS.md) for the complete archive index and exact preserved sketch links.
+Every known or referenced version from **V1 through V9** is listed here. See [VERSIONS.md](VERSIONS.md) for the complete archive index and exact preserved sketch links.
 
-**Evidence:** Actual firmware snapshots exist for V8–V8.8. V1, V1.2, V3 and V3.1 have documented development or serial-output evidence, but original source has not been preserved. V2 and V4–V7 are undocumented placeholders, not confirmed releases. No missing source is fabricated.
+**Evidence:** Actual firmware snapshots exist for V8–V9. V1, V1.2, V3 and V3.1 have documented development or serial-output evidence, but original source has not been preserved. V2 and V4–V7 are undocumented placeholders, not confirmed releases. No missing source is fabricated.
+
+## V9 — Automatic Flight Workflow (October 24, 2026)
+
+- Reorganized the dashboard into Status, Flight, Testing, Utilities, Storage, and System; moved all live graphs to Status and removed the visible Launch Assistant and flight-comparison interface.
+- Added automatic control when one Wi-Fi station is connected, with the existing lease retained for multiple viewers.
+- Added one-button preparation covering settings, time synchronization, sensor/SD/battery checks, calibration, and the complete 10-second ground test.
+- Added a three-second launch prebuffer, adaptive launch confirmation, automatic Wi-Fi disconnect after a committed checkpoint, and automatic Wi-Fi restart after landing save.
+- Added pressure-estimated powered ascent, coast, apogee, descent, probable parachute, and landing phases with confidence metadata.
+- Added permanent mission numbers plus per-card sequence numbers persisted in `/GREENION.CFG`, independent of visible flight files.
+- Simplified Storage and cleared all cached summaries/graphs after deletion before refreshing the card.
+- Preserved the RKT4 header and 16-byte sample format.
 
 ## V8.8 — Field Confidence Edition (October 24, 2026)
 
