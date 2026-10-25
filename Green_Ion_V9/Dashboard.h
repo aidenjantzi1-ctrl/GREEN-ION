@@ -1492,14 +1492,20 @@ function printableReport(title,body){
  w.document.open();w.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+safeHTML(title)+'</title><style>body{font:14px/1.5 system-ui,Arial;color:#172b40;max-width:800px;margin:25px auto;padding:0 16px}h1{font-size:24px}h2{font-size:18px;margin-top:24px}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #ddd;text-align:left}th{width:48%}img{max-width:100%;height:auto}.toolbar{background:#eef4f8;padding:12px}@media print{.toolbar{display:none}body{margin:0}table,img{break-inside:avoid}}</style></head><body><div class="toolbar"><button onclick="window.print()">PRINT / SAVE PDF</button> · On iPhone: Print, then share the preview to Files.</div><h1>'+safeHTML(title)+'</h1>'+body+'<p>Experimental barometric estimates. Not for flight-critical decisions.</p></body></html>');w.document.close();
 }
 function reportGraph(rows,column,title){
- const valid=rows.filter(r=>r[4]===1&&Number.isFinite(r[0])&&Number.isFinite(r[column]));
+ // Preserve invalid-row boundaries so PDF lines never hide sensor-data gaps.
+ const valid=[];
+ let segment=0;
+ for(const r of rows){
+  if(r[4]===1&&Number.isFinite(r[0])&&Number.isFinite(r[column]))valid.push({r,segment});
+  else segment++;
+ }
  if(valid.length<2)return "<p>"+safeHTML(title)+": insufficient data.</p>";
  const c=document.createElement("canvas");c.width=1000;c.height=310;const ctx=c.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,1000,310);
- let low=Infinity,high=-Infinity;for(const r of valid){low=Math.min(low,r[column]);high=Math.max(high,r[column]);}if(low===high)high=low+1;
- const t0=valid[0][0],duration=Math.max(.001,valid[valid.length-1][0]-t0);
+ let low=Infinity,high=-Infinity;for(const {r} of valid){low=Math.min(low,r[column]);high=Math.max(high,r[column]);}if(low===high)high=low+1;
+ const t0=valid[0].r[0],duration=Math.max(.001,valid[valid.length-1].r[0]-t0);
  ctx.fillStyle="#152a40";ctx.font="16px Arial";ctx.fillText(title,65,22);ctx.font="12px Arial";ctx.fillText(high.toFixed(2),5,43);ctx.fillText(low.toFixed(2),5,270);ctx.fillText(duration.toFixed(2)+" seconds",850,298);
  ctx.strokeStyle="#c4d0dd";ctx.strokeRect(65,35,910,235);ctx.strokeStyle="#176da0";ctx.lineWidth=2;ctx.beginPath();let started=false;
- const step=Math.max(1,Math.ceil(valid.length/2000));for(let i=0;i<valid.length;i+=step){const r=valid[i],x=65+(r[0]-t0)/duration*910,y=35+(high-r[column])/(high-low)*235;if(!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);}ctx.stroke();
+ const step=Math.max(1,Math.ceil(valid.length/2000));let previousSegment=-1;for(let i=0;i<valid.length;i+=step){const {r,segment}=valid[i],x=65+(r[0]-t0)/duration*910,y=35+(high-r[column])/(high-low)*235;if(!started||segment!==previousSegment){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);previousSegment=segment;}ctx.stroke();
  if(column===5){for(const [name,time] of flightPhases.filter(p=>["Launch detected","Apogee","Landing detected"].includes(p[0]))){const x=65+(time-t0)/duration*910;ctx.setLineDash([4,4]);ctx.strokeStyle="#c88c27";ctx.beginPath();ctx.moveTo(x,35);ctx.lineTo(x,270);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle="#152a40";ctx.fillText(name.split(" ")[0],Math.min(900,x+3),50);}}
  return "<h2>"+safeHTML(title)+"</h2><img alt='"+safeHTML(title)+"' src='"+c.toDataURL("image/png")+"'>";
 }
