@@ -1624,13 +1624,12 @@ function exportComparePDF(){
  const graphs=compareBarGraph(c.one,c.two,"peak_altitude_m","Peak altitude","m")+compareBarGraph(c.one,c.two,"duration_s","Recording duration","s")+compareBarGraph(c.one,c.two,"samples","Samples recorded","samples")+compareBarGraph(c.one,c.two,"starting_battery_v","Starting battery voltage","V");
  printableReport("GREEN-ION motor comparison", "<p>"+safeHTML(c.a)+" ("+safeHTML(c.one.motor||"No motor label")+") vs "+safeHTML(c.b)+" ("+safeHTML(c.two.motor||"No motor label")+") · Values in the table are first / second flight. Comparisons do not control for rocket mass, atmospheric conditions, or launch configuration.</p>"+pdfRows(fields.map(([label,key])=>[label,summaryValue(c.one[key])+" / "+summaryValue(c.two[key])]))+graphs);
 }
-let fileListRequestId=0;
 async function loadFiles() {
- const requestId=++fileListRequestId;
+ const requestId=globalThis.fileListRequestId=(globalThis.fileListRequestId||0)+1;
  try {
   const result=await api("files");
   // A slow earlier refresh must never replace a newer Storage listing.
-  if(requestId!==fileListRequestId)return;
+  if(requestId!==globalThis.fileListRequestId)return;
   const total=Number(result.total),used=Number(result.used);
   const storageValid=Number.isFinite(total)&&Number.isFinite(used)&&total>0&&used>=0&&used<=total;
   $("storageUsed").textContent=storageValid?bytes(used)+" / "+bytes(total):"Capacity unavailable";
@@ -1746,7 +1745,7 @@ async function loadFiles() {
   }
   if(!selectedFlight && files.length)await showFlightStats(files[0].name,false);
  }catch(err){
-  if(requestId!==fileListRequestId)return;
+  if(requestId!==globalThis.fileListRequestId)return;
   $("fileList").textContent="Cannot list recordings: "+err.message+(state?.recording?" · Wait until recording finishes.":" · Check the SD card and retry.");
   $("fileCount").textContent="—";
   $("storageUsed").textContent="Capacity unavailable";
