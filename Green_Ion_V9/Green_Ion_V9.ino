@@ -453,6 +453,37 @@ int batteryPercent() {
 
 // ---------- BMP388 ----------
 
+// Phone-provided clock values are metadata only; validate before applying either.
+bool parsePhoneEpoch(const String &raw, uint64_t &value) {
+  if (raw.length() != 13) return false;
+  uint64_t parsed = 0;
+  for (size_t i = 0; i < raw.length(); ++i) {
+    char c = raw.charAt(i);
+    if (c < '0' || c > '9') return false;
+    parsed = parsed * 10ULL + (c - '0');
+  }
+  if (parsed < 1600000000000ULL || parsed >= 4102444800000ULL) return false;
+  value = parsed;
+  return true;
+}
+
+bool parsePhoneUtcOffset(const String &raw, int16_t &value) {
+  if (raw.length() == 0 || raw.length() > 5) return false;
+  bool negative = raw.charAt(0) == '-';
+  size_t start = negative ? 1 : 0;
+  if (start == raw.length()) return false;
+  int32_t minutes = 0;
+  for (size_t i = start; i < raw.length(); ++i) {
+    char c = raw.charAt(i);
+    if (c < '0' || c > '9') return false;
+    minutes = minutes * 10 + (c - '0');
+  }
+  if (negative) minutes = -minutes;
+  if (minutes < -840 || minutes > 720) return false;
+  value = (int16_t)minutes;
+  return true;
+}
+
 // Keep all settings and destructive maintenance actions out of active workflows.
 // Reject malformed numeric settings before narrowing to smaller integer types.
 // String.toInt() accepts suffixes, and casting before validation can wrap values.
@@ -646,13 +677,18 @@ bool verifySD() {
   sdStatus = "SD test running: writing and reading test file";
   sdVerified = false;
 
-  const char *path = "/GITEST.TMP";
-  const char *pattern = "GREEN-ION-V82";
-
-  if (SD.exists(path) && !SD.remove(path)) {
-    sdStatus = "SD test failed: cannot clear old test file";
+  // Never overwrite or delete a pre-existing file, even one named by an older test.
+  char path[16] = {0};
+  bool freeSlot = false;
+  for (unsigned slot = 0; slot < 16; ++slot) {
+    snprintf(path, sizeof(path), "/GIT%04u.TMP", slot);
+    if (!SD.exists(path)) { freeSlot = true; break; }
+  }
+  if (!freeSlot) {
+    sdStatus = "SD test blocked: no unused temporary filename";
     return false;
   }
+  const char *pattern = "GREEN-ION-V82";
 
   File f = SD.open(path, FILE_WRITE);
   if (!f) {
@@ -2444,12 +2480,21 @@ void setupRoutes() {
   });
 
   web.on("/api/time", HTTP_POST, []() {
-    String epoch = web.arg("epoch");
-    uint64_t value = strtoull(epoch.c_str(), nullptr, 10);
-    if (value < 1600000000000ULL) { respond(false, "Invalid phone time"); return; }
-    phoneEpochMs = value;
+    if (flightSettingsLocked()) {
+      respond(false, "Phone time locked while recorder is busy");
+      return;
+    }
+    uint64_t requestedEpoch = 0;
+    int16_t requestedOffset = 0;
+    if (!parsePhoneEpoch(web.arg("epoch"), requestedEpoch) ||
+        !parsePhoneUtcOffset(web.arg("offset"), requestedOffset)) {
+      respond(false, "Invalid phone date, time or UTC offset");
+      return;
+    }
+    // Apply both values only after complete validation.
+    phoneEpochMs = requestedEpoch;
     phoneEpochSetAtMs = millis();
-    phoneUtcOffsetMin = (int16_t)web.arg("offset").toInt();
+    phoneUtcOffsetMin = requestedOffset;
     respond(true, "Phone date and time synchronized");
   });
 
