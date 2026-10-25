@@ -7,6 +7,11 @@ on:
       - "Green_Ion_V9/**"
       - "tests/**"
       - ".github/workflows/build-firmware.yml"
+  pull_request:
+    paths:
+      - "Green_Ion_V9/**"
+      - "tests/**"
+      - ".github/workflows/build-firmware.yml"
   workflow_dispatch:
 
 jobs:
