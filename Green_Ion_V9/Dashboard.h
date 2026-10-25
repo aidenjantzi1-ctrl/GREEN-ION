@@ -437,6 +437,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <button id="refresh" class="secondary">REFRESH FILES</button>
   <label for="fileSort">Sort recordings</label>
   <select id="fileSort"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="size">Largest first</option></select>
+  <p class="muted">"Check BIN length" means the size does not fit complete RKT4 samples. "TXT missing" means the summary file was not found. The original BIN remains downloadable; a normal file length does not prove sensor accuracy.</p>
   <div id="fileList"></div>
  </div>
  <div class="card" id="flightSummaryCard">
@@ -1476,7 +1477,7 @@ async function compareFlights(){
  const a=$("compareA").value,b=$("compareB").value;
  if(!a||!b||a===b){el.textContent="Select two different flights.";return;}
  $("comparisonSources").textContent="First: "+a+" · Second: "+b;
-  el.textContent="Loading comparison for the selected recordings...";
+ el.textContent="Loading comparison for the selected recordings...";
  try{
   const [one,two]=await Promise.all([readFlightMetadata(a),readFlightMetadata(b)]);
   if(requestId!==comparisonRequestId||$("compareA").value!==a||$("compareB").value!==b)return;
