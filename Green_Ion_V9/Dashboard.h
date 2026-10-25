@@ -1396,12 +1396,14 @@ function renderFlightPerformance(rows){
  const fall=velocities.filter(p=>p.t>=peak[0]&&(!landed||p.t<=landed[0]));
  const maxRise=rise.length?extreme(rise.map(p=>p.v),false):NaN;
  const maxFall=fall.length?extreme(fall.map(p=>p.v),true):NaN;
- const rate=Number(window.currentFlightSampleRate)||25;
- const recorded=Number(window.currentFlightSamples)||rows.length;
- const missed=Number(window.currentFlightMissed)||0;
- const invalid=Number(window.currentFlightInvalid)||0;
+ // A readable BIN alone cannot establish how many samples were missed.
+ const counts=[window.currentFlightSamples,window.currentFlightMissed,window.currentFlightInvalid];
+ const countsValid=counts.every(v=>v!==null&&v!==undefined&&String(v).trim()!==""&&
+  Number.isSafeInteger(Number(v))&&Number(v)>=0);
+ const [recorded,missed,invalid]=counts.map(Number);
  const expected=recorded+missed;
- const completeness=expected>0?100*Math.max(0,recorded-invalid)/expected:NaN;
+ const completeness=countsValid&&invalid<=recorded&&expected>0?
+  100*(recorded-invalid)/expected:NaN;
  const ascentTime=launch?peak[0]-launch[0]:NaN;
  const descentTime=landed?landed[0]-peak[0]:NaN;
  const metrics=[
@@ -1421,7 +1423,8 @@ function renderFlightPerformance(rows){
   row.append(label,val);target.appendChild(row);
  }
  const note=document.createElement("p");note.className="muted";
- note.textContent="Speed is estimated from smoothed barometric altitude. Launch requires three consecutive valid readings at least 5 m above ground; landing requires three consecutive valid readings within 5 m of ground. No detected launch/landing means related times are unavailable. Completeness counts invalid and missed samples; it is not a guarantee of accuracy.";
+ note.textContent="Speed is estimated from smoothed barometric altitude. Launch requires three consecutive valid readings at least 5 m above ground; landing requires three consecutive valid readings within 5 m of ground. No detected launch/landing means related times are unavailable. Completeness counts invalid and missed samples; it is not a guarantee of accuracy."+
+  (Number.isFinite(completeness)?"":" Recording completeness is unavailable without valid saved TXT sample counts.");
  target.appendChild(note);
 }
 function drawSavedGraph(){
@@ -1502,6 +1505,11 @@ async function showFlightStats(name,scrollToReport=true) {
  loadedFlightName="";
  flightMeta={};
  flightPhases=[];
+ // TXT counters are flight-specific; BIN-only review must not reuse older counts.
+ window.currentFlightSamples=null;
+ window.currentFlightMissed=null;
+ window.currentFlightInvalid=null;
+ window.currentFlightSampleRate=null;
  $("savedGraphStatus").textContent="Waiting for recorded samples...";
  $("flightPerformance").textContent="Waiting for recorded samples...";
  $("flightPhases").textContent="Waiting for recorded samples...";
@@ -1718,18 +1726,24 @@ async function loadFiles() {
    rm.textContent="Delete";
    rm.className="danger";
    rm.onclick=async()=>{
+    if(rm.disabled)return;
     if(!confirm("Delete "+f.name+"?"))return;
     ++globalThis.fileListRequestId;
     rm.disabled=true;protect.disabled=true;note.disabled=true;
     try {
      await api("delete?name="+
       encodeURIComponent(f.name),"POST");
-     selectedFlight="";loadedFlightName="";savedFlightSeries=[];flightPhases=[];flightMeta={};comparisonMeta=null;comparisonRequestId++;graphRequestId++;flightSummaryRequestId++;
-     $("flightSummaryDetails").replaceChildren();
-     $("flightSummaryStatus").textContent="Refreshing after deletion...";
-     $("flightPhases").textContent="No flight selected.";
-     $("flightPerformance").textContent="No flight selected.";
-     $("savedGraphStatus").textContent="No flight selected.";
+     // Keep the current report if a different flight was deleted.
+     // loadFiles() invalidates comparisons only when their sources disappear.
+     if(selectedFlight===f.name){
+      selectedFlight="";loadedFlightName="";savedFlightSeries=[];flightPhases=[];flightMeta={};graphRequestId++;flightSummaryRequestId++;
+      window.currentFlightSamples=null;window.currentFlightMissed=null;window.currentFlightInvalid=null;window.currentFlightSampleRate=null;
+      $("flightSummaryDetails").replaceChildren();
+      $("flightSummaryStatus").textContent="Refreshing after deletion...";
+      $("flightPhases").textContent="No flight selected.";
+      $("flightPerformance").textContent="No flight selected.";
+      $("savedGraphStatus").textContent="No flight selected.";
+     }
      await loadFiles();
      await poll();
     }catch(err){alert(err.message)}
@@ -1740,6 +1754,7 @@ async function loadFiles() {
    protect.textContent=f.protected?"Unprotect":"Protect";
    protect.className="secondary";
    protect.onclick=async()=>{
+    if(protect.disabled)return;
     ++globalThis.fileListRequestId;
     protect.disabled=true;rm.disabled=true;note.disabled=true;
     try{await api("protect?name="+encodeURIComponent(f.name)+"&value="+(f.protected?"0":"1"),"POST");await loadFiles();}
@@ -1751,7 +1766,17 @@ async function loadFiles() {
    note.textContent="Add note";
    note.disabled=f.hasSummary===false;
    note.title=f.hasSummary===false?"Cannot add notes without the original TXT summary":"Append a note to this flight summary";
-   note.onclick=async()=>{const value=prompt("Recovery or flight note for "+f.name+":");if(!value)return;try{await api("note?name="+encodeURIComponent(f.name)+"&note="+encodeURIComponent(value),"POST");await showFlightStats(f.name,false);}catch(err){alert(err.message)}};
+   note.onclick=async()=>{
+     if(note.disabled)return;
+     const value=prompt("Recovery or flight note for "+f.name+":");
+     if(!value)return;
+     note.disabled=true;rm.disabled=true;protect.disabled=true;
+     try{
+      await api("note?name="+encodeURIComponent(f.name)+"&note="+encodeURIComponent(value),"POST");
+      if(selectedFlight===f.name)await showFlightStats(f.name,false);
+     }catch(err){alert(err.message)}
+     finally{note.disabled=f.hasSummary===false;rm.disabled=!!f.protected;protect.disabled=false;}
+    };
 
    rm.disabled=!!f.protected;
    rm.title=f.protected?"Unprotect before deleting":"Delete this flight";

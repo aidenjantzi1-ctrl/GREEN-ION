@@ -2013,7 +2013,8 @@ bool validFile(String n) {
   for (int i = 3; i < 7; i++)
     if (!isDigit(n[i])) return false;
 
-  return true;
+  // Number 0000 is reserved; align with the dashboard validator.
+  return n.substring(3, 7) != "0000";
 }
 
 String companionFile(String n) {
@@ -2348,8 +2349,12 @@ void protectAPI() {
   bool protect = web.arg("value") != "0";
   bool ok = false;
   if (protect) {
-    File f = SD.open(lock, FILE_WRITE);
-    if (f) { f.println("Protected by GREEN ION V9"); f.close(); ok = true; }
+    // Protect is idempotent: FILE_WRITE may append to an existing marker.
+    if (SD.exists(lock)) ok = true;
+    else {
+      File f = SD.open(lock, FILE_WRITE);
+      if (f) { f.println("Protected by GREEN ION V9"); f.close(); ok = true; }
+    }
   } else {
     ok = !SD.exists(lock) || SD.remove(lock);
   }
