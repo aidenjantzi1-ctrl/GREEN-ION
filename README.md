@@ -6,6 +6,8 @@ GREEN ION V8.7 is experimental firmware for an Adafruit ESP32 Feather V2 flight-
 
 ## V8.8 recording-reliability development (in progress)
 
+V8.8 recovery changes are currently compiled from `Green_Ion_V8_7/`; there is no separate V8.8 sketch folder or phone-update artifact yet. Download the current `green-ion-v8.7-phone-update` artifact only after its GitHub Actions run succeeds.
+
 - Buffered RKT4 samples continue to flush approximately every 500 ms. A checkpoint journal is updated about every 5 seconds while recording, recording the last flushed file size and sample count.
 - After a reset, firmware scans for outstanding `FLTxxxx.JRN` files and appends `status=recovered_interrupted` to the companion TXT metadata. It reports the count of complete 16-byte samples, partial trailing bytes, and whether the RKT4 header is valid. Original BIN files are preserved; CSV export ignores partial trailing records.
 - If a completed flight has a leftover journal from an interruption during cleanup, the recovery scan removes that journal without relabeling the completed flight.
@@ -150,7 +152,7 @@ Automatic status colors take priority during safety-critical recorder states. Th
 
 ## Complete version archive
 
-- [Full version index (V1–V8.7)](VERSIONS.md) — lists each version and original source availability.
+- [Full version index (V1–V8.8 development)](VERSIONS.md) — lists each version and original source availability.
 - [Complete changelog](CHANGELOG.md) — documented changes and evidence limitations.
 - [Historical records V1–V7](history/) — descriptive archive only; no original executable source is available.
 
@@ -163,7 +165,7 @@ Automatic status colors take priority during safety-critical recorder states. Th
 - [V8.4 source](Green_Ion_V8_4/Green_Ion_V8_4.ino) — preserved Arduino sketch
 - [V8.5 source](Green_Ion_V8_5/Green_Ion_V8_5.ino) — preserved Arduino sketch
 - [V8.6 source](Green_Ion_V8_6/Green_Ion_V8_6.ino) — preserved Arduino sketch
-- [V8.7 source](Green_Ion_V8_7/Green_Ion_V8_7.ino) — preserved Arduino sketch (latest)
+- [V8.7 source](Green_Ion_V8_7/Green_Ion_V8_7.ino) — current buildable Arduino sketch, including V8.8 development changes
 
 **Important:** Source snapshots begin at V8. Earlier historical records must not be confused with working firmware. GitHub commit dates in October 2026 are preservation dates, not necessarily prototype development dates.
 

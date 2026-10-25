@@ -1,6 +1,6 @@
 # Green Ion — Complete Version Archive
 
-This index records every known or referenced Green Ion version, starting with V1. **Historical placeholder folders do not contain source and must not be used as firmware.**
+This index records every known or referenced Green Ion version, starting with V1. **Historical placeholder folders do not contain source and must not be used as firmware.** V8.8 recovery work is in development inside the V8.7 source folder; no separate V8.8 firmware snapshot exists yet.
 
 ## Original-source availability
 
@@ -23,6 +23,7 @@ This index records every known or referenced Green Ion version, starting with V1
 | V8.5 | Yes — original .ino snapshot | Archived |
 | V8.6 | Yes — original .ino snapshot | Archived |
 | V8.7 | Yes — original .ino snapshot | Archived |
+| V8.8 | No separate snapshot — development changes are in V8.7 source | In development |
 
 ## Historical version notes
 
@@ -109,9 +110,13 @@ This folder is an archive record, not a compilable Arduino sketch. No original s
 - [V8.6](./Green_Ion_V8_6/Green_Ion_V8_6.ino)
 - [V8.7](./Green_Ion_V8_7/Green_Ion_V8_7.ino)
 
+## V8.8 recording-reliability development
+
+V8.8 is a development checkpoint, not a separate downloadable firmware folder. Its recovery and data-integrity changes are currently built from the V8.7 sketch and dashboard source. Use the V8.7 GitHub Actions artifact until a later commit creates a distinct V8.8 snapshot and artifact.
+
 ## Usage notes
 
-- Use [V8.7](./Green_Ion_V8_7/Green_Ion_V8_7.ino) for the latest checked-in source, subject to successful build and hardware verification.
+- Use [V8.7](./Green_Ion_V8_7/Green_Ion_V8_7.ino) for the latest buildable source, including the in-progress V8.8 recovery work, subject to successful build and hardware verification.
 - Previous snapshots are retained for comparison and rollback; they have not necessarily passed hardware testing.
 - Git commit dates beginning October 24, 2026 are repository import dates, not necessarily the original dates of the early prototypes.
 - The full feature-by-feature change history is in [CHANGELOG.md](./CHANGELOG.md).

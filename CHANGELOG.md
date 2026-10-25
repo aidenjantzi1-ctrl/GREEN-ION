@@ -1,8 +1,8 @@
 # Green Ion changelog
 
-Every known or referenced version from **V1 through V8.7** is listed here. See [VERSIONS.md](VERSIONS.md) for the complete archive index and exact preserved sketch links.
+Every known or referenced version from **V1 through V8.8 development** is listed here. See [VERSIONS.md](VERSIONS.md) for the complete archive index and exact preserved sketch links.
 
-**Evidence:** Actual firmware snapshots exist for V8–V8.7. V1, V1.2, V3 and V3.1 have documented development or serial-output evidence, but original source has not been preserved. V2 and V4–V7 are undocumented placeholders, not confirmed releases. No missing source is fabricated.
+**Evidence:** Actual firmware snapshots exist for V8–V8.7. V8.8 recovery work is currently integrated into the buildable V8.7 source folder and is not a separate snapshot or release artifact. V1, V1.2, V3 and V3.1 have documented development or serial-output evidence, but original source has not been preserved. V2 and V4–V7 are undocumented placeholders, not confirmed releases. No missing source is fabricated.
 
 **Dates:** October 24, 2026 repository commits are archive/commit dates, not necessarily original prototype creation dates.
 
