@@ -1625,8 +1625,11 @@ function exportComparePDF(){
  printableReport("GREEN-ION motor comparison", "<p>"+safeHTML(c.a)+" ("+safeHTML(c.one.motor||"No motor label")+") vs "+safeHTML(c.b)+" ("+safeHTML(c.two.motor||"No motor label")+") · Values in the table are first / second flight. Comparisons do not control for rocket mass, atmospheric conditions, or launch configuration.</p>"+pdfRows(fields.map(([label,key])=>[label,summaryValue(c.one[key])+" / "+summaryValue(c.two[key])]))+graphs);
 }
 async function loadFiles() {
+ const requestId=globalThis.fileListRequestId=(globalThis.fileListRequestId||0)+1;
  try {
   const result=await api("files");
+  // A slow earlier refresh must never replace a newer Storage listing.
+  if(requestId!==globalThis.fileListRequestId)return;
   const total=Number(result.total),used=Number(result.used);
   const storageValid=Number.isFinite(total)&&Number.isFinite(used)&&total>0&&used>=0&&used<=total;
   $("storageUsed").textContent=storageValid?bytes(used)+" / "+bytes(total):"Capacity unavailable";
@@ -1732,7 +1735,7 @@ async function loadFiles() {
    note.textContent="Add note";
    note.disabled=f.hasSummary===false;
    note.title=f.hasSummary===false?"Cannot add notes without the original TXT summary":"Append a note to this flight summary";
-   note.onclick=async()=>{const value=prompt("Recovery or flight note for "+f.name+":");if(!value)return;try{await api("note?name="+encodeURIComponent(f.name)+"&note="+encodeURIComponent(value),"POST");await showFlightStats(f.name);}catch(err){alert(err.message)}};
+   note.onclick=async()=>{const value=prompt("Recovery or flight note for "+f.name+":");if(!value)return;try{await api("note?name="+encodeURIComponent(f.name)+"&note="+encodeURIComponent(value),"POST");await showFlightStats(f.name,false);}catch(err){alert(err.message)}};
 
    rm.disabled=!!f.protected;
    rm.title=f.protected?"Unprotect before deleting":"Delete this flight";
@@ -1742,6 +1745,7 @@ async function loadFiles() {
   }
   if(!selectedFlight && files.length)await showFlightStats(files[0].name,false);
  }catch(err){
+  if(requestId!==globalThis.fileListRequestId)return;
   $("fileList").textContent="Cannot list recordings: "+err.message+(state?.recording?" · Wait until recording finishes.":" · Check the SD card and retry.");
   $("fileCount").textContent="—";
   $("storageUsed").textContent="Capacity unavailable";

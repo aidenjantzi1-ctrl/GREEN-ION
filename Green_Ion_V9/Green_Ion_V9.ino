@@ -2371,6 +2371,29 @@ void noteAPI() {
     respond(false, "TXT summary missing; original BIN unchanged");
     return;
   }
+  // Existence alone is not enough: an empty or mismatched TXT must not
+  // become a seemingly valid flight summary after appending a note.
+  File existing = SD.open(summaryPath, FILE_READ);
+  if (!existing) {
+    respond(false, "Cannot read TXT summary; original BIN unchanged");
+    return;
+  }
+  String header = existing.readStringUntil('\n');
+  header.trim();
+  bool matchingFile = false;
+  for (int i = 0; i < 16 && existing.available(); i++) {
+    String entry = existing.readStringUntil('\n');
+    entry.trim();
+    if (entry.startsWith("file=")) {
+      matchingFile = entry.substring(5) == n;
+      break;
+    }
+  }
+  existing.close();
+  if (header != "GREEN ION V9 FLIGHT METADATA" || !matchingFile) {
+    respond(false, "TXT summary incomplete or mismatched; original BIN unchanged");
+    return;
+  }
   File f = SD.open(summaryPath, FILE_APPEND);
   if (!f) { respond(false, "Could not open flight summary"); return; }
   const String line = "user_note=" + note + "\n";
