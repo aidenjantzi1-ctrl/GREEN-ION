@@ -442,7 +442,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  </div>
  <div class="card" id="flightSummaryCard">
   <h2>Saved flight summary</h2>
-  <p class="muted">Select View stats to read stored flight data directly. No download needed.</p>
+  <p class="muted">Select View stats to read saved data. If the TXT summary is missing, available BIN measurements can still be graphed and printed; motor and finish details will be unavailable.</p>
   <div class="notice" id="flightSummaryStatus">Choose View stats on a saved flight.</div>
   <div id="flightSummaryDetails"></div>
   <h3>Battery / estimated acceleration</h3><div id="flightExtraMetrics" class="notice">Load a flight.</div><h3>Estimated flight phases</h3><div id="flightPhases" class="notice">Select a flight.</div><h3>Calculated flight performance</h3>
@@ -1516,7 +1516,16 @@ async function showFlightStats(name,scrollToReport=true) {
    {cache:"no-store"});
   const content=await response.text();
   if(requestId!==flightSummaryRequestId||selectedFlight!==name)return;
-  if(!response.ok)throw Error(content||"Cannot read flight summary");
+  if(!response.ok){
+   if(response.status===404){
+    // Missing companion TXT does not prevent reading the original BIN.
+    status.textContent="TXT summary missing for "+name+"; loading raw BIN measurements and estimates.";
+    loadSavedGraph(name);
+    if(scrollToReport)$("flightSummaryCard").scrollIntoView({behavior:"smooth",block:"start"});
+    return;
+   }
+   throw Error(content||"Cannot read flight summary");
+  }
   const values={};
   for(const line of content.split(/\r?\n/)) {
    const ix=line.indexOf("=");
@@ -1593,7 +1602,9 @@ function exportFlightPDF(){
  const perf=[...$("flightPerformance").querySelectorAll(".row")].map(r=>[r.querySelector("span")?.textContent,r.querySelector("strong")?.textContent]);
  const extra=[...$("flightExtraMetrics").querySelectorAll(".row")].map(r=>[r.querySelector("span")?.textContent,r.querySelector("strong")?.textContent]);
  const charts=[[5,"Altitude (m)"],[6,"Vertical speed (m/s)"],[7,"Estimated acceleration (m/s²)"],[8,"Estimated vertical apparent G"],[3,"Battery voltage (V)"],[1,"Pressure (Pa)"],[2,"Temperature (°C)"]].map(([column,title])=>reportGraph(savedFlightSeries,column,title)).join("");
- printableReport("GREEN-ION flight — "+selectedFlight,"<p><strong>Source BIN:</strong> "+safeHTML(selectedFlight)+". Graph time is seconds since the first recorded sample, not ignition. Motion values are barometric estimates.</p><h2>Flight metadata</h2>"+pdfRows(Object.entries(flightMeta))+"<h2>Estimated phases</h2>"+pdfRows(phases)+"<h2>Flight performance</h2>"+pdfRows(perf)+"<h2>Battery and acceleration</h2>"+pdfRows(extra)+charts);
+ const metadata=Object.keys(flightMeta).length?pdfRows(Object.entries(flightMeta)):
+  "<p>TXT summary unavailable. Charts and estimates come from the original BIN converted to CSV; saved motor and finish details are unknown.</p>";
+ printableReport("GREEN-ION flight — "+selectedFlight,"<p><strong>Source BIN:</strong> "+safeHTML(selectedFlight)+". Graph time is seconds since the first recorded sample, not ignition. Motion values are barometric estimates.</p><h2>Flight metadata</h2>"+metadata+"<h2>Estimated phases</h2>"+pdfRows(phases)+"<h2>Flight performance</h2>"+pdfRows(perf)+"<h2>Battery and acceleration</h2>"+pdfRows(extra)+charts);
 }
 function compareBarGraph(a,b,key,title,unit){
  const x=comparisonNumber(a[key]),y=comparisonNumber(b[key]);
