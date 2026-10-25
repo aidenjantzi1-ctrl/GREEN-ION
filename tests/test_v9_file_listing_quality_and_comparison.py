@@ -87,10 +87,11 @@ const api=async()=>({total:8589934592,used:1048576,files:[
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """
         result = node(script)
-        self.assertIn("Check BIN length", result["labels"][0])
-        self.assertIn("TXT missing", result["labels"][0])
-        self.assertNotIn("Check BIN length", result["labels"][1])
-        self.assertNotIn("TXT missing", result["labels"][1])
+        labels = {label.split(" · ", 1)[0]: label for label in result["labels"]}
+        self.assertIn("Check BIN length", labels["FLT0001.BIN"])
+        self.assertIn("TXT missing", labels["FLT0001.BIN"])
+        self.assertNotIn("Check BIN length", labels["FLT0003.BIN"])
+        self.assertNotIn("TXT missing", labels["FLT0003.BIN"])
         self.assertIsNone(result["meta"])
         self.assertEqual(result["requestId"], 8)
         self.assertIn("no longer", result["result"])
