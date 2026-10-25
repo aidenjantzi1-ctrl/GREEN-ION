@@ -502,7 +502,14 @@ bool verifySD() {
     return false;
   }
 
-  if (!sdOK && !initSD()) return false;
+  // A previous successful mount can be stale after a card is removed.
+  // Retest only while idle, closing the old mount before attempting a new one.
+  if (sdOK) SD.end();
+  sdOK = false;
+  if (!initSD()) {
+    sdStatus = "SD mount failed: check card seating, 3.3 V wiring and FAT/FAT32 format";
+    return false;
+  }
   sdStatus = "SD test running: writing and reading test file";
   sdVerified = false;
 
