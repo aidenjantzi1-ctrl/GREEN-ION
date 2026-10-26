@@ -5,8 +5,8 @@ import struct
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-INO = (ROOT / "Green_Ion_V9_2/Green_Ion_V9_2.ino").read_text(encoding="utf-8")
-DASH = (ROOT / "Green_Ion_V9_2/Dashboard.h").read_text(encoding="utf-8")
+INO = (ROOT / "Green_Ion_V10/Green_Ion_V10.ino").read_text(encoding="utf-8")
+DASH = (ROOT / "Green_Ion_V10/Dashboard.h").read_text(encoding="utf-8")
 
 
 def inspect_rkt4(data):
@@ -52,7 +52,8 @@ class RecoveryTests(unittest.TestCase):
                       "integrityStatus", "resetReasonText"):
             self.assertIn(token, INO)
         self.assertIn('if (flushLog()) saveCheckpoint();', INO)
-        self.assertIn('if (saved && !sdFault && checkpointFilename.length()) SD.remove(checkpointFilename);', INO)
+        self.assertIn('SD.remove(checkpointFilename);', INO)
+        self.assertIn('SD.remove(checkpointFilenameB);', INO)
 
     def test_dashboard_recovery_display(self):
         for token in ('id="integrityStatus"', 'id="recoveredFlights"',
@@ -61,7 +62,7 @@ class RecoveryTests(unittest.TestCase):
 
     def test_v88_field_confidence_contract(self):
         for token in (
-            'FIRMWARE_VERSION = "9.2"', "GREEN_ION_GIT_SHA", "startGroundTest",
+            'FIRMWARE_VERSION = "10.0"', "GREEN_ION_GIT_SHA", "startGroundTest",
             "finishGroundTest", "sensorFrozen", "flightChecksum", "bin_fnv1a32",
             "confidence_score", "maximum_voltage_drop_v", "maximum_flush_us",
             'web.on("/api/time"', 'web.on("/api/protect"', 'web.on("/api/note"',
@@ -124,6 +125,21 @@ class RecoveryTests(unittest.TestCase):
         ):
             self.assertIn(token, DASH)
         self.assertNotIn('<label for="missionKind">Recording type</label>', DASH)
+
+    def test_v10_field_resilience_contract(self):
+        for token in (
+            "EMERGENCY_BUFFER_BYTES", "emergencyBuffer", "checkpointFilenameB",
+            "writeHealthSnapshot", "writePostflightReport", "rebuildFlightManifest",
+            "sdSafeRateHz", "environmentalWarning", "configurationBackupAPI",
+            "configurationRestoreAPI", "integrityScanAPI", "rollbackAPI",
+            "enableLoopWDT", "feedLoopWDT", "previousPowerEvidence",
+        ):
+            self.assertIn(token, INO)
+        for token in (
+            'id="field"', 'id="audibleCues"', 'id="downloadEverything"',
+            'id="scanIntegrity"', 'id="rollbackFirmware"', 'id="restoreConfig"',
+        ):
+            self.assertIn(token, DASH)
 
 
 if __name__ == "__main__":

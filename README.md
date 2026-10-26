@@ -1,20 +1,20 @@
-# GREEN ION V9.2
+# GREEN ION V10
 
 ## Download the phone update
 
-**[Download `Green_Ion_V9_2.ino.bin` directly](https://raw.githubusercontent.com/aidenjantzi1-ctrl/GREEN-ION/main/Green_Ion_V9_2/Green_Ion_V9_2.ino.bin)**
+**[Download `Green_Ion_V10.ino.bin` directly](https://raw.githubusercontent.com/aidenjantzi1-ctrl/GREEN-ION/main/Green_Ion_V10/Green_Ion_V10.ino.bin)**
 
 Download the file while your phone still has internet access. Then connect to the `GREEN-ION` Wi-Fi network, open `http://192.168.4.1`, go to **System**, choose the downloaded `.ino.bin`, and tap **Install Firmware & Restart**. The GREEN-ION network itself does not provide internet access.
 
-GREEN ION V9.2 is experimental firmware for an Adafruit ESP32 Feather V2 flight-data recorder. It reads a BMP388 barometric sensor, serves a phone-friendly dashboard from its own Wi-Fi access point, and writes RKT4-compatible binary flight logs to an SPI microSD card. It never controls ignition or recovery deployment.
+GREEN ION V10 is experimental firmware for an Adafruit ESP32 Feather V2 flight-data recorder. It reads a BMP388 barometric sensor, serves a phone-friendly dashboard from its own Wi-Fi access point, and writes RKT4-compatible binary flight logs to an SPI microSD card. It never controls ignition or recovery deployment.
 
 > **Safety scope:** GREEN ION is a data recorder only. It must never control ignition, staging, parachute deployment, or any recovery system.
 
-## V9.2 resilient two-tap workflow
+## V10 field-resilient workflow
 
-V9.2 is the current root-level source in `Green_Ion_V9_2/`. Download the `green-ion-v9-2-phone-update` artifact only after its GitHub Actions run succeeds. V9.1 and every earlier release are preserved under `Past_Versions/`.
+V10 is the current root-level source in `Green_Ion_V10/`. Download the `green-ion-v10-phone-update` artifact only after its GitHub Actions run succeeds. V9.2 and every earlier release are preserved under `Past_Versions/`.
 
-V9.2 retains V9.1's accurate calibration and adds two-tap preparation, calibration freshness, downloadable preflight reports, pressure-anomaly markers, battery-adaptive sampling, confidence events, and BMP388 outage recovery. Raw pressure remains unchanged in RKT4 records; a median pressure filter feeds separate smooth dashboard-altitude and faster flight-detection paths.
+V10 adds dual checkpoint recovery, emergency RAM buffering, adaptive flight filters and landing detection, pressure-spike recovery, SD profiling, stored health snapshots, post-flight reports, manifests, integrity scans, Field mode, audible phone cues, configuration backup, maintenance reminders, and guarded OTA rollback. Raw pressure remains unchanged in RKT4 records.
 
 ## Repository layout
 
@@ -32,7 +32,7 @@ V8.8 adds a real 10-second ground test, altitude-noise and frozen-sensor checks,
 
 **Limits:** The journal is a recovery marker, not a transactional filesystem. Power loss can still lose buffered or unwritten data; physical SD card damage is not repairable by firmware. A recording with an incomplete final sample remains a raw BIN with trailing bytes. Test interruption recovery with a disposable ground recording before relying on it in flight. This version does not alter ignition or recovery hardware.
 
-### V9.2 ground-test protocol (before flight use)
+### V10 ground-test protocol (before flight use)
 
 1. Install the compiled firmware only after its GitHub Actions run succeeds. Keep the ESP32 powered from a stable source.
 2. Insert a noncritical FAT/FAT32 microSD card, connect to the dashboard, and run **Detect & Test SD Card**. Confirm the read/write check passes.
@@ -103,7 +103,7 @@ Install these libraries through Arduino Library Manager:
 
 The ESP32 board package supplies `WiFi`, `WebServer`, `Wire`, `SPI`, and `SD`.
 
-Open `Green_Ion_V9_2/Green_Ion_V9_2.ino`, keep `Dashboard.h` beside it, select the correct serial port, and upload. Open Serial Monitor at **115200 baud** for startup and diagnostic messages. The first installation must be performed over USB; afterward, later GitHub-built updates can be installed from the dashboard on a phone.
+Open `Green_Ion_V10/Green_Ion_V10.ino`, keep `Dashboard.h` beside it, select the correct serial port, and upload. Open Serial Monitor at **115200 baud** for startup and diagnostic messages. The first installation must be performed over USB; afterward, later GitHub-built updates can be installed from the dashboard on a phone.
 
 ## Wiring
 
@@ -133,7 +133,7 @@ Use a module that is electrically compatible with 3.3 V logic. The firmware can 
 
 ## Connect to the dashboard
 
-1. Power the Feather and wait for `GREEN ION V9.2` in Serial Monitor.
+1. Power the Feather and wait for `GREEN ION V10` in Serial Monitor.
 2. On a phone, tablet, or computer, open Wi-Fi settings.
 3. Join **GREEN-ION**.
 4. Enter the password **GreenIon2026**.
@@ -150,7 +150,7 @@ Use a module that is electrically compatible with 3.3 V logic. The firmware can 
 6. **Arm the logger and start logging:** Arm only after preflight checks pass. Press **START RECORDING** before the physical launch and check the file and sample count. GREEN-ION **does not** initiate ignition or control any recovery equipment.
 7. **During flight:** The onboard recorder operates independently of the phone or Wi-Fi signal. Wi-Fi disconnects or range loss must not be treated as an SD failure; do not rely on a live connection to run a flight.
 8. **After recovery:** If it has not already stopped automatically, press **STOP & SAVE** after recovering the rocket. Do not remove power or the card while a recording is active.
-9. **Review and export:** In Storage select **View stats**, inspect phase markers and the confidence timeline, choose a graph variable, and use **PRINT / SAVE FLIGHT PDF**. Keep the original BIN file for later reanalysis. V9.2 intentionally omits cross-flight comparison controls to keep Storage focused.
+9. **Review and export:** In Storage select **View stats**, inspect phase markers, confidence and integrity results, then download the complete selected-flight package. Keep the original BIN file for later reanalysis.
 
 ## LED status
 
@@ -168,7 +168,7 @@ Automatic status colors take priority during safety-critical recorder states. Th
 
 ## Complete version archive
 
-- [Full version index (V1–V9.2)](VERSIONS.md) — lists each version and original source availability.
+- [Full version index (V1–V10)](VERSIONS.md) — lists each version and original source availability.
 - [Complete changelog](CHANGELOG.md) — documented changes and evidence limitations.
 - [All past versions and historical records](Past_Versions/) — archived firmware snapshots plus descriptive early-version records.
 
@@ -182,7 +182,7 @@ Automatic status colors take priority during safety-critical recorder states. Th
 - [V8.5 source](Past_Versions/Green_Ion_V8_5/Green_Ion_V8_5.ino) — preserved Arduino sketch
 - [V8.6 source](Past_Versions/Green_Ion_V8_6/Green_Ion_V8_6.ino) — preserved Arduino sketch
 - [V8.8 source](Past_Versions/Green_Ion_V8_8/Green_Ion_V8_8.ino) — archived previous release
-- [V9.2 source](Green_Ion_V9_2/Green_Ion_V9_2.ino) — latest buildable Arduino sketch
+- [V10 source](Green_Ion_V10/Green_Ion_V10.ino) — latest buildable Arduino sketch
 - [V8.7 source](Past_Versions/Green_Ion_V8_7/Green_Ion_V8_7.ino) — previous preserved snapshot
 
 **Important:** Source snapshots begin at V8. Earlier historical records must not be confused with working firmware. GitHub commit dates in October 2026 are preservation dates, not necessarily prototype development dates.
@@ -193,7 +193,7 @@ After a recording has been saved to microSD, connect to the `GREEN-ION` Wi-Fi da
 
 ## GitHub builds and phone downloads
 
-Every firmware change on `main` runs the **Build Green Ion firmware** GitHub Actions workflow. The verified `Green_Ion_V9_2.ino.bin` is kept directly beside the source for easy phone downloads, and the successful workflow also creates the `green-ion-v9-2-phone-update` backup artifact. Preserve the `.ino` and `.h` together if recompiling from source.
+Every firmware change on `main` runs the **Build Green Ion firmware** GitHub Actions workflow. The verified `Green_Ion_V10.ino.bin` is kept directly beside the source for easy phone downloads, and the successful workflow also creates the `green-ion-v10-phone-update` backup artifact. Preserve the `.ino` and `.h` together if recompiling from source.
 
 ### Install a later update from a phone
 

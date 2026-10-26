@@ -1,8 +1,15 @@
 # Green Ion changelog
 
-Every known or referenced version from **V1 through V9.2** is listed here. See [VERSIONS.md](VERSIONS.md) for the complete archive index and exact preserved sketch links.
+Every known or referenced version from **V1 through V10** is listed here. See [VERSIONS.md](VERSIONS.md) for the complete archive index and exact preserved sketch links.
 
-**Evidence:** Actual firmware snapshots exist for V8–V9.2. V1, V1.2, V3 and V3.1 have documented development or serial-output evidence, but original source has not been preserved. V2 and V4–V7 are undocumented placeholders, not confirmed releases. No missing source is fabricated.
+**Evidence:** Actual firmware snapshots exist for V8–V10. V1, V1.2, V3 and V3.1 have documented development or serial-output evidence, but original source has not been preserved. V2 and V4–V7 are undocumented placeholders, not confirmed releases. No missing source is fabricated.
+
+## V10 — Field-Resilient Recorder (October 26, 2026)
+
+- Added dual alternating power-loss checkpoints, emergency RAM spill recovery, persistent brownout evidence, health snapshots, watchdog feeding, and sensor plausibility scoring.
+- Added phase-sensitive filtering, post-spike filter rebuilding, adaptive landing detection, environmental warnings, SD profiling, storage estimates, and prior-ground-test comparison.
+- Added post-flight reports, a flight manifest, integrity scans, package downloads, configuration backup/restore, maintenance reminders, Field mode, and opt-in spoken phone cues.
+- Added ESP image validation and guarded rollback to a valid alternate OTA partition.
 
 ## V9.2 — Resilient Two-Tap Flight Workflow (October 26, 2026)
 

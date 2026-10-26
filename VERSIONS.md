@@ -1,6 +1,6 @@
 # Green Ion — Complete Version Archive
 
-This index records every known or referenced Green Ion version, starting with V1. **Historical placeholder folders do not contain source and must not be used as firmware.** V9.2 is the latest standalone snapshot.
+This index records every known or referenced Green Ion version, starting with V1. **Historical placeholder folders do not contain source and must not be used as firmware.** V10 is the latest standalone snapshot.
 
 ## Original-source availability
 
@@ -26,7 +26,8 @@ This index records every known or referenced Green Ion version, starting with V1
 | V8.8 | Yes — original .ino snapshot | Archived |
 | V9 | Yes — original .ino snapshot | Archived |
 | V9.1 | Yes — original .ino snapshot | Archived |
-| V9.2 | Yes — original .ino snapshot | Current |
+| V9.2 | Yes — original .ino snapshot | Archived |
+| V10 | Yes — original .ino snapshot | Current |
 
 ## Historical version notes
 
@@ -115,15 +116,16 @@ This folder is an archive record, not a compilable Arduino sketch. No original s
 - [V8.8](./Past_Versions/Green_Ion_V8_8/Green_Ion_V8_8.ino)
 - [V9](./Past_Versions/Green_Ion_V9/Green_Ion_V9.ino)
 - [V9.1](./Past_Versions/Green_Ion_V9_1/Green_Ion_V9_1.ino)
-- [V9.2](./Green_Ion_V9_2/Green_Ion_V9_2.ino)
+- [V9.2](./Past_Versions/Green_Ion_V9_2/Green_Ion_V9_2.ino)
+- [V10](./Green_Ion_V10/Green_Ion_V10.ino)
 
 ## V8.8 recording-reliability development
 
-V9.1 and all earlier versions are preserved under `Past_Versions`. V9.2 is the standalone current firmware folder and its GitHub Actions artifact is named `green-ion-v9-2-phone-update`.
+V9.2 and all earlier versions are preserved under `Past_Versions`. V10 is the standalone current firmware folder and its GitHub Actions artifact is named `green-ion-v10-phone-update`.
 
 ## Usage notes
 
-- Use [V9.2](./Green_Ion_V9_2/Green_Ion_V9_2.ino) for the latest buildable source, subject to successful build and hardware verification.
+- Use [V10](./Green_Ion_V10/Green_Ion_V10.ino) for the latest buildable source, subject to successful build and hardware verification.
 - Previous snapshots are retained for comparison and rollback; they have not necessarily passed hardware testing.
 - Git commit dates beginning October 24, 2026 are repository import dates, not necessarily the original dates of the early prototypes.
 - The full feature-by-feature change history is in [CHANGELOG.md](./CHANGELOG.md).
