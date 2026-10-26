@@ -1,8 +1,17 @@
 # Green Ion changelog
 
-Every known or referenced version from **V1 through V9** is listed here. See [VERSIONS.md](VERSIONS.md) for the complete archive index and exact preserved sketch links.
+Every known or referenced version from **V1 through V9.1** is listed here. See [VERSIONS.md](VERSIONS.md) for the complete archive index and exact preserved sketch links.
 
-**Evidence:** Actual firmware snapshots exist for V8–V9. V1, V1.2, V3 and V3.1 have documented development or serial-output evidence, but original source has not been preserved. V2 and V4–V7 are undocumented placeholders, not confirmed releases. No missing source is fabricated.
+**Evidence:** Actual firmware snapshots exist for V8–V9.1. V1, V1.2, V3 and V3.1 have documented development or serial-output evidence, but original source has not been preserved. V2 and V4–V7 are undocumented placeholders, not confirmed releases. No missing source is fabricated.
+
+## V9.1 — Accurate Altitude Calibration and Filtering (October 26, 2026)
+
+- Replaced the short simple-average calibration with 15 warm-up readings, up to 96 valid stationary samples, trimmed-mean outlier rejection, pressure-noise measurement, and drift rejection.
+- Added a separate zero-verification stage and explicit calibration quality feedback in meters and pascals per second.
+- Preserved unmodified pressure values in RKT4 records while adding a three-reading pressure median for calculated altitude.
+- Split altitude processing into a smooth dashboard path and a faster flight-detection path so display jitter can be reduced without delaying launch, phase, or landing estimates.
+- Added calibration quality and filter-method fields to flight metadata and dashboard diagnostics.
+- Added host-side outlier and filter-response tests while retaining the RKT4 32-byte header and 16-byte record format.
 
 ## V9 — Automatic Flight Workflow (October 24, 2026)
 
