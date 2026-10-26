@@ -48,6 +48,23 @@ def filter_altitudes(values):
     return display, flight
 
 
+def adaptive_rate(rate, low_seconds, critical_seconds):
+    if critical_seconds >= 3:
+        return min(rate, 10)
+    if low_seconds >= 5:
+        return min(rate, 25 if rate >= 50 else 10)
+    return rate
+
+
+def pressure_anomaly(jump_pa, elapsed_ms):
+    rate = jump_pa * 1000 / elapsed_ms
+    return (jump_pa > 40 and rate > 1200) or abs(jump_pa) > 250
+
+
+def calibration_fresh(age_ms, temperature_change_c, ground_shift_m):
+    return age_ms <= 900000 and abs(temperature_change_c) <= 3 and abs(ground_shift_m) <= 2
+
+
 class V9WorkflowTests(unittest.TestCase):
     def test_prebuffer_is_exactly_three_seconds(self):
         for rate in (10, 25, 50):
@@ -95,6 +112,30 @@ class V9WorkflowTests(unittest.TestCase):
         display, flight = filter_altitudes([0, 0, 0, 8])
         self.assertGreater(flight, display)
         self.assertGreater(flight, 6)
+
+    def test_battery_rate_only_steps_down_after_debounce(self):
+        self.assertEqual(adaptive_rate(50, 4, 0), 50)
+        self.assertEqual(adaptive_rate(50, 5, 0), 25)
+        self.assertEqual(adaptive_rate(25, 5, 3), 10)
+
+    def test_pressure_anomaly_rejects_only_abrupt_transients(self):
+        self.assertTrue(pressure_anomaly(60, 25))
+        self.assertTrue(pressure_anomaly(-300, 25))
+        self.assertFalse(pressure_anomaly(60, 1000))
+
+    def test_calibration_freshness_limits(self):
+        self.assertTrue(calibration_fresh(60000, 1, .5))
+        self.assertFalse(calibration_fresh(900001, 1, .5))
+        self.assertFalse(calibration_fresh(60000, 3.1, .5))
+        self.assertFalse(calibration_fresh(60000, 1, 2.1))
+
+    def test_sensor_outage_requires_three_valid_recovery_reads(self):
+        recovery_reads = 0
+        recovered = False
+        for valid in (False, True, True, False, True, True, True):
+            recovery_reads = recovery_reads + 1 if valid else 0
+            recovered = recovery_reads >= 3
+        self.assertTrue(recovered)
 
 
 if __name__ == "__main__":

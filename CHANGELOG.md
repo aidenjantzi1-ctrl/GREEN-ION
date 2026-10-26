@@ -1,8 +1,18 @@
 # Green Ion changelog
 
-Every known or referenced version from **V1 through V9.1** is listed here. See [VERSIONS.md](VERSIONS.md) for the complete archive index and exact preserved sketch links.
+Every known or referenced version from **V1 through V9.2** is listed here. See [VERSIONS.md](VERSIONS.md) for the complete archive index and exact preserved sketch links.
 
-**Evidence:** Actual firmware snapshots exist for V8–V9.1. V1, V1.2, V3 and V3.1 have documented development or serial-output evidence, but original source has not been preserved. V2 and V4–V7 are undocumented placeholders, not confirmed releases. No missing source is fabricated.
+**Evidence:** Actual firmware snapshots exist for V8–V9.2. V1, V1.2, V3 and V3.1 have documented development or serial-output evidence, but original source has not been preserved. V2 and V4–V7 are undocumented placeholders, not confirmed releases. No missing source is fabricated.
+
+## V9.2 — Resilient Two-Tap Flight Workflow (October 26, 2026)
+
+- Reduced launch preparation to **Prepare for Launch** followed by **Arm & Watch for Launch**, while retaining compatibility API aliases.
+- Added calibration-age, temperature-change, and ground-pressure freshness checks before arming.
+- Added a downloadable per-mission preflight report with sensor, battery, SD, calibration, and ground-test evidence.
+- Added ejection-pressure/transient anomaly markers that preserve raw RKT4 samples but exclude detected spikes from phase and landing decisions.
+- Added debounced low-battery sample-rate reduction and a critical-battery checkpoint while keeping timestamped RKT4 records compatible.
+- Added sensor-outage tracking, automatic BMP388 reinitialization attempts, recovery markers, and continued invalid records instead of an automatic stop.
+- Added a stored confidence timeline containing phase, anomaly, battery-rate, sensor, and SD events.
 
 ## V9.1 — Accurate Altitude Calibration and Filtering (October 26, 2026)
 

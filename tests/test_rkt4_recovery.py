@@ -5,8 +5,8 @@ import struct
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-INO = (ROOT / "Green_Ion_V9_1/Green_Ion_V9_1.ino").read_text(encoding="utf-8")
-DASH = (ROOT / "Green_Ion_V9_1/Dashboard.h").read_text(encoding="utf-8")
+INO = (ROOT / "Green_Ion_V9_2/Green_Ion_V9_2.ino").read_text(encoding="utf-8")
+DASH = (ROOT / "Green_Ion_V9_2/Dashboard.h").read_text(encoding="utf-8")
 
 
 def inspect_rkt4(data):
@@ -61,7 +61,7 @@ class RecoveryTests(unittest.TestCase):
 
     def test_v88_field_confidence_contract(self):
         for token in (
-            'FIRMWARE_VERSION = "9.1"', "GREEN_ION_GIT_SHA", "startGroundTest",
+            'FIRMWARE_VERSION = "9.2"', "GREEN_ION_GIT_SHA", "startGroundTest",
             "finishGroundTest", "sensorFrozen", "flightChecksum", "bin_fnv1a32",
             "confidence_score", "maximum_voltage_drop_v", "maximum_flush_us",
             'web.on("/api/time"', 'web.on("/api/protect"', 'web.on("/api/note"',
@@ -109,6 +109,21 @@ class RecoveryTests(unittest.TestCase):
             self.assertIn(token, INO)
         for token in ('id="calNoise"', 'id="calDrift"', "d.calProgress"):
             self.assertIn(token, DASH)
+
+    def test_v92_resilience_and_two_tap_contract(self):
+        for token in (
+            "EVENT_PRESSURE_ANOMALY", "batteryRateReduced", "effectiveSampleRateHz",
+            "calibrationFreshnessReason", "writePreflightReport", "confidence_event_",
+            "attemptSensorRecovery", "sensorOutageActive", 'web.on("/api/armwatch"',
+            'web.on("/api/preflight"', "minimum_effective_sample_rate_hz",
+        ):
+            self.assertIn(token, INO)
+        for token in (
+            'id="armWatch"', 'id="downloadPreflight"',
+            'id="flightConfidenceTimeline"', "api(\"armwatch\",\"POST\")",
+        ):
+            self.assertIn(token, DASH)
+        self.assertNotIn('<label for="missionKind">Recording type</label>', DASH)
 
 
 if __name__ == "__main__":
