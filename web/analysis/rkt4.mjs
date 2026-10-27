@@ -26,14 +26,21 @@ export function altitudeM(pressurePa, baselinePressurePa) {
   return pressurePa > 0 && baselinePressurePa > 0 ? 44330 * (1 - Math.pow(pressurePa / baselinePressurePa, EXPONENT)) : NaN;
 }
 
-export function analyzeFlight(log) {
-  const warnings = [...log.warnings]; let previous = null, peakAltitudeM = 0, maxAscentMps = -Infinity, maxDescentMps = Infinity;
+export function analyzeFlight(log, options = {}) {
+  const smoothing = Math.min(.8, Math.max(.05, options.smoothing ?? .28));
+  const warnings = [...log.warnings]; let previous = null, filtered = NaN, smoothAcceleration = NaN, peakAltitudeM = 0, maxAscentMps = -Infinity, maxDescentMps = Infinity;
   const samples = log.samples.map((raw, index) => {
-    const timeS = raw.timestampUs / 1e6, altitude = raw.valid ? altitudeM(raw.pressurePa, log.baselinePressurePa) : NaN;
+    const timeS = raw.timestampUs / 1e6, measuredAltitude = raw.valid ? altitudeM(raw.pressurePa, log.baselinePressurePa) : NaN;
+    if (Number.isFinite(measuredAltitude)) filtered = Number.isFinite(filtered) ? filtered + smoothing * (measuredAltitude - filtered) : measuredAltitude;
+    const altitude = raw.valid ? filtered : NaN;
     let velocityMps = NaN, accelerationMps2 = NaN;
     if (previous && timeS > previous.timeS && Number.isFinite(altitude) && Number.isFinite(previous.altitudeM)) {
-      velocityMps = (altitude - previous.altitudeM) / (timeS - previous.timeS);
-      if (Number.isFinite(previous.velocityMps)) accelerationMps2 = (velocityMps - previous.velocityMps) / (timeS - previous.timeS);
+      const dt=timeS-previous.timeS;
+      if (dt <= Math.max(.5, 4/log.rateHz)) {
+        velocityMps = (altitude - previous.altitudeM) / dt;
+        if (Math.abs(velocityMps) > 500) { warnings.push(`Rejected motion spike at sample ${index}`); velocityMps=NaN; }
+        if (Number.isFinite(previous.velocityMps) && Number.isFinite(velocityMps)) { const rawA=(velocityMps-previous.velocityMps)/dt; smoothAcceleration=Number.isFinite(smoothAcceleration) ? .3*rawA+.7*smoothAcceleration : rawA; accelerationMps2=smoothAcceleration; }
+      } else warnings.push(`Timestamp gap at sample ${index}`);
     }
     const sample = { ...raw, index, timeS, altitudeM: altitude, velocityMps, accelerationMps2, estimatedVerticalG: Number.isFinite(accelerationMps2) ? accelerationMps2 / 9.80665 : NaN };
     if (Number.isFinite(altitude)) peakAltitudeM = Math.max(peakAltitudeM, altitude);

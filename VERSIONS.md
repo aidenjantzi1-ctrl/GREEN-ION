@@ -129,3 +129,8 @@ V9.2 and all earlier versions are preserved under `Past_Versions`. V10 is the st
 - Previous snapshots are retained for comparison and rollback; they have not necessarily passed hardware testing.
 - Git commit dates beginning October 24, 2026 are repository import dates, not necessarily the original dates of the early prototypes.
 - The full feature-by-feature change history is in [CHANGELOG.md](./CHANGELOG.md).
+# Current candidate
+
+- **V11 Release Candidate — Hardware Validation Pending**: `Green_Ion_V11/`
+- **V10 preserved release**: `Past_Versions/Green_Ion_V10/`
+

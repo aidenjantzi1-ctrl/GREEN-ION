@@ -1,1 +1,1 @@
-{"name":"GREEN ION Offline Analyzer","short_name":"Green Ion","start_url":"./index.html","display":"standalone","background_color":"#07100d","theme_color":"#07100d"}
+{"name":"GREEN ION Offline Analyzer","short_name":"Green Ion","start_url":"./index.html","display":"standalone","background_color":"#07100d","theme_color":"#07100d","icons":[{"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}

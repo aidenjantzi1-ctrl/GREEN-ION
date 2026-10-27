@@ -212,3 +212,11 @@ This repository starts with complete source snapshots at V8. The V1–V7 history
 - [V8.7 source](Past_Versions/Green_Ion_V8_7/Green_Ion_V8_7.ino)
 
 Earlier historical records (not compilable firmware): [V1](Past_Versions/V1/README.md) · [V1.2](Past_Versions/V1_2/README.md) · [V2](Past_Versions/V2/README.md) · [V3](Past_Versions/V3/README.md) · [V3.1](Past_Versions/V3_1/README.md) · [V4](Past_Versions/V4/README.md) · [V5](Past_Versions/V5/README.md) · [V6](Past_Versions/V6/README.md) · [V7](Past_Versions/V7/README.md).
+# V11 Release Candidate — Hardware Validation Pending
+
+- Preserves RKT4 v2, 10/25/50 Hz recording, calibration, autonomous recording, recovery checkpoints, battery monitoring, OTA update and rollback behavior from V10.
+- Adds byte-count/version evidence to raw BIN downloads.
+- Adds an offline browser analyzer with worker-based parsing, pressure-derived altitude/motion estimates, quality warnings, CSV/JSON exports, graphs and local flight history.
+- Adds installable PWA caching. Browser security is not weakened; files downloaded from the Feather are imported into the HTTPS/offline analyzer.
+- Software tests and CI compilation are required; physical Feather, BMP388, battery and microSD validation remains pending.
+

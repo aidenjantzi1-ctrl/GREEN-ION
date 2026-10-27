@@ -4,8 +4,9 @@ on:
   push:
     branches: [main]
     paths:
-      - "Green_Ion_V10/Green_Ion_V10.ino"
-      - "Green_Ion_V10/Dashboard.h"
+      - "Green_Ion_V11/Green_Ion_V11.ino"
+      - "Green_Ion_V11/Dashboard.h"
+      - "web/**"
       - "tests/**"
       - ".github/workflows/build-firmware.yml"
   workflow_dispatch:
@@ -34,7 +35,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-          s = Path('Green_Ion_V10/Dashboard.h').read_text()
+          s = Path('Green_Ion_V11/Dashboard.h').read_text()
           match = re.search(r'<script>(.*?)</script>', s, re.S)
           assert match, 'Dashboard script missing'
           ids = re.findall(r'\bid="([^"]+)"', s)
@@ -50,17 +51,26 @@ jobs:
       - name: Test RKT4 integrity and interrupted-flight recovery
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
 
-      - name: Compile V10
+      - name: Test offline browser analysis
+        run: |
+          node --check web/analysis/rkt4.mjs
+          node --check web/analysis-worker.mjs
+          node --check web/advanced.mjs
+          node --check web/service-worker.js
+          node tests/js/test_rkt4.mjs
+
+      - name: Compile V11 release candidate
         run: |
           mkdir -p build
-          arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --output-dir build Green_Ion_V10
+          arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --output-dir build Green_Ion_V11
 
       - name: Package phone-downloadable firmware
         uses: actions/upload-artifact@v4
         with:
-          name: green-ion-v10-phone-update
+          name: green-ion-v11-rc-phone-update
           path: |
-            build/Green_Ion_V10.ino.bin
-            Green_Ion_V10/Green_Ion_V10.ino
-            Green_Ion_V10/Dashboard.h
+            build/Green_Ion_V11.ino.bin
+            Green_Ion_V11/Green_Ion_V11.ino
+            Green_Ion_V11/Dashboard.h
+            web/
           if-no-files-found: error

@@ -1,12 +1,12 @@
-# GREEN ION V10
+# GREEN ION V11 Release Candidate — Hardware Validation Pending
 
 ## Download the phone update
 
-**[Download `Green_Ion_V10.ino.bin` directly](https://raw.githubusercontent.com/aidenjantzi1-ctrl/GREEN-ION/main/Green_Ion_V10/Green_Ion_V10.ino.bin)**
+**[Download `Green_Ion_V10.ino.bin` directly](https://raw.githubusercontent.com/aidenjantzi1-ctrl/GREEN-ION/main/Green_Ion_V11/Green_Ion_V11.ino.bin)**
 
 Download the file while your phone still has internet access. Then connect to the `GREEN-ION` Wi-Fi network, open `http://192.168.4.1`, go to **System**, choose the downloaded `.ino.bin`, and tap **Install Firmware & Restart**. The GREEN-ION network itself does not provide internet access.
 
-GREEN ION V10 is experimental firmware for an Adafruit ESP32 Feather V2 flight-data recorder. It reads a BMP388 barometric sensor, serves a phone-friendly dashboard from its own Wi-Fi access point, and writes RKT4-compatible binary flight logs to an SPI microSD card. It never controls ignition or recovery deployment.
+GREEN ION V11 is experimental firmware for an Adafruit ESP32 Feather V2 flight-data recorder. It reads a BMP388 barometric sensor, serves a phone-friendly dashboard from its own Wi-Fi access point, and writes RKT4-compatible binary flight logs to an SPI microSD card. It never controls ignition or recovery deployment.
 
 > **Safety scope:** GREEN ION is a data recorder only. It must never control ignition, staging, parachute deployment, or any recovery system.
 
@@ -210,3 +210,4 @@ Firmware installation is blocked while armed, recording, calibrating, simulating
 ## License and use
 
 No license has been granted unless a separate license file is added. Use this experimental recorder at your own risk and follow applicable rocketry safety codes and local rules.
+
