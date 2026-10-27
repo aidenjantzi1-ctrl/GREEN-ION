@@ -1,5 +1,7 @@
-# GREEN ION approved suggestions (S01–S10)
-**Status:** Approved as planning instructions on 2026-10-27. None implemented by creating these files.
+# GREEN ION V11 — approved implementation plan (S01–S10)
+**Target release: GREEN ION V11.** Current released baseline: V10. **Status:** Approved as V11 planning instructions on 2026-10-27; implementation, testing and release are still pending. Creating these documents does not release V11.
+
+All S01–S10 belong to the V11 redesign. Codex must implement them in stages, preserve the V10 baseline, and use the V11 release/version name only when a tested release is explicitly authorized.
 
 ## Goal
 Feather V2 + BMP388 + microSD should perform only essential **sampling, timestamping, calibration, recording, storage/recovery, health monitoring, lightweight control and updates**. Phone/iPad/computer performs heavy flight analytics, graphing, comparisons, reporting and history locally in its browser.
