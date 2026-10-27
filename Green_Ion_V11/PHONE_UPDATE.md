@@ -2,7 +2,7 @@
 
 ## Download
 
-[Download the successful `green-ion-v11-rc-phone-update` artifact](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/40584288823). Extract `Green_Ion_V11.ino.bin` from the downloaded ZIP.
+[Download `Green_Ion_V11.ino.bin` directly](https://raw.githubusercontent.com/aidenjantzi1-ctrl/GREEN-ION/main/Green_Ion_V11/Green_Ion_V11.ino.bin). It is also stored beside the `.ino` source in the V11 folder. The matching [successful build](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/40587868443) provides provenance.
 
 Download it before connecting to GREEN-ION because the recorder's Wi-Fi network does not provide internet access.
 
