@@ -2,7 +2,7 @@
 
 ## Download the phone update
 
-**[Download the successful `green-ion-v11-rc-phone-update` build artifact](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/40583108123)**
+**[Download the successful `green-ion-v11-rc-phone-update` build artifact](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/40584288823)**
 
 Open the run, scroll to **Artifacts**, and download `green-ion-v11-rc-phone-update`. Extract `Green_Ion_V11.ino.bin` before installing it. GitHub requires you to be signed in to download Actions artifacts.
 
@@ -213,4 +213,5 @@ Firmware installation is blocked while armed, recording, calibrating, simulating
 ## License and use
 
 No license has been granted unless a separate license file is added. Use this experimental recorder at your own risk and follow applicable rocketry safety codes and local rules.
+
 

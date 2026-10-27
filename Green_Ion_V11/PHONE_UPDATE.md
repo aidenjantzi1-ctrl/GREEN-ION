@@ -2,7 +2,7 @@
 
 ## Download
 
-[Download the successful `green-ion-v11-rc-phone-update` artifact](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/40583108123). Extract `Green_Ion_V11.ino.bin` from the downloaded ZIP.
+[Download the successful `green-ion-v11-rc-phone-update` artifact](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/40584288823). Extract `Green_Ion_V11.ino.bin` from the downloaded ZIP.
 
 Download it before connecting to GREEN-ION because the recorder's Wi-Fi network does not provide internet access.
 
@@ -18,4 +18,5 @@ Download it before connecting to GREEN-ION because the recorder's Wi-Fi network 
 8. Run **Prepare & Calibrate All** and a safe ground test before flight use.
 
 Use only the file ending in `.ino.bin`. Do not select bootloader, partitions, or merged binary files.
+
 
