@@ -1,0 +1,2 @@
+import { parseRkt4, analyzeFlight, analysisCsv, flightReport } from "./analysis/rkt4.mjs";
+self.onmessage = event => { try { const { id, bytes, name } = event.data; const analysis = analyzeFlight(parseRkt4(new Uint8Array(bytes))); self.postMessage({ id, analysis, csv: analysisCsv(analysis), report: flightReport(analysis, name) }); } catch (error) { self.postMessage({ id: event.data.id, error: error.message }); } };

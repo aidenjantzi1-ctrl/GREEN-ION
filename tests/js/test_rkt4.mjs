@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { analyzeFlight, parseRkt4 } from "../../web/analysis/rkt4.mjs";
+import { analyzeFlight, analysisCsv, flightReport, parseRkt4 } from "../../web/analysis/rkt4.mjs";
 
 function fixture(trailing = 0) {
   const bytes = new Uint8Array(32 + 16 * 4 + trailing), d = new DataView(bytes.buffer);
@@ -12,5 +12,6 @@ const original = fixture(), before = original.slice();
 const parsed = parseRkt4(original); assert.equal(parsed.samples.length, 4); assert.deepEqual(original, before);
 assert.equal(parseRkt4(fixture(3)).trailingBytes, 3);
 const analysis = analyzeFlight(parsed); assert.ok(analysis.peakAltitudeM > 0); assert.match(analysis.warnings.at(-1), /estimates/);
+assert.match(analysisCsv(analysis), /estimated_vertical_g/); assert.equal(flightReport(analysis).samples, 4);
 assert.throws(() => parseRkt4(new Uint8Array(12)), /shorter/);
 console.log("RKT4 browser analysis tests passed");

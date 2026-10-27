@@ -54,3 +54,17 @@ export function estimatePhases(samples) {
   if (launch && apogee) phases.push({ name: "descent", timeS: apogee.timeS, confidence: "low" });
   return phases;
 }
+
+export function analysisCsv(analysis) {
+  const head = "time_s,pressure_pa,temperature_c,battery_v,valid,altitude_m,velocity_mps,estimated_acceleration_mps2,estimated_vertical_g";
+  const rows = analysis.samples.map(s => [s.timeS,s.pressurePa,s.temperatureC,s.batteryMv,s.valid ? 1 : 0,s.altitudeM,s.velocityMps,s.accelerationMps2,s.estimatedVerticalG].map(v => Number.isFinite(v) ? v : "").join(","));
+  return [head, ...rows].join("\r\n");
+}
+
+export function flightReport(analysis, name = "flight") {
+  return { name, analysisVersion: analysis.analysisVersion, sampleRateHz: analysis.rateHz,
+    samples: analysis.samples.length, peakAltitudeM: analysis.peakAltitudeM,
+    maxAscentMps: analysis.maxAscentMps, maxDescentMps: analysis.maxDescentMps,
+    phases: analysis.phases, warnings: analysis.warnings,
+    disclaimer: "All motion, acceleration, G-force and phase values are pressure-derived estimates." };
+}
