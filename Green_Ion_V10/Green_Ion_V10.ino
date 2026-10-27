@@ -2733,6 +2733,8 @@ void downloadAPI() {
     "Content-Disposition",
     "attachment; filename=\"" + n + "\""
   );
+  web.sendHeader("X-Green-Ion-Bytes", String((uint32_t)f.size()));
+  web.sendHeader("X-Green-Ion-RKT4-Version", "2");
 
   web.streamFile(f, "application/octet-stream");
   f.close();
