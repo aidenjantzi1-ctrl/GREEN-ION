@@ -62,7 +62,7 @@ class RecoveryTests(unittest.TestCase):
 
     def test_v88_field_confidence_contract(self):
         for token in (
-            'FIRMWARE_VERSION = "10.0"', "GREEN_ION_GIT_SHA", "startGroundTest",
+            'FIRMWARE_VERSION = "11.0-rc1"', "GREEN_ION_GIT_SHA", "startGroundTest",
             "finishGroundTest", "sensorFrozen", "flightChecksum", "bin_fnv1a32",
             "confidence_score", "maximum_voltage_drop_v", "maximum_flush_us",
             'web.on("/api/time"', 'web.on("/api/protect"', 'web.on("/api/note"',
@@ -144,4 +144,5 @@ class RecoveryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
 
