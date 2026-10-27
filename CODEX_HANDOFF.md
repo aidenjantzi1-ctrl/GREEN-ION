@@ -4,7 +4,7 @@ This file is the starting point for the next software-update agent.
 
 ## Current release
 
-- Current release: **V10**
+- Current release: **V11 development** (V10 remains the last verified binary release)
 - Root firmware: `Green_Ion_V10/Green_Ion_V10.ino`
 - Embedded dashboard: `Green_Ion_V10/Dashboard.h`
 - Phone-update binary: `Green_Ion_V10/Green_Ion_V10.ino.bin`
@@ -13,6 +13,8 @@ This file is the starting point for the next software-update agent.
 - Repository: `https://github.com/aidenjantzi1-ctrl/GREEN-ION`
 
 V10 is an experimental flight-data recorder only. It must not control ignition, recovery, or deployment hardware.
+
+V11 development adds the browser analysis foundation in `web/analysis/rkt4.js`. Do not publish a V11 binary until the firmware is compiled and hardware-independent tests pass.
 
 ## What to read first
 
