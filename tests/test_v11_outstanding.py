@@ -27,5 +27,8 @@ class OutstandingTests(unittest.TestCase):
   self.assertIn('# GREEN ION V11 Release Candidate',README)
   self.assertNotIn('# GREEN ION V10\n',README)
   self.assertIn('#define GREEN_ION_GIT_SHA "v11-standalone"',INO)
+ def test_phone_update_shows_real_upload_progress(self):
+  for token in ('id="firmwareProgress"','id="firmwarePercent"','XMLHttpRequest','request.upload.onprogress','event.loaded/event.total'):
+   self.assertIn(token,DASH)
 
 if __name__=='__main__':unittest.main()

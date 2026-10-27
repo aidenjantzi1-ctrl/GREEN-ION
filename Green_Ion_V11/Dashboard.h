@@ -474,6 +474,8 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <button id="installFirmware" class="warning" style="width:100%">
    INSTALL FIRMWARE &amp; RESTART
   </button>
+  <div class="progress" aria-label="Firmware upload progress"><div id="firmwareProgress"></div></div>
+  <div class="row"><span>Upload progress</span><strong id="firmwarePercent">0%</strong></div>
   <div class="notice" id="updateFeedback">
    Updates are allowed only while disarmed and not recording.
   </div>
@@ -1142,6 +1144,8 @@ async function installFirmware() {
  ))return;
 
  busy=true;
+ $("firmwareProgress").style.width="0%";
+ $("firmwarePercent").textContent="0%";
  $("updateFeedback").textContent=
   "Uploading "+file.name+" · do not disconnect power...";
 
@@ -1149,14 +1153,22 @@ async function installFirmware() {
  form.append("firmware",file,file.name);
 
  try {
-  const response=await fetch(
-   "/api/update?token="+encodeURIComponent(clientToken),{
-   method:"POST",
-   body:form
+  const result=await new Promise((resolve,reject)=>{
+   const request=new XMLHttpRequest();
+   request.open("POST","/api/update?token="+encodeURIComponent(clientToken));
+   request.upload.onprogress=event=>{
+    if(!event.lengthComputable)return;
+    const percent=Math.min(100,Math.round(event.loaded/event.total*100));
+    $("firmwareProgress").style.width=percent+"%";
+    $("firmwarePercent").textContent=percent+"%";
+    $("updateFeedback").textContent="Uploading "+file.name+" · "+percent+"% · do not disconnect power...";
+   };
+   request.onerror=()=>reject(Error("Network connection lost during upload"));
+   request.onload=()=>{try{const body=JSON.parse(request.responseText);if(request.status<200||request.status>=300||!body.success)reject(Error(body.message||"Update failed"));else resolve(body);}catch(error){reject(Error("Invalid update response"));}};
+   request.send(form);
   });
-  const result=await response.json();
-  if(!response.ok||!result.success)
-   throw Error(result.message||"Update failed");
+  $("firmwareProgress").style.width="100%";
+  $("firmwarePercent").textContent="100%";
 
   $("updateFeedback").textContent=
    result.message+" Wait for GREEN-ION to reappear.";
