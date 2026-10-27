@@ -1,5 +1,5 @@
-# S08 — Precise Codex implementation protocol
-**Status:** Approved for documentation only; not implemented.
+# S08 — GREEN ION V11 precise Codex implementation protocol
+**Target version: V11. Current released baseline: V10.** Approved as V11 documentation only; not implemented or released.
 
 ## Execution rule
 **Do not implement all S01–S10 in one task.** Work in dependency order from `suggestions/README.md` and finish one stage with tests + concise handoff before starting next. When asked to implement a stage, do not ask to redo repository-wide discovery already described here.
@@ -19,7 +19,7 @@
 5. Report changed paths, test command/results, quantitative performance evidence if relevant, browser/hardware NOT TESTED items and follow-up required. Stop.
 
 ## Release handling
-Do not touch `Past_Versions/`, `CHANGELOG.md`, `VERSIONS.md`, compiled `.bin` or version numbering during early stage work unless an explicit release is requested. For a real release, follow `CODEX_HANDOFF.md`, preserve previous root release and verify artifact provenance. Avoid prematurely replacing the published V10 firmware.
+Do not touch `Past_Versions/`, `CHANGELOG.md`, `VERSIONS.md`, compiled `.bin` or version numbering during early stage work unless an explicit release is requested. For the approved V11 release, create the new root release folder `Green_Ion_V11/`, update version/build identifiers and documentation, move the former V10 release into `Past_Versions/` only at the release stage, and follow `CODEX_HANDOFF.md`, preserve previous root release and verify artifact provenance. Avoid prematurely replacing the published V10 firmware.
 
 ## Decisions requiring explicit escalation
 Breaking RKT4 format, weakening recovery/protections, removing existing OTA functionality, changing autonomous flight-recording semantics, insecure PWA-to-device transport, or hardware assumptions unsupported by bench tests.
