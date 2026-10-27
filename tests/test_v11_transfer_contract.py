@@ -3,7 +3,7 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-INO = (ROOT / "Green_Ion_V10/Green_Ion_V10.ino").read_text(encoding="utf-8")
+INO = (ROOT / "Green_Ion_V11/Green_Ion_V11.ino").read_text(encoding="utf-8")
 SPEC = (ROOT / "docs/RKT4_V2_FORMAT.md").read_text(encoding="utf-8")
 
 
@@ -30,3 +30,4 @@ class TransferContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
