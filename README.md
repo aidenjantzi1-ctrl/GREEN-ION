@@ -14,7 +14,7 @@ GREEN ION V11 is experimental firmware for an Adafruit ESP32 Feather V2 flight-d
 
 ## V10 field-resilient workflow
 
-V10 is the current root-level source in `Green_Ion_V10/`. Download the `green-ion-v10-phone-update` artifact only after its GitHub Actions run succeeds. V9.2 and every earlier release are preserved under `Past_Versions/`.
+V11 Release Candidate is the current root-level source in `Green_Ion_V11/`. Download the `green-ion-v11-rc-phone-update` artifact only after its GitHub Actions run succeeds. V10 and every earlier release are preserved under `Past_Versions/`.
 
 V10 adds dual checkpoint recovery, emergency RAM buffering, adaptive flight filters and landing detection, pressure-spike recovery, SD profiling, stored health snapshots, post-flight reports, manifests, integrity scans, Field mode, audible phone cues, configuration backup, maintenance reminders, and guarded OTA rollback. Raw pressure remains unchanged in RKT4 records.
 
@@ -105,7 +105,7 @@ Install these libraries through Arduino Library Manager:
 
 The ESP32 board package supplies `WiFi`, `WebServer`, `Wire`, `SPI`, and `SD`.
 
-Open `Green_Ion_V10/Green_Ion_V10.ino`, keep `Dashboard.h` beside it, select the correct serial port, and upload. Open Serial Monitor at **115200 baud** for startup and diagnostic messages. The first installation must be performed over USB; afterward, later GitHub-built updates can be installed from the dashboard on a phone.
+Open `Green_Ion_V11/Green_Ion_V11.ino`, keep `Dashboard.h` beside it, select the correct serial port, and upload. Open Serial Monitor at **115200 baud** for startup and diagnostic messages. The first installation must be performed over USB; afterward, later GitHub-built updates can be installed from the dashboard on a phone.
 
 ## Wiring
 
@@ -184,7 +184,8 @@ Automatic status colors take priority during safety-critical recorder states. Th
 - [V8.5 source](Past_Versions/Green_Ion_V8_5/Green_Ion_V8_5.ino) — preserved Arduino sketch
 - [V8.6 source](Past_Versions/Green_Ion_V8_6/Green_Ion_V8_6.ino) — preserved Arduino sketch
 - [V8.8 source](Past_Versions/Green_Ion_V8_8/Green_Ion_V8_8.ino) — archived previous release
-- [V10 source](Green_Ion_V10/Green_Ion_V10.ino) — latest buildable Arduino sketch
+- [V11 release-candidate source](Green_Ion_V11/Green_Ion_V11.ino) — latest buildable Arduino sketch
+- [V10 preserved release](Past_Versions/Green_Ion_V10/Green_Ion_V10.ino)
 - [V8.7 source](Past_Versions/Green_Ion_V8_7/Green_Ion_V8_7.ino) — previous preserved snapshot
 
 **Important:** Source snapshots begin at V8. Earlier historical records must not be confused with working firmware. GitHub commit dates in October 2026 are preservation dates, not necessarily prototype development dates.

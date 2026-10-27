@@ -1075,7 +1075,7 @@ async function scanSelectedIntegrity(){
 }
 function downloadSelectedPackage(){
  if(!selectedFlight){alert("Select a flight first.");return;}
- const urls=["/api/download?name=","/api/csv?name=","/api/metadata?name="];
+ const urls=["/api/download?name=","/api/metadata?name="];
  urls.forEach((base,i)=>setTimeout(()=>{const a=document.createElement("a");a.href=base+encodeURIComponent(selectedFlight);a.download="";document.body.appendChild(a);a.click();a.remove();},i*700));
  setTimeout(()=>{location.href="/api/manifest";},2300);
 }
@@ -1313,17 +1313,23 @@ let graphRequestId=0;
 function extreme(values,minimum){let result=minimum?Infinity:-Infinity;for(const value of values){if(!Number.isFinite(value))continue;result=minimum?Math.min(result,value):Math.max(result,value);}return Number.isFinite(result)?result:NaN;}
 let flightPhases=[];
 let flightMeta={};
+function decodeRkt4(buffer){
+ const d=new DataView(buffer);if(d.byteLength<32||String.fromCharCode(...new Uint8Array(buffer,0,4))!=="RKT4"||d.getUint16(4,true)!==2||d.getUint16(6,true)!==32||d.getUint16(8,true)!==16)throw Error("Invalid RKT4 v2 file");
+ const baseline=d.getFloat32(12,true),count=Math.floor((d.byteLength-32)/16),rows=[];let first=0,prevT=NaN,prevA=NaN;
+ for(let i=0;i<count;i++){const o=32+i*16,t=d.getUint32(o,true),p=d.getFloat32(o+4,true),temp=d.getFloat32(o+8,true),v=d.getUint16(o+12,true)/1000,valid=d.getUint16(o+14,true)===1;if(i===0)first=t;const time=((t-first)>>>0)/1e6,alt=valid&&p>0?44330*(1-Math.pow(p/baseline,.190294957)):NaN,dt=time-prevT,vel=Number.isFinite(prevA)&&dt>0&&dt<.5?(alt-prevA)/dt:NaN;rows.push([time,p,temp,v,valid?1:0,alt,vel]);if(Number.isFinite(alt)){prevA=alt;prevT=time;}}
+ return rows;
+}
+function rowsCsv(rows){return "time_s,pressure_pa,temperature_c,battery_v,valid,altitude_m,vertical_speed_mps,estimated_acceleration_mps2,estimated_vertical_apparent_g\r\n"+rows.map(r=>r.map(v=>Number.isFinite(v)?v:"").join(",")).join("\r\n");}
+function downloadRowsCsv(name,rows){const a=document.createElement("a"),blob=new Blob([rowsCsv(rows)],{type:"text/csv"});a.href=URL.createObjectURL(blob);a.download=name.replace(/\.BIN$/i,".CSV");a.click();URL.revokeObjectURL(a.href);}
 async function loadSavedGraph(name){
  const requestId=++graphRequestId;
  loadedFlightName="";
  const label=$("savedGraphStatus");
  label.textContent="Loading recorded samples...";
  try{
-  const response=await fetch("/api/csv?name="+encodeURIComponent(name),{cache:"no-store"});
-  if(!response.ok)throw Error("Could not load recorded CSV ("+response.status+")");
-  const csv=await response.text();
-  const lines=csv.trim().split(/\r?\n/);
-  const parsed=lines.slice(1).map(line=>line.split(",").map(Number)).filter(r=>r.length>=7&&Number.isFinite(r[0]));
+  const response=await fetch("/api/download?name="+encodeURIComponent(name),{cache:"no-store"});
+  if(!response.ok)throw Error("Could not load recorded BIN ("+response.status+")");
+  const parsed=decodeRkt4(await response.arrayBuffer());
   if(requestId!==graphRequestId||selectedFlight!==name)return;
   savedFlightSeries=parsed;
   loadedFlightName=name;
@@ -1569,10 +1575,7 @@ async function loadFiles() {
 
    const csv=document.createElement("button");
    csv.textContent="CSV";
-   csv.onclick=()=>{
-    location.href="/api/csv?name="+
-     encodeURIComponent(f.name);
-   };
+   csv.onclick=async()=>{await loadSavedGraph(f.name);if(loadedFlightName===f.name)downloadRowsCsv(f.name,savedFlightSeries);};
 
    const summary=document.createElement("button");
    summary.textContent="View stats";

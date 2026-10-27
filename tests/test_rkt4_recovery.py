@@ -129,7 +129,8 @@ class RecoveryTests(unittest.TestCase):
     def test_v10_field_resilience_contract(self):
         for token in (
             "EMERGENCY_BUFFER_BYTES", "emergencyBuffer", "checkpointFilenameB",
-            "writeHealthSnapshot", "writePostflightReport", "rebuildFlightManifest",
+            "writeHealthSnapshot", "rebuildFlightManifest",
+            "Download the BIN and export CSV in the V11 browser analyzer",
             "sdSafeRateHz", "environmentalWarning", "configurationBackupAPI",
             "configurationRestoreAPI", "integrityScanAPI", "rollbackAPI",
             "enableLoopWDT", "feedLoopWDT", "previousPowerEvidence",

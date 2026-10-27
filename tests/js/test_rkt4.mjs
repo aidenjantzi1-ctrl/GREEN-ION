@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { analyzeFlight, analysisCsv, flightReport, parseRkt4 } from "../../web/analysis/rkt4.mjs";
+import { sha256 } from "../../web/history-db.mjs";
 
 function fixture(trailing = 0) {
   const bytes = new Uint8Array(32 + 16 * 4 + trailing), d = new DataView(bytes.buffer);
@@ -14,4 +15,5 @@ assert.equal(parseRkt4(fixture(3)).trailingBytes, 3);
 const analysis = analyzeFlight(parsed); assert.ok(analysis.peakAltitudeM > 0); assert.match(analysis.warnings.at(-1), /estimates/);
 assert.match(analysisCsv(analysis), /estimated_vertical_g/); assert.equal(flightReport(analysis).samples, 4);
 assert.throws(() => parseRkt4(new Uint8Array(12)), /shorter/);
+assert.equal(await sha256(new TextEncoder().encode("GREEN ION")), "15f25e5dab179cbdb1419e7eb8bbb573bdd35b313505c98b11da541c2d302197");
 console.log("RKT4 browser analysis tests passed");

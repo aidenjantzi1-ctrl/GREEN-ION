@@ -56,6 +56,7 @@ jobs:
           node --check web/analysis/rkt4.mjs
           node --check web/analysis-worker.mjs
           node --check web/advanced.mjs
+          node --check web/history-db.mjs
           node --check web/service-worker.js
           node tests/js/test_rkt4.mjs
 

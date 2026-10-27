@@ -43,7 +43,7 @@
 #include <math.h>
 
 #ifndef GREEN_ION_GIT_SHA
-#define GREEN_ION_GIT_SHA "v10-standalone"
+#define GREEN_ION_GIT_SHA "v11-standalone"
 #endif
 
 const char *FIRMWARE_VERSION = "11.0-rc1";
@@ -1403,28 +1403,6 @@ void writeHealthSnapshot() {
   lastHealthSnapshotMs = millis();
 }
 
-void writePostflightReport() {
-  if (!sdOK || !reportFilename.length()) return;
-  SD.remove(reportFilename);
-  File r = SD.open(reportFilename, FILE_WRITE);
-  if (!r) return;
-  r.println("GREEN ION V11 POST-FLIGHT REPORT");
-  r.println("flight=" + flightLabel);
-  r.println("file=" + filename.substring(1));
-  r.println("finish=" + finishReason);
-  r.println("duration_s=" + String(finalDurationMs / 1000.0f, 2));
-  r.println("peak_altitude_m=" + String(peakM, 2));
-  r.println("peak_ascent_mps=" + String(peakAscentSpeedMps, 2));
-  r.println("fastest_descent_mps=" + String(fastestDescentMps, 2));
-  r.println("battery_drop_mv=" + String(flightMaximumDropMv));
-  r.println("sensor_outages=" + String(sensorOutageCount));
-  r.println("pressure_anomalies=" + String(pressureAnomalyCount));
-  r.println("emergency_ram_recovered_bytes=" + String(emergencyRecoveredBytes));
-  r.println("phase_confidence=" + String(phaseConfidence));
-  r.println("interpretation=All phases and motion values are pressure-derived estimates");
-  r.close();
-}
-
 void rebuildFlightManifest() {
   if (!sdOK || recording) return;
   SD.remove("/MANIFEST.CSV");
@@ -1470,7 +1448,6 @@ void stopFlight(String reason) {
 
   integrityStatus = saved && !sdFault ? "Saved and flushed" : "Incomplete: SD error";
   writeFlightMetadataEnd();
-  writePostflightReport();
   if (saved && !sdFault && checkpointFilename.length()) {
     SD.remove(checkpointFilename);
     SD.remove(checkpointFilenameB);
@@ -2755,118 +2732,9 @@ void preflightAPI() {
 }
 
 void csvAPI() {
-  if (!sdOK || recording) {
-    web.send(409, "text/plain", "SD busy");
-    return;
-  }
-
-  String n = web.arg("name");
-  if (!validFile(n)) {
-    web.send(400, "text/plain", "Invalid filename");
-    return;
-  }
-
-  File f = SD.open("/" + n, FILE_READ);
-  if (!f) {
-    web.send(404, "text/plain", "File not found");
-    return;
-  }
-
-  uint8_t header[32];
-  if (f.read(header, sizeof(header)) != sizeof(header) ||
-      memcmp(header, "RKT4", 4) != 0 ||
-      read16(header + 4) != 2 ||
-      read16(header + 6) != 32 ||
-      read16(header + 8) != 16 ||
-      (read16(header + 10) != 10 && read16(header + 10) != 25 && read16(header + 10) != 50)) {
-    f.close();
-    web.send(422, "text/plain", "Invalid RKT4 file");
-    return;
-  }
-
-  float baseline = readFloat(header + 12);
-  if (!isfinite(baseline) || baseline < 30000 || baseline > 120000)
-    baseline = NAN;
-
-  String csvName = n;
-  csvName.replace(".BIN", ".CSV");
-  web.sendHeader(
-    "Content-Disposition",
-    "attachment; filename=\"" + csvName + "\""
-  );
-  web.setContentLength(CONTENT_LENGTH_UNKNOWN);
-  web.send(200, "text/csv", "");
-  web.sendContent(
-    "time_s,pressure_pa,temperature_c,battery_v,valid,"
-    "altitude_m,vertical_speed_mps,estimated_acceleration_mps2,estimated_vertical_apparent_g\r\n"
-  );
-
-  uint8_t record[16];
-  uint32_t firstStamp = 0;
-  uint32_t previousStamp = 0;
-  float previousAltitude = NAN;
-  float previousVelocity = NAN;
-  uint32_t previousVelocityStamp = 0;
-
-  while (f.available() >= 16) {
-    if (f.read(record, sizeof(record)) != sizeof(record)) break;
-
-    uint32_t stamp = read32(record);
-    float pressure = readFloat(record + 4);
-    float temperature = readFloat(record + 8);
-    uint16_t millivolts = read16(record + 12);
-    bool valid = (read16(record + 14) & 1) != 0;
-
-    if (!firstStamp) firstStamp = stamp;
-
-    float relativeTime =
-      (uint32_t)(stamp - firstStamp) / 1000000.0f;
-    float altitude = NAN;
-    float velocity = NAN;
-
-    if (valid && isfinite(baseline) &&
-        isfinite(pressure) && pressure > 0) {
-      altitude = 44330.0f *
-        (1 - powf(pressure / baseline, 0.190294957f));
-
-      if (isfinite(previousAltitude) && previousStamp != stamp) {
-        float dt =
-          (uint32_t)(stamp - previousStamp) / 1000000.0f;
-        if (dt > 0) velocity = (altitude - previousAltitude) / dt;
-      }
-
-      previousAltitude = altitude;
-      previousStamp = stamp;
-    }
-
-    float acceleration = NAN;
-    float apparentG = NAN;
-    if (isfinite(velocity) && isfinite(previousVelocity) && stamp != previousVelocityStamp) {
-      float dt = (uint32_t)(stamp - previousVelocityStamp) / 1000000.0f;
-      if (dt > 0.01f && dt < 2.0f) {
-        acceleration = (velocity - previousVelocity) / dt;
-        apparentG = 1.0f + acceleration / 9.80665f;
-      }
-    }
-    if (isfinite(velocity)) { previousVelocity = velocity; previousVelocityStamp = stamp; }
-
-    String row;
-    row.reserve(190);
-    row += String(relativeTime, 4) + ",";
-    row += jn(pressure, 2) + ",";
-    row += jn(temperature, 2) + ",";
-    row += String(millivolts / 1000.0f, 3) + ",";
-    row += valid ? "1," : "0,";
-    row += jn(altitude, 3) + ",";
-    row += jn(velocity, 3) + ",";
-    row += jn(acceleration, 3) + ",";
-    row += jn(apparentG, 3) + "\r\n";
-    web.sendContent(row);
-    yield();
-  }
-
-  f.close();
-  web.sendContent("");
+  // V11 compatibility alias: analysis and CSV generation moved to browser JavaScript.
+  web.send(410, "application/json",
+    "{\"success\":false,\"message\":\"Download the BIN and export CSV in the V11 browser analyzer\"}");
 }
 
 void metadataAPI() {
@@ -3576,4 +3444,5 @@ void loop() {
 
   yield();
 }
+
 
