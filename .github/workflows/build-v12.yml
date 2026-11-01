@@ -1,0 +1,54 @@
+name: Build Green Ion V12 development firmware
+
+on:
+  push:
+    branches: [main, "codex/**", "v12/**"]
+    paths:
+      - "Green_Ion_V12/**"
+      - "Ground_Receiver/**"
+      - "Ground_Station/**"
+      - "libraries/GreenIonProtocol/**"
+      - "docs/V12_*.md"
+      - "tests/test_v12_*.py"
+      - ".github/workflows/build-v12.yml"
+  workflow_dispatch:
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run all Python regression tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+
+  compile-firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Install board packages
+        run: |
+          arduino-cli config init
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install arduino:avr
+      - name: Install production libraries
+        run: |
+          arduino-cli lib install "Adafruit BMP3XX Library"
+          arduino-cli lib install "Adafruit LSM6DS"
+          arduino-cli lib install "Adafruit GPS Library"
+          arduino-cli lib install "RadioHead"
+      - name: Compile Feather ESP32 V2 firmware
+        run: arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --library libraries/GreenIonProtocol --output-dir build/esp32 Green_Ion_V12
+      - name: Compile Arduino Uno receiver
+        run: arduino-cli compile --fqbn arduino:avr:uno --library libraries/GreenIonProtocol --output-dir build/uno Ground_Receiver
+      - name: Upload development binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: green-ion-v12-development-binaries
+          path: |
+            build/esp32/*.bin
+            build/uno/*.hex
+          if-no-files-found: error
+
