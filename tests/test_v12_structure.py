@@ -10,7 +10,8 @@ class V12StructureTests(unittest.TestCase):
             "Green_Ion_V12/Green_Ion_V12.ino", "Green_Ion_V12/Config.h",
             "Green_Ion_V12/Dashboard.h",
             "Ground_Receiver/Ground_Receiver.ino", "Ground_Station/ground_station.py",
-            "Ground_Station/index.html", "docs/V12_BUILD_GUIDE.md",
+            "Ground_Station/index.html", "Ground_Station/OPEN_GROUND_STATION.cmd",
+            "docs/V12_BUILD_GUIDE.md",
             "docs/V12_WIRING.md", "docs/V12_TESTING.md",
             "docs/V12_DEVELOPMENT_LOG.md", "docs/V12_ROADMAP.md",
             "docs/V12_HARDWARE_BRINGUP.md",
@@ -31,6 +32,12 @@ class V12StructureTests(unittest.TestCase):
         for name in ("kFrequencyMhz", "kSignalBandwidthHz", "kSpreadingFactor", "kCodingRateDenominator"):
             self.assertIn(name, transmitter)
             self.assertIn(name, receiver)
+
+    def test_ground_station_opens_without_hardware_arguments(self):
+        source = (ROOT / "Ground_Station" / "ground_station.py").read_text(encoding="utf-8")
+        self.assertIn('use_sample = args.sample or not args.port', source)
+        self.assertIn('webbrowser.open', source)
+        self.assertNotIn('add_mutually_exclusive_group(required=True)', source)
 
     def test_no_energetic_device_control_surface(self):
         source = "\n".join(

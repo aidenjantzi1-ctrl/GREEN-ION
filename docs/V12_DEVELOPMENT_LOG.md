@@ -78,3 +78,22 @@ Add deterministic recorder/storage/time interfaces and a bounded prebuffer so V1
 
 Add deterministic recorder/storage/time interfaces and a bounded prebuffer so the autonomous flight watcher and failure-injection tests can be ported without coupling them to Arduino hardware. The read-only V12 status page is not yet the complete V11 unified Flight, recovery, and OTA dashboard port.
 
+## 2026-11-01 — Session 4: one-click ground station launch
+
+### Implemented
+
+- Added `Ground_Station/OPEN_GROUND_STATION.cmd` for one-click Windows startup.
+- Made simulation the default when no receiver port is supplied and automatically opens the local website in the default browser.
+- Added clear terminal guidance, an already-running recovery path, and an optional `--no-browser` flag for automated checks.
+- Documented what the ground station is and separated normal website use from the optional physical Uno/serial setup.
+
+### Evidence
+
+- Local HTTP smoke test: dashboard returned HTTP 200 and 6,559 bytes; `/api/telemetry` returned live simulated pressure and rotation data.
+- Simulation is clearly labeled and does not count as radio, receiver, GPS, or flight hardware evidence.
+- Physical receiver and field behavior: **NOT TESTED**.
+
+### Next task
+
+Continue the recorder-first roadmap. When receiver hardware is available, validate the optional `--port COMx` path separately from this software-only website launch check.
+

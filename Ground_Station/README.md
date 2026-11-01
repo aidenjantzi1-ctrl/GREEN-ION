@@ -1,15 +1,23 @@
 # GREEN ION V12 Ground Station
 
-The app uses only the Python standard library in simulation mode. It serves a local dashboard, plots an offline relative GPS trajectory, and saves every received telemetry row to `logs/*.csv`.
+The ground station is the equipment and software that stays on the ground, receives the rocket recorder's radio telemetry, displays it, and saves a separate recovery log. It never controls ignition, staging, arming, or deployment.
+
+## Open it
+
+Double-click `OPEN_GROUND_STATION.cmd`. It starts simulated data by default and opens the website automatically. Keep the small command window open while using the website; closing it stops the local site.
+
+Simulation mode uses only Python's standard library. It plots an offline relative GPS trajectory and saves every row to `logs/*.csv`. It is a software demonstration, not hardware evidence.
+
+The equivalent manual command is optional:
 
 ```powershell
 cd Ground_Station
-py -3 ground_station.py --sample
+py -3 ground_station.py
 ```
 
-Open `http://127.0.0.1:8765`. The dashboard labels simulated input and distinguishes live, stale, and missing link/GPS data.
+The dashboard opens at `http://127.0.0.1:8765` and distinguishes live, stale, and missing link/GPS data.
 
-For an Arduino Uno receiver, install `pyserial` and provide its port:
+Later, when using the physical Arduino Uno receiver, install `pyserial` and provide its port. This is not needed to open or demonstrate the website:
 
 ```powershell
 py -3 -m pip install pyserial

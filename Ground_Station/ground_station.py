@@ -20,6 +20,7 @@ import math
 from pathlib import Path
 import threading
 import time
+import webbrowser
 
 ROOT = Path(__file__).resolve().parent
 LOG_DIR = ROOT / "logs"
@@ -155,23 +156,39 @@ def serial_source(stop: threading.Event, port: str, log_path: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="GREEN ION V12 local ground station")
-    source = parser.add_mutually_exclusive_group(required=True)
+    source = parser.add_mutually_exclusive_group()
     source.add_argument("--sample", action="store_true", help="use simulated rocket telemetry")
     source.add_argument("--port", help="Arduino Uno serial port, for example COM5")
     parser.add_argument("--listen", default="127.0.0.1")
     parser.add_argument("--http-port", type=int, default=8765)
+    parser.add_argument("--no-browser", action="store_true", help="do not open the dashboard automatically")
     args = parser.parse_args()
 
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     log_path = LOG_DIR / f"telemetry-{timestamp}.csv"
     stop = threading.Event()
-    target = sample_source if args.sample else serial_source
-    target_args = (stop, log_path) if args.sample else (stop, args.port, log_path)
+    use_sample = args.sample or not args.port
+    target = sample_source if use_sample else serial_source
+    target_args = (stop, log_path) if use_sample else (stop, args.port, log_path)
     worker = threading.Thread(target=target, args=target_args, daemon=True)
     worker.start()
-    server = ThreadingHTTPServer((args.listen, args.http_port), Handler)
-    print(f"GREEN ION ground station: http://{args.listen}:{args.http_port}")
+    url = f"http://{args.listen}:{args.http_port}"
+    try:
+        server = ThreadingHTTPServer((args.listen, args.http_port), Handler)
+    except OSError as error:
+        stop.set()
+        if getattr(error, "winerror", None) == 10048 or error.errno in (48, 98):
+            print(f"Ground station is already running at {url}")
+            if not args.no_browser:
+                webbrowser.open(url)
+            return
+        raise
+    print(f"GREEN ION ground station: {url}")
+    print("Mode: SIMULATED DATA — NOT HARDWARE" if use_sample else f"Mode: radio receiver on {args.port}")
     print(f"Telemetry log: {log_path}")
+    print("Keep this window open while using the website. Press Ctrl+C to stop.")
+    if not args.no_browser:
+        threading.Timer(0.25, webbrowser.open, args=(url,)).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
