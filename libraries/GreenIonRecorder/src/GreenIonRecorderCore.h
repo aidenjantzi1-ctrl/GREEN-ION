@@ -67,6 +67,13 @@ class RecorderCore {
   size_t bufferedRecords() const { return prebuffer_.size(); }
   constexpr size_t prebufferCapacity() const { return PrebufferCapacity; }
 
+  bool resetBuffer() {
+    if (recording()) return false;
+    prebuffer_.clear();
+    status_ = CORE_BUFFERING;
+    return true;
+  }
+
   void observe(const rkt4::Record &record) {
     if (!recording()) {
       prebuffer_.push(record);

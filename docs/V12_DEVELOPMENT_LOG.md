@@ -189,3 +189,30 @@ After CI validates the watcher, integrate it behind explicit recorder preparatio
 
 After CI validates calibration and both board builds, integrate calibration and the launch watcher into an explicit recorder-only preparation state. Do not begin additional work while usage is constrained.
 
+### CI follow-up
+
+- GitHub Actions run `41349566720`: PASS for 64 Python tests, all four native C++ recorder/watcher/calibration suites, ESP32 compilation, Uno compilation, and development artifact upload on commit `8213c23`.
+
+## 2026-11-01 — Session 9: autonomous launch-recording integration
+
+### Implemented
+
+- Added explicit calibrating, watching, recording, and fault modes to the ESP32 recorder.
+- The recorder now collects a fixed 96-sample stationary pressure calibration, rejects invalid/noisy/drifting calibration data, and retries calibration after a bounded delay.
+- Idle sensor records remain in the fixed three-second prebuffer. A confirmed recorder-only launch trigger opens a collision-safe RKT4 log and drains the prebuffer before live records.
+- Calibration retries cancel the prior watcher and clear stale pre-calibration records. The read-only status API exposes recorder mode, baseline pressure, calibration noise, and relative altitude.
+- Added portable recorder-core coverage for clearing a prebuffer before recording and rejecting a reset while a recording is active.
+
+### Evidence
+
+- Host source-contract regression suite: 64 Python tests passed.
+- `git diff --check`: PASS.
+- ESP32 compilation was attempted twice. Both attempts stopped before source compilation because Windows could not start `xtensa-esp32-elf-g++` and reported `{Illegal System DLL Relocation}`. This is recorded as an environment/toolchain failure, not a source compile result; the real ESP32 build is **PENDING CI**.
+- Native C++ execution for the new reset-buffer scenario is **PENDING CI** because no native compiler is installed locally.
+- Arduino Uno firmware was unchanged in this session; its regression build is **PENDING CI**.
+- Physical stationary calibration, launch detection, SD writes, SD removal, brownout, and power-loss recovery: **NOT TESTED**.
+
+### Next task
+
+After CI validates this integration, continue the recorder-core port with deterministic checkpoints and recovery. Keep local data integrity ahead of telemetry and dashboard expansion.
+

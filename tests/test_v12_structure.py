@@ -53,6 +53,11 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("RecorderCore<config::PREBUFFER_RECORDS>", firmware)
         self.assertIn("class SdFileSink", firmware)
         self.assertIn("recorderCore.observe(record)", firmware)
+        self.assertIn("RECORDER_CALIBRATING", firmware)
+        self.assertIn("RECORDER_WATCHING", firmware)
+        self.assertIn("processCalibration(nowMs, valid)", firmware)
+        self.assertIn("updateLaunchWatcher(nowMs, valid)", firmware)
+        self.assertNotIn("state.sdOk && !recorderCore.recording()) openRawLog()", firmware)
 
     def test_no_energetic_device_control_surface(self):
         source = "\n".join(

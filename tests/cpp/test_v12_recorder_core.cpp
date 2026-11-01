@@ -52,9 +52,15 @@ int main() {
   core.observe(sample(0x00000008u));
   assert(core.bufferedRecords() == 3);
 
+  RecorderCore<3> resettable;
+  resettable.observe(sample(1));
+  assert(resettable.resetBuffer());
+  assert(resettable.bufferedRecords() == 0);
+
   MockSink sink;
   assert(core.start(sink, Header{50, 101325.0f, 4000}));
   assert(core.status() == CORE_RECORDING);
+  assert(!core.resetBuffer());
   assert(core.bufferedRecords() == 0);
   assert(sink.bytes.size() == green_ion::rkt4::kHeaderBytes + 3 * green_ion::rkt4::kRecordBytes);
 

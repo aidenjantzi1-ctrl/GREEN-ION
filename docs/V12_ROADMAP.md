@@ -17,6 +17,7 @@
 - [x] Add a deterministic byte-sink boundary and fixed-capacity recorder prebuffer with host failure tests.
 - [x] Add a portable V11-derived launch watcher with confirmation, noise, invalid-sample, gap, and rollover tests.
 - [x] Add fixed-memory V11-compatible stationary pressure calibration with noise, drift, range, and outlier tests.
+- [x] Integrate automatic calibration and launch watching so idle samples remain buffered and confirmed launch opens the RKT4 log.
 - [ ] Complete the V11 recorder-core port: autonomous flight watcher, prebuffer, checkpoints, recovery, calibration, metadata, and rate control.
 - [ ] Add deterministic module interfaces and mocks for barometer, IMU, GPS, storage, radio, battery, and time.
 - [ ] Add failure-injection integration tests for init loss, mid-run GPS/radio loss, SD write failure, and recovery.

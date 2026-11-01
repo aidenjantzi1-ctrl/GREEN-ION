@@ -3,10 +3,9 @@
   Flight-data recorder and recovery aid only.
   It must never control ignition, staging, or recovery deployment.
 
-  This first V12 integration slice is intentionally isolated from V11. It adds
-  IMU/GPS/LoRa plumbing and CSV logging with failure isolation. V11 remains the
-  functional baseline until its autonomous flight workflow, RKT4 persistence,
-  dashboard, recovery, and OTA paths are ported and regression-tested.
+  V12 remains intentionally isolated from V11. This development build combines
+  RKT4 recording, a bounded prebuffer, stationary pressure calibration, and a
+  recorder-only launch watcher. Recovery and OTA paths are still incomplete.
 */
 
 #include <Arduino.h>
@@ -63,6 +62,27 @@ class SdFileSink : public green_ion::recorder::ByteSink {
 
 SdFileSink logSink;
 green_ion::recorder::RecorderCore<config::PREBUFFER_RECORDS> recorderCore;
+green_ion::flight::FlightWatcher flightWatcher;
+
+enum RecorderMode : uint8_t {
+  RECORDER_CALIBRATING = 0,
+  RECORDER_WATCHING,
+  RECORDER_RECORDING,
+  RECORDER_FAULT,
+};
+
+RecorderMode recorderMode = RECORDER_CALIBRATING;
+float calibrationSamples[config::CALIBRATION_TARGET_SAMPLES];
+uint16_t calibrationWarmup = 0;
+uint16_t calibrationAttempts = 0;
+uint16_t calibrationValid = 0;
+uint32_t lastCalibrationMs = 0;
+uint32_t calibrationRetryAtMs = 0;
+float calibrationBaselinePa = NAN;
+float calibrationNoiseM = NAN;
+float watcherAltitudeM = NAN;
+float watcherPreviousAltitudeM = NAN;
+uint32_t watcherPreviousMs = 0;
 
 uint32_t telemetrySequence = 0;
 uint32_t lastSensorUs = 0;
@@ -163,11 +183,14 @@ static void initializeRadio() {
   }
 }
 
-static void readSensors() {
+static bool readSensors() {
+  bool barometerReadingValid = false;
   if (state.barometerOk && barometer.performReading()) {
     state.pressurePa = barometer.pressure;
     state.temperatureC = barometer.temperature;
     state.altitudeM = barometer.readAltitude(1013.25f);
+    barometerReadingValid = isfinite(state.pressurePa) && isfinite(state.temperatureC) &&
+                            state.pressurePa > 30000.0f && state.pressurePa < 120000.0f;
   }
 
   if (state.imuOk) {
@@ -187,6 +210,7 @@ static void readSensors() {
   }
 
   state.batteryMv = static_cast<uint16_t>(analogReadMilliVolts(config::PIN_BATTERY) * 2u);
+  return barometerReadingValid;
 }
 
 static void serviceGps(uint32_t nowMs) {
@@ -214,6 +238,79 @@ static uint32_t gpsAgeMs(uint32_t nowMs) {
   return state.gpsHasPosition ? nowMs - state.lastGpsFixMs : UINT32_MAX;
 }
 
+static void resetCalibration(uint32_t nowMs) {
+  flightWatcher.cancel();
+  recorderCore.resetBuffer();
+  calibrationWarmup = 0;
+  calibrationAttempts = 0;
+  calibrationValid = 0;
+  lastCalibrationMs = nowMs - config::CALIBRATION_INTERVAL_MS;
+  calibrationRetryAtMs = 0;
+  calibrationBaselinePa = NAN;
+  calibrationNoiseM = NAN;
+  recorderMode = RECORDER_CALIBRATING;
+}
+
+static void processCalibration(uint32_t nowMs, bool valid) {
+  if (recorderMode != RECORDER_CALIBRATING ||
+      nowMs - lastCalibrationMs < config::CALIBRATION_INTERVAL_MS) return;
+  lastCalibrationMs = nowMs;
+  if (calibrationWarmup < config::CALIBRATION_WARMUP_SAMPLES) {
+    ++calibrationWarmup;
+    return;
+  }
+  ++calibrationAttempts;
+  if (valid && calibrationValid < config::CALIBRATION_TARGET_SAMPLES)
+    calibrationSamples[calibrationValid++] = state.pressurePa;
+  if (calibrationValid < config::CALIBRATION_TARGET_SAMPLES &&
+      calibrationAttempts < config::CALIBRATION_MAX_ATTEMPTS) return;
+
+  const float collectionSeconds = fmaxf(1.0f,
+      calibrationAttempts * config::CALIBRATION_INTERVAL_MS / 1000.0f);
+  const auto result = green_ion::calibration::analyze<config::CALIBRATION_TARGET_SAMPLES>(
+      calibrationSamples, calibrationValid, collectionSeconds);
+  if (result.code != green_ion::calibration::CALIBRATION_VALID) {
+    recorderMode = RECORDER_FAULT;
+    calibrationRetryAtMs = nowMs + config::CALIBRATION_RETRY_MS;
+    return;
+  }
+
+  calibrationBaselinePa = result.baselinePressurePa;
+  calibrationNoiseM = result.noiseAltitudeM;
+  recorderCore.resetBuffer();
+  watcherAltitudeM = watcherPreviousAltitudeM = NAN;
+  watcherPreviousMs = 0;
+  const bool watching = flightWatcher.begin({
+      config::SENSOR_RATE_HZ, 0.0f, calibrationBaselinePa, calibrationNoiseM});
+  recorderMode = watching ? RECORDER_WATCHING : RECORDER_FAULT;
+  if (!watching) calibrationRetryAtMs = nowMs + config::CALIBRATION_RETRY_MS;
+}
+
+static bool updateLaunchWatcher(uint32_t nowMs, bool valid) {
+  if (recorderMode != RECORDER_WATCHING) return false;
+  const float relativeM = valid ? green_ion::calibration::relativeAltitudeM(
+      state.pressurePa, calibrationBaselinePa) : NAN;
+  float speedMps = NAN;
+  if (isfinite(relativeM)) {
+    if (!isfinite(watcherAltitudeM)) watcherAltitudeM = relativeM;
+    const float difference = fabsf(relativeM - watcherAltitudeM);
+    const float alpha = difference < 0.25f ? 0.28f :
+                        difference < 1.5f ? 0.48f :
+                        difference < 5.0f ? 0.68f : 0.84f;
+    watcherAltitudeM += alpha * (relativeM - watcherAltitudeM);
+    if (isfinite(watcherPreviousAltitudeM) && watcherPreviousMs != nowMs) {
+      const uint32_t elapsedMs = nowMs - watcherPreviousMs;
+      speedMps = (watcherAltitudeM - watcherPreviousAltitudeM) * 1000.0f / elapsedMs;
+    } else {
+      speedMps = 0.0f;
+    }
+    watcherPreviousAltitudeM = watcherAltitudeM;
+    watcherPreviousMs = nowMs;
+  }
+  return flightWatcher.update({nowMs, watcherAltitudeM, speedMps,
+                               state.pressurePa, valid});
+}
+
 static bool openRawLog() {
   if (!state.sdOk || logFile) return static_cast<bool>(logFile);
   digitalWrite(config::PIN_LORA_CS, HIGH);
@@ -231,7 +328,7 @@ static bool openRawLog() {
 
   green_ion::rkt4::Header header = {
     config::SENSOR_RATE_HZ,
-    state.pressurePa,
+    calibrationBaselinePa,
     state.batteryMv,
   };
   logSink.attach(logFile);
@@ -247,9 +344,7 @@ static bool openRawLog() {
   return true;
 }
 
-static void appendLog(uint32_t nowUs) {
-  const bool valid = state.barometerOk && isfinite(state.pressurePa) &&
-                     isfinite(state.temperatureC);
+static void appendLog(uint32_t nowUs, uint32_t nowMs, bool valid) {
   green_ion::rkt4::Record record = {
     nowUs,
     state.pressurePa,
@@ -258,12 +353,24 @@ static void appendLog(uint32_t nowUs) {
     valid,
   };
   recorderCore.observe(record);
-  if (state.sdOk && !recorderCore.recording()) openRawLog();
+  processCalibration(nowMs, valid);
+  if (recorderMode == RECORDER_FAULT && calibrationRetryAtMs &&
+      static_cast<int32_t>(nowMs - calibrationRetryAtMs) >= 0)
+    resetCalibration(nowMs);
+  if (updateLaunchWatcher(nowMs, valid)) {
+    if (state.sdOk && openRawLog()) {
+      recorderMode = RECORDER_RECORDING;
+      flightState = green_ion::STATE_ASCENT;
+    } else {
+      recorderMode = RECORDER_FAULT;
+    }
+  }
   state.recording = recorderCore.recording();
   if (recorderCore.status() == green_ion::recorder::CORE_RECORD_WRITE_FAILED) {
     healthBits |= green_ion::HEALTH_SD_WRITE_ERROR;
     state.sdOk = false;
     state.recording = false;
+    recorderMode = RECORDER_FAULT;
     if (logFile) logFile.close();
   }
 }
@@ -306,7 +413,11 @@ static void sendDashboardStatus() {
   body += String(state.satellites);
   body += ",\"health\":" + String(healthBits);
   body += ",\"prebuffer_records\":" + String(recorderCore.bufferedRecords());
-  body += ",\"recorder_status\":" + String(static_cast<uint8_t>(recorderCore.status())) + "}";
+  body += ",\"recorder_status\":" + String(static_cast<uint8_t>(recorderCore.status()));
+  body += ",\"recorder_mode\":" + String(static_cast<uint8_t>(recorderMode));
+  body += ",\"calibration_baseline_pa\":" + numberOrNull(calibrationBaselinePa, 1);
+  body += ",\"calibration_noise_m\":" + numberOrNull(calibrationNoiseM, 3);
+  body += ",\"relative_altitude_m\":" + numberOrNull(watcherAltitudeM, 2) + "}";
   dashboardServer.send(200, "application/json", body);
 }
 
@@ -368,6 +479,7 @@ void setup() {
   SPI.begin(config::PIN_SPI_SCK, config::PIN_SPI_MISO, config::PIN_SPI_MOSI);
   initializeSensors();
   initializeStorage();
+  resetCalibration(millis());
   initializeRadio();
   initializeDashboard();
   Serial.printf("GREEN ION V12 dev: baro=%d imu=%d gps=%d sd=%d radio=%d\n",
@@ -381,8 +493,8 @@ void loop() {
 
   if (static_cast<uint32_t>(nowUs - lastSensorUs) >= config::SENSOR_INTERVAL_US) {
     lastSensorUs = nowUs;
-    readSensors();
-    appendLog(nowUs);
+    const bool barometerReadingValid = readSensors();
+    appendLog(nowUs, nowMs, barometerReadingValid);
   }
 
   if (state.sdOk && recorderCore.recording() && nowMs - lastFlushMs >= config::LOG_FLUSH_INTERVAL_MS) {
@@ -391,6 +503,7 @@ void loop() {
       healthBits |= green_ion::HEALTH_SD_WRITE_ERROR;
       state.sdOk = false;
       state.recording = false;
+      recorderMode = RECORDER_FAULT;
       if (logFile) logFile.close();
     }
   }
