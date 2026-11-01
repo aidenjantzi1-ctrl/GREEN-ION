@@ -216,3 +216,29 @@ After CI validates calibration and both board builds, integrate calibration and 
 
 After CI validates this integration, continue the recorder-core port with deterministic checkpoints and recovery. Keep local data integrity ahead of telemetry and dashboard expansion.
 
+### CI follow-up
+
+- GitHub Actions run `41355060130`: PASS for 64 Python tests, all native C++ recorder/watcher/calibration suites, ESP32 compilation, Uno compilation, and development artifact upload on commit `50ca95b`.
+
+## 2026-11-01 — Session 10: deterministic checkpoint contract
+
+### Implemented
+
+- Added a portable fixed 32-byte `GIC1` checkpoint format with version, generation, committed byte count, complete-record count, elapsed time, and CRC-32.
+- Checkpoints reject misaligned committed lengths, inconsistent record counts, CRC corruption, unsupported headers, and claims beyond the actual RKT4 file size.
+- Added deterministic alternating-slot selection that falls back from a corrupt or impossible newer slot and compares generation counters across unsigned rollover.
+- Added RKT4 recovery inspection that reports validated headers, complete records, and a torn trailing-byte count without modifying the original BIN.
+- Added native scenarios for the independent golden CRC, round trip, corrupt-slot fallback, file bounds, invalid fields, generation rollover, clean logs, torn logs, and invalid RKT4 headers.
+
+### Evidence
+
+- Host source-contract regression suite: 64 Python tests passed.
+- `git diff --check`: PASS.
+- Native C++ checkpoint execution is **PENDING CI** because no native compiler is installed locally.
+- The ESP32 regression compile was attempted, but Windows again stopped before source compilation because `xtensa-esp32-elf-g++` could not start with `{Illegal System DLL Relocation}`. This is an environment/toolchain failure, not a source compile result; ESP32 and Uno builds are **PENDING CI**.
+- No SD journal is written or consumed by firmware yet. Physical power-loss, SD-removal, and torn-write recovery remain **NOT TESTED**.
+
+### Next task
+
+Integrate alternating checkpoint writes only after a successful RKT4 flush, then add a boot-time scanner that reports interrupted logs while preserving the original BIN and any torn tail.
+

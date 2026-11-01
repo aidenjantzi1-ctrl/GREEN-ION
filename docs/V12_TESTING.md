@@ -13,6 +13,7 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Compile ESP32 V12 firmware with all production libraries locally and in CI.
 - [x] Compile Uno receiver locally and in CI.
 - [x] Add a host-executable C++ golden-vector test for the exact RKT4 header/record bytes, corruption, torn records, and timestamp rollover.
+- [x] Add native tests for CRC-protected alternating checkpoints, corrupt-slot fallback, generation rollover, file-size bounds, and torn-tail inspection.
 - [ ] Add deterministic SD write-error and sensor-init failure harnesses.
 - [ ] Port the remaining V11 autonomous flight watcher, recovery checkpoints, dashboard, control lease, and OTA paths with regression tests.
 

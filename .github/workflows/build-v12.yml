@@ -43,6 +43,11 @@ jobs:
             tests/cpp/test_v12_calibration.cpp \
             -o /tmp/test-v12-calibration
           /tmp/test-v12-calibration
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_checkpoint.cpp \
+            -o /tmp/test-v12-checkpoint
+          /tmp/test-v12-checkpoint
 
   compile-firmware:
     runs-on: ubuntu-latest
