@@ -96,6 +96,10 @@ class RecorderCore {
         return false;
       }
     }
+    if (!sink.flush()) {
+      status_ = CORE_START_WRITE_FAILED;
+      return false;
+    }
     prebuffer_.clear();
     sink_ = &sink;
     status_ = CORE_RECORDING;

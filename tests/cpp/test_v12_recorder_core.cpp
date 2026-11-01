@@ -86,6 +86,14 @@ int main() {
   assert(startFailure.status() == CORE_START_WRITE_FAILED);
   assert(startFailure.bufferedRecords() == 1);
 
+  RecorderCore<3> startFlushFailure;
+  startFlushFailure.observe(sample(2));
+  MockSink failingStartFlush;
+  failingStartFlush.flushOk = false;
+  assert(!startFlushFailure.start(failingStartFlush, Header{50, 101325.0f, 4000}));
+  assert(startFlushFailure.status() == CORE_START_WRITE_FAILED);
+  assert(startFlushFailure.bufferedRecords() == 1);
+
   puts("GREEN ION V12 recorder core tests passed");
   return 0;
 }

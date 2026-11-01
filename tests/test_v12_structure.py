@@ -41,6 +41,15 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn('webbrowser.open', source)
         self.assertNotIn('add_mutually_exclusive_group(required=True)', source)
 
+    def test_firmware_uses_bounded_recorder_core(self):
+        config = (ROOT / "Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
+        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        self.assertIn("PREBUFFER_SECONDS = 3", config)
+        self.assertIn("PREBUFFER_RECORDS == 150", config)
+        self.assertIn("RecorderCore<config::PREBUFFER_RECORDS>", firmware)
+        self.assertIn("class SdFileSink", firmware)
+        self.assertIn("recorderCore.observe(record)", firmware)
+
     def test_no_energetic_device_control_surface(self):
         source = "\n".join(
             path.read_text(encoding="utf-8", errors="ignore")

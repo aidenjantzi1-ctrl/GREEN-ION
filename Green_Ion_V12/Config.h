@@ -23,6 +23,8 @@ static const uint8_t PIN_I2C_POWER = 2;
 static const uint32_t SERIAL_BAUD = 115200;
 static const uint16_t SENSOR_RATE_HZ = 50;
 static const uint32_t SENSOR_INTERVAL_US = 1000000UL / SENSOR_RATE_HZ;
+static const uint8_t PREBUFFER_SECONDS = 3;
+static const uint16_t PREBUFFER_RECORDS = SENSOR_RATE_HZ * PREBUFFER_SECONDS;
 static const uint32_t GPS_SERVICE_INTERVAL_MS = 20;
 static const uint32_t TELEMETRY_INTERVAL_MS = 1000;
 static const uint32_t LOG_FLUSH_INTERVAL_MS = 500;
@@ -44,6 +46,7 @@ static const uint16_t BUZZER_FREQUENCY_HZ = 2500;
 
 static_assert(PIN_SD_CS != PIN_LORA_CS, "SD and LoRa require separate chip selects");
 static_assert(SENSOR_RATE_HZ > 0 && SENSOR_RATE_HZ <= 200, "Unsupported sensor rate");
+static_assert(PREBUFFER_RECORDS == 150, "V12 prebuffer must retain exactly three seconds at 50 Hz");
 
 }  // namespace config
 

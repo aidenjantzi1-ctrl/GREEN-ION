@@ -36,6 +36,32 @@ SensorState state;
 String logFilename;
 WebServer dashboardServer(80);
 
+class SdFileSink : public green_ion::recorder::ByteSink {
+ public:
+  SdFileSink() : file_(nullptr) {}
+
+  void attach(File &file) { file_ = &file; }
+
+  bool write(const uint8_t *data, size_t length) override {
+    if (!file_ || !*file_) return false;
+    digitalWrite(config::PIN_LORA_CS, HIGH);
+    return file_->write(data, length) == length;
+  }
+
+  bool flush() override {
+    if (!file_ || !*file_) return false;
+    digitalWrite(config::PIN_LORA_CS, HIGH);
+    file_->flush();
+    return static_cast<bool>(*file_);
+  }
+
+ private:
+  File *file_;
+};
+
+SdFileSink logSink;
+green_ion::recorder::RecorderCore<config::PREBUFFER_RECORDS> recorderCore;
+
 uint32_t telemetrySequence = 0;
 uint32_t lastSensorUs = 0;
 uint32_t lastGpsServiceMs = 0;
@@ -206,9 +232,8 @@ static bool openRawLog() {
     state.pressurePa,
     state.batteryMv,
   };
-  uint8_t bytes[green_ion::rkt4::kHeaderBytes];
-  if (!green_ion::rkt4::encodeHeader(bytes, header) ||
-      logFile.write(bytes, sizeof(bytes)) != sizeof(bytes)) {
+  logSink.attach(logFile);
+  if (!recorderCore.start(logSink, header)) {
     logFile.close();
     SD.remove(logFilename);
     logFilename = "";
@@ -216,13 +241,11 @@ static bool openRawLog() {
     state.sdOk = false;
     return false;
   }
-  logFile.flush();
   state.recording = true;
   return true;
 }
 
 static void appendLog(uint32_t nowUs) {
-  if (!state.sdOk || (!logFile && !openRawLog())) return;
   const bool valid = state.barometerOk && isfinite(state.pressurePa) &&
                      isfinite(state.temperatureC);
   green_ion::rkt4::Record record = {
@@ -232,13 +255,14 @@ static void appendLog(uint32_t nowUs) {
     state.batteryMv,
     valid,
   };
-  uint8_t bytes[green_ion::rkt4::kRecordBytes];
-  green_ion::rkt4::encodeRecord(bytes, record);
-  digitalWrite(config::PIN_LORA_CS, HIGH);
-  if (logFile.write(bytes, sizeof(bytes)) != sizeof(bytes)) {
+  recorderCore.observe(record);
+  if (state.sdOk && !recorderCore.recording()) openRawLog();
+  state.recording = recorderCore.recording();
+  if (recorderCore.status() == green_ion::recorder::CORE_RECORD_WRITE_FAILED) {
     healthBits |= green_ion::HEALTH_SD_WRITE_ERROR;
     state.sdOk = false;
     state.recording = false;
+    if (logFile) logFile.close();
   }
 }
 
@@ -278,7 +302,9 @@ static void sendDashboardStatus() {
   body += ",\"battery_v\":" + String(state.batteryMv / 1000.0f, 3);
   body += ",\"gps_status\":\"" + String(gpsStatus) + "\",\"satellites\":";
   body += String(state.satellites);
-  body += ",\"health\":" + String(healthBits) + "}";
+  body += ",\"health\":" + String(healthBits);
+  body += ",\"prebuffer_records\":" + String(recorderCore.bufferedRecords());
+  body += ",\"recorder_status\":" + String(static_cast<uint8_t>(recorderCore.status())) + "}";
   dashboardServer.send(200, "application/json", body);
 }
 
@@ -357,10 +383,14 @@ void loop() {
     appendLog(nowUs);
   }
 
-  if (state.sdOk && logFile && nowMs - lastFlushMs >= config::LOG_FLUSH_INTERVAL_MS) {
+  if (state.sdOk && recorderCore.recording() && nowMs - lastFlushMs >= config::LOG_FLUSH_INTERVAL_MS) {
     lastFlushMs = nowMs;
-    digitalWrite(config::PIN_LORA_CS, HIGH);
-    logFile.flush();
+    if (!recorderCore.flush()) {
+      healthBits |= green_ion::HEALTH_SD_WRITE_ERROR;
+      state.sdOk = false;
+      state.recording = false;
+      if (logFile) logFile.close();
+    }
   }
 
   transmitTelemetry(nowMs);

@@ -117,3 +117,28 @@ Continue the recorder-first roadmap. When receiver hardware is available, valida
 
 After CI validates the portable core, add the Arduino SD adapter and integrate the bounded prebuffer into the firmware without weakening the current recorder-first scheduling guarantees.
 
+### CI follow-up
+
+- GitHub Actions run `41329698963`: PASS for 63 Python tests, both native C++ recorder suites, ESP32 compilation, Uno compilation, and development artifact upload on commit `a7b9e69`.
+
+## 2026-11-01 — Session 6: firmware recorder-core integration
+
+### Implemented
+
+- Added an Arduino `File` byte-sink adapter and routed all V12 RKT4 header, record, and flush writes through the tested recorder core.
+- Instantiated a fixed three-second/150-record prebuffer at 50 Hz; no heap allocation is used.
+- Preserved the failed sample in RAM after a record-write failure and kept the prebuffer intact when header, prebuffer-drain, or initial flush fails.
+- Exposed recorder status and buffered-record count through the read-only onboard status API.
+- Updated source-contract tests so the portable recorder module, not duplicated sketch code, remains responsible for RKT4 encoding.
+
+### Evidence
+
+- Host regression suite: 64 Python tests passed.
+- ESP32 compile: PASS; 1,094,270 bytes flash (32%) and 57,648 bytes global RAM (17%). The 2,424-byte RAM increase is the instantiated fixed recorder/prebuffer state.
+- Native C++ failure tests for the updated initial-flush behavior are **PENDING CI** because no native compiler is installed locally.
+- Physical SD writes, SD removal, brownout, and power-loss recovery: **NOT TESTED**.
+
+### Next task
+
+Add deterministic sensor/time inputs and the autonomous flight watcher so the prebuffer is retained during idle and drained only when a tested recording trigger starts a flight log.
+

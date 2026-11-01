@@ -26,9 +26,11 @@ class V12Rkt4Tests(unittest.TestCase):
     def test_v12_firmware_writes_immutable_rkt4_contract(self):
         firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
         header = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonRkt4.h").read_text(encoding="utf-8")
+        core = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonRecorderCore.h").read_text(encoding="utf-8")
         self.assertIn("#include <GreenIonRkt4.h>", firmware)
-        self.assertIn("green_ion::rkt4::encodeHeader", firmware)
-        self.assertIn("green_ion::rkt4::encodeRecord", firmware)
+        self.assertIn("RecorderCore<config::PREBUFFER_RECORDS>", firmware)
+        self.assertIn("rkt4::encodeHeader", core)
+        self.assertIn("rkt4::encodeRecord", core)
         self.assertIn('memcpy(out, "RKT4", 4)', header)
         self.assertIn("kHeaderBytes = 32", header)
         self.assertIn("kRecordBytes = 16", header)
