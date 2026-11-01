@@ -21,6 +21,7 @@
 #include <WebServer.h>
 #include <GreenIonProtocol.h>
 #include <GreenIonRkt4.h>
+#include <GreenIonRecorderCore.h>
 
 #include "Config.h"
 #include "SensorState.h"

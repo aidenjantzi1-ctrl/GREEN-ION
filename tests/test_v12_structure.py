@@ -11,6 +11,8 @@ class V12StructureTests(unittest.TestCase):
             "Green_Ion_V12/Dashboard.h",
             "Ground_Receiver/Ground_Receiver.ino", "Ground_Station/ground_station.py",
             "Ground_Station/index.html", "Ground_Station/OPEN_GROUND_STATION.cmd",
+            "libraries/GreenIonRecorder/src/GreenIonRecorderCore.h",
+            "tests/cpp/test_v12_recorder_core.cpp",
             "docs/V12_BUILD_GUIDE.md",
             "docs/V12_WIRING.md", "docs/V12_TESTING.md",
             "docs/V12_DEVELOPMENT_LOG.md", "docs/V12_ROADMAP.md",

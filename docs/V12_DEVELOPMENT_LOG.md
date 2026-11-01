@@ -97,3 +97,23 @@ Add deterministic recorder/storage/time interfaces and a bounded prebuffer so th
 
 Continue the recorder-first roadmap. When receiver hardware is available, validate the optional `--port COMx` path separately from this software-only website launch check.
 
+## 2026-11-01 — Session 5: deterministic recorder boundary and prebuffer
+
+### Implemented
+
+- Added a platform-neutral `ByteSink` interface so recorder logic can be tested independently of Arduino SD hardware.
+- Added a fixed-capacity, allocation-free record prebuffer that overwrites only the oldest sample and preserves chronological order across `micros()` rollover.
+- Added a deterministic recorder core that drains the prebuffer before live samples and retains the failed record for retry after start, record-write, or flush failures.
+- Added host C++ tests with a programmable mock sink for rollover ordering, capacity, retry, write failure, and flush failure; CI now builds and runs both native recorder suites.
+
+### Evidence
+
+- Host regression suite: 63 Python tests passed.
+- ESP32 compile: PASS with the new recorder core header parsed by the production toolchain; 1,093,250 bytes flash (32%) and 55,224 bytes global RAM (16%), unchanged because the core is not yet instantiated in firmware.
+- A native C++ compiler is not installed in the local Windows environment, so the new executable mock-sink test is **PENDING CI** rather than claimed as a local pass.
+- Physical SD writes, injected hardware failures, and power-loss recovery: **NOT TESTED**.
+
+### Next task
+
+After CI validates the portable core, add the Arduino SD adapter and integrate the bounded prebuffer into the firmware without weakening the current recorder-first scheduling guarantees.
+

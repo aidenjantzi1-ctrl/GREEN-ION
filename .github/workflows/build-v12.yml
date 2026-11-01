@@ -28,6 +28,11 @@ jobs:
             tests/cpp/test_v12_rkt4.cpp \
             -o /tmp/test-v12-rkt4
           /tmp/test-v12-rkt4
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_recorder_core.cpp \
+            -o /tmp/test-v12-recorder-core
+          /tmp/test-v12-recorder-core
 
   compile-firmware:
     runs-on: ubuntu-latest
