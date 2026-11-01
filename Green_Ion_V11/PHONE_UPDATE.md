@@ -1,22 +1,14 @@
-# Install GREEN ION V11 Release Candidate from a phone
+# GREEN ION V11 — Phone firmware update
 
-## Download
+[Download V11 firmware (`.ino.bin`)](https://raw.githubusercontent.com/aidenjantzi1-ctrl/GREEN-ION/main/Green_Ion_V11/Green_Ion_V11.ino.bin) · [Check build status](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions)
 
-[Download `Green_Ion_V11.ino.bin` directly](https://raw.githubusercontent.com/aidenjantzi1-ctrl/GREEN-ION/main/Green_Ion_V11/Green_Ion_V11.ino.bin). It is also stored beside the `.ino` source in the V11 folder. The matching [successful build](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/40587868443) provides provenance.
+Download the binary **before** connecting to `GREEN-ION` Wi-Fi, which does not provide internet.
 
-Download it before connecting to GREEN-ION because the recorder's Wi-Fi network does not provide internet access.
+1. Ensure the Feather has stable power and is **not armed or recording**.
+2. Join `GREEN-ION` Wi-Fi (password: `GreenIon2026`).
+3. Open **http://192.168.4.1 → System**.
+4. Select the downloaded `Green_Ion_V11.ino.bin` and tap **Install Firmware & Restart**.
+5. Keep power connected; reconnect after restart and verify version **11.0-rc1**.
+6. Calibrate, test the SD card, and run a ground recording before flight.
 
-## Install
-
-1. Keep the Feather connected to reliable power and confirm it is not armed or recording.
-2. Connect the phone to Wi-Fi network `GREEN-ION` using password `GreenIon2026`.
-3. Stay connected when the phone warns that this network has no internet.
-4. Open `http://192.168.4.1` and choose **System**.
-5. Under **Install firmware from this phone**, select `Green_Ion_V11.ino.bin`.
-6. Tap **Install Firmware & Restart** and do not remove power.
-7. Reconnect to GREEN-ION after it restarts and confirm the System tab reports `11.0-rc1`.
-8. Run **Prepare & Calibrate All** and a safe ground test before flight use.
-
-Use only the file ending in `.ino.bin`. Do not select bootloader, partitions, or merged binary files.
-
-
+Use the application `.ino.bin`, **not** a bootloader, partition, or merged binary. The first firmware installation requires USB.
