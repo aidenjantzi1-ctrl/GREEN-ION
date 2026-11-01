@@ -166,3 +166,26 @@ Add deterministic sensor/time inputs and the autonomous flight watcher so the pr
 
 After CI validates the watcher, integrate it behind explicit recorder preparation/calibration state so idle samples remain buffered and a confirmed launch drains the prebuffer into a new collision-safe RKT4 log.
 
+### CI follow-up
+
+- GitHub Actions run `41339399641`: PASS for 64 Python tests, all three native C++ recorder/watcher suites, ESP32 compilation, Uno compilation, and artifact upload on commit `882a6f4`.
+
+## 2026-11-01 — Session 8: fixed-memory stationary calibration
+
+### Implemented
+
+- Added a platform-neutral, fixed-memory stationary pressure calibration analysis derived from the V11 recorder.
+- Validates sample count, collection duration, sensor range, trimmed baseline, median, pressure/altitude noise, and chronological pressure drift without heap allocation.
+- Added native scenarios for a stable dataset with isolated outliers, insufficient data, invalid pressure, excessive noise, excessive drift, and altitude conversion boundaries.
+
+### Evidence
+
+- Host regression suite: 64 Python tests passed and `git diff --check` passed.
+- Native C++ calibration execution is **PENDING CI** because no native compiler is installed locally.
+- The planned ESP32 compile check could not run because the Codex approval service reported the account usage limit; it is explicitly **NOT RUN**, not a compile pass or failure. CI remains configured to compile both boards after push.
+- Physical stationary calibration, pressure noise, and drift behavior: **NOT TESTED**.
+
+### Next task
+
+After CI validates calibration and both board builds, integrate calibration and the launch watcher into an explicit recorder-only preparation state. Do not begin additional work while usage is constrained.
+

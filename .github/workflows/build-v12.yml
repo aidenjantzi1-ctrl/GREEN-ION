@@ -38,6 +38,11 @@ jobs:
             tests/cpp/test_v12_flight_watcher.cpp \
             -o /tmp/test-v12-flight-watcher
           /tmp/test-v12-flight-watcher
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_calibration.cpp \
+            -o /tmp/test-v12-calibration
+          /tmp/test-v12-calibration
 
   compile-firmware:
     runs-on: ubuntu-latest
