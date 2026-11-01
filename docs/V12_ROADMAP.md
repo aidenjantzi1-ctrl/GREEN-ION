@@ -8,7 +8,7 @@
 - [x] Create initial ESP32 integration sketch, Uno receiver, simulated local ground station, and required documents.
 - [x] Create the recurring three-hour Codex development automation.
 - [x] Obtain clean local target compilations for ESP32 and Uno and capture exact tool/library versions.
-- [ ] Push the isolated V12 work and verify the new CI workflow and downloadable artifacts.
+- [x] Push the isolated V12 work and verify the new CI workflow and downloadable artifacts.
 
 ## Phase 2 — complete pre-hardware software
 
