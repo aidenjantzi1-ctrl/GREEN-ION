@@ -29,3 +29,26 @@
 
 Add host-executable C++ golden-vector tests and begin porting the V11 recorder/RKT4 core behind module interfaces. Continue keeping the pre-existing dirty V11 work separate from V12 commits.
 
+## 2026-11-01 — Session 2: portable RKT4 recorder core
+
+### Implemented
+
+- Added `GreenIonRecorder`, a host-compatible module with explicit little-endian RKT4 v2 header/record encoding, header validation, complete-record/torn-tail accounting, and rollover-safe timestamp deltas.
+- Replaced the V12 firmware's temporary CSV writer with the immutable V11-compatible raw format: 32-byte header followed by 16-byte BMP388 records.
+- Added collision-safe `/V12D000.BIN` through `/V12D999.BIN` allocation so a restart does not overwrite an existing development flight.
+- Preserved invalid sensor samples with the RKT4 validity field instead of stopping the recorder.
+- Added fixed C++ golden vectors and independent Python checks for byte layout, invalid headers/rates, interrupted records, and `micros()` rollover.
+
+### Evidence
+
+- Host regression tests: 60 passed, including all V11 checks and four new V12 RKT4 tests.
+- RKT4 browser analysis suite: passed.
+- ESP32 compile: PASS; 437,958 bytes flash (13%) and 30,044 bytes global RAM (9%).
+- Uno compile: PASS; 12,010 bytes flash (37%) and 664 bytes global RAM (32%).
+- Native C++ execution and GitHub artifact: pending the pushed CI run; no CI success claimed yet.
+- Physical SD writes, interrupted power recovery, and sensor behavior: **NOT TESTED**.
+
+### Next task
+
+Add deterministic recorder/storage/time interfaces and a bounded prebuffer so V11 autonomous launch recording and failure injection can be ported without coupling tests to Arduino hardware.
+

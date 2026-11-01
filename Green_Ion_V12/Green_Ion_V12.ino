@@ -18,6 +18,7 @@
 #include <Adafruit_GPS.h>
 #include <RH_RF95.h>
 #include <GreenIonProtocol.h>
+#include <GreenIonRkt4.h>
 
 #include "Config.h"
 #include "SensorState.h"
@@ -28,6 +29,7 @@ Adafruit_GPS gps(&Wire);
 RH_RF95 radio(config::PIN_LORA_CS, config::PIN_LORA_DIO0);
 File logFile;
 SensorState state;
+String logFilename;
 
 uint32_t telemetrySequence = 0;
 uint32_t lastSensorUs = 0;
@@ -95,16 +97,6 @@ static void initializeSensors() {
 static void initializeStorage() {
   digitalWrite(config::PIN_LORA_CS, HIGH);
   state.sdOk = SD.begin(config::PIN_SD_CS, SPI);
-  if (!state.sdOk) return;
-  logFile = SD.open("/V12DEV.CSV", FILE_APPEND);
-  if (!logFile) {
-    state.sdOk = false;
-    return;
-  }
-  if (logFile.size() == 0) {
-    logFile.println("uptime_ms,pressure_pa,temp_c,baro_alt_m,accel_x_mps2,accel_y_mps2,accel_z_mps2,accel_mag_mps2,gyro_x_rps,gyro_y_rps,gyro_z_rps,battery_mv,gps_has_position,gps_fix_age_ms,latitude_deg,longitude_deg,gps_alt_m,gps_speed_mps,satellites,health");
-  }
-  state.recording = true;
 }
 
 static void initializeRadio() {
@@ -176,19 +168,56 @@ static uint32_t gpsAgeMs(uint32_t nowMs) {
   return state.gpsHasPosition ? nowMs - state.lastGpsFixMs : UINT32_MAX;
 }
 
-static void appendLog(uint32_t nowMs) {
-  if (!state.sdOk || !logFile) return;
-  const uint32_t age = gpsAgeMs(nowMs);
+static bool openRawLog() {
+  if (!state.sdOk || logFile) return static_cast<bool>(logFile);
   digitalWrite(config::PIN_LORA_CS, HIGH);
-  const size_t before = logFile.size();
-  logFile.printf("%lu,%.2f,%.3f,%.3f,%.4f,%.4f,%.4f,%.4f,%.5f,%.5f,%.5f,%u,%u,%lu,%.7f,%.7f,%.2f,%.3f,%u,%u\n",
-                 static_cast<unsigned long>(nowMs), state.pressurePa, state.temperatureC,
-                 state.altitudeM, state.accelX, state.accelY, state.accelZ,
-                 state.accelMagnitude, state.gyroX, state.gyroY, state.gyroZ,
-                 state.batteryMv, state.gpsHasPosition ? 1 : 0,
-                 static_cast<unsigned long>(age), state.latitude, state.longitude,
-                 state.gpsAltitudeM, state.gpsSpeedMps, state.satellites, healthBits);
-  if (logFile.size() <= before) {
+  for (uint16_t sequence = 0; sequence < 1000; ++sequence) {
+    char candidate[14];
+    snprintf(candidate, sizeof(candidate), "/V12D%03u.BIN", sequence);
+    if (!SD.exists(candidate)) {
+      logFilename = candidate;
+      break;
+    }
+  }
+  if (!logFilename.length()) return false;
+  logFile = SD.open(logFilename, FILE_WRITE);
+  if (!logFile) return false;
+
+  green_ion::rkt4::Header header = {
+    config::SENSOR_RATE_HZ,
+    state.pressurePa,
+    state.batteryMv,
+  };
+  uint8_t bytes[green_ion::rkt4::kHeaderBytes];
+  if (!green_ion::rkt4::encodeHeader(bytes, header) ||
+      logFile.write(bytes, sizeof(bytes)) != sizeof(bytes)) {
+    logFile.close();
+    SD.remove(logFilename);
+    logFilename = "";
+    healthBits |= green_ion::HEALTH_SD_WRITE_ERROR;
+    state.sdOk = false;
+    return false;
+  }
+  logFile.flush();
+  state.recording = true;
+  return true;
+}
+
+static void appendLog(uint32_t nowUs) {
+  if (!state.sdOk || (!logFile && !openRawLog())) return;
+  const bool valid = state.barometerOk && isfinite(state.pressurePa) &&
+                     isfinite(state.temperatureC);
+  green_ion::rkt4::Record record = {
+    nowUs,
+    state.pressurePa,
+    state.temperatureC,
+    state.batteryMv,
+    valid,
+  };
+  uint8_t bytes[green_ion::rkt4::kRecordBytes];
+  green_ion::rkt4::encodeRecord(bytes, record);
+  digitalWrite(config::PIN_LORA_CS, HIGH);
+  if (logFile.write(bytes, sizeof(bytes)) != sizeof(bytes)) {
     healthBits |= green_ion::HEALTH_SD_WRITE_ERROR;
     state.sdOk = false;
     state.recording = false;
@@ -261,7 +290,7 @@ void loop() {
   if (static_cast<uint32_t>(nowUs - lastSensorUs) >= config::SENSOR_INTERVAL_US) {
     lastSensorUs = nowUs;
     readSensors();
-    appendLog(nowMs);
+    appendLog(nowUs);
   }
 
   if (state.sdOk && logFile && nowMs - lastFlushMs >= config::LOG_FLUSH_INTERVAL_MS) {

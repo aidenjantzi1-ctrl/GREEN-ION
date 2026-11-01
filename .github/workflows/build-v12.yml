@@ -8,8 +8,9 @@ on:
       - "Ground_Receiver/**"
       - "Ground_Station/**"
       - "libraries/GreenIonProtocol/**"
-      - "docs/V12_*.md"
       - "tests/test_v12_*.py"
+      - "tests/cpp/test_v12_*.cpp"
+      - "libraries/GreenIonRecorder/**"
       - ".github/workflows/build-v12.yml"
   workflow_dispatch:
 
@@ -20,6 +21,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run all Python regression tests
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Run native C++ RKT4 golden-vector tests
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_rkt4.cpp \
+            -o /tmp/test-v12-rkt4
+          /tmp/test-v12-rkt4
 
   compile-firmware:
     runs-on: ubuntu-latest
@@ -40,7 +48,7 @@ jobs:
           arduino-cli lib install "Adafruit GPS Library"
           arduino-cli lib install "RadioHead"
       - name: Compile Feather ESP32 V2 firmware
-        run: arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --library libraries/GreenIonProtocol --output-dir build/esp32 Green_Ion_V12
+        run: arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --library libraries/GreenIonProtocol --library libraries/GreenIonRecorder --output-dir build/esp32 Green_Ion_V12
       - name: Compile Arduino Uno receiver
         run: arduino-cli compile --fqbn arduino:avr:uno --library libraries/GreenIonProtocol --output-dir build/uno Ground_Receiver
       - name: Upload development binaries

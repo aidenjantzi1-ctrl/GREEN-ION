@@ -12,12 +12,13 @@
 
 ## Phase 2 — complete pre-hardware software
 
-1. Port V11's proven recorder core and RKT4 v2 format into modular V12 code without changing V11.
-2. Add deterministic module interfaces and mocks for barometer, IMU, GPS, storage, radio, battery, and time.
-3. Add failure-injection integration tests for init loss, mid-run GPS/radio loss, SD write failure, and recovery.
-4. Add a bounded telemetry queue so radio work can never delay the recorder.
-5. Expand the ground station with sequence-gap statistics, session metadata, explicit download, and replay.
-6. Port the single unified Flight dashboard, home-test measurements, recovery, and OTA/rollback behavior.
+- [x] Extract V11's immutable RKT4 v2 format into a portable module and write collision-safe raw V12 SD logs.
+- [ ] Complete the V11 recorder-core port: autonomous flight watcher, prebuffer, checkpoints, recovery, calibration, metadata, and rate control.
+- [ ] Add deterministic module interfaces and mocks for barometer, IMU, GPS, storage, radio, battery, and time.
+- [ ] Add failure-injection integration tests for init loss, mid-run GPS/radio loss, SD write failure, and recovery.
+- [ ] Add a bounded telemetry queue so radio work can never delay the recorder.
+- [ ] Expand the ground station with sequence-gap statistics, session metadata, explicit download, and replay.
+- [ ] Port the single unified Flight dashboard, home-test measurements, recovery, and OTA/rollback behavior.
 
 ## Phase 3 — simulated integration and release candidate
 

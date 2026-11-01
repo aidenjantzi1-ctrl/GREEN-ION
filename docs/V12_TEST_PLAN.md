@@ -11,7 +11,7 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Static safety check for forbidden energetic-device control surfaces.
 - [x] Compile ESP32 V12 firmware with all production libraries locally (CI remains pending).
 - [x] Compile Uno receiver locally (CI remains pending).
-- [ ] Add host-executable C++ golden-vector tests for the exact shared header.
+- [x] Add a host-executable C++ golden-vector test for the exact RKT4 header/record bytes, corruption, torn records, and timestamp rollover.
 - [ ] Add deterministic SD write-error and sensor-init failure harnesses.
 - [ ] Port V11 RKT4 v2, autonomous flight watcher, recovery checkpoints, dashboard, control lease, and OTA paths with regression tests.
 

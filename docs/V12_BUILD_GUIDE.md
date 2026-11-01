@@ -13,7 +13,7 @@ Install these board packages and libraries through Arduino IDE Library Manager:
 - RadioHead
 - Adafruit BusIO and Adafruit Unified Sensor (normally installed as dependencies)
 
-Add `libraries/GreenIonProtocol` to the Arduino library search path, or copy that complete folder into the Arduino sketchbook `libraries` directory. Compile:
+Add `libraries/GreenIonProtocol` and `libraries/GreenIonRecorder` to the Arduino library search path, or copy both complete folders into the Arduino sketchbook `libraries` directory. Compile:
 
 - `Green_Ion_V12/Green_Ion_V12.ino` for `esp32:esp32:adafruit_feather_esp32_v2`.
 - `Ground_Receiver/Ground_Receiver.ino` for `arduino:avr:uno`.
@@ -38,5 +38,5 @@ py -3 -m unittest discover -s tests -p "test_*.py" -v
 node tests/js/test_rkt4.mjs
 ```
 
-The Python suite includes V12 telemetry corruption, version, fix-staleness, and project-layout checks while retaining all V11 regression tests.
+The Python suite includes V12 telemetry corruption, version, fix-staleness, RKT4 golden bytes/interrupted logs, and project-layout checks while retaining all V11 regression tests. CI also compiles and executes `tests/cpp/test_v12_rkt4.cpp` natively.
 
