@@ -7,12 +7,12 @@ import struct
 import zlib
 
 MAGIC = b"GI12"
-VERSION = 1
+VERSION = 2
 MESSAGE_TELEMETRY = 1
 GPS_CURRENT_MAX_AGE_MS = 3000
-PACKET = struct.Struct("<4sBBHIIiiiHHHIBBHHHI")
-PACKET_BYTES = 50
-PAYLOAD_BYTES = 42
+PACKET = struct.Struct("<4sBBHIIiiiIiHHhhhhhhHIBBHHHI")
+PACKET_BYTES = 70
+PAYLOAD_BYTES = 62
 
 FLAG_GPS_HAS_POSITION = 1 << 0
 FLAG_GPS_CURRENT = 1 << 1
@@ -25,8 +25,16 @@ class Telemetry:
     latitude: float | None
     longitude: float | None
     altitude_m: float
+    pressure_pa: int
+    gps_altitude_m: float
     speed_mps: float
     acceleration_g: float
+    acceleration_x_g: float
+    acceleration_y_g: float
+    acceleration_z_g: float
+    rotation_x_dps: float
+    rotation_y_dps: float
+    rotation_z_dps: float
     battery_v: float
     gps_fix_age_ms: int
     satellites: int
@@ -48,9 +56,11 @@ def decode_packet(data: bytes) -> Telemetry:
         raise ValueError(f"bad packet size: {len(data)}")
     values = PACKET.unpack(data)
     (magic, version, message_type, payload_bytes, sequence, uptime_ms,
-     latitude_e7, longitude_e7, altitude_cm, speed_cms, acceleration_mg,
-     battery_mv, fix_age_ms, satellites, flight_state, flags, health,
-     _reserved, crc) = values
+     latitude_e7, longitude_e7, altitude_cm, pressure_pa, gps_altitude_cm,
+     speed_cms, acceleration_mg, acceleration_x_mg, acceleration_y_mg,
+     acceleration_z_mg, rotation_x_dps10, rotation_y_dps10,
+     rotation_z_dps10, battery_mv, fix_age_ms, satellites, flight_state,
+     flags, health, _reserved, crc) = values
     if magic != MAGIC:
         raise ValueError("bad magic")
     if version != VERSION:
@@ -66,8 +76,16 @@ def decode_packet(data: bytes) -> Telemetry:
         latitude=latitude_e7 / 1e7 if has_position else None,
         longitude=longitude_e7 / 1e7 if has_position else None,
         altitude_m=altitude_cm / 100,
+        pressure_pa=pressure_pa,
+        gps_altitude_m=gps_altitude_cm / 100,
         speed_mps=speed_cms / 100,
         acceleration_g=acceleration_mg / 1000,
+        acceleration_x_g=acceleration_x_mg / 1000,
+        acceleration_y_g=acceleration_y_mg / 1000,
+        acceleration_z_g=acceleration_z_mg / 1000,
+        rotation_x_dps=rotation_x_dps10 / 10,
+        rotation_y_dps=rotation_y_dps10 / 10,
+        rotation_z_dps=rotation_z_dps10 / 10,
         battery_v=battery_mv / 1000,
         gps_fix_age_ms=fix_age_ms,
         satellites=satellites,
@@ -83,11 +101,22 @@ def encode_packet(item: Telemetry) -> bytes:
     longitude_e7 = round(item.longitude * 1e7) if item.longitude is not None else 0
     if item.latitude is None or item.longitude is None:
         flags &= ~(FLAG_GPS_HAS_POSITION | FLAG_GPS_CURRENT)
+    def i16(value: float) -> int:
+        return max(-32768, min(32767, round(value)))
+
     without_crc = PACKET.pack(
         MAGIC, VERSION, MESSAGE_TELEMETRY, PAYLOAD_BYTES, item.sequence,
         item.uptime_ms, latitude_e7, longitude_e7, round(item.altitude_m * 100),
+        max(0, min(0xFFFFFFFF, round(item.pressure_pa))),
+        round(item.gps_altitude_m * 100),
         max(0, min(65535, round(item.speed_mps * 100))),
         max(0, min(65535, round(item.acceleration_g * 1000))),
+        i16(item.acceleration_x_g * 1000),
+        i16(item.acceleration_y_g * 1000),
+        i16(item.acceleration_z_g * 1000),
+        i16(item.rotation_x_dps * 10),
+        i16(item.rotation_y_dps * 10),
+        i16(item.rotation_z_dps * 10),
         max(0, min(65535, round(item.battery_v * 1000))),
         item.gps_fix_age_ms, item.satellites, item.flight_state, flags,
         item.health, 0, 0,

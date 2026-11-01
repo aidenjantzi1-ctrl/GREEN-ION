@@ -6,9 +6,9 @@
 
 namespace green_ion {
 
-static const uint8_t kProtocolVersion = 1;
+static const uint8_t kProtocolVersion = 2;
 static const uint8_t kMessageTelemetry = 1;
-static const uint16_t kPayloadBytes = 42;
+static const uint16_t kPayloadBytes = 62;
 static const uint32_t kGpsCurrentMaxAgeMs = 3000;
 
 enum TelemetryFlags : uint16_t {
@@ -51,9 +51,17 @@ struct TelemetryPacket {
   uint32_t uptimeMs;
   int32_t latitudeE7;           // last valid position, degrees * 1e7
   int32_t longitudeE7;
-  int32_t altitudeCm;           // barometric altitude when available
+  int32_t altitudeCm;           // barometric altitude
+  uint32_t pressurePa;
+  int32_t gpsAltitudeCm;
   uint16_t speedCms;
   uint16_t accelerationMg;      // magnitude, milli-g
+  int16_t accelerationXMg;
+  int16_t accelerationYMg;
+  int16_t accelerationZMg;
+  int16_t rotationXDps10;       // angular rate, 0.1 degree/second
+  int16_t rotationYDps10;
+  int16_t rotationZDps10;
   uint16_t batteryMv;
   uint32_t gpsFixAgeMs;
   uint8_t satellites;
@@ -65,7 +73,7 @@ struct TelemetryPacket {
 };
 #pragma pack(pop)
 
-static_assert(sizeof(TelemetryPacket) == 50, "Telemetry packet layout changed");
+static_assert(sizeof(TelemetryPacket) == 70, "Telemetry packet layout changed");
 
 enum ValidationResult : uint8_t {
   VALID = 0,

@@ -53,3 +53,28 @@ Add host-executable C++ golden-vector tests and begin porting the V11 recorder/R
 
 Add deterministic recorder/storage/time interfaces and a bounded prebuffer so V11 autonomous launch recording and failure injection can be ported without coupling tests to Arduino hardware.
 
+## 2026-11-01 — Session 3: shared radio contract, telemetry v2, and status dashboard
+
+### Implemented
+
+- Replaced independent radio literals with one transmitter/receiver contract: provisional 920.5 MHz, 125 kHz bandwidth, spreading factor 7, coding rate 4/5, and 13 dBm transmit power.
+- Expanded the CRC-protected protocol to a fixed 70-byte v2 packet carrying pressure, barometric altitude, GPS altitude, acceleration magnitude and axes, rotation axes, battery, and GPS state.
+- Updated the Uno JSON bridge, Python codec, simulator, CSV rows, and ground dashboard to preserve and display the new fields.
+- Added the required `Green_Ion_V12/Dashboard.h` read-only recorder status page and `/api/status`; it exposes recording, log filename, sensors, battery, GPS freshness, and health without flight-control actions.
+- Renamed the test document to the required `docs/V12_TESTING.md` path and documented that 920.5 MHz is provisional pending ROC coordination and applicable FCC review.
+- Changed the existing development automation from every three hours to hourly, with overlap protection and a low-credit wrap-up/commit/push rule; no duplicate automation was created.
+
+### Evidence
+
+- Host regression suite: 62 Python tests passed, including telemetry v2 round trips, CRC/version/size rejection, exact 70-byte layout, shared radio constants, GPS freshness, V11 regressions, and RKT4 checks.
+- RKT4 browser analysis suite: passed.
+- ESP32 compile: PASS after fixing an Arduino `String` overload found by the first real compile; final result 1,093,250 bytes flash (32%) and 55,224 bytes global RAM (16%).
+- Arduino Uno compile: PASS; 14,010 bytes flash (43%) and 704 bytes global RAM (34%).
+- Source formatting check: `git diff --check` passed.
+- CI and downloadable binary evidence for this source commit: pending push.
+- Physical radio, sensor, GPS, SD, power-loss, and dashboard hardware behavior: **NOT TESTED**.
+
+### Next task
+
+Add deterministic recorder/storage/time interfaces and a bounded prebuffer so the autonomous flight watcher and failure-injection tests can be ported without coupling them to Arduino hardware. The read-only V12 status page is not yet the complete V11 unified Flight, recovery, and OTA dashboard port.
+

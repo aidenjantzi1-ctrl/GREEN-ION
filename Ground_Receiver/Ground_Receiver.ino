@@ -7,11 +7,11 @@
 #include <SPI.h>
 #include <RH_RF95.h>
 #include <GreenIonProtocol.h>
+#include <GreenIonRadioConfig.h>
 
 static const uint8_t PIN_CS = 4;
 static const uint8_t PIN_RST = 2;
 static const uint8_t PIN_DIO0 = 3;
-static constexpr float FREQUENCY_MHZ = 915.0f;
 static const uint32_t SERIAL_BAUD = 115200;
 
 RH_RF95 radio(PIN_CS, PIN_DIO0);
@@ -56,8 +56,24 @@ static void printTelemetry(const green_ion::TelemetryPacket &packet, int16_t rss
   Serial.print(rssi);
   Serial.print(F(",\"altitude_m\":"));
   Serial.print(packet.altitudeCm / 100.0f, 2);
+  Serial.print(F(",\"pressure_pa\":"));
+  Serial.print(packet.pressurePa);
+  Serial.print(F(",\"gps_altitude_m\":"));
+  Serial.print(packet.gpsAltitudeCm / 100.0f, 2);
   Serial.print(F(",\"acceleration_g\":"));
   Serial.print(packet.accelerationMg / 1000.0f, 3);
+  Serial.print(F(",\"acceleration_x_g\":"));
+  Serial.print(packet.accelerationXMg / 1000.0f, 3);
+  Serial.print(F(",\"acceleration_y_g\":"));
+  Serial.print(packet.accelerationYMg / 1000.0f, 3);
+  Serial.print(F(",\"acceleration_z_g\":"));
+  Serial.print(packet.accelerationZMg / 1000.0f, 3);
+  Serial.print(F(",\"rotation_x_dps\":"));
+  Serial.print(packet.rotationXDps10 / 10.0f, 1);
+  Serial.print(F(",\"rotation_y_dps\":"));
+  Serial.print(packet.rotationYDps10 / 10.0f, 1);
+  Serial.print(F(",\"rotation_z_dps\":"));
+  Serial.print(packet.rotationZDps10 / 10.0f, 1);
   Serial.print(F(",\"speed_mps\":"));
   Serial.print(packet.speedCms / 100.0f, 2);
   Serial.print(F(",\"battery_v\":"));
@@ -95,10 +111,14 @@ void setup() {
   digitalWrite(PIN_RST, HIGH);
   delay(10);
 
-  if (!radio.init() || !radio.setFrequency(FREQUENCY_MHZ)) {
+  if (!radio.init() || !radio.setFrequency(green_ion::radio_config::kFrequencyMhz)) {
     Serial.println(F("{\"type\":\"receiver_status\",\"ok\":false,\"error\":\"radio_init\"}"));
     return;
   }
+  radio.setTxPower(green_ion::radio_config::kTxPowerDbm, false);
+  radio.setSpreadingFactor(green_ion::radio_config::kSpreadingFactor);
+  radio.setSignalBandwidth(green_ion::radio_config::kSignalBandwidthHz);
+  radio.setCodingRate4(green_ion::radio_config::kCodingRateDenominator);
   Serial.println(F("{\"type\":\"receiver_status\",\"ok\":true}"));
 }
 

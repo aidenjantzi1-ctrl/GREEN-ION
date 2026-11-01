@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <GreenIonRadioConfig.h>
 
 namespace config {
 
@@ -27,13 +28,16 @@ static const uint32_t TELEMETRY_INTERVAL_MS = 1000;
 static const uint32_t LOG_FLUSH_INTERVAL_MS = 500;
 static const uint32_t GPS_CURRENT_MAX_AGE_MS = 3000;
 
-// Verify frequency, antenna, power, bandwidth, spreading factor, and duty-cycle
-// constraints for the launch location before transmitting.
-static constexpr float LORA_FREQUENCY_MHZ = 915.0f;
-static const int8_t LORA_TX_POWER_DBM = 13;
-static const uint8_t LORA_SPREADING_FACTOR = 7;
-static const long LORA_SIGNAL_BANDWIDTH_HZ = 125000;
-static const uint8_t LORA_CODING_RATE_DENOMINATOR = 5;
+// Shared with the receiver. This is provisional until coordinated for the
+// launch site; it is not a statement of FCC compliance or channel clearance.
+static constexpr float LORA_FREQUENCY_MHZ = green_ion::radio_config::kFrequencyMhz;
+static const int8_t LORA_TX_POWER_DBM = green_ion::radio_config::kTxPowerDbm;
+static const uint8_t LORA_SPREADING_FACTOR = green_ion::radio_config::kSpreadingFactor;
+static const long LORA_SIGNAL_BANDWIDTH_HZ = green_ion::radio_config::kSignalBandwidthHz;
+static const uint8_t LORA_CODING_RATE_DENOMINATOR = green_ion::radio_config::kCodingRateDenominator;
+
+static const char DASHBOARD_SSID[] = "GREEN-ION-V12";
+static const char DASHBOARD_PASSWORD[] = "GreenIon2026";
 
 static const bool BUZZER_ENABLED = true;
 static const uint16_t BUZZER_FREQUENCY_HZ = 2500;

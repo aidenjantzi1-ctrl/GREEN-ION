@@ -35,7 +35,9 @@ These power connections apply specifically to the Adafruit RFM95W breakout with 
 | RST | D2 |
 | G0/DIO0 | D3 (interrupt capable) |
 
-Attach a correct 900/915 MHz antenna before transmitting. Never transmit without an antenna.
+Attach a correct 900 MHz antenna before transmitting. Never transmit without an antenna.
+
+Both boards import one shared radio contract from `libraries/GreenIonProtocol/src/GreenIonRadioConfig.h`: provisional 920.5 MHz center frequency, 125 kHz bandwidth, spreading factor 7, coding rate 4/5, and 13 dBm transmitter power. Do not change one board independently. The receiver applies the same modem and power fields so configuration drift is visible in source even though it does not normally transmit.
 
 ## Source verification
 
@@ -44,5 +46,8 @@ Attach a correct 900/915 MHz antenna before transmitting. Never transmit without
 - Adafruit PA1010D guide: https://learn.adafruit.com/adafruit-mini-gps-pa1010d-module
 - Adafruit RFM9x Arduino wiring: https://learn.adafruit.com/adafruit-rfm69hcw-and-rfm96-rfm95-rfm98-lora-packet-padio-breakouts/arduino-wiring
 
-Before field use, verify frequency, power, antenna, bandwidth, spreading factor, coding rate, airtime, duty cycle, and operator/location requirements against current applicable radio rules. The initial 915 MHz/13 dBm setting is a conservative development default, not a legal certification.
+Before field use, verify frequency, power, antenna, bandwidth, spreading factor, coding rate, airtime, duty cycle, and operator/location requirements against current applicable radio rules. ROC's Lucerne guidance currently asks unlicensed low-power ISM/LoRa users to operate from 918 through 926.875 MHz; 920.5 MHz is only a provisional development choice within that range. Coordinate with ROC before launch. Being inside the 902–928 MHz band does not by itself establish FCC compliance, authorization, or an interference-free channel.
+
+- ROC rocket tracking coordination: https://rocstock.org/rocket-tracking/
+- FCC equipment authorization overview: https://www.fcc.gov/engineering-technology/laboratory-division/general/equipment-authorization
 

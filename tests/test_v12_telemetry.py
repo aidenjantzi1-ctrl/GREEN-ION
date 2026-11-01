@@ -16,7 +16,11 @@ class V12TelemetryTests(unittest.TestCase):
         values = dict(
             sequence=42, uptime_ms=123456, latitude=37.4219999,
             longitude=-122.0840575, altitude_m=152.34, speed_mps=41.25,
-            acceleration_g=5.125, battery_v=3.91, gps_fix_age_ms=500,
+            pressure_pa=98765, gps_altitude_m=149.25,
+            acceleration_g=5.125, acceleration_x_g=-1.25,
+            acceleration_y_g=0.5, acceleration_z_g=4.94,
+            rotation_x_dps=-120.4, rotation_y_dps=15.2,
+            rotation_z_dps=830.0, battery_v=3.91, gps_fix_age_ms=500,
             satellites=11, flight_state=3,
             flags=telemetry.FLAG_GPS_HAS_POSITION | telemetry.FLAG_GPS_CURRENT,
             health=0,
@@ -24,9 +28,9 @@ class V12TelemetryTests(unittest.TestCase):
         values.update(updates)
         return telemetry.Telemetry(**values)
 
-    def test_packet_layout_is_fixed_50_bytes(self):
-        self.assertEqual(telemetry.PACKET.size, 50)
-        self.assertEqual(len(telemetry.encode_packet(self.make())), 50)
+    def test_packet_layout_is_fixed_70_bytes(self):
+        self.assertEqual(telemetry.PACKET.size, 70)
+        self.assertEqual(len(telemetry.encode_packet(self.make())), 70)
 
     def test_round_trip_preserves_scaled_values(self):
         decoded = telemetry.decode_packet(telemetry.encode_packet(self.make()))
@@ -34,6 +38,10 @@ class V12TelemetryTests(unittest.TestCase):
         self.assertAlmostEqual(decoded.latitude, 37.4219999, places=7)
         self.assertAlmostEqual(decoded.longitude, -122.0840575, places=7)
         self.assertAlmostEqual(decoded.altitude_m, 152.34, places=2)
+        self.assertEqual(decoded.pressure_pa, 98765)
+        self.assertAlmostEqual(decoded.gps_altitude_m, 149.25, places=2)
+        self.assertAlmostEqual(decoded.acceleration_x_g, -1.25, places=3)
+        self.assertAlmostEqual(decoded.rotation_z_dps, 830.0, places=1)
         self.assertEqual(decoded.gps_status, "live")
 
     def test_corruption_is_rejected_by_crc(self):
@@ -66,9 +74,16 @@ class V12TelemetryTests(unittest.TestCase):
     def test_cpp_and_python_contract_constants_match(self):
         header = (ROOT / "libraries" / "GreenIonProtocol" / "src" / "GreenIonProtocol.h").read_text(encoding="utf-8")
         self.assertIn('memcpy(packet.magic, "GI12", 4)', header)
-        self.assertIn("kProtocolVersion = 1", header)
-        self.assertIn("kPayloadBytes = 42", header)
-        self.assertIn("sizeof(TelemetryPacket) == 50", header)
+        self.assertIn("kProtocolVersion = 2", header)
+        self.assertIn("kPayloadBytes = 62", header)
+        self.assertIn("sizeof(TelemetryPacket) == 70", header)
+
+    def test_shared_radio_contract_is_explicit(self):
+        radio = (ROOT / "libraries" / "GreenIonProtocol" / "src" / "GreenIonRadioConfig.h").read_text(encoding="utf-8")
+        self.assertIn("kFrequencyMhz = 920.5f", radio)
+        self.assertIn("kSignalBandwidthHz = 125000L", radio)
+        self.assertIn("kSpreadingFactor = 7", radio)
+        self.assertIn("kCodingRateDenominator = 5", radio)
 
 
 if __name__ == "__main__":

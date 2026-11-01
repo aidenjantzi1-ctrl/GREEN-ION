@@ -17,11 +17,14 @@
 #include <Adafruit_LSM6DSO32.h>
 #include <Adafruit_GPS.h>
 #include <RH_RF95.h>
+#include <WiFi.h>
+#include <WebServer.h>
 #include <GreenIonProtocol.h>
 #include <GreenIonRkt4.h>
 
 #include "Config.h"
 #include "SensorState.h"
+#include "Dashboard.h"
 
 Adafruit_BMP3XX barometer;
 Adafruit_LSM6DSO32 imu;
@@ -30,6 +33,7 @@ RH_RF95 radio(config::PIN_LORA_CS, config::PIN_LORA_DIO0);
 File logFile;
 SensorState state;
 String logFilename;
+WebServer dashboardServer(80);
 
 uint32_t telemetrySequence = 0;
 uint32_t lastSensorUs = 0;
@@ -43,6 +47,19 @@ static uint16_t clampU16(float value) {
   if (!isfinite(value) || value <= 0) return 0;
   if (value >= 65535.0f) return 65535;
   return static_cast<uint16_t>(lroundf(value));
+}
+
+static uint32_t clampU32(double value) {
+  if (!isfinite(value) || value <= 0) return 0;
+  if (value >= 4294967295.0) return UINT32_MAX;
+  return static_cast<uint32_t>(llround(value));
+}
+
+static int16_t clampI16(float value) {
+  if (!isfinite(value)) return 0;
+  if (value >= 32767.0f) return INT16_MAX;
+  if (value <= -32768.0f) return INT16_MIN;
+  return static_cast<int16_t>(lroundf(value));
 }
 
 static int32_t clampI32(double value) {
@@ -238,6 +255,42 @@ static uint16_t telemetryFlags(uint32_t ageMs) {
   return flags;
 }
 
+static void sendDashboardStatus() {
+  const uint32_t age = gpsAgeMs(millis());
+  const char *gpsStatus = !state.gpsHasPosition ? "missing" :
+                          (age <= config::GPS_CURRENT_MAX_AGE_MS ? "live" : "stale");
+  const float radiansToDegrees = 180.0f / PI;
+  const auto numberOrNull = [](float value, uint8_t decimals) {
+    return isfinite(value) ? String(value, static_cast<unsigned int>(decimals)) : String("null");
+  };
+  String body;
+  body.reserve(512);
+  body += "{\"recording\":";
+  body += state.recording ? "true" : "false";
+  body += ",\"log_file\":\"" + logFilename + "\",\"pressure_pa\":";
+  body += numberOrNull(state.pressurePa, 0);
+  body += ",\"altitude_m\":" + numberOrNull(state.altitudeM, 2);
+  body += ",\"acceleration_g\":" + numberOrNull(state.accelMagnitude / 9.80665f, 3);
+  body += ",\"rotation_x_dps\":" + numberOrNull(state.gyroX * radiansToDegrees, 1);
+  body += ",\"rotation_y_dps\":" + numberOrNull(state.gyroY * radiansToDegrees, 1);
+  body += ",\"rotation_z_dps\":" + numberOrNull(state.gyroZ * radiansToDegrees, 1);
+  body += ",\"battery_v\":" + String(state.batteryMv / 1000.0f, 3);
+  body += ",\"gps_status\":\"" + String(gpsStatus) + "\",\"satellites\":";
+  body += String(state.satellites);
+  body += ",\"health\":" + String(healthBits) + "}";
+  dashboardServer.send(200, "application/json", body);
+}
+
+static void initializeDashboard() {
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(config::DASHBOARD_SSID, config::DASHBOARD_PASSWORD);
+  dashboardServer.on("/", []() {
+    dashboardServer.send_P(200, "text/html", DASHBOARD_HTML);
+  });
+  dashboardServer.on("/api/status", sendDashboardStatus);
+  dashboardServer.begin();
+}
+
 static void transmitTelemetry(uint32_t nowMs) {
   if (!state.radioOk || nowMs - lastTelemetryMs < config::TELEMETRY_INTERVAL_MS) return;
   lastTelemetryMs = nowMs;
@@ -249,8 +302,17 @@ static void transmitTelemetry(uint32_t nowMs) {
   packet.latitudeE7 = state.gpsHasPosition ? clampI32(state.latitude * 1e7) : 0;
   packet.longitudeE7 = state.gpsHasPosition ? clampI32(state.longitude * 1e7) : 0;
   packet.altitudeCm = clampI32(state.altitudeM * 100.0);
+  packet.pressurePa = clampU32(state.pressurePa);
+  packet.gpsAltitudeCm = state.gpsHasPosition ? clampI32(state.gpsAltitudeM * 100.0) : 0;
   packet.speedCms = clampU16(state.gpsSpeedMps * 100.0f);
   packet.accelerationMg = clampU16(state.accelMagnitude * 1000.0f / 9.80665f);
+  packet.accelerationXMg = clampI16(state.accelX * 1000.0f / 9.80665f);
+  packet.accelerationYMg = clampI16(state.accelY * 1000.0f / 9.80665f);
+  packet.accelerationZMg = clampI16(state.accelZ * 1000.0f / 9.80665f);
+  const float radiansToDegrees10 = 10.0f * 180.0f / PI;
+  packet.rotationXDps10 = clampI16(state.gyroX * radiansToDegrees10);
+  packet.rotationYDps10 = clampI16(state.gyroY * radiansToDegrees10);
+  packet.rotationZDps10 = clampI16(state.gyroZ * radiansToDegrees10);
   packet.batteryMv = state.batteryMv;
   packet.gpsFixAgeMs = age;
   packet.satellites = state.satellites;
@@ -278,6 +340,7 @@ void setup() {
   initializeSensors();
   initializeStorage();
   initializeRadio();
+  initializeDashboard();
   Serial.printf("GREEN ION V12 dev: baro=%d imu=%d gps=%d sd=%d radio=%d\n",
                 state.barometerOk, state.imuOk, state.gpsOk, state.sdOk, state.radioOk);
 }
@@ -300,6 +363,7 @@ void loop() {
   }
 
   transmitTelemetry(nowMs);
+  dashboardServer.handleClient();
   yield();
 }
 
