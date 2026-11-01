@@ -142,3 +142,27 @@ After CI validates the portable core, add the Arduino SD adapter and integrate t
 
 Add deterministic sensor/time inputs and the autonomous flight watcher so the prebuffer is retained during idle and drained only when a tested recording trigger starts a flight log.
 
+### CI follow-up
+
+- GitHub Actions run `41335017774`: PASS for 64 Python tests, both native C++ recorder suites including initial-flush retention, ESP32 compilation, Uno compilation, and artifact upload on commit `120b512`.
+
+## 2026-11-01 — Session 7: portable launch watcher
+
+### Implemented
+
+- Added a platform-neutral launch watcher derived from the V11 recorder thresholds: altitude gain must exceed the larger of 1.5 m or five times calibrated noise, vertical speed must reach 4 m/s, and pressure must be below the baseline.
+- Requires consecutive confirmation samples scaled to the configured sample rate, rejects invalid/non-finite data, resets after timing gaps, and handles `millis()` rollover with unsigned time deltas.
+- Keeps the watcher strictly limited to deciding when recording should begin; it has no ignition, staging, arming, or deployment outputs.
+- Added native host scenarios for stationary noise, a single false spike, nominal launch, invalid-sample reset, sample gaps, cancellation, and timestamp rollover.
+
+### Evidence
+
+- Host regression suite: 64 Python tests passed.
+- ESP32 compile: PASS with the new watcher parsed by the production toolchain; 1,094,270 bytes flash (32%) and 57,648 bytes global RAM (17%), unchanged because firmware integration is intentionally deferred until CI validates the deterministic scenarios.
+- Native C++ launch-watcher execution is **PENDING CI** because no native compiler is installed locally.
+- Physical launch detection and sensor accuracy: **NOT TESTED**.
+
+### Next task
+
+After CI validates the watcher, integrate it behind explicit recorder preparation/calibration state so idle samples remain buffered and a confirmed launch drains the prebuffer into a new collision-safe RKT4 log.
+

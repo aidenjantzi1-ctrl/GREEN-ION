@@ -15,6 +15,7 @@
 - [x] Extract V11's immutable RKT4 v2 format into a portable module and write collision-safe raw V12 SD logs.
 - [x] Put both radios on one provisional 920.5 MHz modem contract and expand telemetry v2 with pressure, both altitude sources, acceleration axes/magnitude, and rotation axes.
 - [x] Add a deterministic byte-sink boundary and fixed-capacity recorder prebuffer with host failure tests.
+- [x] Add a portable V11-derived launch watcher with confirmation, noise, invalid-sample, gap, and rollover tests.
 - [ ] Complete the V11 recorder-core port: autonomous flight watcher, prebuffer, checkpoints, recovery, calibration, metadata, and rate control.
 - [ ] Add deterministic module interfaces and mocks for barometer, IMU, GPS, storage, radio, battery, and time.
 - [ ] Add failure-injection integration tests for init loss, mid-run GPS/radio loss, SD write failure, and recovery.

@@ -22,6 +22,7 @@
 #include <GreenIonProtocol.h>
 #include <GreenIonRkt4.h>
 #include <GreenIonRecorderCore.h>
+#include <GreenIonFlightWatcher.h>
 
 #include "Config.h"
 #include "SensorState.h"
