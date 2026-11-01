@@ -45,7 +45,8 @@ Add host-executable C++ golden-vector tests and begin porting the V11 recorder/R
 - RKT4 browser analysis suite: passed.
 - ESP32 compile: PASS; 437,958 bytes flash (13%) and 30,044 bytes global RAM (9%).
 - Uno compile: PASS; 12,010 bytes flash (37%) and 664 bytes global RAM (32%).
-- Native C++ execution and GitHub artifact: pending the pushed CI run; no CI success claimed yet.
+- GitHub Actions run `41321455276`: PASS for 60 Python tests, native C++ RKT4 golden vectors, ESP32 compile, Uno compile, and artifact upload on source commit `046f1863014762bb80c5bc05e2753c89c2d84c17`.
+- Matching artifact `green-ion-v12-development-binaries`: artifact ID `13089538068`, 610,666 bytes, digest `sha256:64691279d21d6173b928ae7bcf7b7ee094d944393afe3788da900a985b826bbf`.
 - Physical SD writes, interrupted power recovery, and sensor behavior: **NOT TESTED**.
 
 ### Next task
