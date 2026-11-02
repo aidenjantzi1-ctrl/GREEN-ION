@@ -268,3 +268,29 @@ Integrate alternating checkpoint writes only after a successful RKT4 flush, then
 
 Add a boot-time scanner that validates both journal slots against the actual RKT4 file, reports interrupted recordings and torn tails, and preserves the original BIN bytes unchanged.
 
+### CI follow-up
+
+- GitHub Actions run `41365003435`: PASS for 64 Python tests, all five native C++ suites, ESP32 compilation, Uno compilation, and development artifact upload on commit `8466de2`.
+
+## 2026-11-01 — Session 12: boot-time interrupted-log reporting
+
+### Implemented
+
+- Added a bounded boot scan for `V12D000` through `V12D999` journal pairs. A fixed 250-byte bitmap records directory discoveries before any SD mutation, avoiding removal while a FAT directory iterator is open.
+- Validates the RKT4 header and selects the newest CRC-valid checkpoint whose committed byte count does not exceed the actual BIN size.
+- Writes a separate `.RCV` report containing checkpoint generation, committed and actual bytes, complete records, and trailing partial bytes. The original BIN is opened read-only and is never truncated or rewritten.
+- Removes journals only after the recovery report is fully written and flushed. Missing BIN files, invalid headers, invalid checkpoints, report failures, and journal-removal failures remain pending for later inspection.
+- Exposes recovered log/record/torn-byte counts and pending status through the read-only API and dashboard.
+
+### Evidence
+
+- Host source-contract regression suite: 64 Python tests passed.
+- `git diff --check`: PASS.
+- The ESP32 compile was attempted, but Windows stopped before source compilation because `xtensa-esp32-elf-g++` could not start with `{Illegal System DLL Relocation}`. This is an environment/toolchain failure, not a source compile result; ESP32 and Uno regression builds are **PENDING CI**.
+- Native checkpoint selection and torn-tail scenarios previously passed in CI; Arduino SD scanning/report integration is **PENDING CI** compilation.
+- Physical power interruption, recovery-report durability, SD removal, and torn writes remain **NOT TESTED**.
+
+### Next task
+
+Add deterministic storage failure injection around recovery-report creation and journal cleanup, then continue recorder metadata and rate-control work without weakening BIN preservation.
+

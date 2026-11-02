@@ -64,6 +64,16 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn('replace(".BIN", ".JRA")', firmware)
         self.assertIn('replace(".BIN", ".JRB")', firmware)
         self.assertIn("else if (nowMs - lastCheckpointMs", firmware)
+        self.assertIn("recoverInterruptedLogs();", firmware)
+        self.assertIn("selectNewestCheckpoint(", firmware)
+        self.assertIn('reportPath.replace(".BIN", ".RCV")', firmware)
+        self.assertIn("trailing_partial_bytes", firmware)
+        dashboard = (ROOT / "Green_Ion_V12" / "Dashboard.h").read_text(encoding="utf-8")
+        self.assertIn('id="recovery"', dashboard)
+        self.assertIn("d.recovery_status", dashboard)
+        self.assertIn("SD.open(binPath, FILE_READ)", firmware)
+        self.assertNotIn("SD.remove(binPath)", firmware)
+        self.assertNotIn("log.truncate", firmware)
         self.assertNotIn("state.sdOk && !recorderCore.recording()) openRawLog()", firmware)
 
     def test_no_energetic_device_control_surface(self):

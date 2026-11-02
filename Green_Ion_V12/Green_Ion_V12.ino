@@ -97,6 +97,11 @@ uint32_t checkpointGeneration = 0;
 uint32_t checkpointFailures = 0;
 uint32_t recordingStartedMs = 0;
 bool checkpointSlotB = false;
+uint32_t recoveredLogs = 0;
+uint32_t recoveredRecords = 0;
+uint32_t recoveredTrailingBytes = 0;
+uint32_t recoveryPending = 0;
+String recoveryStatus = "Not scanned";
 uint16_t healthBits = 0;
 green_ion::FlightState flightState = green_ion::STATE_IDLE;
 
@@ -171,6 +176,152 @@ static void initializeSensors() {
 static void initializeStorage() {
   digitalWrite(config::PIN_LORA_CS, HIGH);
   state.sdOk = SD.begin(config::PIN_SD_CS, SPI);
+}
+
+static bool isV12JournalName(const String &name, const char *suffix) {
+  if (name.length() != 11 || !name.startsWith("V12D") || !name.endsWith(suffix))
+    return false;
+  for (uint8_t i = 4; i < 7; ++i)
+    if (name[i] < '0' || name[i] > '9') return false;
+  return true;
+}
+
+static size_t readCheckpointFile(const String &path,
+                                 uint8_t out[green_ion::recovery::kCheckpointBytes]) {
+  File file = SD.open(path, FILE_READ);
+  if (!file || file.size() != green_ion::recovery::kCheckpointBytes) {
+    if (file) file.close();
+    return 0;
+  }
+  const size_t bytes = file.read(out, green_ion::recovery::kCheckpointBytes);
+  file.close();
+  return bytes;
+}
+
+static bool recoverInterruptedLog(const String &journalLeaf) {
+  String binLeaf = journalLeaf;
+  binLeaf.replace(journalLeaf.endsWith(".JRB") ? ".JRB" : ".JRA", ".BIN");
+  const String binPath = "/" + binLeaf;
+  String slotAPath = "/" + binLeaf;
+  slotAPath.replace(".BIN", ".JRA");
+  String slotBPath = "/" + binLeaf;
+  slotBPath.replace(".BIN", ".JRB");
+
+  File log = SD.open(binPath, FILE_READ);
+  if (!log || static_cast<uint64_t>(log.size()) > UINT32_MAX) {
+    if (log) log.close();
+    ++recoveryPending;
+    return false;
+  }
+  const uint32_t fileBytes = static_cast<uint32_t>(log.size());
+  uint8_t header[green_ion::rkt4::kHeaderBytes];
+  const size_t headerBytes = log.read(header, sizeof(header));
+  log.close();
+  const auto inspection = green_ion::recovery::inspectRkt4(
+      header, headerBytes, fileBytes);
+
+  uint8_t slotA[green_ion::recovery::kCheckpointBytes] = {};
+  uint8_t slotB[green_ion::recovery::kCheckpointBytes] = {};
+  const size_t slotABytes = readCheckpointFile(slotAPath, slotA);
+  const size_t slotBBytes = readCheckpointFile(slotBPath, slotB);
+  green_ion::recovery::Checkpoint checkpoint = {};
+  const bool checkpointValid = green_ion::recovery::selectNewestCheckpoint(
+      slotA, slotABytes, slotB, slotBBytes, fileBytes, checkpoint);
+  if (inspection.headerResult != green_ion::rkt4::RKT4_VALID || !checkpointValid) {
+    ++recoveryPending;
+    return false;
+  }
+
+  String reportPath = "/" + binLeaf;
+  reportPath.replace(".BIN", ".RCV");
+  if (SD.exists(reportPath) && !SD.remove(reportPath)) {
+    ++recoveryPending;
+    return false;
+  }
+  String report;
+  report.reserve(256);
+  report += "GREEN-ION-RECOVERY-1\nfile=" + binLeaf;
+  report += "\nstatus=interrupted";
+  report += "\ncheckpoint_generation=" + String(checkpoint.generation);
+  report += "\ncheckpoint_committed_bytes=" + String(checkpoint.committedBytes);
+  report += "\nactual_bytes=" + String(fileBytes);
+  report += "\ncomplete_records=" + String(inspection.completeRecords);
+  report += "\ntrailing_partial_bytes=" + String(inspection.trailingBytes);
+  report += "\nrkt4_header_valid=yes\n";
+  File recovery = SD.open(reportPath, FILE_WRITE);
+  const bool reportSaved = recovery && recovery.print(report) == report.length();
+  if (recovery) {
+    recovery.flush();
+    recovery.close();
+  }
+  if (!reportSaved) {
+    ++recoveryPending;
+    return false;
+  }
+
+  bool journalsRemoved = true;
+  if (SD.exists(slotAPath)) journalsRemoved = SD.remove(slotAPath) && journalsRemoved;
+  if (SD.exists(slotBPath)) journalsRemoved = SD.remove(slotBPath) && journalsRemoved;
+  ++recoveredLogs;
+  recoveredRecords += inspection.completeRecords;
+  recoveredTrailingBytes += inspection.trailingBytes;
+  if (!journalsRemoved) ++recoveryPending;
+  return journalsRemoved;
+}
+
+static int journalSequence(const String &name) {
+  if (!isV12JournalName(name, ".JRA") && !isV12JournalName(name, ".JRB"))
+    return -1;
+  return (name[4] - '0') * 100 + (name[5] - '0') * 10 + (name[6] - '0');
+}
+
+static void recoverInterruptedLogs() {
+  if (!state.sdOk) {
+    recoveryStatus = "SD unavailable; recovery not scanned";
+    return;
+  }
+  // Two bits per possible V12D000..V12D999 log. Discovery completes before
+  // any journal is removed, avoiding mutation while the FAT directory is open.
+  uint8_t journalSlots[250] = {};
+  File root = SD.open("/");
+  if (!root) {
+    ++recoveryPending;
+    recoveryStatus = "Recovery directory unavailable";
+    return;
+  }
+  File entry = root.openNextFile();
+  while (entry) {
+    String leaf = entry.name();
+    const bool directory = entry.isDirectory();
+    entry.close();
+    const int slash = leaf.lastIndexOf('/');
+    if (slash >= 0) leaf = leaf.substring(slash + 1);
+    const int sequence = directory ? -1 : journalSequence(leaf);
+    if (sequence >= 0) {
+      const uint16_t bit = static_cast<uint16_t>(sequence) * 2u +
+                           (leaf.endsWith(".JRB") ? 1u : 0u);
+      journalSlots[bit / 8] |= static_cast<uint8_t>(1u << (bit % 8));
+    }
+    entry = root.openNextFile();
+  }
+  root.close();
+
+  for (uint16_t sequence = 0; sequence < 1000; ++sequence) {
+    const uint16_t bitA = sequence * 2u;
+    const bool haveA = journalSlots[bitA / 8] & (1u << (bitA % 8));
+    const uint16_t bitB = bitA + 1u;
+    const bool haveB = journalSlots[bitB / 8] & (1u << (bitB % 8));
+    if (!haveA && !haveB) continue;
+    char leaf[12];
+    snprintf(leaf, sizeof(leaf), "V12D%03u.%s", sequence, haveA ? "JRA" : "JRB");
+    recoverInterruptedLog(String(leaf));
+  }
+  if (recoveryPending)
+    recoveryStatus = String(recoveryPending) + " recovery item(s) pending inspection";
+  else if (recoveredLogs)
+    recoveryStatus = String(recoveredLogs) + " interrupted log(s) reported";
+  else
+    recoveryStatus = "No interrupted logs detected";
 }
 
 static void initializeRadio() {
@@ -483,7 +634,12 @@ static void sendDashboardStatus() {
   body += ",\"calibration_noise_m\":" + numberOrNull(calibrationNoiseM, 3);
   body += ",\"relative_altitude_m\":" + numberOrNull(watcherAltitudeM, 2);
   body += ",\"checkpoint_generation\":" + String(checkpointGeneration);
-  body += ",\"checkpoint_failures\":" + String(checkpointFailures) + "}";
+  body += ",\"checkpoint_failures\":" + String(checkpointFailures);
+  body += ",\"recovered_logs\":" + String(recoveredLogs);
+  body += ",\"recovered_records\":" + String(recoveredRecords);
+  body += ",\"recovered_trailing_bytes\":" + String(recoveredTrailingBytes);
+  body += ",\"recovery_pending\":" + String(recoveryPending);
+  body += ",\"recovery_status\":\"" + recoveryStatus + "\"}";
   dashboardServer.send(200, "application/json", body);
 }
 
@@ -545,6 +701,7 @@ void setup() {
   SPI.begin(config::PIN_SPI_SCK, config::PIN_SPI_MISO, config::PIN_SPI_MOSI);
   initializeSensors();
   initializeStorage();
+  recoverInterruptedLogs();
   resetCalibration(millis());
   initializeRadio();
   initializeDashboard();
