@@ -58,6 +58,11 @@ jobs:
             tests/cpp/test_v12_metadata.cpp \
             -o /tmp/test-v12-metadata
           /tmp/test-v12-metadata
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_landing_watcher.cpp \
+            -o /tmp/test-v12-landing-watcher
+          /tmp/test-v12-landing-watcher
 
   compile-firmware:
     runs-on: ubuntu-latest

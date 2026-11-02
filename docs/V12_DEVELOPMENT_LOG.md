@@ -371,3 +371,29 @@ Add deterministic per-flight metadata tied to the RKT4 filename, calibration, sa
 
 Add recorder finalization/landing state so completed flights flush the BIN, write final metadata, and remove journals only after completion evidence is durable; keep this separate from any deployment control.
 
+### CI follow-up
+
+- GitHub Actions run `41386230250`: PASS for 64 Python tests, all seven native C++ suites including metadata golden/error scenarios, ESP32 compilation, Uno compilation, and development artifact upload on commit `10830fe`.
+
+## 2026-11-01 — Session 16: portable landing watcher
+
+### Implemented
+
+- Added a portable pressure-only landing watcher derived from the V11 recorder criteria. It is strictly a recording-finalization aid and has no ignition, staging, arming, or recovery-deployment outputs.
+- Requires at least 12 m peak gain, at least 8 m descent from peak, more than 15 seconds elapsed, bounded vertical speed, and continuous altitude stability within a 2 m anchor window.
+- Adapts the landing speed limit and required stable duration to calibrated altitude noise, with bounded limits of 0.9–2.0 m/s and 14–26 seconds.
+- Resets stability on invalid/non-finite samples, excessive altitude movement, or sample gaps, while preserving the observed peak needed to prove a real ascent/descent occurred.
+- Added native scenarios for stationary false positives, nominal landing, invalid-sample reset, anchor reset, timing-gap reset, invalid configuration, and `millis()` rollover.
+
+### Evidence
+
+- Host source-contract regression suite: 64 Python tests passed.
+- `git diff --check`: PASS.
+- Native landing-watcher execution is **PENDING CI** because no native compiler is installed locally.
+- The unchanged ESP32 regression compile was attempted, but Windows stopped before source compilation because `xtensa-esp32-elf-g++` could not start with `{Illegal System DLL Relocation}`. This is an environment/toolchain failure, not a source compile result; ESP32 and Uno regression builds are **PENDING CI**.
+- Physical landing detection, altitude noise, descent behavior, and automatic recorder finalization remain **NOT TESTED**.
+
+### Next task
+
+Integrate the landing watcher into the recording state, then finalize only after a successful BIN flush and durable completion metadata; remove recovery journals last and never use landing state for deployment control.
+
