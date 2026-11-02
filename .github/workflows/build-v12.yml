@@ -48,6 +48,11 @@ jobs:
             tests/cpp/test_v12_checkpoint.cpp \
             -o /tmp/test-v12-checkpoint
           /tmp/test-v12-checkpoint
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_sample_clock.cpp \
+            -o /tmp/test-v12-sample-clock
+          /tmp/test-v12-sample-clock
 
   compile-firmware:
     runs-on: ubuntu-latest

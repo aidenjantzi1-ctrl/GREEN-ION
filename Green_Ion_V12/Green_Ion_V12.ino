@@ -24,6 +24,7 @@
 #include <GreenIonFlightWatcher.h>
 #include <GreenIonCalibration.h>
 #include <GreenIonCheckpoint.h>
+#include <GreenIonSampleClock.h>
 
 #include "Config.h"
 #include "SensorState.h"
@@ -65,6 +66,7 @@ class SdFileSink : public green_ion::recorder::ByteSink {
 
 SdFileSink logSink;
 green_ion::recorder::RecorderCore<config::PREBUFFER_RECORDS> recorderCore;
+green_ion::recorder::SampleClock sampleClock(config::SENSOR_INTERVAL_US);
 green_ion::flight::FlightWatcher flightWatcher;
 
 enum RecorderMode : uint8_t {
@@ -88,7 +90,6 @@ float watcherPreviousAltitudeM = NAN;
 uint32_t watcherPreviousMs = 0;
 
 uint32_t telemetrySequence = 0;
-uint32_t lastSensorUs = 0;
 uint32_t lastGpsServiceMs = 0;
 uint32_t lastTelemetryMs = 0;
 uint32_t lastFlushMs = 0;
@@ -660,6 +661,7 @@ static void sendDashboardStatus() {
   body += ",\"relative_altitude_m\":" + numberOrNull(watcherAltitudeM, 2);
   body += ",\"checkpoint_generation\":" + String(checkpointGeneration);
   body += ",\"checkpoint_failures\":" + String(checkpointFailures);
+  body += ",\"missed_sample_periods\":" + String(sampleClock.missedPeriods());
   body += ",\"recovered_logs\":" + String(recoveredLogs);
   body += ",\"recovered_records\":" + String(recoveredRecords);
   body += ",\"recovered_trailing_bytes\":" + String(recoveredTrailingBytes);
@@ -732,18 +734,18 @@ void setup() {
   initializeDashboard();
   Serial.printf("GREEN ION V12 dev: baro=%d imu=%d gps=%d sd=%d radio=%d\n",
                 state.barometerOk, state.imuOk, state.gpsOk, state.sdOk, state.radioOk);
+  sampleClock.start(micros());
 }
 
 void loop() {
   const uint32_t nowMs = millis();
   const uint32_t nowUs = micros();
-  serviceGps(nowMs);
 
-  if (static_cast<uint32_t>(nowUs - lastSensorUs) >= config::SENSOR_INTERVAL_US) {
-    lastSensorUs = nowUs;
+  if (sampleClock.due(nowUs)) {
     const bool barometerReadingValid = readSensors();
     appendLog(nowUs, nowMs, barometerReadingValid);
   }
+  serviceGps(nowMs);
 
   if (state.sdOk && recorderCore.recording() && nowMs - lastFlushMs >= config::LOG_FLUSH_INTERVAL_MS) {
     lastFlushMs = nowMs;

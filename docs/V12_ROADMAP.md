@@ -22,6 +22,7 @@
 - [x] Write alternating V12 checkpoints only after successful RKT4 flushes, with failure throttling that preserves BIN priority.
 - [x] Report interrupted V12 logs at boot from validated journals while preserving the original BIN and torn tail.
 - [x] Add deterministic recovery-report and journal-cleanup failure injection with evidence-preserving operation order.
+- [x] Add a rollover-safe fixed-rate sample clock that avoids schedule drift and reports missed acquisition periods.
 - [ ] Complete the V11 recorder-core port: autonomous flight watcher, prebuffer, checkpoints, recovery, calibration, metadata, and rate control.
 - [ ] Add deterministic module interfaces and mocks for barometer, IMU, GPS, storage, radio, battery, and time.
 - [ ] Add failure-injection integration tests for init loss, mid-run GPS/radio loss, SD write failure, and recovery.

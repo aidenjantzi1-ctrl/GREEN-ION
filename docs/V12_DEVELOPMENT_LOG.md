@@ -319,3 +319,29 @@ Add deterministic storage failure injection around recovery-report creation and 
 
 Continue the recorder-core port with deterministic per-flight metadata and rate-control state, then expand failure injection to sensor initialization and mid-run peripheral loss.
 
+### CI follow-up
+
+- GitHub Actions run `41375775300`: PASS for 64 Python tests, all five native C++ suites including recovery transaction failures, ESP32 compilation, Uno compilation, and development artifact upload on commit `00e4827`.
+
+## 2026-11-01 — Session 14: deterministic sample-rate clock
+
+### Implemented
+
+- Added a portable fixed-rate `SampleClock` that advances from the prior deadline instead of the current loop time, preventing cumulative schedule drift.
+- Handles unsigned `micros()` rollover, rejects zero and half-range intervals, advances over multiple overdue periods, and saturates the cumulative missed-period counter.
+- Starts the clock only after setup completes so initialization time is not counted as missed acquisition, and services sensor recording before GPS, telemetry, and dashboard work.
+- Exposes cumulative missed sample periods through the read-only status API and dashboard.
+- Added native scenarios for early calls, exact deadlines, slight lateness without drift, multiple missed periods, invalid configuration, and timestamp rollover.
+
+### Evidence
+
+- Host source-contract regression suite: 64 Python tests passed.
+- `git diff --check`: PASS.
+- Native sample-clock execution is **PENDING CI** because no native compiler is installed locally.
+- The ESP32 compile was attempted, but Windows stopped before source compilation because `xtensa-esp32-elf-g++` could not start with `{Illegal System DLL Relocation}`. This is an environment/toolchain failure, not a source compile result; ESP32 and Uno regression builds are **PENDING CI**.
+- Physical 50 Hz timing, sustained SD latency, missed-period accuracy, and `micros()` rollover remain **NOT TESTED**.
+
+### Next task
+
+Add deterministic per-flight metadata tied to the RKT4 filename, calibration, sample rate, battery, checkpoint format, and interrupted-recovery status.
+

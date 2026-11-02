@@ -15,10 +15,12 @@ class V12StructureTests(unittest.TestCase):
             "libraries/GreenIonRecorder/src/GreenIonFlightWatcher.h",
             "libraries/GreenIonRecorder/src/GreenIonCalibration.h",
             "libraries/GreenIonRecorder/src/GreenIonCheckpoint.h",
+            "libraries/GreenIonRecorder/src/GreenIonSampleClock.h",
             "tests/cpp/test_v12_recorder_core.cpp",
             "tests/cpp/test_v12_flight_watcher.cpp",
             "tests/cpp/test_v12_calibration.cpp",
             "tests/cpp/test_v12_checkpoint.cpp",
+            "tests/cpp/test_v12_sample_clock.cpp",
             "docs/V12_BUILD_GUIDE.md",
             "docs/V12_WIRING.md", "docs/V12_TESTING.md",
             "docs/V12_DEVELOPMENT_LOG.md", "docs/V12_ROADMAP.md",
@@ -68,11 +70,17 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("selectNewestCheckpoint(", firmware)
         self.assertIn("commitRecovery(", firmware)
         self.assertIn("class SdRecoveryCommitter", firmware)
+        self.assertIn("SampleClock sampleClock", firmware)
+        self.assertIn("sampleClock.start(micros())", firmware)
+        self.assertIn("sampleClock.due(nowUs)", firmware)
+        self.assertNotIn("nowUs - lastSensorUs", firmware)
         self.assertIn('reportPath.replace(".BIN", ".RCV")', firmware)
         self.assertIn("trailing_partial_bytes", firmware)
         dashboard = (ROOT / "Green_Ion_V12" / "Dashboard.h").read_text(encoding="utf-8")
         self.assertIn('id="recovery"', dashboard)
         self.assertIn("d.recovery_status", dashboard)
+        self.assertIn('id="missed"', dashboard)
+        self.assertIn("d.missed_sample_periods", dashboard)
         self.assertIn("SD.open(binPath, FILE_READ)", firmware)
         self.assertNotIn("SD.remove(binPath)", firmware)
         self.assertNotIn("log.truncate", firmware)
