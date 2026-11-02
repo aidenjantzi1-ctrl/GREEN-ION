@@ -18,6 +18,7 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Add a bounded boot scanner that validates journals against actual RKT4 size and writes a separate recovery report without modifying BIN data.
 - [x] Add native recovery transaction tests proving journals remain when report creation or earlier cleanup steps fail.
 - [x] Add native fixed-rate clock tests for early, exact, late, multi-period, invalid-interval, and `micros()` rollover behavior.
+- [x] Add a fixed-format metadata golden vector plus filename, value, and buffer-bound rejection tests.
 - [ ] Add deterministic SD write-error and sensor-init failure harnesses.
 - [ ] Port the remaining V11 autonomous flight watcher, recovery checkpoints, dashboard, control lease, and OTA paths with regression tests.
 

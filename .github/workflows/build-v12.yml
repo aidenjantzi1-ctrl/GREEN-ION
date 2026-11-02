@@ -53,6 +53,11 @@ jobs:
             tests/cpp/test_v12_sample_clock.cpp \
             -o /tmp/test-v12-sample-clock
           /tmp/test-v12-sample-clock
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_metadata.cpp \
+            -o /tmp/test-v12-metadata
+          /tmp/test-v12-metadata
 
   compile-firmware:
     runs-on: ubuntu-latest

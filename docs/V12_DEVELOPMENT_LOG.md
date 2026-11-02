@@ -345,3 +345,29 @@ Continue the recorder-core port with deterministic per-flight metadata and rate-
 
 Add deterministic per-flight metadata tied to the RKT4 filename, calibration, sample rate, battery, checkpoint format, and interrupted-recovery status.
 
+### CI follow-up
+
+- GitHub Actions run `41380948358`: PASS for 64 Python tests, all six native C++ suites including sample-clock timing, ESP32 compilation, Uno compilation, and development artifact upload on commit `7abc707`.
+
+## 2026-11-01 — Session 15: deterministic flight-start metadata
+
+### Implemented
+
+- Added a portable fixed-format metadata encoder with a bounded caller-provided buffer and no heap allocation.
+- Metadata validates the collision-safe `V12D000.BIN` through `V12D999.BIN` filename contract, allowed RKT4 sample rates, finite calibration values, battery, prebuffer size, and output capacity.
+- Writes a matching `.TXT` sidecar after the primary RKT4 header/prebuffer flush and initial recovery checkpoint. Metadata failure is counted and exposed but never stops the primary BIN recorder.
+- The sidecar records status, filename, RKT4 version, sample rate, baseline pressure, calibration noise, starting battery, prebuffer records, and `GIC1` checkpoint format.
+- Added a native golden text vector plus short-buffer, invalid-filename, invalid-rate, and invalid-noise rejection scenarios. Metadata filename and failures are visible through the read-only API and dashboard.
+
+### Evidence
+
+- Host source-contract regression suite: 64 Python tests passed.
+- `git diff --check`: PASS.
+- Native metadata execution is **PENDING CI** because no native compiler is installed locally.
+- The ESP32 compile was attempted, but Windows stopped before source compilation because `xtensa-esp32-elf-g++` could not start with `{Illegal System DLL Relocation}`. This is an environment/toolchain failure, not a source compile result; ESP32 and Uno regression builds are **PENDING CI**.
+- Physical sidecar writes, calibration values, battery accuracy, and power-loss behavior remain **NOT TESTED**.
+
+### Next task
+
+Add recorder finalization/landing state so completed flights flush the BIN, write final metadata, and remove journals only after completion evidence is durable; keep this separate from any deployment control.
+

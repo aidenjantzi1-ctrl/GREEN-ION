@@ -16,11 +16,13 @@ class V12StructureTests(unittest.TestCase):
             "libraries/GreenIonRecorder/src/GreenIonCalibration.h",
             "libraries/GreenIonRecorder/src/GreenIonCheckpoint.h",
             "libraries/GreenIonRecorder/src/GreenIonSampleClock.h",
+            "libraries/GreenIonRecorder/src/GreenIonMetadata.h",
             "tests/cpp/test_v12_recorder_core.cpp",
             "tests/cpp/test_v12_flight_watcher.cpp",
             "tests/cpp/test_v12_calibration.cpp",
             "tests/cpp/test_v12_checkpoint.cpp",
             "tests/cpp/test_v12_sample_clock.cpp",
+            "tests/cpp/test_v12_metadata.cpp",
             "docs/V12_BUILD_GUIDE.md",
             "docs/V12_WIRING.md", "docs/V12_TESTING.md",
             "docs/V12_DEVELOPMENT_LOG.md", "docs/V12_ROADMAP.md",
@@ -74,6 +76,9 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("sampleClock.start(micros())", firmware)
         self.assertIn("sampleClock.due(nowUs)", firmware)
         self.assertNotIn("nowUs - lastSensorUs", firmware)
+        self.assertIn("writeStartMetadata();", firmware)
+        self.assertIn('metadataFilename.replace(".BIN", ".TXT")', firmware)
+        self.assertIn("Metadata failure never stops the primary BIN recorder", firmware)
         self.assertIn('reportPath.replace(".BIN", ".RCV")', firmware)
         self.assertIn("trailing_partial_bytes", firmware)
         dashboard = (ROOT / "Green_Ion_V12" / "Dashboard.h").read_text(encoding="utf-8")
@@ -81,6 +86,8 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("d.recovery_status", dashboard)
         self.assertIn('id="missed"', dashboard)
         self.assertIn("d.missed_sample_periods", dashboard)
+        self.assertIn('id="metadata"', dashboard)
+        self.assertIn("d.metadata_file", dashboard)
         self.assertIn("SD.open(binPath, FILE_READ)", firmware)
         self.assertNotIn("SD.remove(binPath)", firmware)
         self.assertNotIn("log.truncate", firmware)

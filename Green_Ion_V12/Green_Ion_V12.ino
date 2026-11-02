@@ -25,6 +25,7 @@
 #include <GreenIonCalibration.h>
 #include <GreenIonCheckpoint.h>
 #include <GreenIonSampleClock.h>
+#include <GreenIonMetadata.h>
 
 #include "Config.h"
 #include "SensorState.h"
@@ -39,6 +40,7 @@ SensorState state;
 String logFilename;
 String checkpointFilenameA;
 String checkpointFilenameB;
+String metadataFilename;
 WebServer dashboardServer(80);
 
 class SdFileSink : public green_ion::recorder::ByteSink {
@@ -96,6 +98,7 @@ uint32_t lastFlushMs = 0;
 uint32_t lastCheckpointMs = 0;
 uint32_t checkpointGeneration = 0;
 uint32_t checkpointFailures = 0;
+uint32_t metadataFailures = 0;
 uint32_t recordingStartedMs = 0;
 bool checkpointSlotB = false;
 uint32_t recoveredLogs = 0;
@@ -541,6 +544,40 @@ static bool saveCheckpoint(uint32_t nowMs) {
   return true;
 }
 
+static bool writeStartMetadata() {
+  char encoded[320];
+  size_t encodedBytes = 0;
+  const green_ion::metadata::FlightStart metadata = {
+    logFilename.c_str(),
+    config::SENSOR_RATE_HZ,
+    calibrationBaselinePa,
+    calibrationNoiseM,
+    state.batteryMv,
+    config::PREBUFFER_RECORDS,
+  };
+  if (green_ion::metadata::encodeFlightStart(
+          encoded, sizeof(encoded), metadata, encodedBytes) !=
+      green_ion::metadata::METADATA_VALID) {
+    ++metadataFailures;
+    return false;
+  }
+  digitalWrite(config::PIN_LORA_CS, HIGH);
+  if (SD.exists(metadataFilename) && !SD.remove(metadataFilename)) {
+    ++metadataFailures;
+    return false;
+  }
+  File metadataFile = SD.open(metadataFilename, FILE_WRITE);
+  const bool saved = metadataFile &&
+                     metadataFile.write(reinterpret_cast<const uint8_t *>(encoded),
+                                        encodedBytes) == encodedBytes;
+  if (metadataFile) {
+    metadataFile.flush();
+    metadataFile.close();
+  }
+  if (!saved) ++metadataFailures;
+  return saved;
+}
+
 static bool openRawLog(uint32_t nowMs) {
   if (!state.sdOk || logFile) return static_cast<bool>(logFile);
   digitalWrite(config::PIN_LORA_CS, HIGH);
@@ -557,11 +594,19 @@ static bool openRawLog(uint32_t nowMs) {
   checkpointFilenameA.replace(".BIN", ".JRA");
   checkpointFilenameB = logFilename;
   checkpointFilenameB.replace(".BIN", ".JRB");
+  metadataFilename = logFilename;
+  metadataFilename.replace(".BIN", ".TXT");
   checkpointGeneration = 0;
   checkpointSlotB = false;
   recordingStartedMs = nowMs;
   logFile = SD.open(logFilename, FILE_WRITE);
-  if (!logFile) return false;
+  if (!logFile) {
+    logFilename = "";
+    checkpointFilenameA = "";
+    checkpointFilenameB = "";
+    metadataFilename = "";
+    return false;
+  }
 
   green_ion::rkt4::Header header = {
     config::SENSOR_RATE_HZ,
@@ -575,6 +620,7 @@ static bool openRawLog(uint32_t nowMs) {
     logFilename = "";
     checkpointFilenameA = "";
     checkpointFilenameB = "";
+    metadataFilename = "";
     healthBits |= green_ion::HEALTH_SD_WRITE_ERROR;
     state.sdOk = false;
     return false;
@@ -582,6 +628,7 @@ static bool openRawLog(uint32_t nowMs) {
   state.recording = true;
   lastCheckpointMs = nowMs;
   saveCheckpoint(nowMs);  // RecorderCore::start already flushed header and prebuffer.
+  writeStartMetadata();    // Metadata failure never stops the primary BIN recorder.
   return true;
 }
 
@@ -661,6 +708,8 @@ static void sendDashboardStatus() {
   body += ",\"relative_altitude_m\":" + numberOrNull(watcherAltitudeM, 2);
   body += ",\"checkpoint_generation\":" + String(checkpointGeneration);
   body += ",\"checkpoint_failures\":" + String(checkpointFailures);
+  body += ",\"metadata_file\":\"" + metadataFilename + "\"";
+  body += ",\"metadata_failures\":" + String(metadataFailures);
   body += ",\"missed_sample_periods\":" + String(sampleClock.missedPeriods());
   body += ",\"recovered_logs\":" + String(recoveredLogs);
   body += ",\"recovered_records\":" + String(recoveredRecords);
