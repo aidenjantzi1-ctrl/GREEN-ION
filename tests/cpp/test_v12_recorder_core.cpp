@@ -14,6 +14,7 @@ using green_ion::recorder::CORE_FLUSH_FAILED;
 using green_ion::recorder::CORE_RECORD_WRITE_FAILED;
 using green_ion::recorder::CORE_RECORDING;
 using green_ion::recorder::CORE_START_WRITE_FAILED;
+using green_ion::recorder::CORE_STOPPED;
 using green_ion::recorder::RecorderCore;
 using green_ion::rkt4::Header;
 using green_ion::rkt4::Record;
@@ -80,9 +81,24 @@ int main() {
   assert(core.status() == CORE_RECORDING);
   assert(retry.bytes.size() == green_ion::rkt4::kHeaderBytes + green_ion::rkt4::kRecordBytes);
 
-  retry.flushOk = false;
-  assert(!core.flush());
-  assert(core.status() == CORE_FLUSH_FAILED);
+  assert(core.stop());
+  assert(core.status() == CORE_STOPPED);
+  assert(!core.recording());
+  assert(!core.stop());
+
+  RecorderCore<3> flushFailure;
+  MockSink failingFlush;
+  assert(flushFailure.start(failingFlush, Header{50, 101325.0f, 3990}));
+  failingFlush.flushOk = false;
+  assert(!flushFailure.flush());
+  assert(flushFailure.status() == CORE_FLUSH_FAILED);
+
+  RecorderCore<3> stopFailure;
+  MockSink failingStop;
+  assert(stopFailure.start(failingStop, Header{50, 101325.0f, 3990}));
+  failingStop.flushOk = false;
+  assert(!stopFailure.stop());
+  assert(stopFailure.status() == CORE_FLUSH_FAILED);
 
   RecorderCore<3> startFailure;
   startFailure.observe(sample(1));

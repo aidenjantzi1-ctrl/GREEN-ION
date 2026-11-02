@@ -27,6 +27,16 @@ struct FlightStart {
   uint16_t prebufferRecords;
 };
 
+struct FlightComplete {
+  const char *logFilename;
+  uint32_t durationMs;
+  uint32_t fileBytes;
+  uint32_t recordCount;
+  uint32_t missedSamplePeriods;
+  uint16_t endBatteryMv;
+  float peakAltitudeM;
+};
+
 inline bool validLogFilename(const char *name) {
   if (!name) return false;
   if (name[0] == '/') ++name;
@@ -67,6 +77,43 @@ inline EncodeResult encodeFlightStart(char *out, size_t capacity,
       static_cast<double>(metadata.calibrationNoiseM),
       static_cast<unsigned int>(metadata.startBatteryMv),
       static_cast<unsigned int>(metadata.prebufferRecords));
+  if (needed < 0 || static_cast<size_t>(needed) >= capacity)
+    return METADATA_BUFFER_TOO_SMALL;
+  written = static_cast<size_t>(needed);
+  return METADATA_VALID;
+}
+
+inline EncodeResult encodeFlightComplete(char *out, size_t capacity,
+                                         const FlightComplete &metadata,
+                                         size_t &written) {
+  written = 0;
+  if (!validLogFilename(metadata.logFilename)) return METADATA_INVALID_FILENAME;
+  if (metadata.durationMs == 0 || metadata.fileBytes < rkt4::kHeaderBytes ||
+      (metadata.fileBytes - rkt4::kHeaderBytes) % rkt4::kRecordBytes != 0 ||
+      metadata.recordCount !=
+          (metadata.fileBytes - rkt4::kHeaderBytes) / rkt4::kRecordBytes ||
+      metadata.endBatteryMv == 0 || !isfinite(metadata.peakAltitudeM))
+    return METADATA_INVALID_VALUES;
+  const char *leaf = metadata.logFilename[0] == '/' ? metadata.logFilename + 1
+                                                    : metadata.logFilename;
+  const int needed = snprintf(
+      out, capacity,
+      "GREEN-ION-COMPLETION-1\n"
+      "status=complete\n"
+      "finish_reason=automatic_landing\n"
+      "file=%s\n"
+      "duration_ms=%lu\n"
+      "file_bytes=%lu\n"
+      "complete_records=%lu\n"
+      "missed_sample_periods=%lu\n"
+      "end_battery_mv=%u\n"
+      "peak_altitude_m=%.2f\n",
+      leaf, static_cast<unsigned long>(metadata.durationMs),
+      static_cast<unsigned long>(metadata.fileBytes),
+      static_cast<unsigned long>(metadata.recordCount),
+      static_cast<unsigned long>(metadata.missedSamplePeriods),
+      static_cast<unsigned int>(metadata.endBatteryMv),
+      static_cast<double>(metadata.peakAltitudeM));
   if (needed < 0 || static_cast<size_t>(needed) >= capacity)
     return METADATA_BUFFER_TOO_SMALL;
   written = static_cast<size_t>(needed);

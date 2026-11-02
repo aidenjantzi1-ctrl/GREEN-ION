@@ -23,6 +23,7 @@ enum CoreStatus : uint8_t {
   CORE_START_WRITE_FAILED,
   CORE_RECORD_WRITE_FAILED,
   CORE_FLUSH_FAILED,
+  CORE_STOPPED,
 };
 
 template <size_t Capacity>
@@ -119,6 +120,18 @@ class RecorderCore {
     sink_ = NULL;
     status_ = CORE_FLUSH_FAILED;
     return false;
+  }
+
+  bool stop() {
+    if (!recording()) return false;
+    if (!sink_->flush()) {
+      sink_ = NULL;
+      status_ = CORE_FLUSH_FAILED;
+      return false;
+    }
+    sink_ = NULL;
+    status_ = CORE_STOPPED;
+    return true;
   }
 
  private:

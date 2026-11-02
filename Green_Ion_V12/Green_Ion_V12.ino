@@ -26,6 +26,7 @@
 #include <GreenIonCheckpoint.h>
 #include <GreenIonSampleClock.h>
 #include <GreenIonMetadata.h>
+#include <GreenIonLandingWatcher.h>
 
 #include "Config.h"
 #include "SensorState.h"
@@ -70,11 +71,13 @@ SdFileSink logSink;
 green_ion::recorder::RecorderCore<config::PREBUFFER_RECORDS> recorderCore;
 green_ion::recorder::SampleClock sampleClock(config::SENSOR_INTERVAL_US);
 green_ion::flight::FlightWatcher flightWatcher;
+green_ion::flight::LandingWatcher landingWatcher;
 
 enum RecorderMode : uint8_t {
   RECORDER_CALIBRATING = 0,
   RECORDER_WATCHING,
   RECORDER_RECORDING,
+  RECORDER_COMPLETE,
   RECORDER_FAULT,
 };
 
@@ -89,6 +92,7 @@ float calibrationBaselinePa = NAN;
 float calibrationNoiseM = NAN;
 float watcherAltitudeM = NAN;
 float watcherPreviousAltitudeM = NAN;
+float watcherSpeedMps = NAN;
 uint32_t watcherPreviousMs = 0;
 
 uint32_t telemetrySequence = 0;
@@ -99,6 +103,7 @@ uint32_t lastCheckpointMs = 0;
 uint32_t checkpointGeneration = 0;
 uint32_t checkpointFailures = 0;
 uint32_t metadataFailures = 0;
+uint32_t finalizationFailures = 0;
 uint32_t recordingStartedMs = 0;
 bool checkpointSlotB = false;
 uint32_t recoveredLogs = 0;
@@ -467,6 +472,7 @@ static void processCalibration(uint32_t nowMs, bool valid) {
   calibrationNoiseM = result.noiseAltitudeM;
   recorderCore.resetBuffer();
   watcherAltitudeM = watcherPreviousAltitudeM = NAN;
+  watcherSpeedMps = NAN;
   watcherPreviousMs = 0;
   const bool watching = flightWatcher.begin({
       config::SENSOR_RATE_HZ, 0.0f, calibrationBaselinePa, calibrationNoiseM});
@@ -474,11 +480,11 @@ static void processCalibration(uint32_t nowMs, bool valid) {
   if (!watching) calibrationRetryAtMs = nowMs + config::CALIBRATION_RETRY_MS;
 }
 
-static bool updateLaunchWatcher(uint32_t nowMs, bool valid) {
-  if (recorderMode != RECORDER_WATCHING) return false;
+static void updateFlightEstimate(uint32_t nowMs, bool valid) {
+  if (recorderMode != RECORDER_WATCHING && recorderMode != RECORDER_RECORDING)
+    return;
   const float relativeM = valid ? green_ion::calibration::relativeAltitudeM(
       state.pressurePa, calibrationBaselinePa) : NAN;
-  float speedMps = NAN;
   if (isfinite(relativeM)) {
     if (!isfinite(watcherAltitudeM)) watcherAltitudeM = relativeM;
     const float difference = fabsf(relativeM - watcherAltitudeM);
@@ -488,14 +494,19 @@ static bool updateLaunchWatcher(uint32_t nowMs, bool valid) {
     watcherAltitudeM += alpha * (relativeM - watcherAltitudeM);
     if (isfinite(watcherPreviousAltitudeM) && watcherPreviousMs != nowMs) {
       const uint32_t elapsedMs = nowMs - watcherPreviousMs;
-      speedMps = (watcherAltitudeM - watcherPreviousAltitudeM) * 1000.0f / elapsedMs;
+      watcherSpeedMps =
+          (watcherAltitudeM - watcherPreviousAltitudeM) * 1000.0f / elapsedMs;
     } else {
-      speedMps = 0.0f;
+      watcherSpeedMps = 0.0f;
     }
     watcherPreviousAltitudeM = watcherAltitudeM;
     watcherPreviousMs = nowMs;
   }
-  return flightWatcher.update({nowMs, watcherAltitudeM, speedMps,
+}
+
+static bool updateLaunchWatcher(uint32_t nowMs, bool valid) {
+  if (recorderMode != RECORDER_WATCHING) return false;
+  return flightWatcher.update({nowMs, watcherAltitudeM, watcherSpeedMps,
                                state.pressurePa, valid});
 }
 
@@ -578,6 +589,74 @@ static bool writeStartMetadata() {
   return saved;
 }
 
+static bool writeCompletionMetadata(uint32_t nowMs, uint32_t fileBytes) {
+  char encoded[320];
+  size_t encodedBytes = 0;
+  const green_ion::metadata::FlightComplete metadata = {
+    logFilename.c_str(),
+    nowMs - recordingStartedMs,
+    fileBytes,
+    static_cast<uint32_t>(green_ion::rkt4::completeRecordCount(fileBytes)),
+    sampleClock.missedPeriods(),
+    state.batteryMv,
+    landingWatcher.peakAltitudeM(),
+  };
+  if (green_ion::metadata::encodeFlightComplete(
+          encoded, sizeof(encoded), metadata, encodedBytes) !=
+      green_ion::metadata::METADATA_VALID) {
+    ++metadataFailures;
+    return false;
+  }
+  digitalWrite(config::PIN_LORA_CS, HIGH);
+  File metadataFile = SD.open(metadataFilename, FILE_APPEND);
+  const bool saved = metadataFile &&
+                     metadataFile.write(reinterpret_cast<const uint8_t *>(encoded),
+                                        encodedBytes) == encodedBytes;
+  if (metadataFile) {
+    metadataFile.flush();
+    metadataFile.close();
+  }
+  if (!saved) ++metadataFailures;
+  return saved;
+}
+
+static bool finalizeRecording(uint32_t nowMs) {
+  if (recorderMode != RECORDER_RECORDING || !recorderCore.recording() || !logFile)
+    return false;
+  if (!recorderCore.stop()) {
+    ++finalizationFailures;
+    healthBits |= green_ion::HEALTH_SD_WRITE_ERROR;
+    state.sdOk = false;
+    state.recording = false;
+    recorderMode = RECORDER_FAULT;
+    if (logFile) logFile.close();
+    return false;
+  }
+  const uint64_t size = static_cast<uint64_t>(logFile.size());
+  logFile.close();
+  state.recording = false;
+  if (size > UINT32_MAX ||
+      !writeCompletionMetadata(nowMs, static_cast<uint32_t>(size))) {
+    ++finalizationFailures;
+    recorderMode = RECORDER_FAULT;
+    return false;  // Journals remain as recovery evidence.
+  }
+  if (SD.exists(checkpointFilenameA) && !SD.remove(checkpointFilenameA)) {
+    ++finalizationFailures;
+    recorderMode = RECORDER_FAULT;
+    return false;  // Keep slot B after slot A cleanup fails.
+  }
+  if (SD.exists(checkpointFilenameB) && !SD.remove(checkpointFilenameB)) {
+    ++finalizationFailures;
+    recorderMode = RECORDER_FAULT;
+    return false;
+  }
+  landingWatcher.cancel();
+  recorderMode = RECORDER_COMPLETE;
+  flightState = green_ion::STATE_LANDED;
+  return true;
+}
+
 static bool openRawLog(uint32_t nowMs) {
   if (!state.sdOk || logFile) return static_cast<bool>(logFile);
   digitalWrite(config::PIN_LORA_CS, HIGH);
@@ -633,6 +712,7 @@ static bool openRawLog(uint32_t nowMs) {
 }
 
 static void appendLog(uint32_t nowUs, uint32_t nowMs, bool valid) {
+  if (recorderMode == RECORDER_COMPLETE) return;
   green_ion::rkt4::Record record = {
     nowUs,
     state.pressurePa,
@@ -645,14 +725,21 @@ static void appendLog(uint32_t nowUs, uint32_t nowMs, bool valid) {
   if (recorderMode == RECORDER_FAULT && calibrationRetryAtMs &&
       static_cast<int32_t>(nowMs - calibrationRetryAtMs) >= 0)
     resetCalibration(nowMs);
+  updateFlightEstimate(nowMs, valid);
   if (updateLaunchWatcher(nowMs, valid)) {
     if (state.sdOk && openRawLog(nowMs)) {
       recorderMode = RECORDER_RECORDING;
       flightState = green_ion::STATE_ASCENT;
+      if (!landingWatcher.begin(nowMs, {
+            config::SENSOR_RATE_HZ, 0.0f, calibrationNoiseM}))
+        ++finalizationFailures;
     } else {
       recorderMode = RECORDER_FAULT;
     }
   }
+  if (recorderMode == RECORDER_RECORDING &&
+      landingWatcher.update({nowMs, watcherAltitudeM, watcherSpeedMps, valid}))
+    finalizeRecording(nowMs);
   state.recording = recorderCore.recording();
   if (recorderCore.status() == green_ion::recorder::CORE_RECORD_WRITE_FAILED) {
     healthBits |= green_ion::HEALTH_SD_WRITE_ERROR;
@@ -710,6 +797,8 @@ static void sendDashboardStatus() {
   body += ",\"checkpoint_failures\":" + String(checkpointFailures);
   body += ",\"metadata_file\":\"" + metadataFilename + "\"";
   body += ",\"metadata_failures\":" + String(metadataFailures);
+  body += ",\"finalization_failures\":" + String(finalizationFailures);
+  body += ",\"landing_peak_m\":" + numberOrNull(landingWatcher.peakAltitudeM(), 2);
   body += ",\"missed_sample_periods\":" + String(sampleClock.missedPeriods());
   body += ",\"recovered_logs\":" + String(recoveredLogs);
   body += ",\"recovered_records\":" + String(recoveredRecords);

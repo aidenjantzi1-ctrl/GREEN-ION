@@ -20,6 +20,7 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Add native fixed-rate clock tests for early, exact, late, multi-period, invalid-interval, and `micros()` rollover behavior.
 - [x] Add a fixed-format metadata golden vector plus filename, value, and buffer-bound rejection tests.
 - [x] Add native landing-watcher tests for stationary false positives, descent, adaptive stability, invalid samples, gaps, anchor movement, and timestamp rollover.
+- [x] Integrate landing finalization with recorder stop success/failure and completion-metadata golden/error tests.
 - [ ] Add deterministic SD write-error and sensor-init failure harnesses.
 - [ ] Port the remaining V11 autonomous flight watcher, recovery checkpoints, dashboard, control lease, and OTA paths with regression tests.
 

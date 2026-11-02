@@ -45,6 +45,29 @@ int main() {
   assert(encodeFlightStart(output, sizeof(output), badNoise, written) ==
          METADATA_INVALID_VALUES);
 
+  const FlightComplete complete = {
+    "/V12D007.BIN", 45200, 32 + 200 * 16, 200, 3, 3920, 125.5f,
+  };
+  const char expectedComplete[] =
+      "GREEN-ION-COMPLETION-1\n"
+      "status=complete\n"
+      "finish_reason=automatic_landing\n"
+      "file=V12D007.BIN\n"
+      "duration_ms=45200\n"
+      "file_bytes=3232\n"
+      "complete_records=200\n"
+      "missed_sample_periods=3\n"
+      "end_battery_mv=3920\n"
+      "peak_altitude_m=125.50\n";
+  assert(encodeFlightComplete(output, sizeof(output), complete, written) ==
+         METADATA_VALID);
+  assert(written == strlen(expectedComplete));
+  assert(strcmp(output, expectedComplete) == 0);
+  FlightComplete torn = complete;
+  torn.fileBytes += 1;
+  assert(encodeFlightComplete(output, sizeof(output), torn, written) ==
+         METADATA_INVALID_VALUES);
+
   puts("GREEN ION V12 metadata tests passed");
   return 0;
 }

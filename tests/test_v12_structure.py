@@ -81,6 +81,24 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("writeStartMetadata();", firmware)
         self.assertIn('metadataFilename.replace(".BIN", ".TXT")', firmware)
         self.assertIn("Metadata failure never stops the primary BIN recorder", firmware)
+        self.assertIn("LandingWatcher landingWatcher", firmware)
+        self.assertIn("landingWatcher.begin(nowMs", firmware)
+        self.assertIn("landingWatcher.update(", firmware)
+        self.assertIn("finalizeRecording(nowMs)", firmware)
+        self.assertIn("recorderCore.stop()", firmware)
+        self.assertIn("writeCompletionMetadata(nowMs", firmware)
+        self.assertLess(
+            firmware.index("recorderCore.stop()"),
+            firmware.index("writeCompletionMetadata(nowMs"),
+        )
+        self.assertLess(
+            firmware.index("writeCompletionMetadata(nowMs"),
+            firmware.index("SD.remove(checkpointFilenameA)"),
+        )
+        self.assertLess(
+            firmware.index("SD.remove(checkpointFilenameA)"),
+            firmware.index("SD.remove(checkpointFilenameB)"),
+        )
         self.assertIn('reportPath.replace(".BIN", ".RCV")', firmware)
         self.assertIn("trailing_partial_bytes", firmware)
         dashboard = (ROOT / "Green_Ion_V12" / "Dashboard.h").read_text(encoding="utf-8")

@@ -397,3 +397,30 @@ Add recorder finalization/landing state so completed flights flush the BIN, writ
 
 Integrate the landing watcher into the recording state, then finalize only after a successful BIN flush and durable completion metadata; remove recovery journals last and never use landing state for deployment control.
 
+### CI follow-up
+
+- GitHub Actions run `41391529741`: PASS for 64 Python tests, all eight native C++ suites including landing false-positive/reset/rollover scenarios, ESP32 compilation, Uno compilation, and development artifact upload on commit `d6f9576`.
+
+## 2026-11-01 — Session 17: automatic recorder finalization
+
+### Implemented
+
+- Integrated the recorder-only landing watcher into the ESP32 recording state using the continuously filtered relative altitude and vertical speed paths.
+- Added a tested `RecorderCore::stop()` operation that flushes the sink, detaches it, and reports a distinct stopped state; flush failure leaves the core faulted.
+- Added bounded completion metadata with automatic-landing reason, duration, final BIN byte/record counts, missed sample periods, ending battery, and peak altitude.
+- Finalization order is primary-data first: write the triggering sample, stop/flush the BIN, close it, append and flush completion metadata, remove journal A, then remove journal B.
+- Any stop, metadata, or cleanup failure leaves remaining journals as recovery evidence and exposes a finalization failure instead of claiming a completed flight.
+- Successful finalization enters the landed telemetry state and stops further recorder writes. Landing remains an estimate used only to close recording, never to control deployment.
+
+### Evidence
+
+- Host source-contract regression suite: 64 Python tests passed.
+- `git diff --check`: PASS.
+- Updated native recorder-stop and completion-metadata execution is **PENDING CI** because no native compiler is installed locally.
+- The ESP32 compile was attempted, but Windows stopped before source compilation because `xtensa-esp32-elf-g++` could not start with `{Illegal System DLL Relocation}`. This is an environment/toolchain failure, not a source compile result; ESP32 and Uno regression builds are **PENDING CI**.
+- Physical landing detection, final flush durability, completion metadata, journal cleanup, SD removal, and power-loss behavior remain **NOT TESTED**.
+
+### Next task
+
+Add a deterministic end-to-end recorder mission harness covering calibration, launch, prebuffer drain, landing, successful finalization, metadata failure, and stop-flush failure before marking the recorder-core port complete.
+
