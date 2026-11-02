@@ -66,6 +66,8 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("else if (nowMs - lastCheckpointMs", firmware)
         self.assertIn("recoverInterruptedLogs();", firmware)
         self.assertIn("selectNewestCheckpoint(", firmware)
+        self.assertIn("commitRecovery(", firmware)
+        self.assertIn("class SdRecoveryCommitter", firmware)
         self.assertIn('reportPath.replace(".BIN", ".RCV")', firmware)
         self.assertIn("trailing_partial_bytes", firmware)
         dashboard = (ROOT / "Green_Ion_V12" / "Dashboard.h").read_text(encoding="utf-8")

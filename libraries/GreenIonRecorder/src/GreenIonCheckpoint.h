@@ -37,6 +37,35 @@ struct Rkt4Inspection {
   uint8_t trailingBytes;
 };
 
+enum RecoveryCommitResult : uint8_t {
+  RECOVERY_COMMITTED = 0,
+  RECOVERY_NO_JOURNAL,
+  RECOVERY_REPORT_WRITE_FAILED,
+  RECOVERY_SLOT_A_REMOVE_FAILED,
+  RECOVERY_SLOT_B_REMOVE_FAILED,
+};
+
+class RecoveryCommitter {
+ public:
+  virtual ~RecoveryCommitter() {}
+  virtual bool saveReport() = 0;
+  virtual bool removeSlotA() = 0;
+  virtual bool removeSlotB() = 0;
+};
+
+// The report is durable before journal cleanup begins. Cleanup stops at the
+// first failure, preserving the remaining journal as boot-visible evidence.
+inline RecoveryCommitResult commitRecovery(RecoveryCommitter &committer,
+                                           bool haveSlotA, bool haveSlotB) {
+  if (!haveSlotA && !haveSlotB) return RECOVERY_NO_JOURNAL;
+  if (!committer.saveReport()) return RECOVERY_REPORT_WRITE_FAILED;
+  if (haveSlotA && !committer.removeSlotA())
+    return RECOVERY_SLOT_A_REMOVE_FAILED;
+  if (haveSlotB && !committer.removeSlotB())
+    return RECOVERY_SLOT_B_REMOVE_FAILED;
+  return RECOVERY_COMMITTED;
+}
+
 inline uint32_t checkpointCrc32(const uint8_t *data, size_t length) {
   uint32_t crc = 0xffffffffu;
   for (size_t i = 0; i < length; ++i) {

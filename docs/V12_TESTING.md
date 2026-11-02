@@ -16,6 +16,7 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Add native tests for CRC-protected alternating checkpoints, corrupt-slot fallback, generation rollover, file-size bounds, and torn-tail inspection.
 - [x] Integrate checkpoint writes after successful firmware flushes and expose checkpoint generation/failure status.
 - [x] Add a bounded boot scanner that validates journals against actual RKT4 size and writes a separate recovery report without modifying BIN data.
+- [x] Add native recovery transaction tests proving journals remain when report creation or earlier cleanup steps fail.
 - [ ] Add deterministic SD write-error and sensor-init failure harnesses.
 - [ ] Port the remaining V11 autonomous flight watcher, recovery checkpoints, dashboard, control lease, and OTA paths with regression tests.
 

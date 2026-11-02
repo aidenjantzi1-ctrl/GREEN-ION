@@ -198,6 +198,39 @@ static size_t readCheckpointFile(const String &path,
   return bytes;
 }
 
+class SdRecoveryCommitter : public green_ion::recovery::RecoveryCommitter {
+ public:
+  SdRecoveryCommitter(const String &reportPath, const String &report,
+                      const String &slotAPath, const String &slotBPath)
+      : reportPath_(reportPath), report_(report),
+        slotAPath_(slotAPath), slotBPath_(slotBPath) {}
+
+  bool saveReport() override {
+    if (SD.exists(reportPath_) && !SD.remove(reportPath_)) return false;
+    File recovery = SD.open(reportPath_, FILE_WRITE);
+    const bool saved = recovery && recovery.print(report_) == report_.length();
+    if (recovery) {
+      recovery.flush();
+      recovery.close();
+    }
+    return saved;
+  }
+
+  bool removeSlotA() override {
+    return !SD.exists(slotAPath_) || SD.remove(slotAPath_);
+  }
+
+  bool removeSlotB() override {
+    return !SD.exists(slotBPath_) || SD.remove(slotBPath_);
+  }
+
+ private:
+  const String &reportPath_;
+  const String &report_;
+  const String &slotAPath_;
+  const String &slotBPath_;
+};
+
 static bool recoverInterruptedLog(const String &journalLeaf) {
   String binLeaf = journalLeaf;
   binLeaf.replace(journalLeaf.endsWith(".JRB") ? ".JRB" : ".JRA", ".BIN");
@@ -234,10 +267,6 @@ static bool recoverInterruptedLog(const String &journalLeaf) {
 
   String reportPath = "/" + binLeaf;
   reportPath.replace(".BIN", ".RCV");
-  if (SD.exists(reportPath) && !SD.remove(reportPath)) {
-    ++recoveryPending;
-    return false;
-  }
   String report;
   report.reserve(256);
   report += "GREEN-ION-RECOVERY-1\nfile=" + binLeaf;
@@ -248,25 +277,21 @@ static bool recoverInterruptedLog(const String &journalLeaf) {
   report += "\ncomplete_records=" + String(inspection.completeRecords);
   report += "\ntrailing_partial_bytes=" + String(inspection.trailingBytes);
   report += "\nrkt4_header_valid=yes\n";
-  File recovery = SD.open(reportPath, FILE_WRITE);
-  const bool reportSaved = recovery && recovery.print(report) == report.length();
-  if (recovery) {
-    recovery.flush();
-    recovery.close();
-  }
-  if (!reportSaved) {
+  const bool haveSlotA = SD.exists(slotAPath);
+  const bool haveSlotB = SD.exists(slotBPath);
+  SdRecoveryCommitter committer(reportPath, report, slotAPath, slotBPath);
+  const auto commitResult = green_ion::recovery::commitRecovery(
+      committer, haveSlotA, haveSlotB);
+  if (commitResult == green_ion::recovery::RECOVERY_NO_JOURNAL ||
+      commitResult == green_ion::recovery::RECOVERY_REPORT_WRITE_FAILED) {
     ++recoveryPending;
     return false;
   }
-
-  bool journalsRemoved = true;
-  if (SD.exists(slotAPath)) journalsRemoved = SD.remove(slotAPath) && journalsRemoved;
-  if (SD.exists(slotBPath)) journalsRemoved = SD.remove(slotBPath) && journalsRemoved;
   ++recoveredLogs;
   recoveredRecords += inspection.completeRecords;
   recoveredTrailingBytes += inspection.trailingBytes;
-  if (!journalsRemoved) ++recoveryPending;
-  return journalsRemoved;
+  if (commitResult != green_ion::recovery::RECOVERY_COMMITTED) ++recoveryPending;
+  return commitResult == green_ion::recovery::RECOVERY_COMMITTED;
 }
 
 static int journalSequence(const String &name) {

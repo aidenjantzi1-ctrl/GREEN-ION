@@ -294,3 +294,28 @@ Add a boot-time scanner that validates both journal slots against the actual RKT
 
 Add deterministic storage failure injection around recovery-report creation and journal cleanup, then continue recorder metadata and rate-control work without weakening BIN preservation.
 
+### CI follow-up
+
+- GitHub Actions run `41370174679`: PASS for 64 Python tests, all five native C++ suites, ESP32 compilation, Uno compilation, and development artifact upload on commit `38d90e4`.
+
+## 2026-11-01 — Session 13: recovery transaction failure injection
+
+### Implemented
+
+- Added a portable `RecoveryCommitter` boundary used by the ESP32 SD recovery path and native host tests.
+- Recovery now follows a tested transaction order: write and flush the report first, remove slot A second when present, then remove slot B. Cleanup stops at the first failure so remaining journal evidence stays boot-visible.
+- Added programmable mock scenarios for no journals, report-write failure, slot-A removal failure, slot-B removal failure, and complete success.
+- Verified that report failure performs no cleanup and slot-A failure does not attempt slot-B removal.
+
+### Evidence
+
+- Host source-contract regression suite: 64 Python tests passed.
+- `git diff --check`: PASS.
+- Native recovery transaction execution is **PENDING CI** because no native compiler is installed locally.
+- The ESP32 compile was attempted, but Windows stopped before source compilation because `xtensa-esp32-elf-g++` could not start with `{Illegal System DLL Relocation}`. This is an environment/toolchain failure, not a source compile result; ESP32 and Uno regression builds are **PENDING CI**.
+- Physical report writes, journal removal failures, power interruption, and SD removal remain **NOT TESTED**.
+
+### Next task
+
+Continue the recorder-core port with deterministic per-flight metadata and rate-control state, then expand failure injection to sensor initialization and mid-run peripheral loss.
+
