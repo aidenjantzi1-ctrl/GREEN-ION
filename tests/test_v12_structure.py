@@ -59,6 +59,11 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("RECORDER_WATCHING", firmware)
         self.assertIn("processCalibration(nowMs, valid)", firmware)
         self.assertIn("updateLaunchWatcher(nowMs, valid)", firmware)
+        self.assertIn("saveCheckpoint(nowMs)", firmware)
+        self.assertIn("CHECKPOINT_INTERVAL_MS = 5000", config)
+        self.assertIn('replace(".BIN", ".JRA")', firmware)
+        self.assertIn('replace(".BIN", ".JRB")', firmware)
+        self.assertIn("else if (nowMs - lastCheckpointMs", firmware)
         self.assertNotIn("state.sdOk && !recorderCore.recording()) openRawLog()", firmware)
 
     def test_no_energetic_device_control_surface(self):

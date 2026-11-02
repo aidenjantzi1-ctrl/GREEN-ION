@@ -19,6 +19,7 @@
 - [x] Add fixed-memory V11-compatible stationary pressure calibration with noise, drift, range, and outlier tests.
 - [x] Integrate automatic calibration and launch watching so idle samples remain buffered and confirmed launch opens the RKT4 log.
 - [x] Define a portable CRC-protected alternating checkpoint and torn-tail inspection contract with host failure tests.
+- [x] Write alternating V12 checkpoints only after successful RKT4 flushes, with failure throttling that preserves BIN priority.
 - [ ] Complete the V11 recorder-core port: autonomous flight watcher, prebuffer, checkpoints, recovery, calibration, metadata, and rate control.
 - [ ] Add deterministic module interfaces and mocks for barometer, IMU, GPS, storage, radio, battery, and time.
 - [ ] Add failure-injection integration tests for init loss, mid-run GPS/radio loss, SD write failure, and recovery.

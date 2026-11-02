@@ -23,6 +23,7 @@
 #include <GreenIonRecorderCore.h>
 #include <GreenIonFlightWatcher.h>
 #include <GreenIonCalibration.h>
+#include <GreenIonCheckpoint.h>
 
 #include "Config.h"
 #include "SensorState.h"
@@ -35,6 +36,8 @@ RH_RF95 radio(config::PIN_LORA_CS, config::PIN_LORA_DIO0);
 File logFile;
 SensorState state;
 String logFilename;
+String checkpointFilenameA;
+String checkpointFilenameB;
 WebServer dashboardServer(80);
 
 class SdFileSink : public green_ion::recorder::ByteSink {
@@ -89,6 +92,11 @@ uint32_t lastSensorUs = 0;
 uint32_t lastGpsServiceMs = 0;
 uint32_t lastTelemetryMs = 0;
 uint32_t lastFlushMs = 0;
+uint32_t lastCheckpointMs = 0;
+uint32_t checkpointGeneration = 0;
+uint32_t checkpointFailures = 0;
+uint32_t recordingStartedMs = 0;
+bool checkpointSlotB = false;
 uint16_t healthBits = 0;
 green_ion::FlightState flightState = green_ion::STATE_IDLE;
 
@@ -311,7 +319,52 @@ static bool updateLaunchWatcher(uint32_t nowMs, bool valid) {
                                state.pressurePa, valid});
 }
 
-static bool openRawLog() {
+static bool saveCheckpoint(uint32_t nowMs) {
+  if (!state.sdOk || !recorderCore.recording() || !logFile ||
+      !checkpointFilenameA.length() || !checkpointFilenameB.length()) return false;
+  // Throttle both successful and failed journal attempts so primary BIN writes
+  // always keep priority over recovery metadata.
+  lastCheckpointMs = nowMs;
+  const uint64_t fileSize = static_cast<uint64_t>(logFile.size());
+  if (fileSize > UINT32_MAX) {
+    ++checkpointFailures;
+    return false;
+  }
+  const uint32_t committedBytes = static_cast<uint32_t>(fileSize);
+  green_ion::recovery::Checkpoint checkpoint = {
+    checkpointGeneration + 1,
+    committedBytes,
+    static_cast<uint32_t>(green_ion::rkt4::completeRecordCount(committedBytes)),
+    nowMs - recordingStartedMs,
+  };
+  uint8_t encoded[green_ion::recovery::kCheckpointBytes];
+  if (!green_ion::recovery::encodeCheckpoint(encoded, checkpoint)) {
+    ++checkpointFailures;
+    return false;
+  }
+
+  const String &target = checkpointSlotB ? checkpointFilenameB : checkpointFilenameA;
+  digitalWrite(config::PIN_LORA_CS, HIGH);
+  if (SD.exists(target) && !SD.remove(target)) {
+    ++checkpointFailures;
+    return false;
+  }
+  File journal = SD.open(target, FILE_WRITE);
+  const bool saved = journal && journal.write(encoded, sizeof(encoded)) == sizeof(encoded);
+  if (journal) {
+    journal.flush();
+    journal.close();
+  }
+  if (!saved) {
+    ++checkpointFailures;
+    return false;
+  }
+  checkpointGeneration = checkpoint.generation;
+  checkpointSlotB = !checkpointSlotB;
+  return true;
+}
+
+static bool openRawLog(uint32_t nowMs) {
   if (!state.sdOk || logFile) return static_cast<bool>(logFile);
   digitalWrite(config::PIN_LORA_CS, HIGH);
   for (uint16_t sequence = 0; sequence < 1000; ++sequence) {
@@ -323,6 +376,13 @@ static bool openRawLog() {
     }
   }
   if (!logFilename.length()) return false;
+  checkpointFilenameA = logFilename;
+  checkpointFilenameA.replace(".BIN", ".JRA");
+  checkpointFilenameB = logFilename;
+  checkpointFilenameB.replace(".BIN", ".JRB");
+  checkpointGeneration = 0;
+  checkpointSlotB = false;
+  recordingStartedMs = nowMs;
   logFile = SD.open(logFilename, FILE_WRITE);
   if (!logFile) return false;
 
@@ -336,11 +396,15 @@ static bool openRawLog() {
     logFile.close();
     SD.remove(logFilename);
     logFilename = "";
+    checkpointFilenameA = "";
+    checkpointFilenameB = "";
     healthBits |= green_ion::HEALTH_SD_WRITE_ERROR;
     state.sdOk = false;
     return false;
   }
   state.recording = true;
+  lastCheckpointMs = nowMs;
+  saveCheckpoint(nowMs);  // RecorderCore::start already flushed header and prebuffer.
   return true;
 }
 
@@ -358,7 +422,7 @@ static void appendLog(uint32_t nowUs, uint32_t nowMs, bool valid) {
       static_cast<int32_t>(nowMs - calibrationRetryAtMs) >= 0)
     resetCalibration(nowMs);
   if (updateLaunchWatcher(nowMs, valid)) {
-    if (state.sdOk && openRawLog()) {
+    if (state.sdOk && openRawLog(nowMs)) {
       recorderMode = RECORDER_RECORDING;
       flightState = green_ion::STATE_ASCENT;
     } else {
@@ -417,7 +481,9 @@ static void sendDashboardStatus() {
   body += ",\"recorder_mode\":" + String(static_cast<uint8_t>(recorderMode));
   body += ",\"calibration_baseline_pa\":" + numberOrNull(calibrationBaselinePa, 1);
   body += ",\"calibration_noise_m\":" + numberOrNull(calibrationNoiseM, 3);
-  body += ",\"relative_altitude_m\":" + numberOrNull(watcherAltitudeM, 2) + "}";
+  body += ",\"relative_altitude_m\":" + numberOrNull(watcherAltitudeM, 2);
+  body += ",\"checkpoint_generation\":" + String(checkpointGeneration);
+  body += ",\"checkpoint_failures\":" + String(checkpointFailures) + "}";
   dashboardServer.send(200, "application/json", body);
 }
 
@@ -505,6 +571,8 @@ void loop() {
       state.recording = false;
       recorderMode = RECORDER_FAULT;
       if (logFile) logFile.close();
+    } else if (nowMs - lastCheckpointMs >= config::CHECKPOINT_INTERVAL_MS) {
+      saveCheckpoint(nowMs);
     }
   }
 

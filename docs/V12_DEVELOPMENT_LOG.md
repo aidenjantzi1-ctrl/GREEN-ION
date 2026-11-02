@@ -242,3 +242,29 @@ After CI validates this integration, continue the recorder-core port with determ
 
 Integrate alternating checkpoint writes only after a successful RKT4 flush, then add a boot-time scanner that reports interrupted logs while preserving the original BIN and any torn tail.
 
+### CI follow-up
+
+- GitHub Actions run `41360490347`: PASS for 64 Python tests, all five native C++ suites including checkpoint/recovery golden vectors, ESP32 compilation, Uno compilation, and development artifact upload on commit `de5dd1d`.
+
+## 2026-11-01 — Session 11: firmware checkpoint writes
+
+### Implemented
+
+- Included the portable checkpoint contract in the ESP32 recorder and derived collision-matched `.JRA` and `.JRB` names from each new RKT4 BIN.
+- Writes an initial checkpoint after `RecorderCore::start` successfully flushes the header and prebuffer, then alternates slots every five seconds only after the primary RKT4 flush succeeds.
+- Records only the flushed file size, aligned complete-record count, generation, and recording-relative elapsed time.
+- Refuses to append over a journal when removal fails, preserving the other slot as the last known valid checkpoint.
+- Checkpoint failures do not stop the primary BIN recorder and are throttled to avoid retrying on every 500 ms log flush. Generation and failure counts are exposed through the read-only status API.
+
+### Evidence
+
+- Host source-contract regression suite: 64 Python tests passed.
+- `git diff --check`: PASS.
+- The ESP32 compile was attempted, but Windows stopped before source compilation because `xtensa-esp32-elf-g++` could not start with `{Illegal System DLL Relocation}`. This is an environment/toolchain failure, not a source compile result; ESP32 and Uno regression builds are **PENDING CI**.
+- Native checkpoint tests were unchanged and previously passed in CI; the firmware integration itself is **PENDING CI** compilation.
+- No boot-time journal scanner exists yet. Physical checkpoint durability, power-loss recovery, SD removal, and torn writes remain **NOT TESTED**.
+
+### Next task
+
+Add a boot-time scanner that validates both journal slots against the actual RKT4 file, reports interrupted recordings and torn tails, and preserves the original BIN bytes unchanged.
+

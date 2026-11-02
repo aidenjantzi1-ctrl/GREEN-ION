@@ -33,6 +33,7 @@ static const uint32_t CALIBRATION_RETRY_MS = 5000;
 static const uint32_t GPS_SERVICE_INTERVAL_MS = 20;
 static const uint32_t TELEMETRY_INTERVAL_MS = 1000;
 static const uint32_t LOG_FLUSH_INTERVAL_MS = 500;
+static const uint32_t CHECKPOINT_INTERVAL_MS = 5000;
 static const uint32_t GPS_CURRENT_MAX_AGE_MS = 3000;
 
 // Shared with the receiver. This is provisional until coordinated for the
