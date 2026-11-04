@@ -15,6 +15,8 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Native companion sensor-log golden vectors and rejection tests for header/record CRC, truncation, invalid rate/flight identity, IMU validity, GPS current/last-known semantics, bounds, and torn tails.
 - [x] Native companion-log queue tests for bounded prebuffer/pending overflow, incremental service, start/write/flush failure isolation, and deterministic stop.
 - [x] Source-contract tests prove primary RKT4 observe, stop, flush, and checkpoint work precedes companion-log work and radio dispatch.
+- [x] Native companion-recovery tests for RKT4-header/flight binding, clean records, CRC corruption, short reads, invalid headers, and torn-tail accounting.
+- [x] Source-contract test proves boot recovery reports `.SEN` evidence without deleting or truncating the companion file.
 - [x] Simulated ascent/descent, GPS dropout, radio metrics, graphing, relative map, and CSV logging.
 - [x] Static safety check for forbidden energetic-device control surfaces.
 - [x] Compile ESP32 V12 firmware with all production libraries locally and in CI.

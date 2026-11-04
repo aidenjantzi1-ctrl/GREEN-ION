@@ -20,6 +20,7 @@ class V12StructureTests(unittest.TestCase):
             "libraries/GreenIonRecorder/src/GreenIonLandingWatcher.h",
             "libraries/GreenIonRecorder/src/GreenIonSensorLog.h",
             "libraries/GreenIonRecorder/src/GreenIonSensorLogCore.h",
+            "libraries/GreenIonRecorder/src/GreenIonSensorRecovery.h",
             "libraries/GreenIonProtocol/src/GreenIonTelemetryQueue.h",
             "libraries/GreenIonProtocol/src/GreenIonRadioRecovery.h",
             "tests/cpp/test_v12_recorder_core.cpp",
@@ -33,6 +34,7 @@ class V12StructureTests(unittest.TestCase):
             "tests/cpp/test_v12_radio_recovery.cpp",
             "tests/cpp/test_v12_sensor_log.cpp",
             "tests/cpp/test_v12_sensor_log_core.cpp",
+            "tests/cpp/test_v12_sensor_recovery.cpp",
             "docs/V12_BUILD_GUIDE.md",
             "docs/V12_WIRING.md", "docs/V12_TESTING.md",
             "docs/V12_DEVELOPMENT_LOG.md", "docs/V12_ROADMAP.md",
@@ -229,6 +231,20 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("Record records_[Capacity]", core)
         self.assertIn("SENSOR_CORE_WRITE_FAILED", core)
         self.assertIn("SENSOR_CORE_FLUSH_FAILED", core)
+
+    def test_sensor_recovery_is_read_only_and_bound_to_rkt4(self):
+        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        recovery = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonSensorRecovery.h").read_text(encoding="utf-8")
+        self.assertGreaterEqual(firmware.count("appendSensorRecoveryEvidence("), 2)
+        self.assertIn('sensorLeaf.replace(".BIN", ".SEN")', firmware)
+        self.assertIn("sensor_binding_valid", firmware)
+        self.assertIn("sensor_valid_prefix_records", firmware)
+        self.assertIn("sensor_trailing_partial_bytes", firmware)
+        self.assertIn("headerMatchesFlight", recovery)
+        self.assertIn("sensor_log::crc32(rkt4Header", recovery)
+        self.assertIn("sensor_log::decodeRecord", recovery)
+        self.assertNotIn("SD.remove(sensorPath)", firmware)
+        self.assertNotIn("sensor.truncate", firmware)
 
 
 if __name__ == "__main__":

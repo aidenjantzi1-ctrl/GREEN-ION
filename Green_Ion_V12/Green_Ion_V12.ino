@@ -31,6 +31,7 @@
 #include <GreenIonLandingWatcher.h>
 #include <GreenIonSensorLog.h>
 #include <GreenIonSensorLogCore.h>
+#include <GreenIonSensorRecovery.h>
 
 #include "Config.h"
 #include "SensorState.h"
@@ -131,6 +132,8 @@ bool checkpointSlotB = false;
 uint32_t recoveredLogs = 0;
 uint32_t recoveredRecords = 0;
 uint32_t recoveredTrailingBytes = 0;
+uint32_t recoveredSensorRecords = 0;
+uint32_t sensorRecoveryIssues = 0;
 uint32_t recoveryPending = 0;
 String recoveryStatus = "Not scanned";
 uint16_t healthBits = 0;
@@ -273,6 +276,87 @@ class SdRecoveryCommitter : public green_ion::recovery::RecoveryCommitter {
   const String &slotBPath_;
 };
 
+static void appendSensorRecoveryEvidence(
+    const String &binLeaf,
+    const uint8_t rkt4Header[green_ion::rkt4::kHeaderBytes], String &report,
+    uint32_t &validSensorRecords, bool &sensorIssue) {
+  validSensorRecords = 0;
+  sensorIssue = false;
+  String sensorLeaf = binLeaf;
+  sensorLeaf.replace(".BIN", ".SEN");
+  const String sensorPath = "/" + sensorLeaf;
+  report += "\nsensor_file=" + sensorLeaf;
+  if (!SD.exists(sensorPath)) {
+    report += "\nsensor_log_present=no\nsensor_log_status=missing\n";
+    return;
+  }
+
+  report += "\nsensor_log_present=yes";
+  File sensor = SD.open(sensorPath, FILE_READ);
+  if (!sensor || static_cast<uint64_t>(sensor.size()) > UINT32_MAX) {
+    if (sensor) sensor.close();
+    report += "\nsensor_log_status=unreadable\n";
+    sensorIssue = true;
+    return;
+  }
+
+  const uint32_t sensorBytes = static_cast<uint32_t>(sensor.size());
+  uint8_t sensorHeaderBytes[green_ion::sensor_log::kHeaderBytes] = {};
+  const int sensorHeaderResult = sensor.read(
+      sensorHeaderBytes, sizeof(sensorHeaderBytes));
+  const size_t sensorHeaderRead = sensorHeaderResult > 0
+      ? static_cast<size_t>(sensorHeaderResult) : 0;
+  green_ion::sensor_log::Header sensorHeader = {};
+  auto inspection = green_ion::sensor_recovery::beginInspection(
+      sensorHeaderBytes, sensorHeaderRead, sensorBytes, sensorHeader);
+  const uint16_t expectedSequence =
+      static_cast<uint16_t>(binLeaf.substring(4, 7).toInt());
+  const bool bindingValid =
+      inspection.headerResult == green_ion::sensor_log::SENSOR_LOG_VALID &&
+      green_ion::sensor_recovery::headerMatchesFlight(
+          sensorHeader, expectedSequence, rkt4Header,
+          green_ion::rkt4::kHeaderBytes);
+
+  uint8_t sensorRecord[green_ion::sensor_log::kRecordBytes];
+  while (inspection.headerResult == green_ion::sensor_log::SENSOR_LOG_VALID &&
+         inspection.recordsInspected < inspection.completeRecords) {
+    const int recordRead = sensor.read(sensorRecord, sizeof(sensorRecord));
+    const size_t bytes = recordRead > 0 ? static_cast<size_t>(recordRead) : 0;
+    if (!green_ion::sensor_recovery::inspectRecord(
+            inspection, sensorRecord, bytes))
+      break;
+  }
+  sensor.close();
+  green_ion::sensor_recovery::finishInspection(inspection);
+  const bool recordsValid =
+      green_ion::sensor_recovery::completeRecordsValid(inspection);
+  const bool healthy = bindingValid && recordsValid && !inspection.trailingBytes;
+  validSensorRecords = inspection.validPrefixRecords;
+  sensorIssue = !healthy;
+
+  report += "\nsensor_actual_bytes=" + String(sensorBytes);
+  report += "\nsensor_header_result=" +
+            String(static_cast<uint8_t>(inspection.headerResult));
+  report += "\nsensor_binding_valid=" + String(bindingValid ? "yes" : "no");
+  report += "\nsensor_complete_records=" + String(inspection.completeRecords);
+  report += "\nsensor_valid_prefix_records=" +
+            String(inspection.validPrefixRecords);
+  report += "\nsensor_trailing_partial_bytes=" +
+            String(inspection.trailingBytes);
+  if (inspection.firstInvalidRecord == UINT32_MAX) {
+    report += "\nsensor_first_invalid_record=none";
+  } else {
+    report += "\nsensor_first_invalid_record=" +
+              String(inspection.firstInvalidRecord);
+  }
+  report += "\nsensor_record_result=" +
+            String(static_cast<uint8_t>(inspection.firstInvalidResult));
+  report += "\nsensor_log_status=";
+  report += healthy ? "valid" :
+            (bindingValid && recordsValid ? "torn_tail" : "invalid");
+  report += "\n";
+}
+
 static bool recoverInterruptedLog(const String &journalLeaf) {
   String binLeaf = journalLeaf;
   binLeaf.replace(journalLeaf.endsWith(".JRB") ? ".JRB" : ".JRA", ".BIN");
@@ -310,7 +394,7 @@ static bool recoverInterruptedLog(const String &journalLeaf) {
   String reportPath = "/" + binLeaf;
   reportPath.replace(".BIN", ".RCV");
   String report;
-  report.reserve(256);
+  report.reserve(640);
   report += "GREEN-ION-RECOVERY-1\nfile=" + binLeaf;
   report += "\nstatus=interrupted";
   report += "\ncheckpoint_generation=" + String(checkpoint.generation);
@@ -318,7 +402,11 @@ static bool recoverInterruptedLog(const String &journalLeaf) {
   report += "\nactual_bytes=" + String(fileBytes);
   report += "\ncomplete_records=" + String(inspection.completeRecords);
   report += "\ntrailing_partial_bytes=" + String(inspection.trailingBytes);
-  report += "\nrkt4_header_valid=yes\n";
+  report += "\nrkt4_header_valid=yes";
+  uint32_t validSensorRecords = 0;
+  bool sensorIssue = false;
+  appendSensorRecoveryEvidence(
+      binLeaf, header, report, validSensorRecords, sensorIssue);
   const bool haveSlotA = SD.exists(slotAPath);
   const bool haveSlotB = SD.exists(slotBPath);
   SdRecoveryCommitter committer(reportPath, report, slotAPath, slotBPath);
@@ -332,6 +420,8 @@ static bool recoverInterruptedLog(const String &journalLeaf) {
   ++recoveredLogs;
   recoveredRecords += inspection.completeRecords;
   recoveredTrailingBytes += inspection.trailingBytes;
+  recoveredSensorRecords += validSensorRecords;
+  if (sensorIssue) ++sensorRecoveryIssues;
   if (commitResult != green_ion::recovery::RECOVERY_COMMITTED) ++recoveryPending;
   return commitResult == green_ion::recovery::RECOVERY_COMMITTED;
 }
@@ -1099,6 +1189,8 @@ static void sendDashboardStatus() {
   body += ",\"recovered_logs\":" + String(recoveredLogs);
   body += ",\"recovered_records\":" + String(recoveredRecords);
   body += ",\"recovered_trailing_bytes\":" + String(recoveredTrailingBytes);
+  body += ",\"recovered_sensor_records\":" + String(recoveredSensorRecords);
+  body += ",\"sensor_recovery_issues\":" + String(sensorRecoveryIssues);
   body += ",\"recovery_pending\":" + String(recoveryPending);
   body += ",\"recovery_status\":\"" + recoveryStatus + "\"}";
   dashboardServer.send(200, "application/json", body);

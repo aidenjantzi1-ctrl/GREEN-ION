@@ -588,3 +588,24 @@ Extend recovery checkpoints to describe the companion file, validate its CRC-fra
 
 - GitHub Actions run `41818282118`: PASS for 70 Python tests, all native C++ suites including bounded companion prebuffer/queue and start/write/flush failures, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `d8be537`.
 
+## 2026-11-04 — Session 24: read-only GIS1 recovery inspection
+
+### Implemented
+
+- Interrupted-flight boot recovery now looks for the matching `V12Dxxx.SEN` after the primary RKT4 header and journal are validated. A missing companion is reported explicitly and does not invalidate older RKT4-only flights.
+- Added a portable fixed-memory inspector that validates the GIS1 header, binds its flight sequence and stored CRC to the exact RKT4 header, and scans each complete 68-byte record through the existing semantic and CRC decoder.
+- Recovery reports now include companion presence, actual bytes, header result, RKT4 binding, complete records, valid CRC prefix, torn-tail bytes, first invalid record/result, and a clear `valid`, `torn_tail`, `invalid`, `unreadable`, or `missing` status.
+- The companion is opened read-only and is never truncated or deleted. Primary recovery-report durability and journal-cleanup ordering are unchanged. Dashboard JSON exposes recovered companion records and recovery issues.
+- Added native tests for correct/mismatched flight binding, changed RKT4 headers, clean records, corrupt record CRC, short reads, bad GIS1 headers, and torn-tail accounting. CI now builds and runs this suite.
+
+### Evidence
+
+- Browser RKT4 analysis test: PASS.
+- `git diff --check`: PASS before documentation updates.
+- The Windows Python launcher, WSL checkout access, native C++ compiler, and Arduino CLI remain unavailable. Full Python/native execution and both target compilations are **PENDING CI**.
+- Physical power-loss, SD-removal, FAT behavior, recovery duration on a full flight, and real companion-file corruption remain **NOT TESTED**.
+
+### Next task
+
+Extend alternating recovery checkpoints with optional companion committed-byte/count evidence while retaining backward compatibility with existing GIC1 journals, then add deterministic offline GIS1 export.
+
