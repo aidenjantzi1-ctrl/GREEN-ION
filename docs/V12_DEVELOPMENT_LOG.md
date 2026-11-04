@@ -476,3 +476,7 @@ Add a deterministic first-packet LoRa bench mode shared by the Feather and Uno, 
 
 Move RadioHead work behind a fixed-capacity telemetry queue and a recorder-priority SPI scheduler. Add portable failure tests for full-queue replacement/drop behavior, radio-busy timeouts, send failure, and continued recorder progress.
 
+### CI follow-up
+
+- GitHub Actions run `41784707287`: PASS for 66 Python tests, all native C++ suites, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `cb75e43`.
+
