@@ -667,3 +667,25 @@ Add deterministic module/failure-injection interfaces for sensor initialization/
 
 - GitHub Actions run `41844654990`: PASS for 72 committed Python tests including GIS1 binding, corruption, torn-tail, GPS-state, and CSV export cases; all native C++ suites; Adafruit Feather ESP32 V2 compilation; Arduino Uno R3 compilation; and development artifact upload on commit `dae5241`.
 
+## 2026-11-04 — Session 27: coordinated recorder failure injection
+
+### Implemented
+
+- Added a native integration harness that runs the real portable `RecorderCore` and `SensorLogCore` together through independent injectable byte sinks, matching the firmware's primary-first observation order.
+- Simulated absent IMU and GPS from startup. The companion stores explicit invalid/missing fields while the essential pressure recorder continues and flushes normally.
+- Simulated live GPS transitioning to stale last-known coordinates and then missing. Flags decode exactly as live, stale, and missing while primary RKT4 recording remains active.
+- Injected mid-run companion write and flush failures. Both latch the correct secondary status while primary samples before and after the fault remain writable and flushable.
+- Injected primary SD record-write and flush failures. Both stop the primary recorder and latch the explicit fatal status, preserving the firmware's distinction between essential storage loss and optional companion degradation.
+- CI now compiles and executes this coordinated harness alongside the existing unit, format, recovery, scheduling, and radio-failure suites.
+
+### Evidence
+
+- Browser RKT4 analysis test: PASS.
+- `git diff --check`: PASS before documentation updates.
+- No native C++ compiler, usable Python launcher, or Arduino CLI is available locally. Native execution, the full regression suite, and both target compilations are **PENDING CI**.
+- This is deterministic host failure injection, not physical SD removal, power loss, I2C disconnection, GPS reception, or shared-SPI timing evidence. Those hardware tests remain **NOT TESTED**.
+
+### Next task
+
+Extract deterministic sensor and storage interfaces needed to inject barometer initialization/runtime loss and recovery through the firmware decision path, then extend the integration harness to boot recovery and checkpoint/report failures.
+

@@ -20,6 +20,7 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Native GIC2 golden-vector and rejection tests for companion byte/count alignment, flags, file bounds, CRC, and backward-compatible GIC1 decoding.
 - [x] Source-contract test proves firmware advances companion checkpoint evidence only after a successful `.SEN` flush.
 - [x] Offline GIS1 parser/export tests for header and record CRCs, RKT4 binding, filename identity, live/stale/missing GPS rows, corruption, torn tails, and deterministic CSV columns.
+- [x] Coordinated native failure harness using both production recorder cores for absent IMU/GPS, live-to-stale-to-missing GPS loss, secondary write/flush failure isolation, and fatal primary SD write/flush failure.
 - [x] Simulated ascent/descent, GPS dropout, radio metrics, graphing, relative map, and CSV logging.
 - [x] Static safety check for forbidden energetic-device control surfaces.
 - [x] Compile ESP32 V12 firmware with all production libraries locally and in CI.
@@ -33,7 +34,7 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Add a fixed-format metadata golden vector plus filename, value, and buffer-bound rejection tests.
 - [x] Add native landing-watcher tests for stationary false positives, descent, adaptive stability, invalid samples, gaps, anchor movement, and timestamp rollover.
 - [x] Integrate landing finalization with recorder stop success/failure and completion-metadata golden/error tests.
-- [ ] Add deterministic SD write-error and sensor-init failure harnesses.
+- [ ] Add deterministic barometer initialization/runtime-loss and firmware storage-adapter failure harnesses.
 - [ ] Port the remaining V11 autonomous flight watcher, recovery checkpoints, dashboard, control lease, and OTA paths with regression tests.
 
 ## Hardware-only tests — NOT TESTED

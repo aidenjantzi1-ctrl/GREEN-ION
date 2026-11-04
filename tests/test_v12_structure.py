@@ -36,6 +36,7 @@ class V12StructureTests(unittest.TestCase):
             "tests/cpp/test_v12_sensor_log.cpp",
             "tests/cpp/test_v12_sensor_log_core.cpp",
             "tests/cpp/test_v12_sensor_recovery.cpp",
+            "tests/cpp/test_v12_recording_failures.cpp",
             "tests/test_v12_sensor_export.py",
             "docs/V12_BUILD_GUIDE.md",
             "docs/V12_WIRING.md", "docs/V12_TESTING.md",

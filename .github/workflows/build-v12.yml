@@ -88,6 +88,11 @@ jobs:
             tests/cpp/test_v12_sensor_recovery.cpp \
             -o /tmp/test-v12-sensor-recovery
           /tmp/test-v12-sensor-recovery
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_recording_failures.cpp \
+            -o /tmp/test-v12-recording-failures
+          /tmp/test-v12-recording-failures
 
   compile-firmware:
     runs-on: ubuntu-latest
