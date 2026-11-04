@@ -20,7 +20,8 @@ Never power or transmit from an RFM95W without a suitable 915 MHz antenna firmly
 1. Power everything off. Solder the two RFM95W breakouts and their antenna connectors correctly. On the Feather radio use shared SPI SCK 5, MOSI 19, MISO 21, plus CS 27, RST 15, DIO0 32, 3.3 V, and GND. SD uses the same three SPI lines but its own CS 33. Check that both CS lines are distinct and high when idle.
 2. Connect the Arduino Uno receiver radio according to `docs/V12_WIRING.md`, attach its antenna, upload `Ground_Receiver/Ground_Receiver.ino`, and open its Serial Monitor at 115200 baud.
 3. Attach the Feather radio antenna, upload the V12 Feather sketch, and keep the boards a short bench distance apart. The Uno should print CRC-valid JSON packets with increasing sequence numbers. IMU, pressure, altitude, GPS status, and packet-loss fields should be present even when a sensor is missing.
-4. If no packet arrives, power down before checking 3.3 V power, grounds, antenna connections, SPI pins, CS/RST/DIO0, and the matching modem settings. Do not increase transmit power as a first troubleshooting step.
+4. In the Feather Serial Monitor, enter `radio status` and confirm the displayed modem settings match the Uno startup JSON. Then enter `radio test`. The Feather sends five CRC-protected packets marked as a bench test. Success is five Uno lines with `"type":"radio_bench"`, increasing sequence numbers, and an RSSI value.
+5. If no packet arrives, power down before checking 3.3 V power, grounds, antenna connections, SPI pins, CS/RST/DIO0, and the matching modem settings. Do not increase transmit power as a first troubleshooting step.
 
 ## 3. Before combining everything
 

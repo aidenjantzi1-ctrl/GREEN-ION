@@ -10,6 +10,7 @@ static const uint8_t kProtocolVersion = 2;
 static const uint8_t kMessageTelemetry = 1;
 static const uint16_t kPayloadBytes = 62;
 static const uint32_t kGpsCurrentMaxAgeMs = 3000;
+static const uint16_t kBenchRadioMarker = 0xB12Cu;
 
 enum TelemetryFlags : uint16_t {
   FLAG_GPS_HAS_POSITION = 1u << 0,
@@ -128,6 +129,10 @@ inline bool hasPosition(const TelemetryPacket &packet) {
 inline bool hasCurrentPosition(const TelemetryPacket &packet) {
   return hasPosition(packet) && (packet.flags & FLAG_GPS_CURRENT) != 0 &&
          packet.gpsFixAgeMs <= kGpsCurrentMaxAgeMs;
+}
+
+inline bool isBenchRadioPacket(const TelemetryPacket &packet) {
+  return packet.reserved == kBenchRadioMarker;
 }
 
 }  // namespace green_ion

@@ -13,7 +13,7 @@
 ## Phase 2 — complete pre-hardware software
 
 - [x] Add independent serial bench diagnostics for LSM6DSO32 and PA1010D, including explicit units, live/stale GPS semantics, and first-day procedures.
-- [ ] Add a first-packet LoRa bench mode and verify the shared Feather/Uno modem and packet contract before sensor integration.
+- [x] Add a first-packet LoRa bench mode and verify the shared Feather/Uno modem and packet contract before sensor integration.
 - [ ] Add a bounded telemetry queue so radio work can never delay the recorder or overlap essential SD operations.
 
 - [x] Extract V11's immutable RKT4 v2 format into a portable module and write collision-safe raw V12 SD logs.

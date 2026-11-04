@@ -39,6 +39,7 @@ static void printScaledDegrees(int32_t value) {
 
 static void printTelemetry(const green_ion::TelemetryPacket &packet, int16_t rssi) {
   const bool current = green_ion::hasCurrentPosition(packet);
+  const bool bench = green_ion::isBenchRadioPacket(packet);
   if (green_ion::hasPosition(packet)) {
     haveLastPosition = true;
     lastLatitudeE7 = packet.latitudeE7;
@@ -46,7 +47,8 @@ static void printTelemetry(const green_ion::TelemetryPacket &packet, int16_t rss
     lastPositionReceivedMs = millis();
   }
 
-  Serial.print(F("{\"type\":\"telemetry\",\"protocol\":"));
+  Serial.print(bench ? F("{\"type\":\"radio_bench\",\"protocol\":") :
+                       F("{\"type\":\"telemetry\",\"protocol\":"));
   Serial.print(packet.version);
   Serial.print(F(",\"sequence\":"));
   Serial.print(packet.sequence);
@@ -119,7 +121,17 @@ void setup() {
   radio.setSpreadingFactor(green_ion::radio_config::kSpreadingFactor);
   radio.setSignalBandwidth(green_ion::radio_config::kSignalBandwidthHz);
   radio.setCodingRate4(green_ion::radio_config::kCodingRateDenominator);
-  Serial.println(F("{\"type\":\"receiver_status\",\"ok\":true}"));
+  Serial.print(F("{\"type\":\"receiver_status\",\"ok\":true,\"frequency_mhz\":"));
+  Serial.print(green_ion::radio_config::kFrequencyMhz, 1);
+  Serial.print(F(",\"bandwidth_hz\":"));
+  Serial.print(green_ion::radio_config::kSignalBandwidthHz);
+  Serial.print(F(",\"spreading_factor\":"));
+  Serial.print(green_ion::radio_config::kSpreadingFactor);
+  Serial.print(F(",\"coding_rate\":\"4/"));
+  Serial.print(green_ion::radio_config::kCodingRateDenominator);
+  Serial.print(F("\",\"tx_power_dbm\":"));
+  Serial.print(green_ion::radio_config::kTxPowerDbm);
+  Serial.println(F(",\"antenna_required\":true}"));
 }
 
 void loop() {

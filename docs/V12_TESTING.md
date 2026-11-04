@@ -9,6 +9,7 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Shared transmitter/receiver radio constants for provisional 920.5 MHz, 125 kHz bandwidth, spreading factor 7, coding rate 4/5, and 13 dBm transmit power.
 - [x] Live/stale/missing GPS classification test; stale coordinates remain last-known, never current.
 - [x] Source-contract test for bounded IMU/GPS Serial bench commands, explicit IMU units/range/rate, runtime read validation, and current-fix gating.
+- [x] Source-contract test for a five-packet LoRa bench marker, CRC-preserving shared packet layout, explicit receiver identification, and matching modem output.
 - [x] Simulated ascent/descent, GPS dropout, radio metrics, graphing, relative map, and CSV logging.
 - [x] Static safety check for forbidden energetic-device control surfaces.
 - [x] Compile ESP32 V12 firmware with all production libraries locally and in CI.

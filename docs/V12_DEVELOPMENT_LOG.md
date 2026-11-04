@@ -452,3 +452,27 @@ Add a deterministic first-packet LoRa bench mode shared by the Feather and Uno, 
 
 - GitHub Actions run `41783269086`: PASS for 65 Python tests, all native C++ suites, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `19e21aa`.
 
+## 2026-11-03 — Session 19: first-packet LoRa bench test
+
+### Implemented
+
+- Added `radio test` and `radio status` commands to the Feather Serial interface. The test sends exactly five marked packets and reports each transmitted sequence number, remaining count, initialization failure, and send failure.
+- Reused the existing fixed 70-byte telemetry packet and CRC. A shared reserved-field marker identifies bench packets without creating a second radio format or changing existing telemetry decoding.
+- The Uno now identifies marked packets as `radio_bench` JSON while retaining protocol version, sequence, RSSI, telemetry fields, validation, and counters.
+- The Uno startup status and Feather `radio status` output expose the same frequency, bandwidth, spreading factor, coding rate, and transmit power so a first-day mismatch is visible before transmission.
+- Added an explicit antenna warning and updated the first-day guide with the exact five-packet success evidence.
+- Inspected the installed RadioHead implementation: `RH_RF95::send()` waits for a previous transmission and performs channel-activity detection before starting asynchronous TX. The old claim that the call itself was nonblocking was removed; shared-SPI/recorder safety remains incomplete until the bounded queue milestone.
+
+### Evidence
+
+- Python V11/V12 regression suite: 66 tests passed.
+- Browser RKT4 analysis test: PASS.
+- Arduino Uno R3 production target: local `arduino-cli` compile PASS (exit 0).
+- `git diff --check`: PASS before documentation updates.
+- The local Adafruit Feather ESP32 V2 compile produced no diagnostics and did not return within the bounded five-minute poll window. This is not recorded as a pass or source failure; CI compilation is required.
+- Physical RFM95W initialization, packet reception, RSSI, range, CRC behavior, antenna safety, and shared-SPI timing remain **NOT TESTED**.
+
+### Next task
+
+Move RadioHead work behind a fixed-capacity telemetry queue and a recorder-priority SPI scheduler. Add portable failure tests for full-queue replacement/drop behavior, radio-busy timeouts, send failure, and continued recorder progress.
+

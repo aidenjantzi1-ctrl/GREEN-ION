@@ -138,6 +138,21 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("state.gpsHasPosition && state.gpsFixCurrent", firmware)
         self.assertIn("bool gpsFixCurrent = false", state)
 
+    def test_first_packet_radio_bench_contract(self):
+        protocol = (ROOT / "libraries" / "GreenIonProtocol" / "src" / "GreenIonProtocol.h").read_text(encoding="utf-8")
+        transmitter = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        receiver = (ROOT / "Ground_Receiver" / "Ground_Receiver.ino").read_text(encoding="utf-8")
+        self.assertIn("kBenchRadioMarker", protocol)
+        self.assertIn("isBenchRadioPacket", protocol)
+        self.assertIn('!strcmp(serialCommand, "radio test")', transmitter)
+        self.assertIn("radioBenchPacketsRemaining = 5", transmitter)
+        self.assertIn("packet.reserved = green_ion::kBenchRadioMarker", transmitter)
+        self.assertIn("RH_RF95::send starts TX asynchronously", transmitter)
+        self.assertIn("can first wait for a prior", transmitter)
+        self.assertIn("green_ion::isBenchRadioPacket(packet)", receiver)
+        self.assertIn('F("{\\\"type\\\":\\\"radio_bench\\\",\\\"protocol\\\":")', receiver)
+        self.assertIn('F(",\\\"antenna_required\\\":true}")', receiver)
+
 
 if __name__ == "__main__":
     unittest.main()

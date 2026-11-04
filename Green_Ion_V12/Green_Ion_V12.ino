@@ -96,6 +96,9 @@ float watcherSpeedMps = NAN;
 uint32_t watcherPreviousMs = 0;
 
 uint32_t telemetrySequence = 0;
+uint32_t radioSendFailures = 0;
+uint16_t radioBenchPacketsSent = 0;
+uint8_t radioBenchPacketsRemaining = 0;
 uint32_t lastGpsServiceMs = 0;
 uint32_t lastBenchOutputMs = 0;
 uint32_t lastTelemetryMs = 0;
@@ -520,8 +523,30 @@ static void applySerialCommand(uint32_t nowMs) {
   else if (!strcmp(serialCommand, "bench all")) benchMode = BENCH_ALL;
   else if (!strcmp(serialCommand, "bench off")) benchMode = BENCH_OFF;
   else if (!strcmp(serialCommand, "bench status")) printBenchStatus(nowMs);
+  else if (!strcmp(serialCommand, "radio test")) {
+    if (!state.radioOk) {
+      Serial.println("BENCH RADIO status=INIT_FAILED; test not started");
+      return;
+    }
+    radioBenchPacketsRemaining = 5;
+    lastTelemetryMs = nowMs - config::TELEMETRY_INTERVAL_MS;
+    Serial.println("BENCH RADIO status=START packets=5 antenna_required=1");
+    return;
+  }
+  else if (!strcmp(serialCommand, "radio status")) {
+    Serial.printf(
+        "BENCH RADIO status=%s sent=%u remaining=%u send_failures=%lu "
+        "frequency_mhz=%.1f bandwidth_hz=%ld sf=%u coding_rate=4/%u power_dbm=%d\n",
+        state.radioOk ? "READY" : "FAILED", radioBenchPacketsSent,
+        radioBenchPacketsRemaining,
+        static_cast<unsigned long>(radioSendFailures),
+        config::LORA_FREQUENCY_MHZ, config::LORA_SIGNAL_BANDWIDTH_HZ,
+        config::LORA_SPREADING_FACTOR, config::LORA_CODING_RATE_DENOMINATOR,
+        config::LORA_TX_POWER_DBM);
+    return;
+  }
   else {
-    Serial.println("Commands: bench imu | bench gps | bench all | bench status | bench off");
+    Serial.println("Commands: bench imu | bench gps | bench all | bench status | bench off | radio test | radio status");
     return;
   }
   Serial.printf("BENCH mode=%u\n", static_cast<unsigned int>(benchMode));
@@ -943,6 +968,7 @@ static void transmitTelemetry(uint32_t nowMs) {
   const uint32_t age = gpsAgeMs(nowMs);
   green_ion::TelemetryPacket packet;
   green_ion::initialize(packet);
+  const bool benchPacket = radioBenchPacketsRemaining > 0;
   packet.sequence = telemetrySequence++;
   packet.uptimeMs = nowMs;
   packet.latitudeE7 = state.gpsHasPosition ? clampI32(state.latitude * 1e7) : 0;
@@ -965,13 +991,26 @@ static void transmitTelemetry(uint32_t nowMs) {
   packet.flightState = flightState;
   packet.flags = telemetryFlags(age);
   packet.health = healthBits;
+  if (benchPacket) packet.reserved = green_ion::kBenchRadioMarker;
   green_ion::seal(packet);
 
   digitalWrite(config::PIN_SD_CS, HIGH);
   if (!radio.send(reinterpret_cast<uint8_t *>(&packet), sizeof(packet))) {
+    ++radioSendFailures;
     state.radioOk = false;
+    Serial.printf("BENCH RADIO status=SEND_FAILED sequence=%lu failures=%lu\n",
+                  static_cast<unsigned long>(packet.sequence),
+                  static_cast<unsigned long>(radioSendFailures));
+  } else if (benchPacket) {
+    --radioBenchPacketsRemaining;
+    ++radioBenchPacketsSent;
+    Serial.printf("BENCH RADIO status=TX sequence=%lu remaining=%u\n",
+                  static_cast<unsigned long>(packet.sequence),
+                  radioBenchPacketsRemaining);
   }
-  // Do not block waiting for packet completion; logging owns the critical path.
+  // RH_RF95::send starts TX asynchronously, but it can first wait for a prior
+  // packet and channel activity. The bounded radio queue must remove this call
+  // from the recorder-critical path before shared-SPI timing is considered safe.
 }
 
 void setup() {
@@ -991,7 +1030,8 @@ void setup() {
   initializeDashboard();
   Serial.printf("GREEN ION V12 dev: baro=%d imu=%d gps=%d sd=%d radio=%d\n",
                 state.barometerOk, state.imuOk, state.gpsOk, state.sdOk, state.radioOk);
-  Serial.println("Serial bench output is ON. Commands: bench imu | bench gps | bench all | bench status | bench off");
+  Serial.println("Serial bench output is ON. Commands: bench imu | bench gps | bench all | bench status | bench off | radio test | radio status");
+  Serial.println("RADIO SAFETY: attach a suitable antenna before entering 'radio test'.");
   sampleClock.start(micros());
 }
 
