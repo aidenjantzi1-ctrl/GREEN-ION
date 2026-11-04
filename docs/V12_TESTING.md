@@ -8,6 +8,7 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Round-trip codec test and rejection of corrupted, truncated, and unsupported-version packets.
 - [x] Shared transmitter/receiver radio constants for provisional 920.5 MHz, 125 kHz bandwidth, spreading factor 7, coding rate 4/5, and 13 dBm transmit power.
 - [x] Live/stale/missing GPS classification test; stale coordinates remain last-known, never current.
+- [x] Source-contract test for bounded IMU/GPS Serial bench commands, explicit IMU units/range/rate, runtime read validation, and current-fix gating.
 - [x] Simulated ascent/descent, GPS dropout, radio metrics, graphing, relative map, and CSV logging.
 - [x] Static safety check for forbidden energetic-device control surfaces.
 - [x] Compile ESP32 V12 firmware with all production libraries locally and in CI.
@@ -29,6 +30,7 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [ ] Confirm I2C discovery and addresses with all three devices connected.
 - [ ] Confirm 50/100 Hz IMU acquisition without dropped SD samples.
 - [ ] Confirm GPS cold/warm start, outdoor fix, fix age, and last-known behavior.
+- [ ] Run `docs/V12_FIRST_DAY_TEST.md` on the LSM6DSO32 and PA1010D and record measured output.
 - [ ] Confirm SD and RFM95W coexist on shared SPI under sustained writes and 1 Hz transmissions.
 - [ ] Coordinate the channel with ROC, then measure 920.5 MHz packet range, loss, sequence gaps, CRC errors, RSSI, and recovery after signal loss.
 - [ ] Measure battery-divider accuracy against a multimeter and current draw in every state.

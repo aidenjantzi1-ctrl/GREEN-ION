@@ -97,6 +97,7 @@ uint32_t watcherPreviousMs = 0;
 
 uint32_t telemetrySequence = 0;
 uint32_t lastGpsServiceMs = 0;
+uint32_t lastBenchOutputMs = 0;
 uint32_t lastTelemetryMs = 0;
 uint32_t lastFlushMs = 0;
 uint32_t lastCheckpointMs = 0;
@@ -113,6 +114,17 @@ uint32_t recoveryPending = 0;
 String recoveryStatus = "Not scanned";
 uint16_t healthBits = 0;
 green_ion::FlightState flightState = green_ion::STATE_IDLE;
+
+enum BenchMode : uint8_t {
+  BENCH_OFF = 0,
+  BENCH_IMU,
+  BENCH_GPS,
+  BENCH_ALL,
+};
+
+BenchMode benchMode = BENCH_ALL;
+char serialCommand[32] = {};
+uint8_t serialCommandLength = 0;
 
 static uint16_t clampU16(float value) {
   if (!isfinite(value) || value <= 0) return 0;
@@ -390,16 +402,28 @@ static bool readSensors() {
     sensors_event_t accel;
     sensors_event_t gyro;
     sensors_event_t temperature;
-    imu.getEvent(&accel, &gyro, &temperature);
-    state.accelX = accel.acceleration.x;
-    state.accelY = accel.acceleration.y;
-    state.accelZ = accel.acceleration.z;
-    state.accelMagnitude = sqrtf(state.accelX * state.accelX +
-                                 state.accelY * state.accelY +
-                                 state.accelZ * state.accelZ);
-    state.gyroX = gyro.gyro.x;
-    state.gyroY = gyro.gyro.y;
-    state.gyroZ = gyro.gyro.z;
+    state.imuDataValid = imu.getEvent(&accel, &gyro, &temperature) &&
+                         isfinite(accel.acceleration.x) &&
+                         isfinite(accel.acceleration.y) &&
+                         isfinite(accel.acceleration.z) &&
+                         isfinite(gyro.gyro.x) && isfinite(gyro.gyro.y) &&
+                         isfinite(gyro.gyro.z);
+    if (state.imuDataValid) {
+      state.accelX = accel.acceleration.x;
+      state.accelY = accel.acceleration.y;
+      state.accelZ = accel.acceleration.z;
+      state.accelMagnitude = sqrtf(state.accelX * state.accelX +
+                                   state.accelY * state.accelY +
+                                   state.accelZ * state.accelZ);
+      state.gyroX = gyro.gyro.x;
+      state.gyroY = gyro.gyro.y;
+      state.gyroZ = gyro.gyro.z;
+    } else {
+      ++state.imuReadFailures;
+      healthBits |= green_ion::HEALTH_IMU_READ_ERROR;
+      state.accelX = state.accelY = state.accelZ = state.accelMagnitude = NAN;
+      state.gyroX = state.gyroY = state.gyroZ = NAN;
+    }
   }
 
   state.batteryMv = static_cast<uint16_t>(analogReadMilliVolts(config::PIN_BATTERY) * 2u);
@@ -412,12 +436,17 @@ static void serviceGps(uint32_t nowMs) {
   gps.read();
   if (!gps.newNMEAreceived()) return;
   char *sentence = gps.lastNMEA();
-  if (!sentence || !gps.parse(sentence)) return;
+  if (!sentence || !gps.parse(sentence)) {
+    ++state.gpsParseFailures;
+    return;
+  }
+  state.lastGpsSentenceMs = nowMs;
   state.satellites = gps.satellites;
   state.gpsHour = gps.hour;
   state.gpsMinute = gps.minute;
   state.gpsSecond = gps.seconds;
-  if (gps.fix) {
+  state.gpsFixCurrent = gps.fix;
+  if (state.gpsFixCurrent) {
     state.gpsHasPosition = true;
     state.lastGpsFixMs = nowMs;
     state.latitude = gps.latitudeDegrees;
@@ -429,6 +458,95 @@ static void serviceGps(uint32_t nowMs) {
 
 static uint32_t gpsAgeMs(uint32_t nowMs) {
   return state.gpsHasPosition ? nowMs - state.lastGpsFixMs : UINT32_MAX;
+}
+
+static bool gpsPositionCurrent(uint32_t nowMs) {
+  return state.gpsHasPosition && state.gpsFixCurrent &&
+         gpsAgeMs(nowMs) <= config::GPS_CURRENT_MAX_AGE_MS;
+}
+
+static void printImuBenchStatus() {
+  if (!state.imuOk) {
+    Serial.println("BENCH IMU status=INIT_FAILED expected_i2c=0x6A_or_0x6B");
+    return;
+  }
+  if (!state.imuDataValid) {
+    Serial.printf("BENCH IMU status=READ_FAILED failures=%lu\n",
+                  static_cast<unsigned long>(state.imuReadFailures));
+    return;
+  }
+  const float toG = 1.0f / 9.80665f;
+  const float toDegrees = 180.0f / PI;
+  Serial.printf(
+      "BENCH IMU status=OK range=+-32g rate_hz=104 "
+      "accel_mps2=%.3f,%.3f,%.3f accel_g=%.3f,%.3f,%.3f "
+      "gyro_rad_s=%.3f,%.3f,%.3f gyro_dps=%.2f,%.2f,%.2f\n",
+      state.accelX, state.accelY, state.accelZ,
+      state.accelX * toG, state.accelY * toG, state.accelZ * toG,
+      state.gyroX, state.gyroY, state.gyroZ,
+      state.gyroX * toDegrees, state.gyroY * toDegrees,
+      state.gyroZ * toDegrees);
+}
+
+static void printGpsBenchStatus(uint32_t nowMs) {
+  if (!state.gpsOk) {
+    Serial.println("BENCH GPS status=INIT_FAILED expected_i2c=0x10");
+    return;
+  }
+  if (!state.gpsHasPosition) {
+    Serial.printf("BENCH GPS status=NO_FIX satellites=%u parse_failures=%lu\n",
+                  state.satellites,
+                  static_cast<unsigned long>(state.gpsParseFailures));
+    return;
+  }
+  const uint32_t age = gpsAgeMs(nowMs);
+  Serial.printf(
+      "BENCH GPS status=%s fix=%d satellites=%u age_ms=%lu "
+      "last_lat=%.7f last_lon=%.7f last_alt_m=%.2f utc=%02u:%02u:%02u\n",
+      gpsPositionCurrent(nowMs) ? "LIVE" : "STALE",
+      state.gpsFixCurrent ? 1 : 0, state.satellites,
+      static_cast<unsigned long>(age), state.latitude, state.longitude,
+      state.gpsAltitudeM, state.gpsHour, state.gpsMinute, state.gpsSecond);
+}
+
+static void printBenchStatus(uint32_t nowMs) {
+  if (benchMode == BENCH_IMU || benchMode == BENCH_ALL) printImuBenchStatus();
+  if (benchMode == BENCH_GPS || benchMode == BENCH_ALL) printGpsBenchStatus(nowMs);
+}
+
+static void applySerialCommand(uint32_t nowMs) {
+  if (!strcmp(serialCommand, "bench imu")) benchMode = BENCH_IMU;
+  else if (!strcmp(serialCommand, "bench gps")) benchMode = BENCH_GPS;
+  else if (!strcmp(serialCommand, "bench all")) benchMode = BENCH_ALL;
+  else if (!strcmp(serialCommand, "bench off")) benchMode = BENCH_OFF;
+  else if (!strcmp(serialCommand, "bench status")) printBenchStatus(nowMs);
+  else {
+    Serial.println("Commands: bench imu | bench gps | bench all | bench status | bench off");
+    return;
+  }
+  Serial.printf("BENCH mode=%u\n", static_cast<unsigned int>(benchMode));
+}
+
+static void serviceSerialBench(uint32_t nowMs) {
+  while (Serial.available()) {
+    const char value = static_cast<char>(Serial.read());
+    if (value == '\r') continue;
+    if (value == '\n') {
+      serialCommand[serialCommandLength] = '\0';
+      if (serialCommandLength) applySerialCommand(nowMs);
+      serialCommandLength = 0;
+    } else if (serialCommandLength + 1 < sizeof(serialCommand)) {
+      serialCommand[serialCommandLength++] = value;
+    } else {
+      serialCommandLength = 0;
+      Serial.println("BENCH command too long; input cleared");
+    }
+  }
+  if (benchMode != BENCH_OFF &&
+      nowMs - lastBenchOutputMs >= config::BENCH_OUTPUT_INTERVAL_MS) {
+    lastBenchOutputMs = nowMs;
+    printBenchStatus(nowMs);
+  }
 }
 
 static void resetCalibration(uint32_t nowMs) {
@@ -753,7 +871,8 @@ static void appendLog(uint32_t nowUs, uint32_t nowMs, bool valid) {
 static uint16_t telemetryFlags(uint32_t ageMs) {
   uint16_t flags = 0;
   if (state.gpsHasPosition) flags |= green_ion::FLAG_GPS_HAS_POSITION;
-  if (state.gpsHasPosition && ageMs <= config::GPS_CURRENT_MAX_AGE_MS)
+  if (state.gpsFixCurrent && state.gpsHasPosition &&
+      ageMs <= config::GPS_CURRENT_MAX_AGE_MS)
     flags |= green_ion::FLAG_GPS_CURRENT;
   if (state.sdOk) flags |= green_ion::FLAG_SD_OK;
   if (state.imuOk) flags |= green_ion::FLAG_IMU_OK;
@@ -767,7 +886,7 @@ static uint16_t telemetryFlags(uint32_t ageMs) {
 static void sendDashboardStatus() {
   const uint32_t age = gpsAgeMs(millis());
   const char *gpsStatus = !state.gpsHasPosition ? "missing" :
-                          (age <= config::GPS_CURRENT_MAX_AGE_MS ? "live" : "stale");
+                          (gpsPositionCurrent(millis()) ? "live" : "stale");
   const float radiansToDegrees = 180.0f / PI;
   const auto numberOrNull = [](float value, uint8_t decimals) {
     return isfinite(value) ? String(value, static_cast<unsigned int>(decimals)) : String("null");
@@ -872,6 +991,7 @@ void setup() {
   initializeDashboard();
   Serial.printf("GREEN ION V12 dev: baro=%d imu=%d gps=%d sd=%d radio=%d\n",
                 state.barometerOk, state.imuOk, state.gpsOk, state.sdOk, state.radioOk);
+  Serial.println("Serial bench output is ON. Commands: bench imu | bench gps | bench all | bench status | bench off");
   sampleClock.start(micros());
 }
 
@@ -884,6 +1004,7 @@ void loop() {
     appendLog(nowUs, nowMs, barometerReadingValid);
   }
   serviceGps(nowMs);
+  serviceSerialBench(nowMs);
 
   if (state.sdOk && recorderCore.recording() && nowMs - lastFlushMs >= config::LOG_FLUSH_INTERVAL_MS) {
     lastFlushMs = nowMs;

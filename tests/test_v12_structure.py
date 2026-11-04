@@ -29,6 +29,7 @@ class V12StructureTests(unittest.TestCase):
             "docs/V12_WIRING.md", "docs/V12_TESTING.md",
             "docs/V12_DEVELOPMENT_LOG.md", "docs/V12_ROADMAP.md",
             "docs/V12_HARDWARE_BRINGUP.md",
+            "docs/V12_FIRST_DAY_TEST.md",
         )
         for path in paths:
             self.assertTrue((ROOT / path).is_file(), path)
@@ -121,6 +122,21 @@ class V12StructureTests(unittest.TestCase):
         ).lower()
         for forbidden in ("fire_igniter", "/api/ignition", "deploy_parachute", "stage_separation"):
             self.assertNotIn(forbidden, source)
+
+    def test_imu_and_gps_serial_bench_contract(self):
+        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        state = (ROOT / "Green_Ion_V12" / "SensorState.h").read_text(encoding="utf-8")
+        for token in (
+            "BENCH IMU status=OK", "range=+-32g", "rate_hz=104",
+            "accel_mps2=", "accel_g=", "gyro_rad_s=", "gyro_dps=",
+            "BENCH GPS status=%s", '"LIVE" : "STALE"',
+            "bench imu | bench gps | bench all | bench status | bench off",
+        ):
+            self.assertIn(token, firmware)
+        self.assertIn("state.imuDataValid = imu.getEvent", firmware)
+        self.assertIn("state.gpsFixCurrent = gps.fix", firmware)
+        self.assertIn("state.gpsHasPosition && state.gpsFixCurrent", firmware)
+        self.assertIn("bool gpsFixCurrent = false", state)
 
 
 if __name__ == "__main__":

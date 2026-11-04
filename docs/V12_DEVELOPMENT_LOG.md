@@ -424,3 +424,27 @@ Integrate the landing watcher into the recording state, then finalize only after
 
 Add a deterministic end-to-end recorder mission harness covering calibration, launch, prebuffer drain, landing, successful finalization, metadata failure, and stop-flush failure before marking the recorder-core port complete.
 
+## 2026-11-03 — Session 18: IMU and GPS first-day bench mode
+
+### Implemented
+
+- Synchronized remote branches and confirmed no newer commits on `origin/codex/green-ion-v12`; brought over only the eight obsolete `CODEX_HANDOFF.md`/`suggestions/` removal commits from `main`, leaving its README and V11 changes untouched.
+- Added bounded Serial commands (`bench imu`, `bench gps`, `bench all`, `bench status`, and `bench off`) with once-per-second output enabled by default.
+- IMU output now names both native SI units and convenient bench units: acceleration in m/s² and g, and angular rate in rad/s and degrees/s. It reports the configured ±32 g range and 104 Hz data rate.
+- Validates every LSM6DSO32 event read and all six numeric axes. Invalid runtime reads clear the published sample, increment a failure counter, and latch an IMU-read health bit without stopping the recorder.
+- GPS state now tracks the current parsed fix separately from the last valid position. A recent last-known coordinate is no longer marked `LIVE` after a parsed no-fix sentence; bench output reports `NO_FIX`, `LIVE`, or `STALE` with fix state, satellites, age, position, altitude, and UTC.
+- Added `docs/V12_FIRST_DAY_TEST.md` with the exact Feather-first, cable-only IMU/GPS, antenna safety, Uno, and first-radio steps.
+
+### Evidence
+
+- Python V11/V12 regression suite: 65 tests passed.
+- Browser RKT4 analysis test: PASS.
+- `git diff --check`: PASS before documentation updates.
+- Arduino Uno R3 production target: local `arduino-cli` compile PASS (exit 0).
+- Adafruit Feather ESP32 V2 compile was attempted with the installed production toolchain. The process produced no diagnostic output and did not return an exit code within the bounded wait, so this run does **not** claim a local Feather compile pass; CI compilation is required before completion.
+- Physical LSM6DSO32, PA1010D, radio, shared-SPI, sensor-accuracy, and GPS-fix tests remain **NOT TESTED** pending the November 4 hardware.
+
+### Next task
+
+Add a deterministic first-packet LoRa bench mode shared by the Feather and Uno, then implement the bounded transmit queue/shared-SPI scheduling needed to keep telemetry below recorder priority.
+

@@ -31,6 +31,7 @@ static const uint16_t CALIBRATION_TARGET_SAMPLES = 96;
 static const uint16_t CALIBRATION_MAX_ATTEMPTS = 125;
 static const uint32_t CALIBRATION_RETRY_MS = 5000;
 static const uint32_t GPS_SERVICE_INTERVAL_MS = 20;
+static const uint32_t BENCH_OUTPUT_INTERVAL_MS = 1000;
 static const uint32_t TELEMETRY_INTERVAL_MS = 1000;
 static const uint32_t LOG_FLUSH_INTERVAL_MS = 500;
 static const uint32_t CHECKPOINT_INTERVAL_MS = 5000;

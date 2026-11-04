@@ -6,6 +6,7 @@
 struct SensorState {
   bool barometerOk = false;
   bool imuOk = false;
+  bool imuDataValid = false;
   bool gpsOk = false;
   bool sdOk = false;
   bool radioOk = false;
@@ -25,7 +26,11 @@ struct SensorState {
   uint16_t batteryMv = 0;
 
   bool gpsHasPosition = false;
+  bool gpsFixCurrent = false;
   uint32_t lastGpsFixMs = 0;
+  uint32_t lastGpsSentenceMs = 0;
+  uint32_t imuReadFailures = 0;
+  uint32_t gpsParseFailures = 0;
   double latitude = 0.0;
   double longitude = 0.0;
   float gpsAltitudeM = NAN;
