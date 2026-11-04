@@ -504,3 +504,8 @@ Move RadioHead work behind a fixed-capacity telemetry queue and a recorder-prior
 
 Add bounded radio reinitialization after startup or runtime failure and deterministic failure-injection tests that prove the recorder continues while radio service degrades and recovers. Then begin the synchronized full-resolution IMU/GPS companion log.
 
+### CI follow-up
+
+- Run `41795815106` passed all host/native tests but caught a const-incorrect RadioHead send-buffer cast before the Uno step. Commit `15fe85c` corrected only that compile error.
+- GitHub Actions run `41796060698`: PASS for 67 Python tests, all native C++ suites including telemetry queue/policy failures and rollover, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload.
+
