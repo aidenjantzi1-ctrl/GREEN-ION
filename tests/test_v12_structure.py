@@ -19,6 +19,7 @@ class V12StructureTests(unittest.TestCase):
             "libraries/GreenIonRecorder/src/GreenIonMetadata.h",
             "libraries/GreenIonRecorder/src/GreenIonLandingWatcher.h",
             "libraries/GreenIonRecorder/src/GreenIonSensorLog.h",
+            "libraries/GreenIonRecorder/src/GreenIonSensorLogCore.h",
             "libraries/GreenIonProtocol/src/GreenIonTelemetryQueue.h",
             "libraries/GreenIonProtocol/src/GreenIonRadioRecovery.h",
             "tests/cpp/test_v12_recorder_core.cpp",
@@ -31,6 +32,7 @@ class V12StructureTests(unittest.TestCase):
             "tests/cpp/test_v12_telemetry_queue.cpp",
             "tests/cpp/test_v12_radio_recovery.cpp",
             "tests/cpp/test_v12_sensor_log.cpp",
+            "tests/cpp/test_v12_sensor_log_core.cpp",
             "docs/V12_BUILD_GUIDE.md",
             "docs/V12_WIRING.md", "docs/V12_TESTING.md",
             "docs/V12_DEVELOPMENT_LOG.md", "docs/V12_ROADMAP.md",
@@ -202,6 +204,31 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("crc32(out, 64)", sensor_log)
         self.assertIn('memcpy(out, "RKT4", 4)', rkt4)
         self.assertIn("kVersion = 2", rkt4)
+
+    def test_sensor_log_firmware_preserves_primary_recorder_priority(self):
+        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        config = (ROOT / "Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
+        core = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonSensorLogCore.h").read_text(encoding="utf-8")
+        self.assertIn("SENSOR_LOG_QUEUE_RECORDS = 16", config)
+        self.assertIn("SENSOR_LOG_SERVICE_GUARD_US = 7000", config)
+        self.assertIn('sensorLogFilename.replace(".BIN", ".SEN")', firmware)
+        self.assertIn("SensorLogCore<config::PREBUFFER_RECORDS", firmware)
+        self.assertIn("sensorLogCore.observe(makeSensorLogRecord(nowUs, nowMs))", firmware)
+        self.assertIn("serviceSensorLog(nowMs, micros())", firmware)
+        self.assertLess(
+            firmware.index("recorderCore.observe(record)"),
+            firmware.index("sensorLogCore.observe(makeSensorLogRecord"),
+        )
+        self.assertLess(
+            firmware.index("recorderCore.stop()"),
+            firmware.index("sensorLogCore.stop()"),
+        )
+        loop = firmware[firmware.index("void loop()") :]
+        self.assertLess(loop.index("recorderCore.flush()"), loop.index("serviceSensorLog(nowMs"))
+        self.assertLess(loop.index("serviceSensorLog(nowMs"), loop.index("serviceTelemetry(nowMs"))
+        self.assertIn("Record records_[Capacity]", core)
+        self.assertIn("SENSOR_CORE_WRITE_FAILED", core)
+        self.assertIn("SENSOR_CORE_FLUSH_FAILED", core)
 
 
 if __name__ == "__main__":

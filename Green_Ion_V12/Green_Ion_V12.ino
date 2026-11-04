@@ -29,6 +29,8 @@
 #include <GreenIonSampleClock.h>
 #include <GreenIonMetadata.h>
 #include <GreenIonLandingWatcher.h>
+#include <GreenIonSensorLog.h>
+#include <GreenIonSensorLogCore.h>
 
 #include "Config.h"
 #include "SensorState.h"
@@ -39,8 +41,10 @@ Adafruit_LSM6DSO32 imu;
 Adafruit_GPS gps(&Wire);
 RH_RF95 radio(config::PIN_LORA_CS, config::PIN_LORA_DIO0);
 File logFile;
+File sensorLogFile;
 SensorState state;
 String logFilename;
+String sensorLogFilename;
 String checkpointFilenameA;
 String checkpointFilenameB;
 String metadataFilename;
@@ -70,7 +74,11 @@ class SdFileSink : public green_ion::recorder::ByteSink {
 };
 
 SdFileSink logSink;
+SdFileSink sensorLogSink;
 green_ion::recorder::RecorderCore<config::PREBUFFER_RECORDS> recorderCore;
+green_ion::sensor_log::SensorLogCore<config::PREBUFFER_RECORDS,
+                                     config::SENSOR_LOG_QUEUE_RECORDS>
+    sensorLogCore;
 green_ion::recorder::SampleClock sampleClock(config::SENSOR_INTERVAL_US);
 green_ion::flight::FlightWatcher flightWatcher;
 green_ion::flight::LandingWatcher landingWatcher;
@@ -110,11 +118,14 @@ uint32_t lastGpsServiceMs = 0;
 uint32_t lastBenchOutputMs = 0;
 uint32_t lastTelemetryMs = 0;
 uint32_t lastFlushMs = 0;
+uint32_t lastSensorLogFlushMs = 0;
 uint32_t lastCheckpointMs = 0;
 uint32_t checkpointGeneration = 0;
 uint32_t checkpointFailures = 0;
 uint32_t metadataFailures = 0;
 uint32_t finalizationFailures = 0;
+uint32_t sensorLogSequence = 0;
+uint32_t sensorLogFailures = 0;
 uint32_t recordingStartedMs = 0;
 bool checkpointSlotB = false;
 uint32_t recoveredLogs = 0;
@@ -817,10 +828,13 @@ static bool finalizeRecording(uint32_t nowMs) {
     state.recording = false;
     recorderMode = RECORDER_FAULT;
     if (logFile) logFile.close();
+    if (sensorLogFile) sensorLogFile.close();
     return false;
   }
   const uint64_t size = static_cast<uint64_t>(logFile.size());
   logFile.close();
+  if (sensorLogCore.active() && !sensorLogCore.stop()) ++sensorLogFailures;
+  if (sensorLogFile) sensorLogFile.close();
   state.recording = false;
   if (size > UINT32_MAX ||
       !writeCompletionMetadata(nowMs, static_cast<uint32_t>(size))) {
@@ -844,7 +858,7 @@ static bool finalizeRecording(uint32_t nowMs) {
   return true;
 }
 
-static bool openRawLog(uint32_t nowMs) {
+static bool openRawLog(uint32_t nowMs, uint32_t nowUs) {
   if (!state.sdOk || logFile) return static_cast<bool>(logFile);
   digitalWrite(config::PIN_LORA_CS, HIGH);
   for (uint16_t sequence = 0; sequence < 1000; ++sequence) {
@@ -862,6 +876,8 @@ static bool openRawLog(uint32_t nowMs) {
   checkpointFilenameB.replace(".BIN", ".JRB");
   metadataFilename = logFilename;
   metadataFilename.replace(".BIN", ".TXT");
+  sensorLogFilename = logFilename;
+  sensorLogFilename.replace(".BIN", ".SEN");
   checkpointGeneration = 0;
   checkpointSlotB = false;
   recordingStartedMs = nowMs;
@@ -871,6 +887,7 @@ static bool openRawLog(uint32_t nowMs) {
     checkpointFilenameA = "";
     checkpointFilenameB = "";
     metadataFilename = "";
+    sensorLogFilename = "";
     return false;
   }
 
@@ -887,6 +904,7 @@ static bool openRawLog(uint32_t nowMs) {
     checkpointFilenameA = "";
     checkpointFilenameB = "";
     metadataFilename = "";
+    sensorLogFilename = "";
     healthBits |= green_ion::HEALTH_SD_WRITE_ERROR;
     state.sdOk = false;
     return false;
@@ -895,7 +913,90 @@ static bool openRawLog(uint32_t nowMs) {
   lastCheckpointMs = nowMs;
   saveCheckpoint(nowMs);  // RecorderCore::start already flushed header and prebuffer.
   writeStartMetadata();    // Metadata failure never stops the primary BIN recorder.
+
+  // The full-resolution companion is deliberately secondary: the primary BIN
+  // is already flushed, checkpointed, and described before this file is opened.
+  uint8_t rkt4HeaderBytes[green_ion::rkt4::kHeaderBytes];
+  const uint16_t flightSequence =
+      static_cast<uint16_t>(logFilename.substring(5, 8).toInt());
+  const green_ion::sensor_log::Header sensorHeader = {
+    config::SENSOR_RATE_HZ,
+    flightSequence,
+    nowUs,
+    green_ion::rkt4::encodeHeader(rkt4HeaderBytes, header)
+        ? green_ion::sensor_log::crc32(rkt4HeaderBytes, sizeof(rkt4HeaderBytes))
+        : 0,
+  };
+  digitalWrite(config::PIN_LORA_CS, HIGH);
+  sensorLogFile = SD.open(sensorLogFilename, FILE_WRITE);
+  if (!sensorLogFile) {
+    ++sensorLogFailures;
+  } else {
+    sensorLogSink.attach(sensorLogFile);
+    if (!sensorLogCore.start(sensorLogSink, sensorHeader)) {
+      ++sensorLogFailures;
+      sensorLogFile.close();
+    } else {
+      lastSensorLogFlushMs = nowMs;
+    }
+  }
   return true;
+}
+
+static green_ion::sensor_log::Record makeSensorLogRecord(uint32_t nowUs,
+                                                          uint32_t nowMs) {
+  uint16_t flags = 0;
+  if (state.imuDataValid) flags |= green_ion::sensor_log::FLAG_IMU_VALID;
+  const bool positionValid = state.gpsHasPosition &&
+      isfinite(state.latitude) && isfinite(state.longitude) &&
+      state.latitude >= -90.0 && state.latitude <= 90.0 &&
+      state.longitude >= -180.0 && state.longitude <= 180.0 &&
+      isfinite(state.gpsAltitudeM) && isfinite(state.gpsSpeedMps);
+  if (positionValid) flags |= green_ion::sensor_log::FLAG_GPS_HAS_POSITION;
+  if (positionValid && gpsPositionCurrent(nowMs))
+    flags |= green_ion::sensor_log::FLAG_GPS_CURRENT;
+  return {
+    nowUs,
+    sensorLogSequence++,
+    state.accelX,
+    state.accelY,
+    state.accelZ,
+    state.gyroX,
+    state.gyroY,
+    state.gyroZ,
+    positionValid ? clampI32(state.latitude * 1e7) : 0,
+    positionValid ? clampI32(state.longitude * 1e7) : 0,
+    positionValid ? state.gpsAltitudeM : 0.0f,
+    positionValid ? state.gpsSpeedMps : 0.0f,
+    positionValid ? gpsAgeMs(nowMs) : UINT32_MAX,
+    positionValid ? state.lastGpsFixMs : 0,
+    flags,
+    state.satellites <= 64 ? state.satellites : 64,
+    state.gpsHour,
+    state.gpsMinute,
+    state.gpsSecond,
+  };
+}
+
+static void serviceSensorLog(uint32_t nowMs, uint32_t nowUs) {
+  if (!sensorLogCore.active() || !sensorLogFile) return;
+  const uint32_t marginUs = sampleClock.nextDeadlineUs() - nowUs;
+  if (marginUs >= 0x80000000u ||
+      marginUs < config::SENSOR_LOG_SERVICE_GUARD_US)
+    return;
+  if (!sensorLogCore.serviceOne()) {
+    ++sensorLogFailures;
+    sensorLogFile.close();
+    return;
+  }
+  if (sensorLogCore.queuedRecords() == 0 &&
+      nowMs - lastSensorLogFlushMs >= config::LOG_FLUSH_INTERVAL_MS) {
+    lastSensorLogFlushMs = nowMs;
+    if (!sensorLogCore.flushIfDrained()) {
+      ++sensorLogFailures;
+      sensorLogFile.close();
+    }
+  }
 }
 
 static void appendLog(uint32_t nowUs, uint32_t nowMs, bool valid) {
@@ -908,13 +1009,14 @@ static void appendLog(uint32_t nowUs, uint32_t nowMs, bool valid) {
     valid,
   };
   recorderCore.observe(record);
+  sensorLogCore.observe(makeSensorLogRecord(nowUs, nowMs));
   processCalibration(nowMs, valid);
   if (recorderMode == RECORDER_FAULT && calibrationRetryAtMs &&
       static_cast<int32_t>(nowMs - calibrationRetryAtMs) >= 0)
     resetCalibration(nowMs);
   updateFlightEstimate(nowMs, valid);
   if (updateLaunchWatcher(nowMs, valid)) {
-    if (state.sdOk && openRawLog(nowMs)) {
+    if (state.sdOk && openRawLog(nowMs, nowUs)) {
       recorderMode = RECORDER_RECORDING;
       flightState = green_ion::STATE_ASCENT;
       if (!landingWatcher.begin(nowMs, {
@@ -934,6 +1036,7 @@ static void appendLog(uint32_t nowUs, uint32_t nowMs, bool valid) {
     state.recording = false;
     recorderMode = RECORDER_FAULT;
     if (logFile) logFile.close();
+    if (sensorLogFile) sensorLogFile.close();
   }
 }
 
@@ -985,6 +1088,11 @@ static void sendDashboardStatus() {
   body += ",\"checkpoint_failures\":" + String(checkpointFailures);
   body += ",\"metadata_file\":\"" + metadataFilename + "\"";
   body += ",\"metadata_failures\":" + String(metadataFailures);
+  body += ",\"sensor_log_file\":\"" + sensorLogFilename + "\"";
+  body += ",\"sensor_log_failures\":" + String(sensorLogFailures);
+  body += ",\"sensor_log_pending\":" + String(sensorLogCore.queuedRecords());
+  body += ",\"sensor_log_dropped\":" + String(sensorLogCore.droppedRecords());
+  body += ",\"sensor_log_status\":" + String(static_cast<uint8_t>(sensorLogCore.status()));
   body += ",\"finalization_failures\":" + String(finalizationFailures);
   body += ",\"landing_peak_m\":" + numberOrNull(landingWatcher.peakAltitudeM(), 2);
   body += ",\"missed_sample_periods\":" + String(sampleClock.missedPeriods());
@@ -1115,10 +1223,15 @@ void loop() {
       state.recording = false;
       recorderMode = RECORDER_FAULT;
       if (logFile) logFile.close();
+      if (sensorLogFile) sensorLogFile.close();
     } else if (nowMs - lastCheckpointMs >= config::CHECKPOINT_INTERVAL_MS) {
       saveCheckpoint(nowMs);
     }
   }
+
+  // Only spend remaining sample-cycle time on the companion after the primary
+  // BIN flush/checkpoint path has completed.
+  serviceSensorLog(nowMs, micros());
 
   serviceRadioRecovery(nowMs);
   queueTelemetry(nowMs);

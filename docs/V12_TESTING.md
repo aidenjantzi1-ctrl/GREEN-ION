@@ -13,6 +13,8 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Native fixed-capacity telemetry-queue tests for FIFO order, oldest replacement, drop accounting, radio/storage busy deferral, sample-deadline margin, and `micros()` rollover.
 - [x] Native radio-recovery tests for transient failure reset, threshold degradation, retry backoff, recorder-critical deferral, initialization failure, recovery, invalid configuration, and timestamp rollover.
 - [x] Native companion sensor-log golden vectors and rejection tests for header/record CRC, truncation, invalid rate/flight identity, IMU validity, GPS current/last-known semantics, bounds, and torn tails.
+- [x] Native companion-log queue tests for bounded prebuffer/pending overflow, incremental service, start/write/flush failure isolation, and deterministic stop.
+- [x] Source-contract tests prove primary RKT4 observe, stop, flush, and checkpoint work precedes companion-log work and radio dispatch.
 - [x] Simulated ascent/descent, GPS dropout, radio metrics, graphing, relative map, and CSV logging.
 - [x] Static safety check for forbidden energetic-device control surfaces.
 - [x] Compile ESP32 V12 firmware with all production libraries locally and in CI.

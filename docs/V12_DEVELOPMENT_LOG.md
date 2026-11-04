@@ -563,3 +563,24 @@ Integrate the `GIS1` companion file beside each `V12Dxxx.BIN`, write records fro
 
 - GitHub Actions run `41811405967`: PASS for 69 Python tests, all native C++ suites including exact `GIS1` golden bytes and corruption/semantic/torn-tail failures, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `76988d6`.
 
+## 2026-11-04 — Session 23: recorder-priority GIS1 firmware integration
+
+### Implemented
+
+- Each confirmed V12 flight now opens a matching `V12Dxxx.SEN` companion only after the primary RKT4 header/prebuffer has been flushed, its first recovery checkpoint saved, and start metadata attempted.
+- Added a fixed-memory sensor-log core with the existing 150-sample prebuffer and a 16-record post-launch queue. Startup writes only the 32-byte companion header; prelaunch sensor records are drained incrementally when at least 7 ms remains before the next 50 Hz sample instead of blocking launch-time acquisition with a bulk write.
+- Every companion record uses the same `micros()` value as its RKT4 sample and stores validated full-resolution IMU axes plus live/stale last-known GPS fields. The header binds the `.SEN` to its flight number and matching RKT4-header CRC.
+- Primary RKT4 observe, periodic flush/checkpoint, and final stop/flush execute before companion service. Companion open, start, write, flush, queue-overflow, or final-stop failure increments separate status and never marks the primary SD recorder failed.
+- Added native failure injection for start/write/flush failures, incremental prebuffer service, bounded overflow/drop accounting, and ordered shutdown. Dashboard JSON exposes companion filename, state, backlog, drops, and failures.
+
+### Evidence
+
+- Browser RKT4 analysis test: PASS.
+- `git diff --check`: PASS before documentation updates.
+- The Windows Python launcher, WSL checkout access, native C++ compiler, and Arduino CLI are unavailable in this run. The full Python suite, new native queue suite, and both production target compilations are **PENDING CI** and must pass before this milestone is complete.
+- Physical SD latency, 50 Hz timing, GIS1/RKT4 timestamp alignment, queue depth/drop rate, power-loss/torn-tail behavior, real IMU/GPS values, and shared-SPI behavior remain **NOT TESTED**.
+
+### Next task
+
+Extend recovery checkpoints to describe the companion file, validate its CRC-framed complete records and torn tail without modifying it, then add deterministic offline export. Hardware testing remains governed by `docs/V12_FIRST_DAY_TEST.md`.
+

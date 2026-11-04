@@ -17,7 +17,8 @@
 - [x] Add a bounded telemetry queue so radio work is deferred behind recorder/flush operations and guarded from the next sample deadline.
 - [x] Add bounded radio degradation/recovery policy that never performs blocking reinitialization during recorder-critical states.
 - [x] Define a separate CRC-protected full-resolution IMU/GPS binary format synchronized to the immutable RKT4 v2 flight.
-- [ ] Integrate the IMU/GPS companion log with recorder-priority SD writes, flush/checkpoint recovery, and offline export.
+- [x] Integrate the IMU/GPS companion log with a bounded recorder-priority SD queue and failure isolation from RKT4.
+- [ ] Extend companion-log checkpoints/recovery and offline export without changing RKT4 v2.
 
 - [x] Extract V11's immutable RKT4 v2 format into a portable module and write collision-safe raw V12 SD logs.
 - [x] Put both radios on one provisional 920.5 MHz modem contract and expand telemetry v2 with pressure, both altitude sources, acceleration axes/magnitude, and rotation axes.
