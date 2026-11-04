@@ -640,3 +640,26 @@ Add a deterministic offline GIS1 parser/export path that validates header bindin
 - Run `41835223285` passed all committed Python source tests but stopped the native job because two negative-test aggregate initializers omitted the newly added fields under `-Werror=missing-field-initializers`. Commit `d93013f` explicitly zero-initialized those test-only fields; production firmware logic was unchanged.
 - GitHub Actions run `41835459801`: PASS for 67 committed Python tests, all native C++ suites including exact GIC2 bytes, GIC1 compatibility, secondary alignment/count/flag/file-bound failures, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `d93013f`.
 
+## 2026-11-04 — Session 26: deterministic offline GIS1 export
+
+### Implemented
+
+- Added `Ground_Station/sensor_log.py`, a dependency-free read-only GIS1 validator and CSV exporter for Windows or any standard Python 3 environment.
+- The parser validates magic/version/layout, header CRC, filename flight sequence, optional matching RKT4 v2 header CRC, every complete record CRC, semantic flags, finite valid IMU/GPS fields, coordinate/time bounds, sequence gaps, and torn tails.
+- CSV output has fixed columns and explicit SI units. IMU-invalid axes are blank. GPS rows are classified as `live`, `stale`, or `missing`; stale last-known coordinates remain available but are never labeled current.
+- Corrupt or torn input is reported with valid-prefix count and first invalid record/reason. Default export refuses partial input; `--allow-partial` is required to export only the verified prefix. A mismatched RKT4 binding can never be overridden.
+- The original `.SEN` and `.BIN` files are never modified. Updated the existing ground-station README with the exact export command and safety behavior.
+- Added focused tests for clean live/stale/missing records, RKT4 and filename mismatches, record corruption, torn tails, invalid header CRC, unlabeled positions, deterministic column order, and CSV values.
+- With autonomous watching, prebuffering, GIC2 checkpoints, read-only recovery, calibration, metadata, fixed-rate sampling, GIS1 logging, and offline export present, the detailed V11 recorder-core port item is now complete. Remaining work is failure-injection interfaces and the unified Flight dashboard/features.
+
+### Evidence
+
+- Browser RKT4 analysis test: PASS.
+- `git diff --check`: PASS before documentation updates.
+- The local Windows Python launcher is unavailable, so the new Python parser tests and full regression suite are **PENDING CI**. Native suites and both target compilations are also **PENDING CI**.
+- No physical `.SEN` file, SD card, IMU, GPS, radio, or flight data was used. Real-file export performance and hardware behavior remain **NOT TESTED**.
+
+### Next task
+
+Add deterministic module/failure-injection interfaces for sensor initialization/runtime loss and SD write/flush failure, preserving primary recorder evidence before beginning dashboard feature restoration.
+

@@ -20,7 +20,7 @@
 - [x] Integrate the IMU/GPS companion log with a bounded recorder-priority SD queue and failure isolation from RKT4.
 - [x] Add read-only boot recovery inspection for companion header binding, complete-record CRCs, corrupt records, and torn tails.
 - [x] Extend alternating checkpoints with backward-compatible, successfully flushed companion byte/count evidence.
-- [ ] Add deterministic offline GIS1 export without changing RKT4 v2.
+- [x] Add deterministic offline GIS1 validation and CSV export without changing RKT4 v2.
 
 - [x] Extract V11's immutable RKT4 v2 format into a portable module and write collision-safe raw V12 SD logs.
 - [x] Put both radios on one provisional 920.5 MHz modem contract and expand telemetry v2 with pressure, both altitude sources, acceleration axes/magnitude, and rotation axes.
@@ -36,7 +36,7 @@
 - [x] Write bounded per-flight metadata tied to the RKT4 filename, calibration, sample rate, battery, prebuffer, and checkpoint format.
 - [x] Add a portable pressure-only landing watcher for recorder finalization with stability, gap, invalid-sample, and rollover tests.
 - [x] Integrate automatic landing finalization with BIN stop/flush, completion metadata, and recovery-journal cleanup ordered last.
-- [ ] Complete the V11 recorder-core port: autonomous flight watcher, prebuffer, checkpoints, recovery, calibration, metadata, and rate control.
+- [x] Complete the V11 recorder-core port: autonomous flight watcher, prebuffer, checkpoints, recovery, calibration, metadata, and rate control.
 - [ ] Add deterministic module interfaces and mocks for barometer, IMU, GPS, storage, radio, battery, and time.
 - [ ] Add failure-injection integration tests for init loss, mid-run GPS/radio loss, SD write failure, and recovery.
 - [ ] Expand the ground station with sequence-gap statistics, session metadata, explicit download, and replay.

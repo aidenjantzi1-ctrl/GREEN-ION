@@ -19,6 +19,7 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Source-contract test proves boot recovery reports `.SEN` evidence without deleting or truncating the companion file.
 - [x] Native GIC2 golden-vector and rejection tests for companion byte/count alignment, flags, file bounds, CRC, and backward-compatible GIC1 decoding.
 - [x] Source-contract test proves firmware advances companion checkpoint evidence only after a successful `.SEN` flush.
+- [x] Offline GIS1 parser/export tests for header and record CRCs, RKT4 binding, filename identity, live/stale/missing GPS rows, corruption, torn tails, and deterministic CSV columns.
 - [x] Simulated ascent/descent, GPS dropout, radio metrics, graphing, relative map, and CSV logging.
 - [x] Static safety check for forbidden energetic-device control surfaces.
 - [x] Compile ESP32 V12 firmware with all production libraries locally and in CI.

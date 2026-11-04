@@ -26,3 +26,18 @@ py -3 ground_station.py --port COM5
 
 The relative map does not need an internet connection or paid map service. It intentionally omits street/satellite tiles; coordinates remain available for copying to a separate navigation app.
 
+## Export a full-resolution flight log
+
+Copy the matching `V12Dxxx.SEN` and `V12Dxxx.BIN` files from the SD card, then run:
+
+```powershell
+py -3 sensor_log.py V12D007.SEN --rkt4 V12D007.BIN --csv V12D007-sensors.csv
+```
+
+The exporter validates the GIS1 header, flight filename, matching RKT4-header CRC,
+every complete record CRC, sequence gaps, and any torn tail. GPS rows are labeled
+`live`, `stale`, or `missing`; stale last-known coordinates are never labeled live.
+Corrupt or torn input is not exported unless `--allow-partial` is supplied, and a
+mismatched RKT4 binding is never overridden. The original `.SEN` and `.BIN` files
+are read-only and remain unchanged.
+
