@@ -559,3 +559,7 @@ Design and implement the synchronized CRC-protected full-resolution IMU/GPS comp
 
 Integrate the `GIS1` companion file beside each `V12Dxxx.BIN`, write records from the same sample timestamp without weakening primary RKT4 priority, and add deterministic sink/flush failure behavior before extending checkpoints and offline analysis.
 
+### CI follow-up
+
+- GitHub Actions run `41811405967`: PASS for 69 Python tests, all native C++ suites including exact `GIS1` golden bytes and corruption/semantic/torn-tail failures, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `76988d6`.
+
