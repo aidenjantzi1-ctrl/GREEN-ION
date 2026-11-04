@@ -609,3 +609,7 @@ Extend recovery checkpoints to describe the companion file, validate its CRC-fra
 
 Extend alternating recovery checkpoints with optional companion committed-byte/count evidence while retaining backward compatibility with existing GIC1 journals, then add deterministic offline GIS1 export.
 
+### CI follow-up
+
+- GitHub Actions run `41826379689`: PASS for 71 Python tests, all native C++ suites including GIS1 flight binding, CRC corruption, short-read, bad-header, and torn-tail recovery cases, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `56fed5e`.
+
