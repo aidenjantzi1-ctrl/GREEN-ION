@@ -246,6 +246,25 @@ class V12StructureTests(unittest.TestCase):
         self.assertNotIn("SD.remove(sensorPath)", firmware)
         self.assertNotIn("sensor.truncate", firmware)
 
+    def test_gic2_checkpoints_only_describe_flushed_sensor_bytes(self):
+        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        checkpoint = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonCheckpoint.h").read_text(encoding="utf-8")
+        metadata = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonMetadata.h").read_text(encoding="utf-8")
+        self.assertIn('memcpy(out, "GIC1", 4)', checkpoint)
+        self.assertIn('memcpy(out, "GIC2", 4)', checkpoint)
+        self.assertIn("kCheckpointV1Bytes = 32", checkpoint)
+        self.assertIn("kCheckpointBytes = 48", checkpoint)
+        self.assertIn("sensorCommittedBytes", checkpoint)
+        self.assertIn("sensorCheckpointForFile", checkpoint)
+        self.assertIn("sensorLogCommittedBytes", firmware)
+        self.assertIn("sensorLogCheckpointable", firmware)
+        self.assertIn("sensorLogCore.flushIfDrained()", firmware)
+        self.assertLess(
+            firmware.index("sensorLogCore.flushIfDrained()"),
+            firmware.index("sensorLogCommittedBytes = static_cast<uint32_t>(sensorLogFile.size())", firmware.index("sensorLogCore.flushIfDrained()")),
+        )
+        self.assertIn("checkpoint_format=GIC2", metadata)
+
 
 if __name__ == "__main__":
     unittest.main()

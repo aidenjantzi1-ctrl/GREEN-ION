@@ -70,7 +70,7 @@ inline EncodeResult encodeFlightStart(char *out, size_t capacity,
       "calibration_noise_m=%.3f\n"
       "start_battery_mv=%u\n"
       "prebuffer_records=%u\n"
-      "checkpoint_format=GIC1\n",
+      "checkpoint_format=GIC2\n",
       leaf, static_cast<unsigned int>(rkt4::kVersion),
       static_cast<unsigned int>(metadata.sampleRateHz),
       static_cast<double>(metadata.baselinePressurePa),

@@ -127,6 +127,9 @@ uint32_t metadataFailures = 0;
 uint32_t finalizationFailures = 0;
 uint32_t sensorLogSequence = 0;
 uint32_t sensorLogFailures = 0;
+uint32_t sensorLogCommittedBytes = 0;
+uint32_t sensorLogCommittedRecords = 0;
+bool sensorLogCheckpointable = false;
 uint32_t recordingStartedMs = 0;
 bool checkpointSlotB = false;
 uint32_t recoveredLogs = 0;
@@ -234,11 +237,15 @@ static bool isV12JournalName(const String &name, const char *suffix) {
 static size_t readCheckpointFile(const String &path,
                                  uint8_t out[green_ion::recovery::kCheckpointBytes]) {
   File file = SD.open(path, FILE_READ);
-  if (!file || file.size() != green_ion::recovery::kCheckpointBytes) {
+  if (!file) return 0;
+  const size_t fileBytes = static_cast<size_t>(file.size());
+  if (fileBytes != green_ion::recovery::kCheckpointV1Bytes &&
+      fileBytes != green_ion::recovery::kCheckpointBytes) {
     if (file) file.close();
     return 0;
   }
-  const size_t bytes = file.read(out, green_ion::recovery::kCheckpointBytes);
+  const int readResult = file.read(out, fileBytes);
+  const size_t bytes = readResult > 0 ? static_cast<size_t>(readResult) : 0;
   file.close();
   return bytes;
 }
@@ -279,6 +286,7 @@ class SdRecoveryCommitter : public green_ion::recovery::RecoveryCommitter {
 static void appendSensorRecoveryEvidence(
     const String &binLeaf,
     const uint8_t rkt4Header[green_ion::rkt4::kHeaderBytes], String &report,
+    const green_ion::recovery::Checkpoint &checkpoint,
     uint32_t &validSensorRecords, bool &sensorIssue) {
   validSensorRecords = 0;
   sensorIssue = false;
@@ -288,6 +296,7 @@ static void appendSensorRecoveryEvidence(
   report += "\nsensor_file=" + sensorLeaf;
   if (!SD.exists(sensorPath)) {
     report += "\nsensor_log_present=no\nsensor_log_status=missing\n";
+    sensorIssue = checkpoint.sensorPresent;
     return;
   }
 
@@ -301,6 +310,8 @@ static void appendSensorRecoveryEvidence(
   }
 
   const uint32_t sensorBytes = static_cast<uint32_t>(sensor.size());
+  const bool checkpointWithinFile =
+      green_ion::recovery::sensorCheckpointForFile(checkpoint, sensorBytes);
   uint8_t sensorHeaderBytes[green_ion::sensor_log::kHeaderBytes] = {};
   const int sensorHeaderResult = sensor.read(
       sensorHeaderBytes, sizeof(sensorHeaderBytes));
@@ -330,11 +341,20 @@ static void appendSensorRecoveryEvidence(
   green_ion::sensor_recovery::finishInspection(inspection);
   const bool recordsValid =
       green_ion::sensor_recovery::completeRecordsValid(inspection);
-  const bool healthy = bindingValid && recordsValid && !inspection.trailingBytes;
+  const bool healthy = bindingValid && checkpointWithinFile && recordsValid &&
+                       !inspection.trailingBytes;
   validSensorRecords = inspection.validPrefixRecords;
   sensorIssue = !healthy;
 
   report += "\nsensor_actual_bytes=" + String(sensorBytes);
+  report += "\nsensor_checkpoint_present=" +
+            String(checkpoint.sensorPresent ? "yes" : "no");
+  report += "\nsensor_checkpoint_committed_bytes=" +
+            String(checkpoint.sensorCommittedBytes);
+  report += "\nsensor_checkpoint_record_count=" +
+            String(checkpoint.sensorRecordCount);
+  report += "\nsensor_checkpoint_within_file=" +
+            String(checkpointWithinFile ? "yes" : "no");
   report += "\nsensor_header_result=" +
             String(static_cast<uint8_t>(inspection.headerResult));
   report += "\nsensor_binding_valid=" + String(bindingValid ? "yes" : "no");
@@ -399,6 +419,7 @@ static bool recoverInterruptedLog(const String &journalLeaf) {
   report += "\nstatus=interrupted";
   report += "\ncheckpoint_generation=" + String(checkpoint.generation);
   report += "\ncheckpoint_committed_bytes=" + String(checkpoint.committedBytes);
+  report += "\ncheckpoint_format=GIC" + String(checkpoint.formatVersion);
   report += "\nactual_bytes=" + String(fileBytes);
   report += "\ncomplete_records=" + String(inspection.completeRecords);
   report += "\ntrailing_partial_bytes=" + String(inspection.trailingBytes);
@@ -406,7 +427,7 @@ static bool recoverInterruptedLog(const String &journalLeaf) {
   uint32_t validSensorRecords = 0;
   bool sensorIssue = false;
   appendSensorRecoveryEvidence(
-      binLeaf, header, report, validSensorRecords, sensorIssue);
+      binLeaf, header, report, checkpoint, validSensorRecords, sensorIssue);
   const bool haveSlotA = SD.exists(slotAPath);
   const bool haveSlotB = SD.exists(slotBPath);
   SdRecoveryCommitter committer(reportPath, report, slotAPath, slotBPath);
@@ -815,6 +836,10 @@ static bool saveCheckpoint(uint32_t nowMs) {
     committedBytes,
     static_cast<uint32_t>(green_ion::rkt4::completeRecordCount(committedBytes)),
     nowMs - recordingStartedMs,
+    sensorLogCommittedBytes,
+    sensorLogCommittedRecords,
+    sensorLogCheckpointable,
+    0,
   };
   uint8_t encoded[green_ion::recovery::kCheckpointBytes];
   if (!green_ion::recovery::encodeCheckpoint(encoded, checkpoint)) {
@@ -970,6 +995,9 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs) {
   sensorLogFilename.replace(".BIN", ".SEN");
   checkpointGeneration = 0;
   checkpointSlotB = false;
+  sensorLogCommittedBytes = 0;
+  sensorLogCommittedRecords = 0;
+  sensorLogCheckpointable = false;
   recordingStartedMs = nowMs;
   logFile = SD.open(logFilename, FILE_WRITE);
   if (!logFile) {
@@ -1028,6 +1056,9 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs) {
       sensorLogFile.close();
     } else {
       lastSensorLogFlushMs = nowMs;
+      sensorLogCommittedBytes = static_cast<uint32_t>(sensorLogFile.size());
+      sensorLogCommittedRecords = 0;
+      sensorLogCheckpointable = true;
     }
   }
   return true;
@@ -1085,6 +1116,10 @@ static void serviceSensorLog(uint32_t nowMs, uint32_t nowUs) {
     if (!sensorLogCore.flushIfDrained()) {
       ++sensorLogFailures;
       sensorLogFile.close();
+    } else {
+      sensorLogCommittedBytes = static_cast<uint32_t>(sensorLogFile.size());
+      sensorLogCommittedRecords = static_cast<uint32_t>(
+          green_ion::sensor_log::completeRecordCount(sensorLogCommittedBytes));
     }
   }
 }

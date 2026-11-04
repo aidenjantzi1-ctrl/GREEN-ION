@@ -17,6 +17,8 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Source-contract tests prove primary RKT4 observe, stop, flush, and checkpoint work precedes companion-log work and radio dispatch.
 - [x] Native companion-recovery tests for RKT4-header/flight binding, clean records, CRC corruption, short reads, invalid headers, and torn-tail accounting.
 - [x] Source-contract test proves boot recovery reports `.SEN` evidence without deleting or truncating the companion file.
+- [x] Native GIC2 golden-vector and rejection tests for companion byte/count alignment, flags, file bounds, CRC, and backward-compatible GIC1 decoding.
+- [x] Source-contract test proves firmware advances companion checkpoint evidence only after a successful `.SEN` flush.
 - [x] Simulated ascent/descent, GPS dropout, radio metrics, graphing, relative map, and CSV logging.
 - [x] Static safety check for forbidden energetic-device control surfaces.
 - [x] Compile ESP32 V12 firmware with all production libraries locally and in CI.

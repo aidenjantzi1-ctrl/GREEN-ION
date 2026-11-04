@@ -21,7 +21,7 @@ int main() {
       "calibration_noise_m=0.125\n"
       "start_battery_mv=4010\n"
       "prebuffer_records=150\n"
-      "checkpoint_format=GIC1\n";
+      "checkpoint_format=GIC2\n";
   char output[320];
   size_t written = 0;
   assert(encodeFlightStart(output, sizeof(output), start, written) == METADATA_VALID);

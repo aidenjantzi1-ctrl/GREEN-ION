@@ -19,7 +19,8 @@
 - [x] Define a separate CRC-protected full-resolution IMU/GPS binary format synchronized to the immutable RKT4 v2 flight.
 - [x] Integrate the IMU/GPS companion log with a bounded recorder-priority SD queue and failure isolation from RKT4.
 - [x] Add read-only boot recovery inspection for companion header binding, complete-record CRCs, corrupt records, and torn tails.
-- [ ] Extend companion-log checkpoint coverage and offline export without changing RKT4 v2.
+- [x] Extend alternating checkpoints with backward-compatible, successfully flushed companion byte/count evidence.
+- [ ] Add deterministic offline GIS1 export without changing RKT4 v2.
 
 - [x] Extract V11's immutable RKT4 v2 format into a portable module and write collision-safe raw V12 SD logs.
 - [x] Put both radios on one provisional 920.5 MHz modem contract and expand telemetry v2 with pressure, both altitude sources, acceleration axes/magnitude, and rotation axes.

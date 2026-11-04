@@ -21,15 +21,26 @@ class MockCommitter : public RecoveryCommitter {
 };
 
 int main() {
-  const Checkpoint first = {1, 32 + 10 * 16, 10, 2000};
-  const Checkpoint second = {2, 32 + 20 * 16, 20, 4000};
+  const Checkpoint first = {
+    1, 32 + 10 * 16, 10, 2000, 32 + 3 * 68, 3, true, 0,
+  };
+  const Checkpoint second = {
+    2, 32 + 20 * 16, 20, 4000, 32 + 8 * 68, 8, true, 0,
+  };
   uint8_t slotA[kCheckpointBytes];
   uint8_t slotB[kCheckpointBytes];
   assert(encodeCheckpoint(slotA, first));
   assert(encodeCheckpoint(slotB, second));
-  assert(memcmp(slotA, "GIC1", 4) == 0);
-  const uint8_t firstGoldenCrc[4] = {0x1c, 0xa1, 0x47, 0xab};
-  assert(memcmp(slotA + 28, firstGoldenCrc, sizeof(firstGoldenCrc)) == 0);
+  assert(memcmp(slotA, "GIC2", 4) == 0);
+  const uint8_t firstV2Golden[kCheckpointBytes] = {
+    0x47, 0x49, 0x43, 0x32, 0x02, 0x00, 0x30, 0x00,
+    0x01, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00,
+    0x0a, 0x00, 0x00, 0x00, 0xd0, 0x07, 0x00, 0x00,
+    0xec, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
+    0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0xbe, 0xbe, 0x47, 0x5b,
+  };
+  assert(memcmp(slotA, firstV2Golden, sizeof(firstV2Golden)) == 0);
 
   Checkpoint decoded = {};
   assert(decodeCheckpoint(slotA, sizeof(slotA), decoded) == CHECKPOINT_VALID);
@@ -37,6 +48,21 @@ int main() {
   assert(decoded.committedBytes == first.committedBytes);
   assert(decoded.recordCount == first.recordCount);
   assert(decoded.elapsedMs == first.elapsedMs);
+  assert(decoded.sensorPresent);
+  assert(decoded.sensorCommittedBytes == first.sensorCommittedBytes);
+  assert(decoded.sensorRecordCount == first.sensorRecordCount);
+  assert(decoded.formatVersion == 2);
+  assert(sensorCheckpointForFile(decoded, first.sensorCommittedBytes));
+  assert(!sensorCheckpointForFile(decoded, first.sensorCommittedBytes - 1));
+
+  uint8_t legacy[kCheckpointV1Bytes];
+  assert(encodeCheckpointV1(legacy, first));
+  assert(memcmp(legacy, "GIC1", 4) == 0);
+  const uint8_t legacyGoldenCrc[4] = {0x1c, 0xa1, 0x47, 0xab};
+  assert(memcmp(legacy + 28, legacyGoldenCrc, sizeof(legacyGoldenCrc)) == 0);
+  assert(decodeCheckpoint(legacy, sizeof(legacy), decoded) == CHECKPOINT_VALID);
+  assert(decoded.formatVersion == 1 && !decoded.sensorPresent);
+  assert(decoded.sensorCommittedBytes == 0 && decoded.sensorRecordCount == 0);
 
   Checkpoint selected = {};
   assert(selectNewestCheckpoint(slotA, sizeof(slotA), slotB, sizeof(slotB),
@@ -55,6 +81,17 @@ int main() {
          CHECKPOINT_BEYOND_FILE);
   assert(!encodeCheckpoint(slotA, Checkpoint{3, 33, 0, 0}));
   assert(!encodeCheckpoint(slotA, Checkpoint{3, 48, 2, 0}));
+  assert(!encodeCheckpoint(slotA,
+      Checkpoint{3, 48, 1, 0, 33, 0, true, 0}));
+  assert(!encodeCheckpoint(slotA,
+      Checkpoint{3, 48, 1, 0, 100, 2, true, 0}));
+
+  uint8_t badFlags[kCheckpointBytes];
+  memcpy(badFlags, slotB, sizeof(badFlags));
+  green_ion::rkt4::writeU32(badFlags + 32, 2);
+  green_ion::rkt4::writeU32(badFlags + 44, checkpointCrc32(badFlags, 44));
+  assert(decodeCheckpoint(badFlags, sizeof(badFlags), decoded) ==
+         CHECKPOINT_BAD_FLAGS);
 
   assert(generationIsNewer(0, 0xffffffffu));
   assert(!generationIsNewer(0xffffffffu, 0));

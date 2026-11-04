@@ -613,3 +613,25 @@ Extend alternating recovery checkpoints with optional companion committed-byte/c
 
 - GitHub Actions run `41826379689`: PASS for 71 Python tests, all native C++ suites including GIS1 flight binding, CRC corruption, short-read, bad-header, and torn-tail recovery cases, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `56fed5e`.
 
+## 2026-11-04 — Session 25: backward-compatible companion checkpoints
+
+### Implemented
+
+- Added the 48-byte CRC-protected `GIC2` alternating checkpoint format. It preserves the primary RKT4 generation, committed bytes, record count, and elapsed time while adding an explicit companion-present flag plus committed GIS1 bytes and complete-record count.
+- Companion checkpoint evidence advances only after `flushIfDrained()` succeeds. Pending or merely written `.SEN` records are never represented as durable; open/write/flush failure retains the last successfully flushed prefix.
+- Boot recovery accepts both legacy 32-byte `GIC1` and new `GIC2` journal slots, including mixed alternating slots, and still selects the newest valid primary checkpoint. GIC1 decodes with no companion claim.
+- Recovery reports identify the selected checkpoint format and verify that the claimed companion prefix is within the actual read-only `.SEN` file. A bad secondary claim is reported without preventing primary RKT4 recovery.
+- Start metadata now names `GIC2`. RKT4 v2, GIS1, all V11 files, recovery-report durability, and journal-cleanup ordering remain unchanged.
+- Expanded native checkpoint coverage with an exact GIC2 golden vector, legacy GIC1 golden decode, companion alignment/count/flag/file-bound failures, CRC rejection, and existing generation/fallback cases.
+
+### Evidence
+
+- Browser RKT4 analysis test: PASS.
+- `git diff --check`: PASS before documentation updates.
+- The Windows Python launcher, WSL checkout access, native C++ compiler, and Arduino CLI remain unavailable. Full Python/native execution and both target compilations are **PENDING CI**.
+- Physical checkpoint durability, FAT flush semantics, power-loss timing, journal alternation on real SD media, and sustained 50 Hz companion logging remain **NOT TESTED**.
+
+### Next task
+
+Add a deterministic offline GIS1 parser/export path that validates header binding and record CRCs, preserves live versus stale GPS semantics, and clearly reports corrupt or torn input.
+
