@@ -18,6 +18,7 @@ class V12StructureTests(unittest.TestCase):
             "libraries/GreenIonRecorder/src/GreenIonSampleClock.h",
             "libraries/GreenIonRecorder/src/GreenIonMetadata.h",
             "libraries/GreenIonRecorder/src/GreenIonLandingWatcher.h",
+            "libraries/GreenIonRecorder/src/GreenIonSensorLog.h",
             "libraries/GreenIonProtocol/src/GreenIonTelemetryQueue.h",
             "libraries/GreenIonProtocol/src/GreenIonRadioRecovery.h",
             "tests/cpp/test_v12_recorder_core.cpp",
@@ -29,6 +30,7 @@ class V12StructureTests(unittest.TestCase):
             "tests/cpp/test_v12_landing_watcher.cpp",
             "tests/cpp/test_v12_telemetry_queue.cpp",
             "tests/cpp/test_v12_radio_recovery.cpp",
+            "tests/cpp/test_v12_sensor_log.cpp",
             "docs/V12_BUILD_GUIDE.md",
             "docs/V12_WIRING.md", "docs/V12_TESTING.md",
             "docs/V12_DEVELOPMENT_LOG.md", "docs/V12_ROADMAP.md",
@@ -185,6 +187,21 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("recorderCritical", recovery)
         self.assertIn("consecutiveSendFailures_ < threshold_", recovery)
         self.assertIn("static_cast<int32_t>(nowMs - nextRetryMs_)", recovery)
+
+    def test_sensor_log_is_separate_and_crc_protected(self):
+        sensor_log = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonSensorLog.h").read_text(encoding="utf-8")
+        rkt4 = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonRkt4.h").read_text(encoding="utf-8")
+        self.assertIn('memcpy(out, "GIS1", 4)', sensor_log)
+        self.assertIn("kHeaderBytes = 32", sensor_log)
+        self.assertIn("kRecordBytes = 68", sensor_log)
+        self.assertIn("rkt4HeaderCrc32", sensor_log)
+        self.assertIn("timestampUs", sensor_log)
+        self.assertIn("accelerationX", sensor_log)
+        self.assertIn("gyroZ", sensor_log)
+        self.assertIn("gpsFixAgeMs", sensor_log)
+        self.assertIn("crc32(out, 64)", sensor_log)
+        self.assertIn('memcpy(out, "RKT4", 4)', rkt4)
+        self.assertIn("kVersion = 2", rkt4)
 
 
 if __name__ == "__main__":

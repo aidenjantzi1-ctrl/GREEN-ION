@@ -536,3 +536,26 @@ Design and implement the synchronized CRC-protected full-resolution IMU/GPS comp
 
 - GitHub Actions run `41804444723`: PASS for 68 Python tests, all native C++ suites including radio recovery failure/backoff/rollover scenarios, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `a20fcc1`.
 
+## 2026-11-04 — Session 22: synchronized full-resolution sensor-log contract
+
+### Implemented
+
+- Added a separate `GIS1` binary contract without changing RKT4 v2. Each companion header records its flight sequence, 50 Hz sample rate, common monotonic start timestamp, and the CRC-32 of the matching RKT4 header.
+- Defined a fixed 32-byte header and fixed 68-byte record with explicit little-endian encoding and no struct-layout dependency.
+- Each record uses the same `micros()` time domain as RKT4 and stores a sequence number, float32 X/Y/Z acceleration, float32 X/Y/Z angular rate, latitude/longitude at 1e-7 degrees, GPS altitude/speed, fix age, last-fix uptime, live/stale validity flags, satellites, and UTC fields.
+- Added CRC-32 to every header and record. Validation rejects corrupt/truncated data, unsupported layout/version, invalid sample rate/flight sequence, non-finite valid IMU axes, current GPS without a last-known position, out-of-range coordinates/time/satellite values, and unlabeled stale GPS data.
+- Added complete-record and torn-tail accounting for deterministic later recovery. Existing V11 files and the RKT4 v2 encoder were not modified.
+- Added native exact golden vectors plus round-trip and failure scenarios; CI now builds and executes the suite.
+
+### Evidence
+
+- Python V11/V12 regression suite: 69 tests passed.
+- Browser RKT4 analysis test: PASS.
+- `git diff --check`: PASS before documentation updates.
+- Local native execution was attempted through WSL, but Windows reported that the environment could not access the checkout. Native sensor-log execution and both target compilations are **PENDING CI**.
+- No firmware SD integration was added in this format-only milestone. Physical IMU/GPS sampling, timestamps, companion-file durability, recovery, storage load, and offline analysis remain **NOT TESTED**.
+
+### Next task
+
+Integrate the `GIS1` companion file beside each `V12Dxxx.BIN`, write records from the same sample timestamp without weakening primary RKT4 priority, and add deterministic sink/flush failure behavior before extending checkpoints and offline analysis.
+

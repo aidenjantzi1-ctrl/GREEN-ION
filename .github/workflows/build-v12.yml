@@ -73,6 +73,11 @@ jobs:
             tests/cpp/test_v12_radio_recovery.cpp \
             -o /tmp/test-v12-radio-recovery
           /tmp/test-v12-radio-recovery
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_sensor_log.cpp \
+            -o /tmp/test-v12-sensor-log
+          /tmp/test-v12-sensor-log
 
   compile-firmware:
     runs-on: ubuntu-latest
