@@ -584,3 +584,7 @@ Integrate the `GIS1` companion file beside each `V12Dxxx.BIN`, write records fro
 
 Extend recovery checkpoints to describe the companion file, validate its CRC-framed complete records and torn tail without modifying it, then add deterministic offline export. Hardware testing remains governed by `docs/V12_FIRST_DAY_TEST.md`.
 
+### CI follow-up
+
+- GitHub Actions run `41818282118`: PASS for 70 Python tests, all native C++ suites including bounded companion prebuffer/queue and start/write/flush failures, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `d8be537`.
+
