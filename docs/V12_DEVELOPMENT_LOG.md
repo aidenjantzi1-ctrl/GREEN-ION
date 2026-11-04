@@ -532,3 +532,7 @@ Add bounded radio reinitialization after startup or runtime failure and determin
 
 Design and implement the synchronized CRC-protected full-resolution IMU/GPS companion log without changing RKT4 v2 or any V11 flight file. Begin with a portable fixed binary format and golden/failure tests before SD integration.
 
+### CI follow-up
+
+- GitHub Actions run `41804444723`: PASS for 68 Python tests, all native C++ suites including radio recovery failure/backoff/rollover scenarios, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `a20fcc1`.
+
