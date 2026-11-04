@@ -79,8 +79,10 @@ int main() {
 
   assert(checkpointForFile(slotB, sizeof(slotB), first.committedBytes, decoded) ==
          CHECKPOINT_BEYOND_FILE);
-  assert(!encodeCheckpoint(slotA, Checkpoint{3, 33, 0, 0}));
-  assert(!encodeCheckpoint(slotA, Checkpoint{3, 48, 2, 0}));
+  assert(!encodeCheckpoint(slotA,
+      Checkpoint{3, 33, 0, 0, 0, 0, false, 0}));
+  assert(!encodeCheckpoint(slotA,
+      Checkpoint{3, 48, 2, 0, 0, 0, false, 0}));
   assert(!encodeCheckpoint(slotA,
       Checkpoint{3, 48, 1, 0, 33, 0, true, 0}));
   assert(!encodeCheckpoint(slotA,
