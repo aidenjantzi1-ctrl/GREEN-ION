@@ -663,3 +663,7 @@ Add a deterministic offline GIS1 parser/export path that validates header bindin
 
 Add deterministic module/failure-injection interfaces for sensor initialization/runtime loss and SD write/flush failure, preserving primary recorder evidence before beginning dashboard feature restoration.
 
+### CI follow-up
+
+- GitHub Actions run `41844654990`: PASS for 72 committed Python tests including GIS1 binding, corruption, torn-tail, GPS-state, and CSV export cases; all native C++ suites; Adafruit Feather ESP32 V2 compilation; Arduino Uno R3 compilation; and development artifact upload on commit `dae5241`.
+
