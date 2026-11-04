@@ -1017,7 +1017,7 @@ static void serviceTelemetry(uint32_t nowMs, uint32_t nowUs) {
   lastRadioAttemptMs = nowMs;
 
   digitalWrite(config::PIN_SD_CS, HIGH);
-  if (!radio.send(reinterpret_cast<uint8_t *>(&packet), sizeof(packet))) {
+  if (!radio.send(reinterpret_cast<const uint8_t *>(&packet), sizeof(packet))) {
     ++radioSendFailures;
     Serial.printf("BENCH RADIO status=SEND_FAILED sequence=%lu failures=%lu\n",
                   static_cast<unsigned long>(packet.sequence),
