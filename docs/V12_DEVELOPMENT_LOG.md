@@ -480,3 +480,27 @@ Move RadioHead work behind a fixed-capacity telemetry queue and a recorder-prior
 
 - GitHub Actions run `41784707287`: PASS for 66 Python tests, all native C++ suites, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `cb75e43`.
 
+## 2026-11-03 — Session 20: recorder-priority telemetry queue
+
+### Implemented
+
+- Added a fixed-capacity three-packet telemetry queue with no dynamic allocation. When full, it replaces the oldest unsent snapshot and saturatingly counts drops so the newest recovery data remains available.
+- Split packet creation from radio service. Sensor acquisition, recorder writes, periodic flushes, and checkpoints execute before telemetry dispatch in the loop.
+- Added a portable dispatch policy that refuses radio work when the queue is empty, the radio is unavailable or transmitting, storage is active, the sample deadline has passed, or less than 5 ms remains before the next 50 Hz sample.
+- Explicitly disabled RadioHead CAD waiting and checks `RHModeTx` before calling `send()`, making its previous-packet wait immediate in the single-threaded dispatch path.
+- Transient `send()` failure no longer disables the radio or stops recording. The packet remains queued and retry attempts are limited to once per second; newer data eventually replaces stale packets if the queue stays full.
+- Exposed queued, dropped, and send-failure counts through `radio status`, and added first-day success criteria for all three.
+- Added a native queue/policy suite covering FIFO order, overflow replacement, drop accounting, every busy/unavailable gate, insufficient deadline margin, past deadlines, and `micros()` rollover. CI now builds and runs it.
+
+### Evidence
+
+- Python V11/V12 regression suite: 67 tests passed.
+- Browser RKT4 analysis test: PASS.
+- `git diff --check`: PASS before documentation updates.
+- Native telemetry-queue execution and both board compilations are **PENDING CI**; no native C++ compiler is installed locally, and the local ESP32 compiler has repeatedly failed to return reliable bounded results.
+- Physical SPI transaction exclusion, RFM95W interrupt timing, actual send duration, queue depth under load, SD latency, and uninterrupted 50 Hz recording remain **NOT TESTED**.
+
+### Next task
+
+Add bounded radio reinitialization after startup or runtime failure and deterministic failure-injection tests that prove the recorder continues while radio service degrades and recovers. Then begin the synchronized full-resolution IMU/GPS companion log.
+

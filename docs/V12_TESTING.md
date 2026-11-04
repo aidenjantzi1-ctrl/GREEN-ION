@@ -10,6 +10,7 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Live/stale/missing GPS classification test; stale coordinates remain last-known, never current.
 - [x] Source-contract test for bounded IMU/GPS Serial bench commands, explicit IMU units/range/rate, runtime read validation, and current-fix gating.
 - [x] Source-contract test for a five-packet LoRa bench marker, CRC-preserving shared packet layout, explicit receiver identification, and matching modem output.
+- [x] Native fixed-capacity telemetry-queue tests for FIFO order, oldest replacement, drop accounting, radio/storage busy deferral, sample-deadline margin, and `micros()` rollover.
 - [x] Simulated ascent/descent, GPS dropout, radio metrics, graphing, relative map, and CSV logging.
 - [x] Static safety check for forbidden energetic-device control surfaces.
 - [x] Compile ESP32 V12 firmware with all production libraries locally and in CI.
@@ -33,6 +34,7 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [ ] Confirm GPS cold/warm start, outdoor fix, fix age, and last-known behavior.
 - [ ] Run `docs/V12_FIRST_DAY_TEST.md` on the LSM6DSO32 and PA1010D and record measured output.
 - [ ] Confirm SD and RFM95W coexist on shared SPI under sustained writes and 1 Hz transmissions.
+- [ ] Measure actual radio service time and confirm the 5 ms dispatch guard is sufficient under SD writes, Wi-Fi activity, and RFM95W interrupts.
 - [ ] Coordinate the channel with ROC, then measure 920.5 MHz packet range, loss, sequence gaps, CRC errors, RSSI, and recovery after signal loss.
 - [ ] Measure battery-divider accuracy against a multimeter and current draw in every state.
 - [ ] Verify buzzer transistor drive, current, acoustics, and absence of logging timing disruption.

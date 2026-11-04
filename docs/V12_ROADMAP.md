@@ -14,7 +14,7 @@
 
 - [x] Add independent serial bench diagnostics for LSM6DSO32 and PA1010D, including explicit units, live/stale GPS semantics, and first-day procedures.
 - [x] Add a first-packet LoRa bench mode and verify the shared Feather/Uno modem and packet contract before sensor integration.
-- [ ] Add a bounded telemetry queue so radio work can never delay the recorder or overlap essential SD operations.
+- [x] Add a bounded telemetry queue so radio work is deferred behind recorder/flush operations and guarded from the next sample deadline.
 
 - [x] Extract V11's immutable RKT4 v2 format into a portable module and write collision-safe raw V12 SD logs.
 - [x] Put both radios on one provisional 920.5 MHz modem contract and expand telemetry v2 with pressure, both altitude sources, acceleration axes/magnitude, and rotation axes.

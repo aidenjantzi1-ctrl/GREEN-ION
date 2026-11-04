@@ -18,6 +18,7 @@ class V12StructureTests(unittest.TestCase):
             "libraries/GreenIonRecorder/src/GreenIonSampleClock.h",
             "libraries/GreenIonRecorder/src/GreenIonMetadata.h",
             "libraries/GreenIonRecorder/src/GreenIonLandingWatcher.h",
+            "libraries/GreenIonProtocol/src/GreenIonTelemetryQueue.h",
             "tests/cpp/test_v12_recorder_core.cpp",
             "tests/cpp/test_v12_flight_watcher.cpp",
             "tests/cpp/test_v12_calibration.cpp",
@@ -25,6 +26,7 @@ class V12StructureTests(unittest.TestCase):
             "tests/cpp/test_v12_sample_clock.cpp",
             "tests/cpp/test_v12_metadata.cpp",
             "tests/cpp/test_v12_landing_watcher.cpp",
+            "tests/cpp/test_v12_telemetry_queue.cpp",
             "docs/V12_BUILD_GUIDE.md",
             "docs/V12_WIRING.md", "docs/V12_TESTING.md",
             "docs/V12_DEVELOPMENT_LOG.md", "docs/V12_ROADMAP.md",
@@ -147,11 +149,27 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn('!strcmp(serialCommand, "radio test")', transmitter)
         self.assertIn("radioBenchPacketsRemaining = 5", transmitter)
         self.assertIn("packet.reserved = green_ion::kBenchRadioMarker", transmitter)
-        self.assertIn("RH_RF95::send starts TX asynchronously", transmitter)
-        self.assertIn("can first wait for a prior", transmitter)
+        self.assertIn("radio.setCADTimeout(0)", transmitter)
+        self.assertIn("radio.mode() == RHGenericDriver::RHModeTx", transmitter)
         self.assertIn("green_ion::isBenchRadioPacket(packet)", receiver)
         self.assertIn('F("{\\\"type\\\":\\\"radio_bench\\\",\\\"protocol\\\":")', receiver)
         self.assertIn('F(",\\\"antenna_required\\\":true}")', receiver)
+
+    def test_recorder_priority_telemetry_queue_contract(self):
+        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        config = (ROOT / "Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
+        queue = (ROOT / "libraries" / "GreenIonProtocol" / "src" / "GreenIonTelemetryQueue.h").read_text(encoding="utf-8")
+        self.assertIn("TELEMETRY_QUEUE_CAPACITY = 3", config)
+        self.assertIn("RADIO_SERVICE_GUARD_US = 5000", config)
+        self.assertIn("TelemetryQueue<config::TELEMETRY_QUEUE_CAPACITY>", firmware)
+        self.assertIn("queueTelemetry(nowMs);", firmware)
+        self.assertIn("serviceTelemetry(nowMs, micros());", firmware)
+        self.assertLess(firmware.index("appendLog(nowUs"), firmware.index("serviceTelemetry(nowMs"))
+        self.assertLess(firmware.index("recorderCore.flush()"), firmware.index("serviceTelemetry(nowMs"))
+        self.assertIn("radio.mode() == RHGenericDriver::RHModeTx", firmware)
+        self.assertIn("radio.setCADTimeout(0)", firmware)
+        self.assertIn("radioDispatchAllowed", queue)
+        self.assertIn("dropped_", queue)
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <GreenIonProtocol.h>
+#include <GreenIonTelemetryQueue.h>
 #include <GreenIonRkt4.h>
 #include <GreenIonRecorderCore.h>
 #include <GreenIonFlightWatcher.h>
@@ -72,6 +73,7 @@ green_ion::recorder::RecorderCore<config::PREBUFFER_RECORDS> recorderCore;
 green_ion::recorder::SampleClock sampleClock(config::SENSOR_INTERVAL_US);
 green_ion::flight::FlightWatcher flightWatcher;
 green_ion::flight::LandingWatcher landingWatcher;
+green_ion::TelemetryQueue<config::TELEMETRY_QUEUE_CAPACITY> telemetryQueue;
 
 enum RecorderMode : uint8_t {
   RECORDER_CALIBRATING = 0,
@@ -97,6 +99,7 @@ uint32_t watcherPreviousMs = 0;
 
 uint32_t telemetrySequence = 0;
 uint32_t radioSendFailures = 0;
+uint32_t lastRadioAttemptMs = 0;
 uint16_t radioBenchPacketsSent = 0;
 uint8_t radioBenchPacketsRemaining = 0;
 uint32_t lastGpsServiceMs = 0;
@@ -382,6 +385,7 @@ static void initializeRadio() {
   delay(10);
   state.radioOk = radio.init() && radio.setFrequency(config::LORA_FREQUENCY_MHZ);
   if (state.radioOk) {
+    radio.setCADTimeout(0);
     radio.setTxPower(config::LORA_TX_POWER_DBM, false);
     radio.setSpreadingFactor(config::LORA_SPREADING_FACTOR);
     radio.setSignalBandwidth(config::LORA_SIGNAL_BANDWIDTH_HZ);
@@ -535,10 +539,11 @@ static void applySerialCommand(uint32_t nowMs) {
   }
   else if (!strcmp(serialCommand, "radio status")) {
     Serial.printf(
-        "BENCH RADIO status=%s sent=%u remaining=%u send_failures=%lu "
+        "BENCH RADIO status=%s sent=%u remaining=%u queued=%u dropped=%lu send_failures=%lu "
         "frequency_mhz=%.1f bandwidth_hz=%ld sf=%u coding_rate=4/%u power_dbm=%d\n",
         state.radioOk ? "READY" : "FAILED", radioBenchPacketsSent,
-        radioBenchPacketsRemaining,
+        radioBenchPacketsRemaining, static_cast<unsigned int>(telemetryQueue.size()),
+        static_cast<unsigned long>(telemetryQueue.dropped()),
         static_cast<unsigned long>(radioSendFailures),
         config::LORA_FREQUENCY_MHZ, config::LORA_SIGNAL_BANDWIDTH_HZ,
         config::LORA_SPREADING_FACTOR, config::LORA_CODING_RATE_DENOMINATOR,
@@ -962,8 +967,8 @@ static void initializeDashboard() {
   dashboardServer.begin();
 }
 
-static void transmitTelemetry(uint32_t nowMs) {
-  if (!state.radioOk || nowMs - lastTelemetryMs < config::TELEMETRY_INTERVAL_MS) return;
+static void queueTelemetry(uint32_t nowMs) {
+  if (nowMs - lastTelemetryMs < config::TELEMETRY_INTERVAL_MS) return;
   lastTelemetryMs = nowMs;
   const uint32_t age = gpsAgeMs(nowMs);
   green_ion::TelemetryPacket packet;
@@ -994,23 +999,37 @@ static void transmitTelemetry(uint32_t nowMs) {
   if (benchPacket) packet.reserved = green_ion::kBenchRadioMarker;
   green_ion::seal(packet);
 
+  telemetryQueue.push(packet);
+  if (benchPacket) --radioBenchPacketsRemaining;
+}
+
+static void serviceTelemetry(uint32_t nowMs, uint32_t nowUs) {
+  if (nowMs - lastRadioAttemptMs < config::RADIO_RETRY_INTERVAL_MS) return;
+  const bool radioBusy = state.radioOk && radio.mode() == RHGenericDriver::RHModeTx;
+  if (!green_ion::radioDispatchAllowed(
+          state.radioOk, radioBusy, false, telemetryQueue.size() > 0,
+          nowUs, sampleClock.nextDeadlineUs(), config::RADIO_SERVICE_GUARD_US))
+    return;
+
+  const green_ion::TelemetryPacket *queued = telemetryQueue.front();
+  if (!queued) return;
+  const green_ion::TelemetryPacket packet = *queued;
+  lastRadioAttemptMs = nowMs;
+
   digitalWrite(config::PIN_SD_CS, HIGH);
   if (!radio.send(reinterpret_cast<uint8_t *>(&packet), sizeof(packet))) {
     ++radioSendFailures;
-    state.radioOk = false;
     Serial.printf("BENCH RADIO status=SEND_FAILED sequence=%lu failures=%lu\n",
                   static_cast<unsigned long>(packet.sequence),
                   static_cast<unsigned long>(radioSendFailures));
-  } else if (benchPacket) {
-    --radioBenchPacketsRemaining;
+  } else {
+    telemetryQueue.pop();
+    if (!green_ion::isBenchRadioPacket(packet)) return;
     ++radioBenchPacketsSent;
     Serial.printf("BENCH RADIO status=TX sequence=%lu remaining=%u\n",
                   static_cast<unsigned long>(packet.sequence),
                   radioBenchPacketsRemaining);
   }
-  // RH_RF95::send starts TX asynchronously, but it can first wait for a prior
-  // packet and channel activity. The bounded radio queue must remove this call
-  // from the recorder-critical path before shared-SPI timing is considered safe.
 }
 
 void setup() {
@@ -1059,7 +1078,8 @@ void loop() {
     }
   }
 
-  transmitTelemetry(nowMs);
+  queueTelemetry(nowMs);
+  serviceTelemetry(nowMs, micros());
   dashboardServer.handleClient();
   yield();
 }

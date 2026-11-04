@@ -63,6 +63,11 @@ jobs:
             tests/cpp/test_v12_landing_watcher.cpp \
             -o /tmp/test-v12-landing-watcher
           /tmp/test-v12-landing-watcher
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonProtocol/src \
+            tests/cpp/test_v12_telemetry_queue.cpp \
+            -o /tmp/test-v12-telemetry-queue
+          /tmp/test-v12-telemetry-queue
 
   compile-firmware:
     runs-on: ubuntu-latest
