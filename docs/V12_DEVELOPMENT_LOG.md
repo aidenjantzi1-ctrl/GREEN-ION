@@ -689,3 +689,7 @@ Add deterministic module/failure-injection interfaces for sensor initialization/
 
 Extract deterministic sensor and storage interfaces needed to inject barometer initialization/runtime loss and recovery through the firmware decision path, then extend the integration harness to boot recovery and checkpoint/report failures.
 
+### CI follow-up
+
+- GitHub Actions run `41853631801`: PASS for 72 committed Python tests, all native C++ suites including coordinated absent-sensor, GPS-loss, companion write/flush, and primary SD write/flush failures, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `411212a`.
+
