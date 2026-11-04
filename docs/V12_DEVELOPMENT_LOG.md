@@ -509,3 +509,26 @@ Add bounded radio reinitialization after startup or runtime failure and determin
 - Run `41795815106` passed all host/native tests but caught a const-incorrect RadioHead send-buffer cast before the Uno step. Commit `15fe85c` corrected only that compile error.
 - GitHub Actions run `41796060698`: PASS for 67 Python tests, all native C++ suites including telemetry queue/policy failures and rollover, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload.
 
+## 2026-11-04 — Session 21: bounded radio degradation and recovery
+
+### Implemented
+
+- Added a portable radio-recovery state machine with a three-consecutive-send-failure threshold, 10-second retry backoff, rollover-safe deadlines, saturating initialization/recovery counters, and successful-send reset.
+- A transient send failure keeps the initialized radio available. Three consecutive failures mark only the radio unavailable, latch a radio-send health bit, retain the bounded telemetry queue, and leave recorder state untouched.
+- Blocking RadioHead hardware reinitialization is automatically allowed only after recording is complete or the recorder is already faulted. It is never started during calibration, launch watching, or active recording.
+- Added a `radio retry` bench command. It is refused during recording; when explicitly requested during calibration/watching it reinitializes the radio and restarts pressure calibration so delayed samples and the old prebuffer cannot contaminate launch detection.
+- `radio status` now reports consecutive send failures, initialization failures, and successful recoveries. The first-day guide explains the safe retry sequence.
+- Added native failure-injection coverage for startup initialization loss, early retry rejection, recorder-critical deferral, transient failure recovery, threshold degradation, failed and successful reinitialization, invalid configuration, and `millis()` rollover.
+
+### Evidence
+
+- Python V11/V12 regression suite: 68 tests passed.
+- Browser RKT4 analysis test: PASS.
+- `git diff --check`: PASS before documentation updates.
+- Native radio-recovery execution and both target compilations are **PENDING CI**.
+- Physical radio removal/reconnection, recovery timing, RFM95W reset behavior, queue delivery after recovery, shared-SPI operation, and uninterrupted recorder timing remain **NOT TESTED**.
+
+### Next task
+
+Design and implement the synchronized CRC-protected full-resolution IMU/GPS companion log without changing RKT4 v2 or any V11 flight file. Begin with a portable fixed binary format and golden/failure tests before SD integration.
+

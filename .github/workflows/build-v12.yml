@@ -68,6 +68,11 @@ jobs:
             tests/cpp/test_v12_telemetry_queue.cpp \
             -o /tmp/test-v12-telemetry-queue
           /tmp/test-v12-telemetry-queue
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonProtocol/src \
+            tests/cpp/test_v12_radio_recovery.cpp \
+            -o /tmp/test-v12-radio-recovery
+          /tmp/test-v12-radio-recovery
 
   compile-firmware:
     runs-on: ubuntu-latest

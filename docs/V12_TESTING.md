@@ -11,6 +11,7 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Source-contract test for bounded IMU/GPS Serial bench commands, explicit IMU units/range/rate, runtime read validation, and current-fix gating.
 - [x] Source-contract test for a five-packet LoRa bench marker, CRC-preserving shared packet layout, explicit receiver identification, and matching modem output.
 - [x] Native fixed-capacity telemetry-queue tests for FIFO order, oldest replacement, drop accounting, radio/storage busy deferral, sample-deadline margin, and `micros()` rollover.
+- [x] Native radio-recovery tests for transient failure reset, threshold degradation, retry backoff, recorder-critical deferral, initialization failure, recovery, invalid configuration, and timestamp rollover.
 - [x] Simulated ascent/descent, GPS dropout, radio metrics, graphing, relative map, and CSV logging.
 - [x] Static safety check for forbidden energetic-device control surfaces.
 - [x] Compile ESP32 V12 firmware with all production libraries locally and in CI.

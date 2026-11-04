@@ -20,6 +20,7 @@
 #include <WebServer.h>
 #include <GreenIonProtocol.h>
 #include <GreenIonTelemetryQueue.h>
+#include <GreenIonRadioRecovery.h>
 #include <GreenIonRkt4.h>
 #include <GreenIonRecorderCore.h>
 #include <GreenIonFlightWatcher.h>
@@ -74,6 +75,8 @@ green_ion::recorder::SampleClock sampleClock(config::SENSOR_INTERVAL_US);
 green_ion::flight::FlightWatcher flightWatcher;
 green_ion::flight::LandingWatcher landingWatcher;
 green_ion::TelemetryQueue<config::TELEMETRY_QUEUE_CAPACITY> telemetryQueue;
+green_ion::RadioRecovery radioRecovery(config::RADIO_REINITIALIZE_DELAY_MS,
+                                       config::RADIO_SEND_FAILURE_THRESHOLD);
 
 enum RecorderMode : uint8_t {
   RECORDER_CALIBRATING = 0,
@@ -102,6 +105,7 @@ uint32_t radioSendFailures = 0;
 uint32_t lastRadioAttemptMs = 0;
 uint16_t radioBenchPacketsSent = 0;
 uint8_t radioBenchPacketsRemaining = 0;
+bool radioManualRetryRequested = false;
 uint32_t lastGpsServiceMs = 0;
 uint32_t lastBenchOutputMs = 0;
 uint32_t lastTelemetryMs = 0;
@@ -376,7 +380,7 @@ static void recoverInterruptedLogs() {
     recoveryStatus = "No interrupted logs detected";
 }
 
-static void initializeRadio() {
+static bool configureRadioHardware() {
   digitalWrite(config::PIN_SD_CS, HIGH);
   pinMode(config::PIN_LORA_RST, OUTPUT);
   digitalWrite(config::PIN_LORA_RST, LOW);
@@ -393,6 +397,11 @@ static void initializeRadio() {
   } else {
     healthBits |= green_ion::HEALTH_RADIO_INIT_ERROR;
   }
+  return state.radioOk;
+}
+
+static void initializeRadio() {
+  radioRecovery.begin(millis(), configureRadioHardware());
 }
 
 static bool readSensors() {
@@ -537,21 +546,33 @@ static void applySerialCommand(uint32_t nowMs) {
     Serial.println("BENCH RADIO status=START packets=5 antenna_required=1");
     return;
   }
+  else if (!strcmp(serialCommand, "radio retry")) {
+    if (recorderMode == RECORDER_RECORDING) {
+      Serial.println("BENCH RADIO status=RETRY_DEFERRED reason=recording_active");
+      return;
+    }
+    radioManualRetryRequested = true;
+    Serial.println("BENCH RADIO status=RETRY_REQUESTED calibration_will_restart=1");
+    return;
+  }
   else if (!strcmp(serialCommand, "radio status")) {
     Serial.printf(
-        "BENCH RADIO status=%s sent=%u remaining=%u queued=%u dropped=%lu send_failures=%lu "
+        "BENCH RADIO status=%s sent=%u remaining=%u queued=%u dropped=%lu send_failures=%lu consecutive_failures=%u init_failures=%lu recoveries=%lu "
         "frequency_mhz=%.1f bandwidth_hz=%ld sf=%u coding_rate=4/%u power_dbm=%d\n",
         state.radioOk ? "READY" : "FAILED", radioBenchPacketsSent,
         radioBenchPacketsRemaining, static_cast<unsigned int>(telemetryQueue.size()),
         static_cast<unsigned long>(telemetryQueue.dropped()),
         static_cast<unsigned long>(radioSendFailures),
+        radioRecovery.consecutiveSendFailures(),
+        static_cast<unsigned long>(radioRecovery.initFailures()),
+        static_cast<unsigned long>(radioRecovery.recoveries()),
         config::LORA_FREQUENCY_MHZ, config::LORA_SIGNAL_BANDWIDTH_HZ,
         config::LORA_SPREADING_FACTOR, config::LORA_CODING_RATE_DENOMINATOR,
         config::LORA_TX_POWER_DBM);
     return;
   }
   else {
-    Serial.println("Commands: bench imu | bench gps | bench all | bench status | bench off | radio test | radio status");
+    Serial.println("Commands: bench imu | bench gps | bench all | bench status | bench off | radio test | radio retry | radio status");
     return;
   }
   Serial.printf("BENCH mode=%u\n", static_cast<unsigned int>(benchMode));
@@ -590,6 +611,24 @@ static void resetCalibration(uint32_t nowMs) {
   calibrationBaselinePa = NAN;
   calibrationNoiseM = NAN;
   recorderMode = RECORDER_CALIBRATING;
+}
+
+static void serviceRadioRecovery(uint32_t nowMs) {
+  const bool recorderCritical = recorderMode != RECORDER_COMPLETE &&
+                                recorderMode != RECORDER_FAULT;
+  const bool manual = radioManualRetryRequested;
+  if (!manual && !radioRecovery.shouldAttempt(nowMs, recorderCritical)) return;
+  if (manual && recorderMode == RECORDER_RECORDING) return;
+  radioManualRetryRequested = false;
+  const bool restartCalibration = manual &&
+      (recorderMode == RECORDER_CALIBRATING || recorderMode == RECORDER_WATCHING);
+  const bool initialized = configureRadioHardware();
+  radioRecovery.noteInitialize(nowMs, initialized);
+  Serial.printf("BENCH RADIO status=%s recoveries=%lu init_failures=%lu\n",
+                initialized ? "RECOVERED" : "RETRY_FAILED",
+                static_cast<unsigned long>(radioRecovery.recoveries()),
+                static_cast<unsigned long>(radioRecovery.initFailures()));
+  if (restartCalibration) resetCalibration(millis());
 }
 
 static void processCalibration(uint32_t nowMs, bool valid) {
@@ -1019,10 +1058,13 @@ static void serviceTelemetry(uint32_t nowMs, uint32_t nowUs) {
   digitalWrite(config::PIN_SD_CS, HIGH);
   if (!radio.send(reinterpret_cast<const uint8_t *>(&packet), sizeof(packet))) {
     ++radioSendFailures;
+    healthBits |= green_ion::HEALTH_RADIO_SEND_ERROR;
+    if (radioRecovery.noteSendResult(nowMs, false)) state.radioOk = false;
     Serial.printf("BENCH RADIO status=SEND_FAILED sequence=%lu failures=%lu\n",
                   static_cast<unsigned long>(packet.sequence),
                   static_cast<unsigned long>(radioSendFailures));
   } else {
+    radioRecovery.noteSendResult(nowMs, true);
     telemetryQueue.pop();
     if (!green_ion::isBenchRadioPacket(packet)) return;
     ++radioBenchPacketsSent;
@@ -1049,7 +1091,7 @@ void setup() {
   initializeDashboard();
   Serial.printf("GREEN ION V12 dev: baro=%d imu=%d gps=%d sd=%d radio=%d\n",
                 state.barometerOk, state.imuOk, state.gpsOk, state.sdOk, state.radioOk);
-  Serial.println("Serial bench output is ON. Commands: bench imu | bench gps | bench all | bench status | bench off | radio test | radio status");
+  Serial.println("Serial bench output is ON. Commands: bench imu | bench gps | bench all | bench status | bench off | radio test | radio retry | radio status");
   Serial.println("RADIO SAFETY: attach a suitable antenna before entering 'radio test'.");
   sampleClock.start(micros());
 }
@@ -1078,6 +1120,7 @@ void loop() {
     }
   }
 
+  serviceRadioRecovery(nowMs);
   queueTelemetry(nowMs);
   serviceTelemetry(nowMs, micros());
   dashboardServer.handleClient();

@@ -19,6 +19,7 @@ class V12StructureTests(unittest.TestCase):
             "libraries/GreenIonRecorder/src/GreenIonMetadata.h",
             "libraries/GreenIonRecorder/src/GreenIonLandingWatcher.h",
             "libraries/GreenIonProtocol/src/GreenIonTelemetryQueue.h",
+            "libraries/GreenIonProtocol/src/GreenIonRadioRecovery.h",
             "tests/cpp/test_v12_recorder_core.cpp",
             "tests/cpp/test_v12_flight_watcher.cpp",
             "tests/cpp/test_v12_calibration.cpp",
@@ -27,6 +28,7 @@ class V12StructureTests(unittest.TestCase):
             "tests/cpp/test_v12_metadata.cpp",
             "tests/cpp/test_v12_landing_watcher.cpp",
             "tests/cpp/test_v12_telemetry_queue.cpp",
+            "tests/cpp/test_v12_radio_recovery.cpp",
             "docs/V12_BUILD_GUIDE.md",
             "docs/V12_WIRING.md", "docs/V12_TESTING.md",
             "docs/V12_DEVELOPMENT_LOG.md", "docs/V12_ROADMAP.md",
@@ -170,6 +172,19 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("radio.setCADTimeout(0)", firmware)
         self.assertIn("radioDispatchAllowed", queue)
         self.assertIn("dropped_", queue)
+
+    def test_radio_recovery_never_preempts_critical_recording(self):
+        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        config = (ROOT / "Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
+        recovery = (ROOT / "libraries" / "GreenIonProtocol" / "src" / "GreenIonRadioRecovery.h").read_text(encoding="utf-8")
+        self.assertIn("RADIO_SEND_FAILURE_THRESHOLD = 3", config)
+        self.assertIn("RADIO_REINITIALIZE_DELAY_MS = 10000", config)
+        self.assertIn("RadioRecovery radioRecovery", firmware)
+        self.assertIn("serviceRadioRecovery(nowMs)", firmware)
+        self.assertIn("radio retry", firmware)
+        self.assertIn("recorderCritical", recovery)
+        self.assertIn("consecutiveSendFailures_ < threshold_", recovery)
+        self.assertIn("static_cast<int32_t>(nowMs - nextRetryMs_)", recovery)
 
 
 if __name__ == "__main__":
