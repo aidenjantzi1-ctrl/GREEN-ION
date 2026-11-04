@@ -635,3 +635,8 @@ Extend alternating recovery checkpoints with optional companion committed-byte/c
 
 Add a deterministic offline GIS1 parser/export path that validates header binding and record CRCs, preserves live versus stale GPS semantics, and clearly reports corrupt or torn input.
 
+### CI follow-up
+
+- Run `41835223285` passed all committed Python source tests but stopped the native job because two negative-test aggregate initializers omitted the newly added fields under `-Werror=missing-field-initializers`. Commit `d93013f` explicitly zero-initialized those test-only fields; production firmware logic was unchanged.
+- GitHub Actions run `41835459801`: PASS for 67 committed Python tests, all native C++ suites including exact GIC2 bytes, GIC1 compatibility, secondary alignment/count/flag/file-bound failures, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `d93013f`.
+
