@@ -3,11 +3,13 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "Ground_Station"))
 
 from telemetry_manager import SessionWriter, TelemetryManager, battery_estimate_percent, is_newer_sequence, valid_coordinate
+import ground_station
 
 
 class Clock:
@@ -236,6 +238,20 @@ class GroundStationManagerTests(unittest.TestCase):
         meta = self.manager.snapshot()["field_meta"]["pressure_pa"]
         self.assertEqual(100, meta["sample_uptime_ms"])
         self.assertEqual("packet_uptime", meta["sample_time_basis"])
+
+    def test_preflight_battery_does_not_pass_stale_or_invalid_voltage(self):
+        def battery_check():
+            with patch.object(ground_station, "MANAGER", self.manager):
+                return next(item for item in ground_station.preflight_report()["checks"]
+                            if item["name"] == "Battery")
+        self.manager.ingest("wifi", {**self.row(1), "battery_v": 4.0})
+        self.assertEqual("PASS", battery_check()["status"])
+        self.clock.advance(3)
+        self.assertEqual("NOT TESTED", battery_check()["status"])
+        self.manager.ingest("wifi", {**self.row(2), "battery_v": 5.0})
+        self.assertEqual("FAIL", battery_check()["status"])
+        self.manager.ingest("wifi", {**self.row(3), "battery_v": 3.49})
+        self.assertEqual("FAIL", battery_check()["status"])
 
     def test_bad_coordinates_are_not_saved(self):
         self.assertFalse(valid_coordinate(91, 0))

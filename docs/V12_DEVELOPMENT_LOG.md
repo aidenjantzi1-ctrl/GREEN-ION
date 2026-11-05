@@ -873,3 +873,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Added a count of primary RKT4 records accepted by the SD write path, including the prebuffer at successful start, and a calculated byte length. These live counts are distinct from successfully checkpointed counts and are never described as power-loss-safe.
 - No SD read was added to the dashboard status path. Full Python regression suite: 108 passed; Feather target compiled with ESP32 core 2.0.17. Hardware write persistence remains NOT TESTED.
+
+### Battery validity follow-up
+
+- Added explicit one-cell LiPo voltage plausibility beside the coarse percentage estimate. Out-of-range reported voltage remains visible but is labeled, with no percentage estimate.
+- The Preflight battery result now avoids PASS for stale telemetry, implausible voltage, and critical voltage below 3.50 V. Full Python suite: 109 passed. Physical battery-divider accuracy remains NOT TESTED.

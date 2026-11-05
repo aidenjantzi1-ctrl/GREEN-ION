@@ -105,8 +105,19 @@ def preflight_report() -> dict:
     add("GPS fix", "PASS" if snapshot.get("gps_status") == "live" else "WARNING" if snapshot.get("gps_status") == "stale" else "NOT TESTED",
         "Current valid GPS position." if snapshot.get("gps_status") == "live" else "A current outdoor GPS fix is not available; communication can still pass independently.")
     battery = snapshot.get("battery_v")
-    add("Battery", "PASS" if isinstance(battery, (int, float)) and battery >= 3.5 else "WARNING" if battery is not None else "NOT TESTED",
-        f"Reported battery: {battery:.3f} V" if isinstance(battery, (int, float)) else "Battery voltage unavailable.")
+    battery_live = snapshot["link_status"] == "live"
+    battery_valid = snapshot.get("battery_measurement_valid") is True
+    battery_status = (
+        "NOT TESTED" if not battery_live or battery is None else
+        "FAIL" if not battery_valid or battery < 3.5 else
+        "WARNING" if battery < 3.65 else "PASS"
+    )
+    battery_text = (f"{battery:.3f} V" if isinstance(battery, (int, float)) and
+                    not isinstance(battery, bool) else str(battery))
+    add("Battery", battery_status,
+        "Battery reading is unavailable or stale." if not battery_live or battery is None else
+        f"Reported battery: {battery_text}; outside plausible one-cell LiPo range."
+        if not battery_valid else f"Reported battery: {battery_text}.")
     persistence_ok = MANAGER.writer is not None and MANAGER.writer.directory.is_dir()
     add("Ground persistence", "PASS" if persistence_ok else "FAIL",
         "Append-only session directory is available." if persistence_ok else "Session directory is unavailable.")

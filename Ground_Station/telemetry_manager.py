@@ -392,6 +392,7 @@ class TelemetryManager:
             combined["gps_altitude_m"] = None
             combined["gps_speed_mps"] = None
         battery_pct = battery_estimate_percent(combined.get("battery_v"))
+        combined["battery_measurement_valid"] = battery_pct is not None
         combined["battery_estimate_pct"] = battery_pct
         battery_v = combined.get("battery_v")
         combined["battery_warning"] = (
@@ -456,6 +457,15 @@ class TelemetryManager:
             "sample_time_basis": fields["battery_v"]["sample_time_basis"] if battery_pct is not None else None,
             "valid": battery_pct is not None,
             "freshness": combined["link_status"] if battery_pct is not None else "missing",
+        }
+        fields["battery_measurement_valid"] = {
+            "type": "boolean", "unit": None, "origin": "calculated",
+            "source": selected if combined.get("battery_v") is not None else None,
+            "received_utc": received_utc if combined.get("battery_v") is not None else None,
+            "sample_uptime_ms": fields["battery_v"]["sample_uptime_ms"],
+            "sample_time_basis": fields["battery_v"]["sample_time_basis"],
+            "valid": True,
+            "freshness": combined["link_status"] if combined.get("battery_v") is not None else "missing",
         }
         fields["battery_warning"] = {
             "type": "string", "unit": None, "origin": "calculated",
