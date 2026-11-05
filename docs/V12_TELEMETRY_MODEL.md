@@ -73,6 +73,30 @@
 | `battery_sample_uptime_ms` | integer | ms | measured |
 | `gps_fix_uptime_ms` | integer | ms | measured |
 | `gps_altitude_uptime_ms` | integer | ms | measured |
+| `gps_utc_hour` | integer | hour | measured |
+| `gps_utc_minute` | integer | minute | measured |
+| `gps_utc_second` | integer | second | measured |
+| `barometer_init_failures` | integer | count | measured |
+| `barometer_recoveries` | integer | count | measured |
+| `barometer_runtime_losses` | integer | count | measured |
+| `metadata_file` | string | — | measured |
+| `metadata_failures` | integer | count | measured |
+| `sensor_log_status` | integer | code | measured |
+| `recovered_records` | integer | count | measured |
+| `recovered_sensor_records` | integer | count | measured |
+| `recovered_trailing_bytes` | integer | bytes | measured |
+| `sensor_recovery_issues` | integer | count | measured |
+| `landing_peak_m` | number | m | calculated |
+| `cabin_pressure_delta_m` | number | m | calculated |
+| `airplane_state` | string | — | calculated |
+| `airplane_recording` | boolean | — | measured |
+| `airplane_radio_silence` | boolean | — | measured |
+| `airplane_elapsed_ms` | integer | ms | calculated |
+| `airplane_max_ms` | integer | ms | measured |
+| `airplane_records` | integer | count | measured |
+| `protocol` | integer | version | measured |
+| `valid_packets` | integer | count | measured |
+| `invalid_packets` | integer | count | measured |
 | `sensor_log_file` | string | — | measured |
 | `sensor_log_failures` | integer | count | measured |
 | `sensor_log_pending` | integer | count | measured |
@@ -124,3 +148,5 @@ Each `field_meta` entry also includes `sample_uptime_ms` and `sample_time_basis`
 `recorder_written_records` counts records accepted by the primary SD write path, including the prebuffer drained at recording start. `recorder_written_bytes` is the RKT4 header size plus record size times that count. These figures can include bytes that have not survived a flush or power loss. They are not a replacement for `checkpoint_committed_records` and `checkpoint_committed_bytes`. A failed or partial write is not added to the written record count. No extra SD read is performed to calculate these values.
 
 `battery_measurement_valid` is a Ground Station boolean for whether a reported one-cell LiPo voltage is numeric and within the documented 3.0–4.25 V estimate range. A raw out-of-range voltage remains visible with an explicit warning, while the percentage estimate is unavailable. The Preflight battery check cannot pass on stale telemetry, implausible voltage, or critical voltage below 3.50 V; it reports a low-voltage warning below 3.65 V. These are software classifications and require comparison with a multimeter during hardware bring-up.
+
+The Ground Station accepts all named Feather `/api/status` fields except `uptime_s`, which is normalized to `uptime_ms`. It also accepts Uno `protocol`, `valid_packets`, and `invalid_packets` from telemetry messages. Uno receiver bench/configuration messages are a separate message type, not flight measurements. Uno `packet_age_ms` is ignored because the laptop computes packet age from local receipt time; `last_position_age_ms` is recomputed from the retained last valid fix.

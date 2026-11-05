@@ -878,3 +878,9 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Added explicit one-cell LiPo voltage plausibility beside the coarse percentage estimate. Out-of-range reported voltage remains visible but is labeled, with no percentage estimate.
 - The Preflight battery result now avoids PASS for stale telemetry, implausible voltage, and critical voltage below 3.50 V. Full Python suite: 109 passed. Physical battery-divider accuracy remains NOT TESTED.
+
+### Feather and Uno field inventory
+
+- Compared the actual Feather `/api/status` string keys with the Ground Station accepted fields. Added remaining GPS UTC, barometer recovery, metadata, interrupted-file recovery, landing, and airplane-mode status fields. `uptime_s` remains intentionally normalized to `uptime_ms`.
+- Added Uno protocol and validated/rejected packet counters to the accepted telemetry fields. Bench/configuration messages remain separate from flight telemetry.
+- Added a contract test so future Feather status additions are flagged when the Ground Station would silently drop them. Full Python suite: 110 passed. No hardware receiver was connected.

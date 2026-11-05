@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import re
 import sys
 import tempfile
 import unittest
@@ -8,7 +9,8 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "Ground_Station"))
 
-from telemetry_manager import SessionWriter, TelemetryManager, battery_estimate_percent, is_newer_sequence, valid_coordinate
+from telemetry_manager import (MEASUREMENT_FIELDS, SessionWriter, TelemetryManager,
+                               battery_estimate_percent, is_newer_sequence, valid_coordinate)
 import ground_station
 
 
@@ -252,6 +254,13 @@ class GroundStationManagerTests(unittest.TestCase):
         self.assertEqual("FAIL", battery_check()["status"])
         self.manager.ingest("wifi", {**self.row(3), "battery_v": 3.49})
         self.assertEqual("FAIL", battery_check()["status"])
+
+    def test_feather_status_fields_are_accepted_by_ground_station(self):
+        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        status = firmware.split("static void sendDashboardStatus()")[1].split("static bool dashboardFlightFilename")[0]
+        keys = set(re.findall(r'\\"([a-zA-Z][a-zA-Z0-9_]*)\\"', status))
+        # uptime_s is normalized to uptime_ms by the Wi-Fi source adapter.
+        self.assertEqual(set(), keys - set(MEASUREMENT_FIELDS) - {"uptime_s"})
 
     def test_bad_coordinates_are_not_saved(self):
         self.assertFalse(valid_coordinate(91, 0))
