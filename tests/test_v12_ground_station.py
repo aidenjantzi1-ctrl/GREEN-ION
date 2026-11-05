@@ -163,6 +163,31 @@ class PreflightHistoryTests(unittest.TestCase):
                 post.return_value = (202, {"accepted": True})
                 self.assertEqual("WARNING", ground_station.diagnostic_test("gps")[1]["status"])
 
+    def test_read_only_diagnostics_require_actual_current_session_evidence(self):
+        manager = TelemetryManager(clock=Clock())
+        with patch.object(ground_station, "MANAGER", manager), \
+                patch.object(ground_station, "available_ports", return_value=[]), \
+                patch.object(ground_station, "feather_post") as post:
+            for kind in ("parser", "checkpoint", "timing", "reconnect"):
+                self.assertEqual("NOT TESTED", ground_station.diagnostic_test(kind)[1]["status"])
+            manager.ingest("simulation", {"sequence": 1, "uptime_ms": 100})
+            self.assertEqual("NOT TESTED", ground_station.diagnostic_test("parser")[1]["status"])
+            manager.ingest("wifi", {"sequence": 1, "uptime_ms": 100,
+                                    "checkpoint_committed_records": 10, "checkpoint_failures": 0})
+            manager.ingest("radio", {"sequence": 1, "uptime_ms": 120})
+            manager.ingest("wifi", {"sequence": 2, "uptime_ms": 140,
+                                    "checkpoint_committed_records": 20, "checkpoint_failures": 0})
+            for kind in ("parser", "checkpoint", "timing", "reconnect"):
+                self.assertEqual("PASS", ground_station.diagnostic_test(kind)[1]["status"])
+                self.assertFalse(ground_station.diagnostic_test(kind)[1]["hardware_test_started"])
+            manager.note_parse_error("wifi", "bad packet")
+            self.assertEqual("WARNING", ground_station.diagnostic_test("parser")[1]["status"])
+            manager.ingest("wifi", {"sequence": 3, "uptime_ms": 90,
+                                    "checkpoint_committed_records": 20, "checkpoint_failures": 1})
+            self.assertEqual("WARNING", ground_station.diagnostic_test("timing")[1]["status"])
+            self.assertEqual("WARNING", ground_station.diagnostic_test("checkpoint")[1]["status"])
+            post.assert_not_called()
+
     def test_battery_stability_needs_distinct_recent_samples(self):
         from datetime import datetime, timedelta, timezone
 

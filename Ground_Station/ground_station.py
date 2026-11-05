@@ -439,10 +439,14 @@ def refresh_preflight_run() -> dict:
 def diagnostic_test(kind: str) -> tuple[int, dict]:
     """Run only supported Feather tests; classify other checks as read-only."""
     observed = {"bmp": "BMP388", "lipo": "Battery", "wifi": "Feather API",
-                "lora": "Ground LoRa module"}
+                "lora": "Ground LoRa module", "usb": "Uno USB port",
+                "packets": "LoRa packets", "recorder": "Autonomous recorder watcher",
+                "firmware": "Feather firmware version"}
     if kind in observed:
         check = next(item for item in preflight_report()["checks"] if item["name"] == observed[kind])
         return 200, {"test": kind, **check, "hardware_test_started": False}
+    if kind in ("parser", "checkpoint", "timing", "reconnect"):
+        return 200, {"test": kind, **read_only_diagnostic(kind), "hardware_test_started": False}
     paths = {"imu": "/api/hardware-test?sensor=imu",
              "gps": "/api/hardware-test?sensor=gps", "sd": "/api/sdtest"}
     if kind not in paths:
@@ -473,6 +477,60 @@ def diagnostic_test(kind: str) -> tuple[int, dict]:
     except (OSError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
         return 502, {"test": kind, "status": "NOT TESTED",
                      "message": f"Could not contact the Feather: {error}", "hardware_test_started": False}
+
+
+def read_only_diagnostic(kind: str) -> dict:
+    """Summarize accepted current-session evidence without initiating hardware work."""
+    snapshot = MANAGER.snapshot()
+    sources = snapshot.get("sources", {})
+    hardware_sources = [sources.get(name, {}) for name in ("wifi", "radio")]
+    if kind == "parser":
+        received = sum(source.get("received", 0) for source in hardware_sources)
+        errors = sum(source.get("parse_errors", 0) for source in hardware_sources)
+        status = "WARNING" if errors else "PASS" if received else "NOT TESTED"
+        return {"status": status, "message": f"{received} accepted Wi-Fi/LoRa packets; {errors} parser errors this session. "
+                "This does not test malformed-packet rejection or disconnected hardware."}
+    if kind == "checkpoint":
+        fields = snapshot.get("field_meta", {})
+        fresh = (snapshot.get("active_source") == "wifi" and
+                 all(fields.get(key, {}).get("freshness") == "live" for key in
+                     ("checkpoint_failures", "checkpoint_committed_records")))
+        failures = snapshot.get("checkpoint_failures")
+        records = snapshot.get("checkpoint_committed_records")
+        if not fresh or not isinstance(failures, int) or not isinstance(records, int):
+            return {"status": "NOT TESTED", "message": "Live Feather checkpoint counters are unavailable; connect Feather Wi-Fi."}
+        status = "WARNING" if failures else "PASS" if records > 0 else "NOT TESTED"
+        return {"status": status, "message": f"{records} committed RKT4 records; {failures} reported checkpoint failures. "
+                "This is counter evidence only; interrupted-file recovery and power-loss survival need a separate test."}
+    if kind in ("timing", "reconnect"):
+        points = [point for point in MANAGER.recent_history(200)
+                  if point.get("source") in ("wifi", "radio")]
+        if kind == "reconnect":
+            sequence = [point.get("source") for point in points]
+            transitions = sum(left != right for left, right in zip(sequence, sequence[1:]))
+            stage = 0
+            for source in sequence:
+                if stage == 0 and source == "wifi":
+                    stage = 1
+                elif stage == 1 and source == "radio":
+                    stage = 2
+                elif stage == 2 and source == "wifi":
+                    stage = 3
+                    break
+            returned_wifi = stage == 3
+            return {"status": "PASS" if returned_wifi else "NOT TESTED",
+                    "message": f"{transitions} accepted-source transitions in recent hardware packets. " +
+                    ("Wi-Fi to LoRa to Wi-Fi observed; physical link-loss cause is unverified."
+                     if returned_wifi else "No Wi-Fi to LoRa to Wi-Fi return observed; physically test reconnection when hardware is available.")}
+        uptimes = [point["uptime_ms"] for point in points if
+                   isinstance(point.get("uptime_ms"), int) and not isinstance(point.get("uptime_ms"), bool)]
+        if len(set(uptimes)) < 3:
+            return {"status": "NOT TESTED", "message": "Need three distinct accepted hardware packet uptimes to assess ordering."}
+        regressions = sum(later < earlier for earlier, later in zip(uptimes, uptimes[1:]))
+        return {"status": "WARNING" if regressions else "PASS",
+                "message": f"{len(uptimes)} accepted packet uptimes; {regressions} backwards steps. "
+                "Delivery reordering, reboot, or counter wrap may explain a step; GPS UTC synchronization is not verified."}
+    raise ValueError("unknown read-only diagnostic")
 
 
 def record_diagnostic_result(result: dict) -> None:

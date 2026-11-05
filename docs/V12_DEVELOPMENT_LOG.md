@@ -923,3 +923,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 - Fetched the latest development branch and reviewed the previous progress checkpoint and recent commits. Added a dedicated `TESTnnn.BIN` RKT4 recording path, separate bench metadata, a two-minute maximum, and file-slot checks that preserve orphan companion files.
 - Added guarded Ground Station start/stop routes and a Preflight guide for physically disconnecting Feather Wi-Fi. Bench status becomes unverified when current Feather Wi-Fi evidence is unavailable. Analysis can import the downloaded raw TEST BIN with the existing RKT4 integrity checks.
 - Verification: 123 Python tests, Node syntax, RKT4 browser analysis, native metadata test, ESP32 V2 compile, and a 390-pixel Chromium start/simulated-loss/reconnect/stop smoke passed. No actual hardware was attached; physical Wi-Fi disconnect survival, SD continuity and power-loss behavior remain NOT TESTED.
+
+### Phase 4 individual read-only diagnostics (2026-11-05)
+
+- Added Uno USB, actual radio packets, recorder watcher, firmware, parser counters, checkpoint counters, packet uptime order, and observed source-return controls. Each reports its evidence limit, keeps simulation from earning hardware PASS, and records a read-only result in the existing diagnostic history.
+- Verification: 124 Python tests passed, including absent, passing, and warning diagnostics; Node syntax and RKT4 analysis passed. A 390-pixel Chromium smoke found all 15 controls without horizontal overflow. Physical hardware remains NOT TESTED.
