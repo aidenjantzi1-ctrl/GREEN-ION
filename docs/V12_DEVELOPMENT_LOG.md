@@ -767,3 +767,27 @@ Upload the CI-compiled V12 build to the Feather, run Test IMU while motionless, 
 - Main run `41954436825`: PASS for the committed Python/native C++ suites, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and V12 development artifacts on promotion commit `8abcf16`.
 - Archived V11 run `41954436877`: PASS for the V11 dashboard/browser/regression checks, Adafruit Feather ESP32 V2 compilation from `Past_Versions/Green_Ion_V11`, and rollback artifact upload on promotion commit `8abcf16`.
 
+## 2026-11-04 — Session 31: restore V11 dashboard design and connect V12 recorder APIs
+
+### Implemented
+
+- Replaced the compact green V12 page with the actual preserved V11 blue dashboard foundation: seven navigation tabs, cards, responsive layouts, live canvases, sunlight mode, storage/history views, saved-flight graphs, RKT4 v2 browser decoding, CSV export, and printable flight reports.
+- Added a V12 Hardware Tests card inside the V11 Testing tab with real IMU/GPS/all-sensor controls and live acceleration axes, total g, gyro axes and bias, temperature, range readback, NMEA communication, fix status/age, satellites, position, altitude, speed, and UTC.
+- Connected live BMP388, LSM6DSO32, PA1010D, battery, SD, LoRa, recorder, checkpoint, recovery, and companion-log health to the restored interface. Wi-Fi loss is explicitly shown as independent from autonomous recording.
+- Added recorder-safe firmware endpoints for completed-file listing, BIN/TXT downloads, pressure-calibration restart, explicit stop/flush/finalize, and a temporary SD write/read/verify/delete test. SD browsing and diagnostics are rejected during recording so dashboard traffic cannot contend with the primary recorder.
+- Added a local manifest and service worker for the dashboard shell. Restored V11 controls that do not yet have V12 backends (OTA/rollback, configuration restore, editable mission/rate, RGB, manual simulation/arming, and deep sleep) are visibly disabled and explained rather than silently omitted or made to look functional.
+- Added source regression coverage for the inherited V11 theme/tabs, V12 hardware fields, real storage/recorder endpoints, explicit unsupported controls, browser analysis, and offline shell.
+
+### Evidence
+
+- Both inline dashboard scripts passed local JavaScript syntax compilation with Node.
+- Full local Python/source regression suite: PASS, 79 tests, using the bundled runtime directly.
+- `git diff --check`: PASS before documentation updates.
+- The installed Arduino CLI was invoked for the Adafruit Feather ESP32 V2 target. The local Windows compiler produced no diagnostics and did not finish within the bounded wait, so this is an environment/toolchain non-result, not a source pass or source failure. Fresh target compilation is required in CI.
+- The standard Windows Python launchers point to inaccessible WindowsApps stubs; the bundled runtime was used successfully for the full suite instead.
+- No phone, Wi-Fi, SD card, IMU, GPS, barometer, radio, or flight hardware was exercised in this software session. All physical behavior remains **NOT TESTED** here; the user-provided 1.018 g stationary reading remains separate prior evidence.
+
+### Next task
+
+After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` at `http://192.168.4.1`, verify all seven tabs on phone and desktop, run the stationary IMU test, prove GPS NMEA indoors, obtain a current GPS fix outdoors, run the idle SD test, and preserve screenshots plus measured values. Only then consider the restored dashboard physically verified.
+

@@ -1454,6 +1454,16 @@ static void sendDashboardStatus() {
   body.reserve(1536);
   body += "{\"recording\":";
   body += state.recording ? "true" : "false";
+  body += ",\"uptime_s\":" + String(millis() / 1000UL);
+  body += ",\"flight_state\":" + String(static_cast<uint8_t>(flightState));
+  body += ",\"sd_ok\":";
+  body += state.sdOk ? "true" : "false";
+  body += ",\"imu_ok\":";
+  body += state.imuOk ? "true" : "false";
+  body += ",\"gps_ok\":";
+  body += state.gpsOk ? "true" : "false";
+  body += ",\"radio_ok\":";
+  body += state.radioOk ? "true" : "false";
   body += ",\"log_file\":\"" + logFilename + "\",\"pressure_pa\":";
   body += numberOrNull(state.pressurePa, 0);
   body += ",\"altitude_m\":" + numberOrNull(state.altitudeM, 2);
@@ -1513,6 +1523,7 @@ static void sendDashboardStatus() {
   body += ",\"calibration_baseline_pa\":" + numberOrNull(calibrationBaselinePa, 1);
   body += ",\"calibration_noise_m\":" + numberOrNull(calibrationNoiseM, 3);
   body += ",\"relative_altitude_m\":" + numberOrNull(watcherAltitudeM, 2);
+  body += ",\"vertical_speed_mps\":" + numberOrNull(watcherSpeedMps, 2);
   body += ",\"checkpoint_generation\":" + String(checkpointGeneration);
   body += ",\"checkpoint_failures\":" + String(checkpointFailures);
   body += ",\"metadata_file\":\"" + metadataFilename + "\"";
@@ -1535,13 +1546,154 @@ static void sendDashboardStatus() {
   dashboardServer.send(200, "application/json", body);
 }
 
+static bool dashboardFlightFilename(const String &name, const char *suffix) {
+  if (name.length() != 11 || !name.startsWith("V12D") || !name.endsWith(suffix))
+    return false;
+  for (uint8_t index = 4; index < 7; ++index)
+    if (!isDigit(name[index])) return false;
+  return true;
+}
+
+static void sendDashboardFiles() {
+  if (state.recording) {
+    dashboardServer.send(409, "application/json",
+                         "{\"success\":false,\"message\":\"Recording is active; SD browsing is deferred\"}");
+    return;
+  }
+  if (!state.sdOk) {
+    dashboardServer.send(503, "application/json",
+                         "{\"success\":false,\"message\":\"SD card is unavailable\"}");
+    return;
+  }
+  String body = "{\"success\":true,\"used\":" + String(SD.usedBytes()) +
+                ",\"total\":" + String(SD.totalBytes()) + ",\"files\":[";
+  bool first = true;
+  digitalWrite(config::PIN_LORA_CS, HIGH);
+  File root = SD.open("/");
+  if (root) {
+    File entry = root.openNextFile();
+    while (entry) {
+      String name = entry.name();
+      if (name.startsWith("/")) name.remove(0, 1);
+      if (!entry.isDirectory() && dashboardFlightFilename(name, ".BIN")) {
+        if (!first) body += ',';
+        first = false;
+        body += "{\"name\":\"" + name + "\",\"size\":" + String(entry.size()) + "}";
+      }
+      entry.close();
+      entry = root.openNextFile();
+    }
+    root.close();
+  }
+  body += "]}";
+  dashboardServer.send(200, "application/json", body);
+}
+
+static void sendDashboardDownload(bool metadata) {
+  if (state.recording) {
+    dashboardServer.send(409, "application/json",
+                         "{\"success\":false,\"message\":\"Recording is active; downloads are deferred\"}");
+    return;
+  }
+  String name = dashboardServer.arg("name");
+  if (metadata && dashboardFlightFilename(name, ".BIN"))
+    name.replace(".BIN", ".TXT");
+  const char *suffix = metadata ? ".TXT" : ".BIN";
+  if (!dashboardFlightFilename(name, suffix)) {
+    dashboardServer.send(400, "application/json",
+                         "{\"success\":false,\"message\":\"Invalid V12 flight filename\"}");
+    return;
+  }
+  const String path = "/" + name;
+  digitalWrite(config::PIN_LORA_CS, HIGH);
+  File file = SD.open(path, FILE_READ);
+  if (!file) {
+    dashboardServer.send(404, "application/json",
+                         "{\"success\":false,\"message\":\"Flight file not found\"}");
+    return;
+  }
+  dashboardServer.sendHeader("Content-Disposition", "attachment; filename=\"" + name + "\"");
+  dashboardServer.streamFile(file, metadata ? "text/plain" : "application/octet-stream");
+  file.close();
+}
+
+static void runDashboardSdTest() {
+  if (state.recording || recorderMode == RECORDER_RECORDING) {
+    dashboardServer.send(409, "application/json",
+                         "{\"success\":false,\"message\":\"SD test is disabled while recording\"}");
+    return;
+  }
+  if (!state.sdOk) {
+    dashboardServer.send(503, "application/json",
+                         "{\"success\":false,\"message\":\"SD card is unavailable\"}");
+    return;
+  }
+  static const char path[] = "/V12SD.TMP";
+  static const uint8_t pattern[] = {0x47, 0x49, 0x4f, 0x4e, 0x12, 0xa5};
+  digitalWrite(config::PIN_LORA_CS, HIGH);
+  SD.remove(path);
+  File file = SD.open(path, FILE_WRITE);
+  bool ok = file && file.write(pattern, sizeof(pattern)) == sizeof(pattern);
+  if (file) { file.flush(); file.close(); }
+  uint8_t readback[sizeof(pattern)] = {};
+  file = SD.open(path, FILE_READ);
+  ok = ok && file && file.read(readback, sizeof(readback)) == sizeof(readback) &&
+       memcmp(pattern, readback, sizeof(pattern)) == 0;
+  if (file) file.close();
+  ok = ok && SD.remove(path);
+  dashboardServer.send(ok ? 200 : 500, "application/json",
+      ok ? "{\"success\":true,\"message\":\"SD write, read, verify and cleanup passed\"}"
+         : "{\"success\":false,\"message\":\"SD write/read verification failed\"}");
+}
+
 static void initializeDashboard() {
   WiFi.mode(WIFI_AP);
   WiFi.softAP(config::DASHBOARD_SSID, config::DASHBOARD_PASSWORD);
   dashboardServer.on("/", []() {
     dashboardServer.send_P(200, "text/html", DASHBOARD_HTML);
   });
+  dashboardServer.on("/manifest.webmanifest", []() {
+    dashboardServer.send(200, "application/manifest+json",
+        "{\"name\":\"GREEN ION V12\",\"short_name\":\"GREEN ION\","
+        "\"start_url\":\"/\",\"display\":\"standalone\","
+        "\"background_color\":\"#081420\",\"theme_color\":\"#081420\"}");
+  });
+  dashboardServer.on("/service-worker.js", []() {
+    dashboardServer.sendHeader("Service-Worker-Allowed", "/");
+    dashboardServer.send(200, "application/javascript",
+        "const C='green-ion-v12-dashboard-v1';"
+        "self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.add('/'))));"
+        "self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));"
+        "self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||new URL(e.request.url).pathname.startsWith('/api/'))return;"
+        "e.respondWith(fetch(e.request).then(r=>{const x=r.clone();caches.open(C).then(c=>c.put(e.request,x));return r;})"
+        ".catch(()=>caches.match(e.request).then(r=>r||caches.match('/'))));});");
+  });
   dashboardServer.on("/api/status", sendDashboardStatus);
+  dashboardServer.on("/api/files", sendDashboardFiles);
+  dashboardServer.on("/api/download", []() { sendDashboardDownload(false); });
+  dashboardServer.on("/api/metadata", []() { sendDashboardDownload(true); });
+  dashboardServer.on("/api/sdtest", HTTP_POST, runDashboardSdTest);
+  dashboardServer.on("/api/calibrate", HTTP_POST, []() {
+    if (state.recording || recorderMode == RECORDER_RECORDING) {
+      dashboardServer.send(409, "application/json",
+                           "{\"success\":false,\"message\":\"Calibration cannot restart while recording\"}");
+      return;
+    }
+    resetCalibration(millis());
+    dashboardServer.send(202, "application/json",
+                         "{\"success\":true,\"message\":\"Stationary pressure calibration restarted\"}");
+  });
+  dashboardServer.on("/api/stop", HTTP_POST, []() {
+    if (!state.recording || recorderMode != RECORDER_RECORDING) {
+      dashboardServer.send(409, "application/json",
+                           "{\"success\":false,\"message\":\"No active recording\"}");
+      return;
+    }
+    const bool saved = finalizeRecording(millis());
+    dashboardServer.send(saved ? 200 : 500, "application/json",
+        saved ? "{\"success\":true,\"message\":\"Recording stopped, flushed and finalized\"}"
+              : "{\"success\":false,\"message\":\"Recorder finalization failed; recovery evidence was retained\"}");
+  });
   dashboardServer.on("/api/hardware-test", HTTP_POST, []() {
     if (!dashboardServer.hasArg("sensor")) {
       dashboardServer.send(400, "application/json",
