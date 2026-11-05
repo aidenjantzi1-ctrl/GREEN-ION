@@ -30,7 +30,9 @@ MEASUREMENT_FIELDS = (
     "acceleration_y_g", "acceleration_z_g", "rotation_x_dps",
     "rotation_y_dps", "rotation_z_dps", "imu_temperature_c", "battery_v",
     "satellites", "gps_fix_age_ms", "gps_status", "latitude", "longitude",
-    "gps_altitude_m", "health", "sd_ok", "imu_ok", "gps_ok", "radio_ok",
+    "gps_altitude_m", "gps_altitude_valid", "gps_fix_quality", "gps_course_deg",
+    "gps_communication", "gps_nmea_sentences", "gps_parsed_sentences",
+    "health", "sd_ok", "imu_ok", "gps_ok", "radio_ok",
     "rssi_dbm", "flags", "log_file", "barometer_ready", "recorder_status",
     "recorder_mode", "calibration_baseline_pa", "calibration_noise_m",
     "imu_test_result", "imu_test_message", "imu_range_32g", "imu_test_samples",
@@ -69,6 +71,12 @@ FIELD_SPECS = {
     "latitude": ("number", "degrees", "measured"),
     "longitude": ("number", "degrees", "measured"),
     "gps_altitude_m": ("number", "m", "measured"),
+    "gps_altitude_valid": ("boolean", None, "calculated"),
+    "gps_fix_quality": ("integer", "code", "measured"),
+    "gps_course_deg": ("number", "degrees", "measured"),
+    "gps_communication": ("string", None, "calculated"),
+    "gps_nmea_sentences": ("integer", "count", "measured"),
+    "gps_parsed_sentences": ("integer", "count", "measured"),
     "health": ("integer", "bitmask", "calculated"),
     "sd_ok": ("boolean", None, "measured"),
     "imu_ok": ("boolean", None, "measured"),
@@ -356,7 +364,9 @@ class TelemetryManager:
             if name in ("latitude", "longitude"):
                 valid = coordinate_valid
             freshness = "missing" if not valid else combined["link_status"]
-            if valid and name in ("latitude", "longitude", "gps_altitude_m", "gps_speed_mps", "satellites") and not gps_fresh:
+            if valid and name in ("latitude", "longitude", "gps_altitude_m", "gps_speed_mps", "gps_course_deg", "satellites") and not gps_fresh:
+                freshness = "stale"
+            if valid and name == "gps_altitude_m" and combined.get("gps_altitude_valid") is False:
                 freshness = "stale"
             fields[name] = {
                 "type": kind, "unit": unit, "origin": origin,

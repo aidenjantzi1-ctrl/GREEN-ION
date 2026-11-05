@@ -660,6 +660,8 @@ static void serviceGps(uint32_t nowMs) {
   state.lastGpsNmeaMs = nowMs;
   if (state.gpsNmeaSentences != UINT32_MAX) ++state.gpsNmeaSentences;
   char *sentence = gps.lastNMEA();
+  const bool ggaSentence = sentence && strstr(sentence, "GGA,") != nullptr;
+  const bool rmcSentence = sentence && strstr(sentence, "RMC,") != nullptr;
   if (!sentence || !gps.parse(sentence)) {
     ++state.gpsParseFailures;
     return;
@@ -671,13 +673,23 @@ static void serviceGps(uint32_t nowMs) {
   state.gpsMinute = gps.minute;
   state.gpsSecond = gps.seconds;
   state.gpsFixCurrent = gps.fix;
+  state.gpsFixQuality = gps.fixquality;
+  if (ggaSentence) {
+    state.gpsAltitudeValid = gps.fixquality > 0 && isfinite(gps.altitude);
+    if (state.gpsAltitudeValid) {
+      state.gpsAltitudeM = gps.altitude;
+      state.lastGpsAltitudeMs = nowMs;
+    }
+  }
   if (state.gpsFixCurrent) {
     state.gpsHasPosition = true;
     state.lastGpsFixMs = nowMs;
     state.latitude = gps.latitudeDegrees;
     state.longitude = gps.longitudeDegrees;
-    state.gpsAltitudeM = gps.altitude;
-    state.gpsSpeedMps = gps.speed * 0.514444f;
+    if (rmcSentence) {
+      state.gpsSpeedMps = gps.speed * 0.514444f;
+      state.gpsCourseDeg = isfinite(gps.angle) ? gps.angle : NAN;
+    }
   }
 }
 
@@ -1686,6 +1698,11 @@ static void sendDashboardStatus() {
   body += state.gpsHasPosition ? String(state.longitude, 7) : String("null");
   body += ",\"gps_altitude_m\":" + numberOrNull(state.gpsAltitudeM, 2);
   body += ",\"gps_speed_mps\":" + numberOrNull(state.gpsSpeedMps, 2);
+  body += ",\"gps_course_deg\":" + numberOrNull(state.gpsCourseDeg, 1);
+  body += ",\"gps_fix_quality\":" + String(state.gpsFixQuality);
+  body += ",\"gps_altitude_valid\":";
+  body += gpsPositionCurrent(millis()) && state.gpsAltitudeValid &&
+          millis() - state.lastGpsAltitudeMs <= config::GPS_CURRENT_MAX_AGE_MS ? "true" : "false";
   body += ",\"gps_utc_hour\":" + String(state.gpsHour);
   body += ",\"gps_utc_minute\":" + String(state.gpsMinute);
   body += ",\"gps_utc_second\":" + String(state.gpsSecond);

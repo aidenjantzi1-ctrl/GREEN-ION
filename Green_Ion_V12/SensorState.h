@@ -28,7 +28,9 @@ struct SensorState {
 
   bool gpsHasPosition = false;
   bool gpsFixCurrent = false;
+  bool gpsAltitudeValid = false;
   uint32_t lastGpsFixMs = 0;
+  uint32_t lastGpsAltitudeMs = 0;
   uint32_t lastGpsSentenceMs = 0;
   uint32_t imuReadFailures = 0;
   uint8_t imuConsecutiveReadFailures = 0;
@@ -40,6 +42,8 @@ struct SensorState {
   double longitude = 0.0;
   float gpsAltitudeM = NAN;
   float gpsSpeedMps = NAN;
+  float gpsCourseDeg = NAN;
+  uint8_t gpsFixQuality = 0;
   uint8_t satellites = 0;
   uint8_t gpsHour = 0;
   uint8_t gpsMinute = 0;

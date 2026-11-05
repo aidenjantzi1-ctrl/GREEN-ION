@@ -142,6 +142,21 @@ class GroundStationManagerTests(unittest.TestCase):
         self.assertTrue(snapshot["field_meta"]["altitude_m"]["valid"])
         self.assertTrue(snapshot["field_meta"]["acceleration_g"]["valid"])
 
+    def test_gps_altitude_validity_is_independent_of_position_fix(self):
+        row = self.row(1)
+        row.update(latitude=37.1, longitude=-121.9, gps_status="live",
+                   gps_fix_age_ms=100, gps_altitude_m=151.0,
+                   gps_altitude_valid=False, gps_fix_quality=0,
+                   gps_communication="ok", gps_nmea_sentences=12,
+                   gps_parsed_sentences=11)
+        self.manager.ingest("wifi", row)
+        snapshot = self.manager.snapshot()
+        self.assertEqual("live", snapshot["gps_status"])
+        self.assertFalse(snapshot["gps_altitude_valid"])
+        self.assertEqual("stale", snapshot["field_meta"]["gps_altitude_m"]["freshness"])
+        self.assertEqual(0, snapshot["gps_fix_quality"])
+        self.assertEqual(12, snapshot["gps_nmea_sentences"])
+
     def test_bad_coordinates_are_not_saved(self):
         self.assertFalse(valid_coordinate(91, 0))
         row = self.row(1)

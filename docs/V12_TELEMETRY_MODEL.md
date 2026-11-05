@@ -36,6 +36,12 @@
 | `latitude` | number | degrees | measured |
 | `longitude` | number | degrees | measured |
 | `gps_altitude_m` | number | m | measured |
+| `gps_altitude_valid` | boolean | — | calculated |
+| `gps_fix_quality` | integer | code | measured |
+| `gps_course_deg` | number | degrees | measured |
+| `gps_communication` | string | — | calculated |
+| `gps_nmea_sentences` | integer | count | measured |
+| `gps_parsed_sentences` | integer | count | measured |
 | `health` | integer | bitmask | calculated |
 | `sd_ok` | boolean | — | measured |
 | `imu_ok` | boolean | — | measured |
@@ -77,3 +83,5 @@ Fields not transmitted by a source are absent from that source packet and have `
 ## Fixed LoRa packet validity
 
 The Uno bridge's fixed-width v2 JSON includes a `flags` bitmask. The Ground Station reads bits 2–6 as SD ready, IMU ready, barometer ready, radio ready, and recording. If the barometer or IMU ready bit is clear, their zero-filled fixed packet fields become `null` in the merged status view. A genuine zero with the ready bit set remains valid. The original RKT4 and GIS1 flight recordings are untouched. LoRa has no separate vertical-speed field, barometer temperature, or calibrated relative altitude; these remain unavailable during radio-only reception.
+
+The PA1010D parser uses Adafruit GPS `altitude`, which that library documents as meters above mean sea level (MSL). Firmware marks `gps_altitude_valid` only when a parsed GGA sentence reports a positive fix quality and a finite altitude, and the altitude observation is still recent. RMC may supply a position and course before a valid GGA altitude arrives. `gps_fix_quality` is the GGA quality code (0 means invalid; 1 means GPS; 2 means DGPS). `gps_course_deg` is the RMC course clockwise from true north. The Feather also reports whether NMEA messages are arriving and the parsed/received sentence counts. Fixed LoRa v2 packets do not carry separate altitude quality, fix quality, course, or NMEA communication fields, so those fields are unknown in radio-only reception. Firmware compilation does not verify actual PA1010D behavior.

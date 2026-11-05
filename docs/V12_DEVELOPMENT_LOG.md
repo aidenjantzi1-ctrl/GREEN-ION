@@ -843,3 +843,11 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - The fixed LoRa packet clamps invalid BMP388 and IMU readings to zero while carrying sensor-ready flags. The Ground Station now decodes those flags and presents unavailable barometer/IMU values as `null`; measured zero remains valid when ready.
 - Full Python regression suite: 102 tests passed. Node syntax check, RKT4 browser analysis suite, and a mobile-width browser rendering check for vertical versus GPS speed, zero altitude, and battery estimate passed.
+
+## 2026-11-04 — Scheduled cloud run: GPS altitude quality
+
+- Fetched `codex/green-ion-v12` and confirmed remote head `f98a277` matched the clean checkout before editing. No prior regression was found.
+- Verified the installed Adafruit GPS library defines `altitude` as meters above MSL, `fixquality` from GGA, and `angle` as true-north course. The Feather is configured for RMC+GGA messages.
+- Added explicit GGA altitude validity and fix quality, RMC course, and GPS communication counts to Feather Wi-Fi status. The laptop now keeps altitude quality separate from position-fix freshness and displays the MSL datum.
+- Baseline and changed Feather sketch both compiled with Arduino CLI 1.5.1 and installed ESP32 core 2.0.17. The compiler emitted library overload warnings but exited successfully. Python regression suite: 103 tests passed; RKT4 browser analysis passed.
+- Hardware GPS accuracy, fix acquisition, course, and altitude validity remain NOT TESTED. Phase 2 remains incomplete.
