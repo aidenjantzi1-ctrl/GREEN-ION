@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, quote, urlparse
 import webbrowser
 
 from flight_library import FlightImportError, FlightLibrary
-from telemetry_manager import SessionWriter, TelemetryManager
+from telemetry_manager import SessionWriter, TelemetryManager, valid_coordinate
 
 ROOT = Path(__file__).resolve().parent
 GROUND_STATION_VERSION = "V12-development"
@@ -98,6 +98,17 @@ def feather_status() -> tuple[str, dict]:
     request = Request(base + "/api/status", headers={"Accept": "application/json"})
     with urlopen(request, timeout=1.5) as response:
         return base, json.loads(response.read(65536))
+
+
+def feather_capacity() -> dict:
+    """Refresh SD capacity through the Feather's idle-only file-list endpoint."""
+    with CONFIG_LOCK:
+        base = CONFIG["feather_url"]
+    with urlopen(Request(base + "/api/files", headers={"Accept": "application/json"}), timeout=3.0) as response:
+        payload = json.loads(response.read(131072))
+    if not isinstance(payload, dict):
+        raise ValueError("Feather capacity response was not an object")
+    return payload
 
 
 def prepare_recorder() -> tuple[int, dict]:
@@ -273,6 +284,45 @@ def battery_stability(points: list[dict], source: str | None,
     return ("PASS" if spread <= 0.08 else "WARNING"), message
 
 
+def gps_position_stability(points: list[dict], now: datetime | None = None) -> tuple[str, str]:
+    """Check stationary GPS scatter from distinct, recent Feather fixes."""
+    now = now or datetime.now(timezone.utc)
+    fixes: dict[int, tuple[datetime, float, float]] = {}
+    for point in points:
+        if (point.get("source") != "wifi" or point.get("gps_status") != "live" or
+                not valid_coordinate(point.get("latitude"), point.get("longitude"))):
+            continue
+        stamp = point.get("gps_fix_uptime_ms")
+        fix_age = point.get("gps_fix_age_ms")
+        if (not isinstance(stamp, int) or isinstance(stamp, bool) or
+                not isinstance(fix_age, (int, float)) or isinstance(fix_age, bool) or
+                not math.isfinite(fix_age) or not 0 <= fix_age <= 3000):
+            continue
+        try:
+            received = datetime.fromisoformat(point["received_utc"])
+            age_seconds = (now - received).total_seconds()
+        except (KeyError, TypeError, ValueError):
+            continue
+        if 0 <= age_seconds <= 30:
+            fixes[stamp] = (received, float(point["latitude"]), float(point["longitude"]))
+    ordered = sorted(fixes.values())
+    if len(ordered) < 5 or (ordered[-1][0] - ordered[0][0]).total_seconds() < 4:
+        return "NOT TESTED", "Collect at least five distinct fresh Feather GPS fixes over four stationary seconds."
+    radius = 6371008.8
+    maximum = 0.0
+    for index, (_, lat_a, lon_a) in enumerate(ordered):
+        phi_a = math.radians(lat_a)
+        for _, lat_b, lon_b in ordered[index + 1:]:
+            delta_phi = math.radians(lat_b - lat_a)
+            delta_lambda = math.radians(lon_b - lon_a)
+            haversine = math.sin(delta_phi / 2) ** 2 + math.cos(phi_a) * math.cos(math.radians(lat_b)) * math.sin(delta_lambda / 2) ** 2
+            maximum = max(maximum, 2 * radius * math.asin(min(1.0, math.sqrt(haversine))))
+    status = "PASS" if maximum <= 30 else "WARNING"
+    return status, (f"{len(ordered)} distinct fixes over {(ordered[-1][0]-ordered[0][0]).total_seconds():.1f} s; "
+                    f"maximum pairwise separation {maximum:.1f} m (30 m software warning threshold). "
+                    "Stability does not prove position accuracy.")
+
+
 def preflight_report(actions: dict | None = None) -> dict:
     snapshot = MANAGER.snapshot()
     wifi = snapshot["sources"]["wifi"]
@@ -293,6 +343,7 @@ def preflight_report(actions: dict | None = None) -> dict:
         "Telemetry protocol": "Use matching V12 Feather and Uno protocol v2 firmware.",
         "Feather LoRa module": "Check Feather RFM95W wiring and antenna; Wi-Fi-only operation remains available.",
         "SD initialization": "Power down before reseating the SD card; inspect its wiring and format, then rerun Preflight.",
+        "SD free space": "Load the idle Feather recording list to refresh capacity; if space is low, copy and verify files before managing the SD card.",
         "SD write/read/cleanup": "Inspect SD wiring, free space and the reported temporary-file cleanup result; retain all flight files.",
         "BMP388": "Inspect the BMP388 connection and power, then retry with the Feather stationary.",
         "Stationary barometer baseline": "Keep the Feather motionless, prepare the recorder, and retry calibration if pressure noise remains high.",
@@ -301,6 +352,7 @@ def preflight_report(actions: dict | None = None) -> dict:
         "PA1010D communication": "Run the GPS test; inspect its cable and NMEA counts. Move outdoors only to test satellite fix.",
         "Stationary sensor test request": "Keep the Feather motionless and rerun Full Preflight after the recorder is idle.",
         "GPS fix": "Move outdoors under open sky and wait for a fresh fix; GPS communication is checked separately.",
+        "Stationary GPS position stability": "Keep the Feather still outdoors for multiple fixes; inspect sky view and antenna placement if positions jump.",
         "GPS UTC time": "Wait for recent RMC date and NMEA time; check GPS reception and the laptop clock if they disagree.",
         "Battery": "Charge or replace the LiPo and recheck its voltage before recording.",
         "Stationary battery stability": "Collect five distinct live samples over two stationary seconds; inspect power wiring if voltage varies.",
@@ -384,6 +436,20 @@ def preflight_report(actions: dict | None = None) -> dict:
         "FAIL" if live("sd_ok") and snapshot.get("sd_ok") is False else "NOT TESTED",
         "Current SD initialization status is ready; a write/read test is separate."
         if live("sd_ok") and snapshot.get("sd_ok") is True else "Current SD initialization evidence is unavailable or reports a fault.")
+    capacity_action = (actions or {}).get("sd_capacity") or {}
+    total_bytes, used_bytes = capacity_action.get("total"), capacity_action.get("used")
+    direct_free = (total_bytes - used_bytes if capacity_action.get("success") is True and
+                   isinstance(total_bytes, int) and not isinstance(total_bytes, bool) and
+                   isinstance(used_bytes, int) and not isinstance(used_bytes, bool) and
+                   0 <= used_bytes <= total_bytes else None)
+    free_bytes = direct_free if direct_free is not None else (
+        snapshot.get("sd_free_bytes") if live("sd_free_bytes") else None)
+    add("SD free space", "PASS" if isinstance(free_bytes, int) and free_bytes >= 8 * 1024 * 1024 else
+        "WARNING" if isinstance(free_bytes, int) and free_bytes >= 0 else "NOT TESTED",
+        f"Fresh idle SD capacity reports {free_bytes / (1024 * 1024):.1f} MiB free; 8 MiB is a conservative software threshold, not a duration guarantee."
+        if isinstance(free_bytes, int) else
+        "SD capacity is unavailable or stale; an idle file listing refreshes the reading."
+        + (f" Refresh error: {capacity_action['error']}." if capacity_action.get("error") else ""))
     sd_action = (actions or {}).get("sd_test")
     add("SD write/read/cleanup", "PASS" if sd_action and sd_action.get("http_status") == 200 and sd_action.get("success") is True else
         "FAIL" if sd_action else "NOT TESTED",
@@ -439,7 +505,12 @@ def preflight_report(actions: dict | None = None) -> dict:
         sensor_action.get("message", "Feather did not accept the sensor tests."))
     fix_live = snapshot.get("gps_status") == "live" and live("latitude") and live("longitude")
     add("GPS fix", "PASS" if fix_live else "WARNING" if snapshot.get("gps_status") == "stale" else "NOT TESTED",
-        "Current valid GPS position." if fix_live else "A current outdoor GPS fix is unavailable; GPS communication can still pass independently.")
+        f"Current valid GPS position; {snapshot.get('satellites', 'unknown')} satellites, fix quality {snapshot.get('gps_fix_quality', 'unknown')}."
+        if fix_live else "A current outdoor GPS fix is unavailable; GPS communication can still pass independently.")
+    stability_status, stability_message = (gps_position_stability(MANAGER.recent_history(200))
+                                          if fix_live and snapshot.get("active_source") == "wifi" else
+                                          ("NOT TESTED", "A current Feather Wi-Fi GPS fix is required before checking stationary position scatter."))
+    add("Stationary GPS position stability", stability_status, stability_message)
     utc_fields = ("gps_utc_valid", "gps_utc_hour", "gps_utc_minute", "gps_utc_second")
     utc_available = all(live(name) for name in utc_fields)
     utc_valid = utc_available and snapshot.get("gps_utc_valid") is True
@@ -479,7 +550,9 @@ def preflight_report(actions: dict | None = None) -> dict:
     add("Battery", battery_status,
         "Battery reading is unavailable or stale." if not battery_live or battery is None else
         f"Reported battery: {battery_text}; outside plausible one-cell LiPo range."
-        if not battery_valid else f"Reported battery: {battery_text}; one reading does not verify charge endurance or voltage stability.")
+        if not battery_valid else
+        f"Reported battery: {battery_text}; power classification {snapshot.get('battery_warning', 'unknown')}. "
+        "One reading does not verify charge endurance or voltage stability.")
     stability_status, stability_message = battery_stability(
         MANAGER.recent_history(200), snapshot.get("active_source")) if battery_live else (
             "NOT TESTED", "A live hardware battery stream is required for a stability window.")
@@ -575,7 +648,9 @@ def diagnostic_test(kind: str) -> tuple[int, dict]:
                 "firmware": "Feather firmware version",
                 "imu_result": "LSM6DSO32", "gps_result": "PA1010D communication",
                 "gps_utc": "GPS UTC time",
-                "recovery": "Interrupted-file recovery scan"}
+                "recovery": "Interrupted-file recovery scan",
+                "gps_stability": "Stationary GPS position stability",
+                "sd_free": "SD free space"}
     if kind in observed:
         check = next(item for item in preflight_report()["checks"] if item["name"] == observed[kind])
         return 200, {"test": kind, **check, "hardware_test_started": False}
@@ -919,9 +994,14 @@ class Handler(SimpleHTTPRequestHandler):
                     json_response(self, {"success": False, "error": "Preflight tests are disabled while the recorder is active."}, 409)
                     return
                 sd_status, sd_result = feather_post("/api/sdtest")
+                try:
+                    capacity_result = feather_capacity()
+                except (OSError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
+                    capacity_result = {"success": False, "error": str(error)}
                 test_status, test_result = feather_post("/api/hardware-test?sensor=all")
                 actions = {
                     "sd_test": {"http_status": sd_status, **sd_result},
+                    "sd_capacity": capacity_result,
                     "sensor_test": {"http_status": test_status, **test_result},
                 }
                 report = preflight_report(actions)

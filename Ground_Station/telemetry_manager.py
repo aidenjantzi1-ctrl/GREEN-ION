@@ -389,7 +389,7 @@ class TelemetryManager:
                  "acceleration_x_g", "acceleration_y_g", "acceleration_z_g",
                  "rotation_x_dps", "rotation_y_dps", "rotation_z_dps",
                  "battery_v", "battery_sample_uptime_ms", "pressure_pa", "latitude", "longitude",
-                 "gps_status", "gps_fix_age_ms")
+                 "gps_status", "gps_fix_age_ms", "gps_fix_uptime_ms")
             }
             self.history.append(point)
             if len(self.history) > 1200:

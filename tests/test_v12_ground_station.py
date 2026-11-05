@@ -251,6 +251,24 @@ class PreflightHistoryTests(unittest.TestCase):
         points[-1]["battery_v"] = 4.2
         self.assertEqual("WARNING", ground_station.battery_stability(points, "wifi", now)[0])
 
+    def test_gps_stability_uses_distinct_current_fixes_and_geographic_distance(self):
+        from datetime import datetime, timedelta, timezone
+
+        now = datetime.now(timezone.utc)
+        points = [{"source": "wifi", "gps_status": "live", "gps_fix_age_ms": 0,
+                   "gps_fix_uptime_ms": i * 1000, "latitude": 37.0 + i * 0.00001,
+                   "longitude": -121.0,
+                   "received_utc": (now - timedelta(seconds=4 - i)).isoformat()}
+                  for i in range(5)]
+        self.assertEqual("PASS", ground_station.gps_position_stability(points, now)[0])
+        self.assertIn("does not prove position accuracy", ground_station.gps_position_stability(points, now)[1])
+        self.assertEqual("NOT TESTED", ground_station.gps_position_stability(
+            [{**point, "gps_fix_uptime_ms": 1000} for point in points], now)[0])
+        self.assertEqual("NOT TESTED", ground_station.gps_position_stability(
+            [{**point, "source": "simulation"} for point in points], now)[0])
+        points[-1]["latitude"] += 0.001
+        self.assertEqual("WARNING", ground_station.gps_position_stability(points, now)[0])
+
     def test_diagnostic_history_appends_and_preserves_test_origin(self):
         with tempfile.TemporaryDirectory() as temporary, \
                 patch.object(ground_station, "DIAGNOSTIC_LOG", Path(temporary) / "diagnostics.jsonl"):
@@ -324,6 +342,7 @@ class GroundStationManagerTests(unittest.TestCase):
 
     def test_recent_history_retains_fields_needed_to_restore_mission_trail(self):
         row = {**self.row(7), "gps_status": "live", "gps_fix_age_ms": 0,
+               "gps_fix_uptime_ms": 700,
                "latitude": 37.1, "longitude": -121.9, "gps_altitude_m": 125.0,
                "battery_v": 3.9, "pressure_pa": 101000,
                "acceleration_x_g": 0.1, "rotation_z_dps": 2.5,
@@ -335,6 +354,7 @@ class GroundStationManagerTests(unittest.TestCase):
                           point["battery_v"], point["pressure_pa"]))
         self.assertEqual((37.1, -121.9, 0),
                          (point["latitude"], point["longitude"], point["gps_fix_age_ms"]))
+        self.assertEqual(700, point["gps_fix_uptime_ms"])
         self.assertEqual((0.1, 2.5), (point["acceleration_x_g"], point["rotation_z_dps"]))
         self.assertEqual(3, point["flight_state"])
 
@@ -605,6 +625,37 @@ class GroundStationManagerTests(unittest.TestCase):
                                    "message": "temporary file verified and removed"}}
             checks = {item["name"]: item for item in ground_station.preflight_report(actions)["checks"]}
             self.assertEqual("PASS", checks["SD write/read/cleanup"]["status"])
+
+    def test_preflight_sd_capacity_needs_fresh_idle_evidence(self):
+        with patch.object(ground_station, "MANAGER", self.manager), \
+                patch.object(ground_station, "available_ports", return_value=[]):
+            self.manager.ingest("wifi", {**self.row(1), "sd_ok": True,
+                                         "sd_capacity_known": True, "sd_free_bytes": 16 * 1024 * 1024,
+                                         "sd_capacity_age_ms": 0, "recording": False})
+            check = next(item for item in ground_station.preflight_report()["checks"]
+                         if item["name"] == "SD free space")
+            self.assertEqual("PASS", check["status"])
+            self.manager.ingest("wifi", {**self.row(2), "sd_ok": True,
+                                         "sd_capacity_known": True, "sd_free_bytes": 1024,
+                                         "sd_capacity_age_ms": 0, "recording": False})
+            check = next(item for item in ground_station.preflight_report()["checks"]
+                         if item["name"] == "SD free space")
+            self.assertEqual("WARNING", check["status"])
+            self.manager.ingest("wifi", {**self.row(3), "sd_ok": True,
+                                         "sd_capacity_known": True, "sd_free_bytes": 16 * 1024 * 1024,
+                                         "sd_capacity_age_ms": 30000, "recording": False})
+            check = next(item for item in ground_station.preflight_report()["checks"]
+                         if item["name"] == "SD free space")
+            self.assertEqual("NOT TESTED", check["status"])
+            actions = {"sd_capacity": {"success": True, "total": 32 * 1024 * 1024,
+                                       "used": 8 * 1024 * 1024}}
+            check = next(item for item in ground_station.preflight_report(actions)["checks"]
+                         if item["name"] == "SD free space")
+            self.assertEqual("PASS", check["status"])
+            actions["sd_capacity"]["used"] = 64 * 1024 * 1024
+            check = next(item for item in ground_station.preflight_report(actions)["checks"]
+                         if item["name"] == "SD free space")
+            self.assertEqual("NOT TESTED", check["status"])
 
     def test_uno_boot_status_does_not_claim_lora_packets(self):
         self.manager.note_receiver_status({"type": "receiver_status", "ok": False,

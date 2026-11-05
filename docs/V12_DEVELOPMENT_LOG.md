@@ -945,3 +945,9 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Added a Preflight action that downloads the exact finalized TEST BIN with live Feather-state rechecks, validates it through the existing RKT4 importer, retains the SD original and laptop raw copy, and saves summary/checksum evidence in exportable Diagnostics history.
 - Verification: 128 Python tests, Node syntax, RKT4 browser analysis and mobile Chromium start/simulated-loss/reconnect/stop/verify smoke passed. A file-level PASS explicitly does not establish a physical disconnect; no physical file was tested.
+
+### Phase 4 software acceptance (2026-11-05)
+
+- Added distinct-fix stationary GPS scatter, explicit SD free-space and battery power-classification results. Full Preflight refreshes SD capacity through the idle-only Feather file endpoint; stale capacity does not pass.
+- Added a fixed Diagnostics flight playback labeled SIMULATION — NOT HARDWARE, isolated from live telemetry and recorder controls. `V12_PHASE4_AUDIT.md` records the requirement-by-requirement software evidence and physical limits.
+- Verification: 130 Python tests, Node syntax, RKT4 analysis and mobile Chromium smoke of all 22 Diagnostics controls and playback passed. Physical Phase 4 checks remain NOT TESTED. The next software phase is Recovery.
