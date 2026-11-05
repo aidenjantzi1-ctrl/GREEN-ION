@@ -1,2 +1,4 @@
 __pycache__/
 *.py[cod]
+build/
+Green_Ion_V12/build/

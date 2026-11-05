@@ -1,0 +1,137 @@
+name: Build Green Ion V12 development firmware
+
+on:
+  push:
+    branches: [main, "codex/**", "v12/**"]
+    paths:
+      - "Green_Ion_V12/**"
+      - "Ground_Receiver/**"
+      - "Ground_Station/**"
+      - "libraries/GreenIonProtocol/**"
+      - "tests/test_v12_*.py"
+      - "tests/cpp/test_v12_*.cpp"
+      - "libraries/GreenIonRecorder/**"
+      - ".github/workflows/build-v12.yml"
+  workflow_dispatch:
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run all Python regression tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Run native C++ RKT4 golden-vector tests
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_rkt4.cpp \
+            -o /tmp/test-v12-rkt4
+          /tmp/test-v12-rkt4
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_recorder_core.cpp \
+            -o /tmp/test-v12-recorder-core
+          /tmp/test-v12-recorder-core
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_flight_watcher.cpp \
+            -o /tmp/test-v12-flight-watcher
+          /tmp/test-v12-flight-watcher
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_calibration.cpp \
+            -o /tmp/test-v12-calibration
+          /tmp/test-v12-calibration
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_checkpoint.cpp \
+            -o /tmp/test-v12-checkpoint
+          /tmp/test-v12-checkpoint
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_sample_clock.cpp \
+            -o /tmp/test-v12-sample-clock
+          /tmp/test-v12-sample-clock
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_metadata.cpp \
+            -o /tmp/test-v12-metadata
+          /tmp/test-v12-metadata
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_landing_watcher.cpp \
+            -o /tmp/test-v12-landing-watcher
+          /tmp/test-v12-landing-watcher
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonProtocol/src \
+            tests/cpp/test_v12_telemetry_queue.cpp \
+            -o /tmp/test-v12-telemetry-queue
+          /tmp/test-v12-telemetry-queue
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonProtocol/src \
+            tests/cpp/test_v12_radio_recovery.cpp \
+            -o /tmp/test-v12-radio-recovery
+          /tmp/test-v12-radio-recovery
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_sensor_log.cpp \
+            -o /tmp/test-v12-sensor-log
+          /tmp/test-v12-sensor-log
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_sensor_log_core.cpp \
+            -o /tmp/test-v12-sensor-log-core
+          /tmp/test-v12-sensor-log-core
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_sensor_recovery.cpp \
+            -o /tmp/test-v12-sensor-recovery
+          /tmp/test-v12-sensor-recovery
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_sensor_health.cpp \
+            -o /tmp/test-v12-sensor-health
+          /tmp/test-v12-sensor-health
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_bench_tests.cpp \
+            -o /tmp/test-v12-bench-tests
+          /tmp/test-v12-bench-tests
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_recording_failures.cpp \
+            -o /tmp/test-v12-recording-failures
+          /tmp/test-v12-recording-failures
+
+  compile-firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Install board packages
+        run: |
+          arduino-cli config init
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install arduino:avr
+      - name: Install production libraries
+        run: |
+          arduino-cli lib install "Adafruit BMP3XX Library"
+          arduino-cli lib install "Adafruit LSM6DS"
+          arduino-cli lib install "Adafruit GPS Library"
+          arduino-cli lib install "RadioHead"
+      - name: Compile Feather ESP32 V2 firmware
+        run: arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --library libraries/GreenIonProtocol --library libraries/GreenIonRecorder --output-dir build/esp32 Green_Ion_V12
+      - name: Compile Arduino Uno receiver
+        run: arduino-cli compile --fqbn arduino:avr:uno --library libraries/GreenIonProtocol --output-dir build/uno Ground_Receiver
+      - name: Upload development binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: green-ion-v12-development-binaries
+          path: |
+            build/esp32/*.bin
+            build/uno/*.hex
+          if-no-files-found: error
+
