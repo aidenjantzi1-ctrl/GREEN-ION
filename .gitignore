@@ -2,3 +2,5 @@ __pycache__/
 *.py[cod]
 build/
 Green_Ion_V12/build/
+Ground_Station/data/
+Ground_Station/logs/

@@ -63,11 +63,13 @@ class V12StructureTests(unittest.TestCase):
             self.assertIn(name, transmitter)
             self.assertIn(name, receiver)
 
-    def test_ground_station_opens_without_hardware_arguments(self):
+    def test_ground_station_opens_in_hardware_mode_without_arguments(self):
         source = (ROOT / "Ground_Station" / "ground_station.py").read_text(encoding="utf-8")
-        self.assertIn('use_sample = args.sample or not args.port', source)
+        self.assertIn('if args.sample:', source)
+        self.assertIn('threading.Thread(target=serial_source', source)
+        self.assertIn('threading.Thread(target=wifi_source', source)
         self.assertIn('webbrowser.open', source)
-        self.assertNotIn('add_mutually_exclusive_group(required=True)', source)
+        self.assertNotIn('args.sample or not args.port', source)
 
     def test_firmware_uses_bounded_recorder_core(self):
         config = (ROOT / "Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")

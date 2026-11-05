@@ -1,5 +1,14 @@
 # GREEN ION V12 development log
 
+## 2026-11-04 — Session 33: unified offline laptop Ground Station
+
+- Replaced the simulation-first, single-source green page with a V11-blue, five-destination laptop application: Mission Control, Recovery, Flights, Diagnostics and Settings.
+- Added simultaneous Feather `/api/status` polling and Arduino Uno serial ingestion with independent reconnect loops. Wi-Fi is preferred while fresh; valid LoRa takes over without restarting the session when Wi-Fi is stale.
+- Added per-source sequence tracking, duplicate/out-of-order rejection, gap counts, parse/connection errors, packet ages and persistent last-valid GPS state. Stale data is labeled; missing values are not fabricated.
+- Added append-only raw JSONL sessions, atomic restart snapshots, bounded live history, session downloads, COM-port discovery/selection, a one-time dependency installer and a Windows launcher that verifies its Python command works.
+- Added automated coverage for Wi-Fi fallback, LoRa-only continuation, duplicates, out-of-order packets, rollover, gaps, stale GPS retention, invalid coordinates, incremental persistence and the five-section offline interface.
+- Verification boundary: this session uses source tests and simulated inputs. Physical USB reconnect, dual-radio operation, range, GPS accuracy and full mission behavior remain unverified hardware work.
+
 ## 2026-10-31 — Session 1: isolated foundation and telemetry vertical slice
 
 ### Implemented

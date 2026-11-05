@@ -43,7 +43,8 @@
   - [ ] Extend deterministic health/recovery boundaries to IMU, GPS, storage, battery, and time.
 - [x] Add a coordinated recorder failure harness for missing optional sensors, mid-run GPS loss, secondary failure isolation, and fatal primary SD write/flush loss.
 - [ ] Add failure-injection integration tests for init loss, mid-run GPS/radio loss, SD write failure, and recovery.
-- [ ] Expand the ground station with sequence-gap statistics, session metadata, explicit download, and replay.
+- [x] Unify the offline Ground Station around Mission Control, Recovery, Flights, Diagnostics and Settings; merge simultaneous Wi-Fi/LoRa sources, reject duplicate/out-of-order packets, count gaps, retain last valid GPS, persist raw sessions incrementally, and provide explicit downloads.
+- [ ] Add validated Feather SD download/import with progress, checksum-based session matching, local RKT4/GIS1 replay, comparisons, printable reports, and offline tile packages.
 - [ ] Port the single unified Flight dashboard, home-test measurements, recovery, and OTA/rollback behavior.
   - [x] Restore the actual V11 blue tabbed visual foundation, mobile layouts, live graphs, RKT4 browser analysis, CSV export, printable reports, SD file listing/downloads, and offline dashboard shell in V12.
   - [x] Integrate live BMP388, LSM6DSO32, PA1010D, radio, battery, SD, recorder/recovery health, and nonblocking hardware-test results into that interface.

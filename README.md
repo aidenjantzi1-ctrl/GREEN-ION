@@ -10,7 +10,7 @@ V12 host tests and target compilation pass. Physical sensor, SD/power-loss, shar
 
 - [`Green_Ion_V12/Green_Ion_V12.ino`](Green_Ion_V12/Green_Ion_V12.ino) — Adafruit ESP32 Feather V2 recorder firmware.
 - [`Ground_Receiver/Ground_Receiver.ino`](Ground_Receiver/Ground_Receiver.ino) — **Arduino Uno R3 receiver firmware**.
-- [`Ground_Station/`](Ground_Station/) — Windows/Python telemetry dashboard, simulation, logging, and GIS1 export tools.
+- [`Ground_Station/`](Ground_Station/) — unified offline Windows mission, recovery, flight-session and diagnostics dashboard with simultaneous Feather Wi-Fi and Uno LoRa ingestion.
 - [`libraries/GreenIonProtocol/`](libraries/GreenIonProtocol/) — shared packet and radio contract.
 - [`libraries/GreenIonRecorder/`](libraries/GreenIonRecorder/) — portable recorder, recovery, format, and hardware-test modules.
 - [`Past_Versions/Green_Ion_V11/`](Past_Versions/Green_Ion_V11/) — complete archived V11 release candidate for rollback.
