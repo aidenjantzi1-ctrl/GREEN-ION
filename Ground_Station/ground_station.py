@@ -231,7 +231,8 @@ def verify_bench_recording(filename: str) -> tuple[int, dict]:
         with urlopen(Request(url, headers={"Accept": "application/octet-stream"}), timeout=20.0) as response:
             expected_header = response.headers.get("X-Green-Ion-Bytes") or response.headers.get("Content-Length")
             expected = int(expected_header) if expected_header else None
-            flight = FLIGHTS.import_stream(filename.lstrip("/"), response, expected_bytes=expected)
+            flight = FLIGHTS.import_stream(filename.lstrip("/"), response, expected_bytes=expected,
+                                           source_kind="bench_verification")
         summary = flight["summary"]
         status = ("PASS" if summary["records"] > 0 and summary["duration_s"] >= 5 and
                   not summary["warnings"] else "WARNING")
@@ -969,13 +970,32 @@ class Handler(SimpleHTTPRequestHandler):
             except (ValueError, json.JSONDecodeError) as error:
                 json_response(self, {"success": False, "error": str(error)}, 400)
             return
+        if self.path.startswith("/api/flight/") and self.path.endswith("/details"):
+            try:
+                parts = self.path.strip("/").split("/")
+                if len(parts) != 4:
+                    raise FlightImportError("invalid flight details request")
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > 512:
+                    raise FlightImportError("invalid flight details length")
+                payload = json.loads(self.rfile.read(length))
+                if not isinstance(payload, dict):
+                    raise FlightImportError("invalid flight details payload")
+                result = FLIGHTS.update_details(parts[2], payload.get("label", ""),
+                                                payload.get("rocket_profile", ""),
+                                                payload.get("flight_date"))
+                json_response(self, {"success": True, "flight": result})
+            except (OSError, ValueError, FlightImportError, json.JSONDecodeError) as error:
+                json_response(self, {"success": False, "error": str(error)}, 400)
+            return
         if self.path == "/api/import-bin":
             try:
                 length = int(self.headers.get("Content-Length", "0"))
                 if length <= 0 or length > 256 * 1024 * 1024:
                     raise FlightImportError("BIN upload must be between 1 byte and 256 MB")
                 filename = self.headers.get("X-Green-Ion-Filename", "")
-                result = FLIGHTS.import_stream(filename, LimitedReader(self.rfile, length), expected_bytes=length)
+                result = FLIGHTS.import_stream(filename, LimitedReader(self.rfile, length),
+                                               expected_bytes=length, source_kind="manual_upload")
                 json_response(self, {"success": True, "flight": result}, 200)
             except (OSError, ValueError, FlightImportError) as error:
                 json_response(self, {"success": False, "error": str(error)}, 400)
@@ -1004,7 +1024,8 @@ class Handler(SimpleHTTPRequestHandler):
                 with urlopen(Request(url, headers={"Accept": "application/octet-stream"}), timeout=20.0) as response:
                     expected_header = response.headers.get("X-Green-Ion-Bytes") or response.headers.get("Content-Length")
                     expected = int(expected_header) if expected_header else None
-                    result = FLIGHTS.import_stream(filename, response, expected_bytes=expected)
+                    result = FLIGHTS.import_stream(filename, response, expected_bytes=expected,
+                                                   source_kind="feather_sd")
                 json_response(self, {"success": True, "flight": result})
             except (OSError, URLError, TimeoutError, ValueError, json.JSONDecodeError, FlightImportError) as error:
                 json_response(self, {"success": False, "error": f"Feather download failed: {error}"}, 502)

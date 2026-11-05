@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+from datetime import date, datetime, timezone
 import hashlib
 import io
 import json
@@ -12,6 +13,7 @@ from pathlib import Path
 import re
 import struct
 import tempfile
+import threading
 from typing import BinaryIO
 
 from sensor_log import SensorLogError, csv_row, parse_sensor_log, validate_rkt4_binding, CSV_FIELDS
@@ -116,13 +118,35 @@ class FlightLibrary:
         self.meta = root / "metadata"
         self.raw.mkdir(parents=True, exist_ok=True)
         self.meta.mkdir(parents=True, exist_ok=True)
+        self._lock = threading.RLock()
 
     def _metadata_path(self, identifier: str) -> Path:
         if not re.fullmatch(r"[0-9a-f]{64}", identifier):
             raise FlightImportError("invalid flight identifier")
         return self.meta / f"{identifier}.json"
 
-    def import_stream(self, filename: str, source: BinaryIO, expected_bytes: int | None = None) -> dict:
+    def _save_metadata(self, identifier: str, metadata: dict) -> None:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=self.meta,
+                                         prefix="flight-meta-", suffix=".part", delete=False) as output:
+            temporary = Path(output.name)
+            try:
+                json.dump(metadata, output, indent=2, allow_nan=False)
+                output.flush()
+                os.fsync(output.fileno())
+            except Exception:
+                temporary.unlink(missing_ok=True)
+                raise
+        temporary.replace(self._metadata_path(identifier))
+
+    def import_stream(self, filename: str, source: BinaryIO, expected_bytes: int | None = None,
+                      source_kind: str = "manual_upload") -> dict:
+        if source_kind not in {"manual_upload", "feather_sd", "bench_verification"}:
+            raise FlightImportError("invalid flight import source")
+        with self._lock:
+            return self._import_stream(filename, source, expected_bytes, source_kind)
+
+    def _import_stream(self, filename: str, source: BinaryIO, expected_bytes: int | None,
+                       source_kind: str) -> dict:
         if Path(filename).name != filename:
             raise FlightImportError("filename must not contain a directory")
         if not SAFE_NAME.fullmatch(filename):
@@ -153,9 +177,13 @@ class FlightLibrary:
             metadata = {
                 "id": identifier, "original_name": filename, "sha256": identifier,
                 "raw_file": destination.name, "summary": summary,
+                "imported_utc": datetime.now(timezone.utc).isoformat(),
+                "source": source_kind, "label": "", "rocket_profile": "", "flight_date": None,
             }
             if not metadata_path.exists():
-                metadata_path.write_text(json.dumps(metadata, indent=2, allow_nan=False), encoding="utf-8")
+                self._save_metadata(identifier, metadata)
+            else:
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
             metadata["duplicate"] = duplicate
             return metadata
         except Exception:
@@ -178,8 +206,38 @@ class FlightLibrary:
             raise FlightImportError("raw flight file is unavailable")
         return metadata, raw
 
+    def update_details(self, identifier: str, label: str, rocket_profile: str,
+                       flight_date: str | None) -> dict:
+        if not isinstance(label, str) or not isinstance(rocket_profile, str):
+            raise FlightImportError("label and rocket profile must be text")
+        if len(label) > 80 or len(rocket_profile) > 60 or any(ord(char) < 32 for char in label + rocket_profile):
+            raise FlightImportError("flight label or rocket profile is too long or contains a control character")
+        if flight_date is not None:
+            if not isinstance(flight_date, str):
+                raise FlightImportError("flight date must be YYYY-MM-DD or empty")
+            if flight_date == "":
+                flight_date = None
+            else:
+                if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", flight_date):
+                    raise FlightImportError("flight date must be YYYY-MM-DD or empty")
+                try:
+                    flight_date = date.fromisoformat(flight_date).isoformat()
+                except ValueError as error:
+                    raise FlightImportError("flight date must be YYYY-MM-DD or empty") from error
+        with self._lock:
+            metadata, _raw = self.get(identifier)
+            metadata.update(label=label.strip(), rocket_profile=rocket_profile.strip(),
+                            flight_date=flight_date)
+            self._save_metadata(identifier, metadata)
+            return metadata
+
     def import_sensor_stream(self, identifier: str, filename: str, source: BinaryIO,
                              expected_bytes: int | None = None) -> dict:
+        with self._lock:
+            return self._import_sensor_stream(identifier, filename, source, expected_bytes)
+
+    def _import_sensor_stream(self, identifier: str, filename: str, source: BinaryIO,
+                              expected_bytes: int | None) -> dict:
         metadata, raw = self.get(identifier)
         bin_stem = Path(metadata["original_name"]).stem
         if not FLIGHT_STEM.fullmatch(bin_stem) or filename.upper() != bin_stem.upper() + ".SEN":
@@ -249,18 +307,7 @@ class FlightLibrary:
             "rkt4_binding": "valid", "timestamp_alignment": "within_recording_window",
         }
         metadata["sensor"] = sensor
-        metadata_path = self._metadata_path(identifier)
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=self.meta,
-                                         prefix="sensor-meta-", suffix=".part", delete=False) as output:
-            temporary = Path(output.name)
-            try:
-                json.dump(metadata, output, indent=2, allow_nan=False)
-                output.flush()
-                os.fsync(output.fileno())
-            except Exception:
-                temporary.unlink(missing_ok=True)
-                raise
-        temporary.replace(metadata_path)
+        self._save_metadata(identifier, metadata)
         return {**sensor, "duplicate": duplicate}
 
     def get_sensor(self, identifier: str) -> tuple[dict, Path]:

@@ -970,3 +970,9 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 - Added a bounded `.SEN` import/fetch path for a matching V12D, AIRP or TEST RKT4 `.BIN`. The library requires filename sequence, GIS1 header CRC, RKT4 header CRC and matching sample rate, plus a start timestamp in the primary recording window. It preserves original SEN bytes and SHA-256, records valid-prefix/torn/corrupt status, and updates the flight metadata atomically. A stored raw sensor checksum is verified on access.
 - Analysis now supports manual SEN attachment, Feather `/api/sensor` download, raw SEN export and valid-prefix CSV export. The existing CLI binding check now rejects sample-rate mismatch. No unrelated file is silently paired.
 - Verification: 134 Python tests, Node syntax, RKT4 browser analysis and a 390-pixel Chromium smoke including SEN attachment UI passed. No physical `.SEN` was exercised. Phase 6 graphs, replay, library metadata and comparison remain open.
+
+### Phase 6 flight library details and filters (2026-11-05)
+
+- Added distinct import source and import UTC metadata; flight date remains unknown until a user supplies it. Editable label, rocket profile and known date do not alter raw files or measurements. Duplicate import retains original details. Metadata writes are atomic and mutation paths use a library lock.
+- Analysis searches filename, label, rocket profile and SHA-256 and filters source, SEN presence and parser warnings.
+- Verification: 136 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium smoke of filters, details and SEN attachment passed. Physical flight metadata remains unverified unless supplied by the operator.

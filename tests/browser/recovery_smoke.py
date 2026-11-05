@@ -15,12 +15,13 @@ for key in ('firmware_version','recorder_mode','recording','sd_ok','battery_v','
     state['field_meta'][key]={'freshness':'live','valid':True}
 requests=[]
 flight_sensor={"value":None}
+flight_details={"label":"","rocket_profile":"","flight_date":None}
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path=='/': data,ctype=html,'text/html'
         elif self.path.startswith('/api/status'): data,ctype=json.dumps(state).encode(),'application/json'
         elif self.path=='/api/ports': data,ctype=json.dumps({'ports':[],'config':{'serial_port':'auto','feather_url':'http://192.168.4.1'}}).encode(),'application/json'
-        elif self.path=='/api/flights': data,ctype=json.dumps({'flights':[{'id':'a'*64,'original_name':'V12D007.BIN','sha256':'a'*64,'summary':{'records':3,'duration_s':.08,'peak_altitude_m_estimated':1.0,'bytes':80,'warnings':[]},**({'sensor':flight_sensor['value']} if flight_sensor['value'] else {})}]}).encode(),'application/json'
+        elif self.path=='/api/flights': data,ctype=json.dumps({'flights':[{'id':'a'*64,'original_name':'V12D007.BIN','sha256':'a'*64,'summary':{'records':3,'duration_s':.08,'peak_altitude_m_estimated':1.0,'bytes':80,'warnings':[]},**flight_details,**({'sensor':flight_sensor['value']} if flight_sensor['value'] else {})}]}).encode(),'application/json'
         elif self.path=='/api/sessions': data,ctype=b'{"sessions":[]}','application/json'
         else: data,ctype=b'{}','application/json'
         self.send_response(200);self.send_header('Content-Type',ctype);self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data)
@@ -30,6 +31,7 @@ class Handler(BaseHTTPRequestHandler):
             flight_sensor['value']={'original_name':'V12D007.SEN','sha256':'b'*64,'inspection':{'status':'valid','valid_prefix_records':1,'sequence_gaps':0}}
             data=json.dumps({'success':True,'sensor':flight_sensor['value']}).encode();self.send_response(200);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data);return
         body=json.loads(self.rfile.read(int(self.headers.get('Content-Length',0))) or b'{}');requests.append((self.path,body))
+        if self.path.endswith('/details'): flight_details.update(body)
         if self.path=='/api/bench/start': state.update(recorder_mode=2,recording=True,bench_recording=True,log_file='/TEST000.BIN')
         if self.path=='/api/bench/stop': state.update(recorder_mode=3,recording=False,bench_recording=False)
         data=json.dumps({'success':True,'file':state['log_file'],'status':'PASS' if self.path=='/api/bench/verify' else None,'message':'RKT4 file validated; physical disconnect unverified' if self.path=='/api/bench/verify' else 'OK'}).encode()
@@ -143,6 +145,23 @@ with sync_playwright() as p:
     page.wait_for_function('document.querySelectorAll("a[href$=sensor-raw]").length===1')
     assert requests[-1]==('/api/import-sen/'+'a'*64,b'GIS1','V12D007.SEN')
     assert 'GIS1 valid' in page.locator('#flightLibrary').inner_text()
+    page.fill('#flightSearch','no matching rocket')
+    assert 'No flights match' in page.locator('#flightLibrary').inner_text()
+    page.fill('#flightSearch','V12D007')
+    page.select_option('#flightSensorFilter','attached')
+    assert page.locator('[data-flight-row]').count()==1
+    page.select_option('#flightSourceFilter','feather_sd')
+    assert page.locator('[data-flight-row]').count()==0
+    page.select_option('#flightSourceFilter','unknown')
+    page.select_option('#flightIntegrityFilter','clean')
+    assert page.locator('[data-flight-row]').count()==1
+    page.locator('[data-flight-row] details summary').click()
+    page.fill('[data-detail-label]','Recovery test')
+    page.fill('[data-detail-rocket]','Estes So Long')
+    page.fill('[data-detail-date]','2026-11-05')
+    page.click('[data-details-save]')
+    page.wait_for_function('document.querySelector("[data-flight-row] strong").textContent==="Recovery test"')
+    assert 'Estes So Long' in page.locator('#flightLibrary').inner_text()
     assert not errors,errors
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     print('Recovery browser smoke passed: bench source return, location, map, units, offline fallback, mobile width')

@@ -1,6 +1,6 @@
 # GREEN ION V12 implementation progress
 
-Updated 2026-11-05 1:18 PM Pacific (Phase 6 Analysis underway). Development branch: `codex/green-ion-v12`. This run fetched remote `94291ebd56d360d47d23f05ce36d5f3d0b884833`, matching a clean worktree, reviewed the prior checkpoint, and pushed `8242888`, `656fb0a`, `96e7a99`, `7d36f11` and `115363d` before the current changes. Phase 1 checkpoint commit: `63119eb`.
+Updated 2026-11-05 1:22 PM Pacific (Phase 6 Analysis underway). Development branch: `codex/green-ion-v12`. This run fetched remote `94291ebd56d360d47d23f05ce36d5f3d0b884833`, matching a clean worktree, reviewed the prior checkpoint, and pushed `8242888`, `656fb0a`, `96e7a99`, `7d36f11`, `115363d` and `ba39a46` before the current changes. Phase 1 checkpoint commit: `63119eb`.
 
 ## Current phase
 
@@ -44,6 +44,8 @@ Phase 5 Recovery retains the flight phase, fix quality and satellite count with 
 
 Phase 6 first increment: the library can now attach matching GIS1 `.SEN` companions to an imported V12D/AIRP/TEST RKT4 `.BIN` flight. It checks filename sequence, GIS1 header/record CRC structure, RKT4 header CRC and matching sample rate, and a start time within the primary recording window. The original SEN bytes and SHA-256 are retained with atomic metadata update; valid-prefix and torn/corrupt status remain explicit. The Ground Station offers manual attach or Feather `/api/sensor` fetch, raw SEN download and sensor CSV export (named valid-prefix when partial). The existing CLI binding check now rejects sample-rate mismatch. Tests cover binding, mismatch, incomplete transfer, over-limit size, checksum tampering and HTTP route guards. Current verification: 134 Python tests, Node syntax, RKT4 browser analysis and the 390-pixel committed browser smoke including SEN attach UI passed. No physical SD or SEN file was tested.
 
+Phase 6 library usability increment: new imports record source and import UTC separately from the unknown flight date. A user can add a label, rocket profile and known date without changing original bytes or recorded measurements. Duplicate import preserves those details and the original source. Metadata writes are atomic, and mutating operations use a library lock. Analysis now searches filename/label/profile/SHA and filters source, attached sensor data and parser warnings. The 390-pixel browser smoke exercised the filters and saved details. Current verification: 136 Python tests, Node syntax, RKT4 browser analysis and browser smoke passed. No physical flight date was inferred.
+
 ## Existing implementation verified in code
 
 - Feather firmware, Uno receiver, shared protocol, and recorder components are present.
@@ -61,4 +63,4 @@ Phase 6 first increment: the library can now attach matching GIS1 `.SEN` compani
 
 ## Next exact task
 
-Continue Phase 6: add trustworthy flight library search/filters and user labels/rocket profiles, then synchronized graph/replay views of RKT4 and attached GIS1 data with explicit missing samples and integrity warnings. Audit timestamp alignment against actual firmware files during the local hardware session. Preserve raw bytes, checksums, V11 library behavior and existing exports. Physical Recovery and Phase 4 hardware outcomes remain NOT TESTED. Codex usage balance and reset time are unavailable from exposed tools; no reset interval is assumed. Scheduler-side nonoverlap remains unverified.
+Continue Phase 6 with synchronized graph/replay views of RKT4 and attached GIS1 data with explicit missing samples and integrity warnings. Add flight comparisons, backups and protected deletion after the visual analysis workflow. Audit timestamp alignment against actual firmware files during the local hardware session. Preserve raw bytes, checksums, V11 library behavior and existing exports. Physical Recovery and Phase 4 hardware outcomes remain NOT TESTED. Codex usage balance and reset time are unavailable from exposed tools; no reset interval is assumed. Scheduler-side nonoverlap remains unverified.

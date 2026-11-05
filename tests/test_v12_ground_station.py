@@ -163,6 +163,24 @@ class RecorderStopTests(unittest.TestCase):
             self.assertEqual(4, imported.call_args.kwargs["expected_bytes"])
             self.assertTrue(reply.call_args.args[1]["success"])
 
+    def test_flight_details_route_accepts_small_json_and_rejects_oversize(self):
+        payload = b'{"label":"Flight A","rocket_profile":"Estes Green Eggs","flight_date":"2026-11-05"}'
+
+        class Request:
+            path = "/api/flight/" + "a" * 64 + "/details"
+            headers = {"Content-Length": str(len(payload))}
+            rfile = BytesIO(payload)
+
+        with patch.object(ground_station.FLIGHTS, "update_details", return_value={"label": "Flight A"}) as update, \
+                patch.object(ground_station, "json_response") as reply:
+            ground_station.Handler.do_POST(Request())
+            update.assert_called_once_with("a" * 64, "Flight A", "Estes Green Eggs", "2026-11-05")
+            self.assertTrue(reply.call_args.args[1]["success"])
+            Request.headers["Content-Length"] = "513"
+            ground_station.Handler.do_POST(Request())
+            self.assertEqual(1, update.call_count)
+            self.assertEqual(400, reply.call_args.args[2])
+
     def test_bench_verify_requires_completed_exact_file_and_preserves_raw_import(self):
         ready = {"active_source": "wifi", "sources": {"wifi": {"status": "live"}},
                  "field_meta": {name: {"freshness": "live"} for name in

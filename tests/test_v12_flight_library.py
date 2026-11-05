@@ -58,6 +58,25 @@ class FlightLibraryTests(unittest.TestCase):
         metadata, path = self.library.get(first["id"])
         self.assertEqual(raw, path.read_bytes())
         self.assertEqual("V12D007.BIN", metadata["original_name"])
+        self.assertEqual("manual_upload", metadata["source"])
+        self.assertIsNone(metadata["flight_date"])
+        self.assertTrue(metadata["imported_utc"].endswith("+00:00"))
+
+    def test_user_details_are_separate_from_recorded_facts_and_survive_duplicate(self):
+        raw = fixture()
+        first = self.library.import_stream("V12D007.BIN", io.BytesIO(raw), source_kind="feather_sd")
+        edited = self.library.update_details(first["id"], "  Field test  ", "Estes So Long", "2026-11-05")
+        self.assertEqual(("Field test", "Estes So Long", "2026-11-05"),
+                         (edited["label"], edited["rocket_profile"], edited["flight_date"]))
+        duplicate = self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        self.assertEqual("feather_sd", duplicate["source"])
+        self.assertEqual("Field test", duplicate["label"])
+        for label, profile, date_value in (("bad\nname", "", None),
+                                           ("", "X" * 61, None),
+                                           ("", "", "yesterday")):
+            with self.assertRaises(FlightImportError):
+                self.library.update_details(first["id"], label, profile, date_value)
+        self.assertEqual("Field test", self.library.get(first["id"])[0]["label"])
 
     def test_summary_and_exports_are_generated_from_valid_rkt4(self):
         imported = self.library.import_stream("V12D001.BIN", io.BytesIO(fixture()))
