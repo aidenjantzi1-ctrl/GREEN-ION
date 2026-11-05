@@ -30,6 +30,64 @@ MEASUREMENT_FIELDS = (
     "gps_test_nmea", "gps_test_parsed", "hardware_tests_allowed",
 )
 
+# Ground Station field contract. "measured" includes values reported by a
+# sensor or hardware status endpoint; "calculated" includes firmware or Ground
+# Station estimates. A received timestamp is not a GPS fix timestamp.
+FIELD_SPECS = {
+    "uptime_ms": ("integer", "ms", "measured"),
+    "flight_state": ("integer", None, "calculated"),
+    "recording": ("boolean", None, "measured"),
+    "altitude_m": ("number", "m", "calculated"),
+    "pressure_pa": ("number", "Pa", "measured"),
+    "vertical_speed_mps": ("number", "m/s", "calculated"),
+    "speed_mps": ("number", "m/s", "calculated"),
+    "acceleration_g": ("number", "g", "measured"),
+    "acceleration_x_g": ("number", "g", "measured"),
+    "acceleration_y_g": ("number", "g", "measured"),
+    "acceleration_z_g": ("number", "g", "measured"),
+    "rotation_x_dps": ("number", "deg/s", "measured"),
+    "rotation_y_dps": ("number", "deg/s", "measured"),
+    "rotation_z_dps": ("number", "deg/s", "measured"),
+    "imu_temperature_c": ("number", "C", "measured"),
+    "battery_v": ("number", "V", "measured"),
+    "satellites": ("integer", "count", "measured"),
+    "gps_fix_age_ms": ("integer", "ms", "calculated"),
+    "gps_status": ("string", None, "calculated"),
+    "latitude": ("number", "degrees", "measured"),
+    "longitude": ("number", "degrees", "measured"),
+    "gps_altitude_m": ("number", "m", "measured"),
+    "health": ("integer", "bitmask", "calculated"),
+    "sd_ok": ("boolean", None, "measured"),
+    "imu_ok": ("boolean", None, "measured"),
+    "gps_ok": ("boolean", None, "measured"),
+    "radio_ok": ("boolean", None, "measured"),
+    "rssi_dbm": ("number", "dBm", "measured"),
+    "flags": ("integer", "bitmask", "measured"),
+    "log_file": ("string", None, "measured"),
+    "barometer_ready": ("boolean", None, "measured"),
+    "recorder_status": ("string", None, "measured"),
+    "recorder_mode": ("string", None, "measured"),
+    "calibration_baseline_pa": ("number", "Pa", "calculated"),
+    "calibration_noise_m": ("number", "m", "calculated"),
+    "imu_test_result": ("string", None, "calculated"),
+    "imu_test_message": ("string", None, "calculated"),
+    "imu_range_32g": ("boolean", None, "measured"),
+    "imu_test_samples": ("integer", "count", "measured"),
+    "imu_test_invalid": ("integer", "count", "measured"),
+    "imu_test_mean_g": ("number", "g", "calculated"),
+    "imu_test_bias_x_dps": ("number", "deg/s", "calculated"),
+    "imu_test_bias_y_dps": ("number", "deg/s", "calculated"),
+    "imu_test_bias_z_dps": ("number", "deg/s", "calculated"),
+    "imu_test_temperature_c": ("number", "C", "measured"),
+    "gps_test_result": ("string", None, "calculated"),
+    "gps_test_message": ("string", None, "calculated"),
+    "gps_test_communication": ("boolean", None, "measured"),
+    "gps_test_nmea": ("integer", "count", "measured"),
+    "gps_test_parsed": ("integer", "count", "measured"),
+    "hardware_tests_allowed": ("boolean", None, "calculated"),
+}
+assert set(FIELD_SPECS) == set(MEASUREMENT_FIELDS)
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -149,7 +207,10 @@ class TelemetryManager:
             state.received += 1
             state.connection_error = None
             gps_status = clean.get("gps_status")
-            if valid_coordinate(clean.get("latitude"), clean.get("longitude")) and gps_status == "live":
+            fix_age = clean.get("gps_fix_age_ms")
+            current_fix = (isinstance(fix_age, (int, float)) and not isinstance(fix_age, bool)
+                           and math.isfinite(fix_age) and 0 <= fix_age <= GPS_MAX_AGE_MS)
+            if valid_coordinate(clean.get("latitude"), clean.get("longitude")) and gps_status == "live" and current_fix:
                 self.last_position = {
                     "latitude": float(clean["latitude"]),
                     "longitude": float(clean["longitude"]),
@@ -210,8 +271,45 @@ class TelemetryManager:
         else:
             combined["last_position"] = None
             combined["last_position_age_ms"] = None
-        if combined.get("gps_status") == "live" and combined.get("gps_fix_age_ms", 0) > GPS_MAX_AGE_MS:
+        fix_age = combined.get("gps_fix_age_ms")
+        if combined.get("gps_status") == "live" and (
+            combined["link_status"] != "live" or
+            not isinstance(fix_age, (int, float)) or isinstance(fix_age, bool) or
+            not math.isfinite(fix_age) or fix_age < 0 or fix_age > GPS_MAX_AGE_MS or
+            not valid_coordinate(combined.get("latitude"), combined.get("longitude"))
+        ):
             combined["gps_status"] = "stale"
+        # LoRa's fixed-width packet has a zero GPS altitude slot even without a
+        # position. Keep the raw packet in the session, but do not present that
+        # placeholder as a measured altitude in the merged view.
+        if combined.get("gps_status") == "missing":
+            combined["gps_altitude_m"] = None
+        gps_fresh = combined.get("gps_status") == "live"
+        coordinate_valid = valid_coordinate(combined.get("latitude"), combined.get("longitude"))
+        received_utc = combined.get("received_utc")
+        fields = {}
+        for name, (kind, unit, origin) in FIELD_SPECS.items():
+            value = combined.get(name)
+            valid = value is not None
+            if kind in ("integer", "number"):
+                valid = (not isinstance(value, bool) and isinstance(value, (int, float))
+                         and math.isfinite(value))
+            elif kind == "boolean":
+                valid = isinstance(value, bool)
+            elif kind == "string":
+                valid = isinstance(value, str) and bool(value)
+            if name in ("latitude", "longitude"):
+                valid = coordinate_valid
+            freshness = "missing" if not valid else combined["link_status"]
+            if valid and name in ("latitude", "longitude", "gps_altitude_m", "satellites") and not gps_fresh:
+                freshness = "stale"
+            fields[name] = {
+                "type": kind, "unit": unit, "origin": origin,
+                "source": selected if valid else None,
+                "received_utc": received_utc if valid else None,
+                "valid": valid, "freshness": freshness,
+            }
+        combined["field_meta"] = fields
         return combined
 
     def snapshot(self) -> dict:

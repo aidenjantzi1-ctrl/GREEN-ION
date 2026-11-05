@@ -823,3 +823,11 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 - Corrected browser numeric formatting so absent readings do not appear as measured zero.
 - Updated the Ground Station workflow documentation and tests; 95 Python tests passed, Node syntax check passed, and `git diff --check` passed.
 - Hardware operation and actual cloud automation execution are not established by these software checks. See `V12_IMPLEMENTATION_PROGRESS.md` for the current checkpoint.
+
+## 2026-11-04 — Phase 1 software completion pass
+
+- Verified all six laptop destinations in Chromium at desktop and phone widths with no page errors or horizontal overflow. Started the local server with Wi-Fi and serial disabled; this was a software check, not hardware evidence.
+- Added `field_meta` to the merged status snapshot for every accepted field, with type, unit, measured/calculated origin, selected source, receive time, validity and freshness. Existing top-level values and raw session storage remain compatible.
+- Corrected GPS freshness after link loss or an old/invalid fix, retained only current validated positions, and suppressed the LoRa fixed-width zero GPS altitude placeholder when no position exists.
+- Added the Phase 1 V11/V12 audit and telemetry model documents. Full Python regression suite: 98 tests passed. RKT4 browser analysis suite and `git diff --check` passed; missing-value browser rendering passed.
+- The local Arduino CLI starts, but no firmware target compile or physical hardware test was performed in this pass.

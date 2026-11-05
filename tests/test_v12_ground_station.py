@@ -63,6 +63,38 @@ class GroundStationManagerTests(unittest.TestCase):
         self.assertEqual([37.1, -121.9], snapshot["last_position"])
         self.assertEqual("stale", snapshot["link_status"])
         self.assertEqual(20000, snapshot["last_position_age_ms"])
+        self.assertEqual("stale", snapshot["gps_status"])
+        self.assertEqual("stale", snapshot["field_meta"]["latitude"]["freshness"])
+
+    def test_field_contract_distinguishes_missing_zero_and_source_fallback(self):
+        self.manager.ingest("wifi", {**self.row(1, 0.0), "pressure_pa": 101325})
+        snapshot = self.manager.snapshot()
+        altitude = snapshot["field_meta"]["altitude_m"]
+        self.assertEqual((True, "live", "wifi", "m", "calculated"),
+                         (altitude["valid"], altitude["freshness"], altitude["source"],
+                          altitude["unit"], altitude["origin"]))
+        self.assertEqual("missing", snapshot["field_meta"]["battery_v"]["freshness"])
+        self.assertIsNone(snapshot["field_meta"]["battery_v"]["received_utc"])
+        self.clock.advance(3)
+        self.manager.ingest("radio", {**self.row(2, 18.0), "pressure_pa": 100500})
+        snapshot = self.manager.snapshot()
+        self.assertEqual("radio", snapshot["field_meta"]["pressure_pa"]["source"])
+        self.assertEqual("live", snapshot["field_meta"]["pressure_pa"]["freshness"])
+
+    def test_old_gps_fix_is_never_marked_fresh(self):
+        row = self.row(1)
+        row.update(latitude=37.1, longitude=-121.9, gps_status="live", gps_fix_age_ms=4000)
+        self.manager.ingest("radio", row)
+        snapshot = self.manager.snapshot()
+        self.assertEqual("stale", snapshot["gps_status"])
+        self.assertEqual("stale", snapshot["field_meta"]["longitude"]["freshness"])
+        self.assertIsNone(snapshot["last_position"])
+
+    def test_fixed_width_radio_zero_is_not_a_gps_altitude_without_position(self):
+        self.manager.ingest("radio", {**self.row(1), "gps_altitude_m": 0.0})
+        snapshot = self.manager.snapshot()
+        self.assertIsNone(snapshot["gps_altitude_m"])
+        self.assertFalse(snapshot["field_meta"]["gps_altitude_m"]["valid"])
 
     def test_bad_coordinates_are_not_saved(self):
         self.assertFalse(valid_coordinate(91, 0))

@@ -1,10 +1,12 @@
 # GREEN ION V12 implementation progress
 
-Updated 2026-11-04 Pacific. Development branch: `codex/green-ion-v12`. Starting remote commit: `d0ec3a1d84c0c0288bd2c4f9e6ca43b896613459`. Phase 1 checkpoint commit: `63119eb` (pushed to the development branch).
+Updated 2026-11-04 Pacific (Phase 1 completion pass). Development branch: `codex/green-ion-v12`. Starting remote commit: `d0ec3a1d84c0c0288bd2c4f9e6ca43b896613459`. Phase 1 checkpoint commit: `63119eb` (pushed to the development branch).
 
 ## Current phase
 
-Phase 1 is in progress. The laptop Ground Station now has the requested six destinations: Preflight, Mission Control, Recovery, Analysis, Diagnostics, and Settings. The existing flight library was retained in Analysis, and the existing connected preflight workflow was placed on its own page. The blue visual design remains. Missing numeric telemetry no longer formats as measured zero in the touched browser display paths. The archive under `Past_Versions/Green_Ion_V11` was not changed.
+Phase 1 software foundation is complete against its listed acceptance checks. The laptop Ground Station has the six requested destinations and retains the existing flight library in Analysis. The V11/V12 feature comparison is in `V12_PHASE1_AUDIT.md`, and the unified field contract is in `V12_TELEMETRY_MODEL.md`. Browser and source merging checks passed. This does not establish hardware readiness.
+
+The earliest unfinished phase is **Phase 2 — complete sensor telemetry, altitude, and battery data**.
 
 ## Verified access and tools
 
@@ -12,10 +14,11 @@ Phase 1 is in progress. The laptop Ground Station now has the requested six dest
 | --- | --- | --- |
 | GitHub read | AVAILABLE | GitHub connector read the development branch commits; Git fetch obtained the branch. |
 | GitHub write/push | AVAILABLE | Git push of checkpoint `63119eb` to `codex/green-ion-v12` succeeded. The local `gh` CLI token failed, but Git remote transport worked. |
-| Python 3 and test runner | AVAILABLE | Python 3.12.14; 95 `unittest` tests passed in this session. |
-| Node.js syntax check | AVAILABLE | Node 24.22.1 checked the extracted Ground Station script. |
-| Arduino CLI and both target compilers | NOT VERIFIED | No target compilation was performed in this session. Historical CI results are in the development log. |
-| Browser and hardware tests | NOT VERIFIED | No browser device or physical rocket hardware was exercised. |
+| Python 3 and test runner | AVAILABLE | Python 3.12.14; 98 `unittest` tests passed in the Phase 1 completion pass. |
+| Node.js syntax check | AVAILABLE | Node 24.22.1 checked the Ground Station script; RKT4 browser analysis tests passed. |
+| Arduino CLI | AVAILABLE | Version 1.5.1 starts; AVR 1.8.7 and ESP32 2.0.17 are installed in this workspace. Target compilation was not performed in this pass; prior CI evidence is in the development log. |
+| Browser smoke test | AVAILABLE | Chromium navigated all six laptop views at 1280×800 and 390×844 without page errors or horizontal overflow; missing readings rendered as unavailable. |
+| Physical hardware tests | NOT VERIFIED | No physical rocket hardware was exercised. |
 | Recurring cloud automation | PARTIAL | A single enabled exact-time automation was created for 1:30 AM Pacific on 2026-11-05 and every two hours thereafter. Its recorded environment selection is `inherited` and resolves to the GREEN-ION managed cloud environment. Actual execution and nonoverlap behavior require evidence from the first run. |
 | Current Codex usage | NOT VERIFIED | No usage meter was available in the inspected tools. |
 
@@ -29,10 +32,11 @@ Phase 1 is in progress. The laptop Ground Station now has the requested six dest
 
 ## Partial or missing work
 
-- Phase 1 telemetry field metadata (type, unit, source, timestamp, validity, and measured/calculated classification) needs a unified specification and implementation check across Wi-Fi and LoRa. The UI needs a real browser navigation and responsive test.
-- Phases 2 through 8 remain to be assessed against the existing code and completed incrementally. Existing roadmap checkboxes are historical and are not proof of this new plan's acceptance criteria.
+- Phase 1 navigation, V11/V12 inventory, telemetry metadata, source merging, library preservation, and browser smoke checks have software evidence. Actual Windows and iPhone devices were not used in this cloud session.
+- Phase 2 needs a field-by-field check of BMP388, LSM6DSO32, PA1010D, battery, SD, and radio values across Feather Wi-Fi and Uno LoRa, including independent GPS and barometric altitude and explicit invalid readings.
+- Phases 3 through 8 remain unfinished. Existing roadmap checkboxes are historical and are not proof of this new plan's acceptance criteria.
 - Real hardware performance, GPS accuracy, radio operation, SD power-loss behavior, and launch readiness remain **NOT TESTED**.
 
 ## Next exact task
 
-Verify the committed six-tab Ground Station in a browser at desktop and mobile widths, then define and test the unified telemetry field metadata without changing RKT4 v2 or rewriting raw recordings. At the first scheduled run, confirm cloud execution and that a prior run cannot overlap before relying on those properties.
+Start Phase 2 by comparing the Feather Wi-Fi status JSON and Uno LoRa packet JSON against `V12_TELEMETRY_MODEL.md`. Fix inconsistent or placeholder sensor values, then add focused tests for GPS and barometric altitude validity. At the first scheduled run, confirm actual cloud execution and nonoverlap behavior before relying on those properties.

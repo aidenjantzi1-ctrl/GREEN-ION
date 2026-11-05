@@ -67,3 +67,5 @@ The **Analysis** screen can also import an RKT4 BIN directly or download one fro
 ## Verification boundary
 
 Automated tests exercise merging, stale handling, sequence gaps, duplicate rejection, GPS retention and persistence. Feather/Uno compilation is verified in CI. Physical radio range, packet-loss behavior, USB reconnect timing, GPS accuracy, SD power-loss survival and full launch-day operation still require measured bench and field tests.
+
+The merged `/api/status` response includes per-field validity, source, freshness, units and origin in `field_meta`. See `docs/V12_TELEMETRY_MODEL.md` for the contract.
