@@ -60,6 +60,8 @@
 | `checkpoint_failures` | integer | count | measured |
 | `checkpoint_committed_bytes` | integer | bytes | measured |
 | `checkpoint_committed_records` | integer | count | measured |
+| `recorder_written_records` | integer | count | measured |
+| `recorder_written_bytes` | integer | bytes | calculated |
 | `sample_rate_hz` | integer | Hz | calculated |
 | `sd_capacity_known` | boolean | — | calculated |
 | `sd_total_bytes` | integer | bytes | measured |
@@ -118,3 +120,5 @@ Feather Wi-Fi reports recorder filenames, mode/status numeric codes, prebuffer c
 ## Sensor sample timing
 
 Each `field_meta` entry also includes `sample_uptime_ms` and `sample_time_basis`. Feather Wi-Fi status supplies the last valid barometer, IMU, battery, GPS fix, and GGA altitude sample times in milliseconds since Feather boot. The Ground Station associates those times with the related sensor values. They are distinct from `received_utc`, which is laptop packet receipt time. Missing sensor samples have no sample time. LoRa v2 has only packet `uptime_ms`, so `sample_time_basis=packet_uptime` means an approximate upper bound for when the reading was packaged, not the exact sensor read time. Device uptime can wrap; cross-device absolute time alignment must not be inferred from these fields alone.
+
+`recorder_written_records` counts records accepted by the primary SD write path, including the prebuffer drained at recording start. `recorder_written_bytes` is the RKT4 header size plus record size times that count. These figures can include bytes that have not survived a flush or power loss. They are not a replacement for `checkpoint_committed_records` and `checkpoint_committed_bytes`. A failed or partial write is not added to the written record count. No extra SD read is performed to calculate these values.

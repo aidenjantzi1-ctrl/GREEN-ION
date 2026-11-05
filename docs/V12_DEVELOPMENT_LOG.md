@@ -868,3 +868,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Feather Wi-Fi status now includes last valid barometer, IMU, battery, GPS fix, and GGA altitude uptime timestamps. The laptop's per-field metadata reports those times separately from packet receive time. LoRa-only values use packet uptime with an explicit approximate basis.
 - Full Python suite: 108 tests passed, including distinct Wi-Fi sensor times and radio packet-time fallback. Feather target compiled with ESP32 core 2.0.17. No physical timing or GPS accuracy test was performed.
+
+### Live writes versus committed records
+
+- Added a count of primary RKT4 records accepted by the SD write path, including the prebuffer at successful start, and a calculated byte length. These live counts are distinct from successfully checkpointed counts and are never described as power-loss-safe.
+- No SD read was added to the dashboard status path. Full Python regression suite: 108 passed; Feather target compiled with ESP32 core 2.0.17. Hardware write persistence remains NOT TESTED.

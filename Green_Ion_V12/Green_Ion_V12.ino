@@ -150,6 +150,7 @@ uint32_t checkpointGeneration = 0;
 uint32_t checkpointFailures = 0;
 uint32_t checkpointCommittedBytes = 0;
 uint32_t checkpointCommittedRecords = 0;
+uint32_t recorderWrittenRecords = 0;
 uint64_t sdTotalBytesCached = 0;
 uint64_t sdUsedBytesCached = 0;
 uint32_t sdCapacityCheckedMs = 0;
@@ -1390,6 +1391,7 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs,
   checkpointGeneration = 0;
   checkpointCommittedBytes = 0;
   checkpointCommittedRecords = 0;
+  recorderWrittenRecords = 0;
   checkpointSlotB = false;
   sensorLogCommittedBytes = 0;
   sensorLogCommittedRecords = 0;
@@ -1411,6 +1413,7 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs,
     state.batteryMv,
   };
   logSink.attach(logFile);
+  const size_t bufferedRecords = recorderCore.bufferedRecords();
   if (!recorderCore.start(logSink, header)) {
     logFile.close();
     SD.remove(logFilename);
@@ -1423,6 +1426,7 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs,
     state.sdOk = false;
     return false;
   }
+  recorderWrittenRecords = static_cast<uint32_t>(bufferedRecords);
   state.recording = true;
   lastCheckpointMs = nowMs;
   saveCheckpoint(nowMs);  // RecorderCore::start already flushed header and prebuffer.
@@ -1607,7 +1611,10 @@ static void appendLog(uint32_t nowUs, uint32_t nowMs, bool valid) {
     state.batteryMv,
     valid,
   };
+  const bool wasRecording = recorderCore.recording();
   recorderCore.observe(record);
+  if (wasRecording && recorderCore.recording() && recorderWrittenRecords != UINT32_MAX)
+    ++recorderWrittenRecords;
   sensorLogCore.observe(makeSensorLogRecord(nowUs, nowMs));
   if (airplaneMode.recording()) {
     updateFlightEstimate(nowMs, valid);
@@ -1770,6 +1777,12 @@ static void sendDashboardStatus() {
   body += ",\"checkpoint_failures\":" + String(checkpointFailures);
   body += ",\"checkpoint_committed_bytes\":" + String(checkpointCommittedBytes);
   body += ",\"checkpoint_committed_records\":" + String(checkpointCommittedRecords);
+  body += ",\"recorder_written_records\":";
+  body += logFilename.length() ? String(recorderWrittenRecords) : String("null");
+  body += ",\"recorder_written_bytes\":";
+  body += logFilename.length() ? String(static_cast<uint64_t>(green_ion::rkt4::kHeaderBytes) +
+                                         static_cast<uint64_t>(recorderWrittenRecords) * green_ion::rkt4::kRecordBytes)
+                               : String("null");
   body += ",\"sample_rate_hz\":" + String(config::SENSOR_RATE_HZ);
   body += ",\"metadata_file\":\"" + metadataFilename + "\"";
   body += ",\"metadata_failures\":" + String(metadataFailures);
