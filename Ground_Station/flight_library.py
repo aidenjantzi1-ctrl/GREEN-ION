@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import csv
+from bisect import bisect_left
 from datetime import date, datetime, timezone
 import hashlib
+from html import escape
 import io
 import json
 import math
@@ -31,6 +33,14 @@ class FlightImportError(ValueError):
     pass
 
 
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(65536):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def pressure_altitude(pressure_pa: float, baseline_pa: float) -> float | None:
     if not math.isfinite(pressure_pa) or not math.isfinite(baseline_pa) or pressure_pa <= 0 or baseline_pa <= 0:
         return None
@@ -52,6 +62,8 @@ def inspect_rkt4(path: Path) -> dict:
             raise FlightImportError("unsupported RKT4 layout")
         if rate not in ALLOWED_RATES:
             raise FlightImportError("unsupported RKT4 sample rate")
+        if not math.isfinite(baseline_pa) or baseline_pa <= 0:
+            raise FlightImportError("invalid RKT4 baseline pressure")
         complete_records = (size - HEADER_BYTES) // RECORD_BYTES
         trailing_bytes = (size - HEADER_BYTES) % RECORD_BYTES
         first_timestamp = last_timestamp = previous_timestamp = None
@@ -60,7 +72,7 @@ def inspect_rkt4(path: Path) -> dict:
         end_battery_mv = start_battery_mv
         for _ in range(complete_records):
             raw = handle.read(RECORD_BYTES)
-            timestamp, pressure, _temperature, battery_mv, valid = struct.unpack("<IffHH", raw)
+            timestamp, pressure, temperature, battery_mv, valid = struct.unpack("<IffHH", raw)
             if first_timestamp is None:
                 first_timestamp = timestamp
             if previous_timestamp is not None:
@@ -69,7 +81,7 @@ def inspect_rkt4(path: Path) -> dict:
                     timestamp_gaps += 1
             previous_timestamp = last_timestamp = timestamp
             end_battery_mv = battery_mv
-            if valid == 1:
+            if valid == 1 and math.isfinite(pressure) and pressure > 0 and math.isfinite(temperature):
                 altitude = pressure_altitude(pressure, baseline_pa)
                 if altitude is not None:
                     peak_altitude = max(peak_altitude, altitude)
@@ -102,11 +114,13 @@ def iter_records(path: Path):
         index = 0
         while len(raw := handle.read(RECORD_BYTES)) == RECORD_BYTES:
             timestamp, pressure, temperature, battery_mv, valid = struct.unpack("<IffHH", raw)
+            sample_valid = valid == 1 and math.isfinite(pressure) and pressure > 0 and math.isfinite(temperature)
             yield {
                 "index": index, "timestamp_us": timestamp, "time_s": timestamp / 1_000_000,
-                "pressure_pa": pressure, "temperature_c": temperature,
-                "battery_v": battery_mv / 1000, "valid": valid == 1,
-                "altitude_m_estimated": pressure_altitude(pressure, baseline) if valid == 1 else None,
+                "pressure_pa": pressure if math.isfinite(pressure) else None,
+                "temperature_c": temperature if math.isfinite(temperature) else None,
+                "battery_v": battery_mv / 1000, "valid": sample_valid,
+                "altitude_m_estimated": pressure_altitude(pressure, baseline) if sample_valid else None,
             }
             index += 1
 
@@ -151,7 +165,9 @@ class FlightLibrary:
             raise FlightImportError("filename must not contain a directory")
         if not SAFE_NAME.fullmatch(filename):
             raise FlightImportError("filename must be a simple .BIN name")
-        temporary = self.root / f"import-{hashlib.sha256(filename.encode()).hexdigest()[:12]}.part"
+        fd, temporary_name = tempfile.mkstemp(prefix="flight-", suffix=".part", dir=self.root)
+        os.close(fd)
+        temporary = Path(temporary_name)
         digest = hashlib.sha256()
         received = 0
         try:
@@ -163,6 +179,7 @@ class FlightLibrary:
                     output.write(chunk)
                     digest.update(chunk)
                 output.flush()
+                os.fsync(output.fileno())
             if expected_bytes is not None and received != expected_bytes:
                 raise FlightImportError(f"incomplete transfer: expected {expected_bytes} bytes, received {received}")
             summary = inspect_rkt4(temporary)
@@ -170,6 +187,8 @@ class FlightLibrary:
             destination = self.raw / f"{identifier}.bin"
             duplicate = destination.exists()
             if duplicate:
+                if file_sha256(destination) != identifier:
+                    raise FlightImportError("stored raw flight checksum does not match its identity")
                 temporary.unlink()
             else:
                 temporary.replace(destination)
@@ -204,6 +223,8 @@ class FlightLibrary:
         raw = (self.raw / metadata["raw_file"]).resolve()
         if raw.parent != self.raw.resolve() or not raw.is_file():
             raise FlightImportError("raw flight file is unavailable")
+        if file_sha256(raw) != identifier:
+            raise FlightImportError("raw flight checksum no longer matches import metadata")
         return metadata, raw
 
     def update_details(self, identifier: str, label: str, rocket_profile: str,
@@ -276,7 +297,7 @@ class FlightLibrary:
         if previous and previous.get("sha256") != digest:
             raise FlightImportError("this flight already has a different sensor companion")
         destination = self.raw / f"{digest}.sen"
-        duplicate = destination.exists() and hashlib.sha256(destination.read_bytes()).hexdigest() == digest
+        duplicate = destination.exists() and file_sha256(destination) == digest
         if not duplicate:
             with tempfile.NamedTemporaryFile(dir=self.raw, prefix="sensor-", suffix=".part", delete=False) as output:
                 temporary = Path(output.name)
@@ -318,7 +339,7 @@ class FlightLibrary:
         path = (self.raw / f"{sensor['sha256']}.sen").resolve()
         if path.parent != self.raw.resolve() or not path.is_file():
             raise FlightImportError("raw sensor file is unavailable")
-        if hashlib.sha256(path.read_bytes()).hexdigest() != sensor["sha256"]:
+        if file_sha256(path) != sensor["sha256"]:
             raise FlightImportError("raw sensor checksum no longer matches import metadata")
         return sensor, path
 
@@ -330,6 +351,102 @@ class FlightLibrary:
         writer.writeheader()
         writer.writerows(csv_row(row) for row in rows)
         return text.getvalue().encode()
+
+    def analysis_timeline(self, identifier: str, max_points: int = 1500) -> dict:
+        if not 100 <= max_points <= 5000:
+            raise FlightImportError("timeline point limit must be between 100 and 5000")
+        metadata, raw = self.get(identifier)
+        total = metadata["summary"]["records"]
+        stride = max(1, math.ceil(total / max_points))
+        first_us = None
+        previous_valid = None
+        peak_altitude = -math.inf
+        peak_point = None
+        peak_velocity = None
+        points = []
+        last_point = None
+        for row in iter_records(raw):
+            if first_us is None:
+                first_us = row["timestamp_us"]
+            offset_us = (row["timestamp_us"] - first_us) & 0xFFFFFFFF
+            speed = None
+            if row["valid"] and row["altitude_m_estimated"] is not None:
+                if previous_valid is not None:
+                    delta_us = (row["timestamp_us"] - previous_valid[0]) & 0xFFFFFFFF
+                    if 0 < delta_us <= 4_000_000 / metadata["summary"]["sample_rate_hz"]:
+                        speed = (row["altitude_m_estimated"] - previous_valid[1]) * 1_000_000 / delta_us
+                        if speed > 0:
+                            peak_velocity = max(peak_velocity if peak_velocity is not None else speed, speed)
+                previous_valid = (row["timestamp_us"], row["altitude_m_estimated"])
+            else:
+                previous_valid = None
+            point = {**row, "elapsed_s": offset_us / 1_000_000,
+                     "vertical_speed_mps_estimated": speed}
+            if row["altitude_m_estimated"] is not None and row["altitude_m_estimated"] > peak_altitude:
+                peak_altitude = row["altitude_m_estimated"]
+                peak_point = point
+            if row["index"] % stride == 0:
+                points.append(point)
+            last_point = point
+        if last_point is not None and (not points or points[-1]["index"] != last_point["index"]):
+            points.append(last_point)
+        if peak_point is not None and all(point["index"] != peak_point["index"] for point in points):
+            points.append(peak_point)
+            points.sort(key=lambda point: point["index"])
+        sensor_status = "missing"
+        sensor_gaps = 0
+        peak_acceleration_g = None
+        if metadata.get("sensor"):
+            sensor, sensor_path = self.get_sensor(identifier)
+            header, rows, inspection = parse_sensor_log(sensor_path.read_bytes(),
+                                                        sensor["header"]["flight_sequence"])
+            with raw.open("rb") as handle:
+                if not validate_rkt4_binding(header, handle.read(HEADER_BYTES)):
+                    raise FlightImportError("stored sensor companion no longer matches this RKT4 flight")
+            sensor_status = inspection.status
+            sensor_gaps = inspection.sequence_gaps
+            pairs = sorted(((((row["timestamp_us"] - first_us) & 0xFFFFFFFF), row) for row in rows),
+                           key=lambda pair: pair[0]) if first_us is not None else []
+            stamps = [pair[0] for pair in pairs]
+            tolerance_us = round(500_000 / header.sample_rate_hz)
+            for row in rows:
+                if row["imu_valid"]:
+                    magnitude = math.sqrt(sum(axis * axis for axis in row["acceleration"])) / 9.80665
+                    peak_acceleration_g = max(peak_acceleration_g or 0.0, magnitude)
+            for point in points:
+                target = round(point["elapsed_s"] * 1_000_000)
+                index = bisect_left(stamps, target)
+                nearby = [pairs[i] for i in (index - 1, index) if 0 <= i < len(pairs)]
+                if not nearby:
+                    point["sensor"] = None
+                    continue
+                stamp, row = min(nearby, key=lambda pair: abs(pair[0] - target))
+                if abs(stamp - target) > tolerance_us:
+                    point["sensor"] = None
+                    continue
+                point["sensor"] = {
+                    "time_delta_ms": round((stamp - target) / 1000, 2),
+                    "imu_valid": row["imu_valid"],
+                    "acceleration_mps2": list(row["acceleration"]) if row["imu_valid"] else None,
+                    "gyro_rad_s": list(row["gyro"]) if row["imu_valid"] else None,
+                    "gps_status": "live" if row["gps_current"] else "stale" if row["gps_has_position"] else "missing",
+                    "latitude": row["latitude_e7"] / 1e7 if row["gps_has_position"] else None,
+                    "longitude": row["longitude_e7"] / 1e7 if row["gps_has_position"] else None,
+                    "gps_altitude_m": row["gps_altitude_m"] if row["gps_has_position"] else None,
+                    "gps_speed_mps": row["gps_speed_mps"] if row["gps_has_position"] else None,
+                }
+        return {
+            "flight_id": identifier, "analysis_version": 2, "source": "onboard_rkt4",
+            "total_records": total, "displayed_records": len(points), "display_stride": stride,
+            "sensor_status": sensor_status, "sensor_sequence_gaps": sensor_gaps,
+            "estimated_peak_index": peak_point["index"] if peak_point else None,
+            "peak_vertical_speed_mps_estimated": peak_velocity,
+            "peak_acceleration_g": peak_acceleration_g,
+            "warnings": metadata["summary"]["warnings"] +
+                ([f"GIS1 companion status: {sensor_status}; only its valid prefix is shown"]
+                 if sensor_status not in ("missing", "valid") else []),
+            "points": points,
+        }
 
     def json_export(self, identifier: str) -> bytes:
         metadata, raw = self.get(identifier)
@@ -348,14 +465,41 @@ class FlightLibrary:
     def report_html(self, identifier: str) -> bytes:
         metadata, _raw = self.get(identifier)
         summary = metadata["summary"]
-        warnings = "".join(f"<li>{item}</li>" for item in summary["warnings"]) or "<li>None reported by the parser</li>"
-        html = f"""<!doctype html><html><head><meta charset='utf-8'><title>{metadata['original_name']} report</title>
+        timeline = self.analysis_timeline(identifier)
+        warnings = "".join(f"<li>{escape(item)}</li>" for item in timeline["warnings"]) or "<li>None reported by the parser</li>"
+        points = [(point["elapsed_s"], point["altitude_m_estimated"])
+                  for point in timeline["points"] if point["altitude_m_estimated"] is not None]
+        if points:
+            duration = max(points[-1][0], 1e-6)
+            lowest = min(point[1] for point in points)
+            highest = max(point[1] for point in points)
+            altitude_span = max(highest - lowest, 1e-6)
+            coordinates = " ".join(f"{20 + t / duration * 760:.1f},{180 - (altitude - lowest) / altitude_span * 150:.1f}"
+                                   for t, altitude in points)
+            chart = (f"<svg role='img' aria-label='Estimated barometric altitude over time' "
+                     f"viewBox='0 0 800 200' width='100%' height='200'>"
+                     f"<polyline fill='none' stroke='#1460a0' stroke-width='2' points='{coordinates}'/></svg>")
+        else:
+            chart = "<p>No valid barometric samples for a chart.</p>"
+        label = escape(metadata.get("label") or metadata["original_name"])
+        rocket = escape(metadata.get("rocket_profile") or "Unknown")
+        flight_date = escape(metadata.get("flight_date") or "Unknown")
+        source = escape(metadata.get("source") or "Unknown")
+        imported = escape(metadata.get("imported_utc") or "Unknown")
+        sensor = escape(timeline["sensor_status"])
+        peak_imu = (f"{timeline['peak_acceleration_g']:.2f} g" if timeline["peak_acceleration_g"] is not None
+                    else "Unavailable")
+        html = f"""<!doctype html><html><head><meta charset='utf-8'><title>{label} report</title>
 <style>body{{font:15px system-ui;max-width:800px;margin:40px auto;color:#123}}table{{border-collapse:collapse;width:100%}}td{{border-bottom:1px solid #ccd;padding:8px}}@media print{{button{{display:none}}}}</style></head><body>
-<button onclick='print()'>Print / Save PDF</button><h1>GREEN ION flight report</h1><h2>{metadata['original_name']}</h2>
+<button onclick='print()'>Print / Save PDF</button><h1>GREEN ION flight report</h1><h2>{label}</h2>
 <p>SHA-256: <code>{metadata['sha256']}</code></p><table>
+<tr><td>Original file</td><td>{escape(metadata['original_name'])}</td></tr><tr><td>Rocket profile</td><td>{rocket}</td></tr>
+<tr><td>Flight date supplied by user</td><td>{flight_date}</td></tr><tr><td>Import source</td><td>{source}</td></tr><tr><td>Import UTC</td><td>{imported}</td></tr>
 <tr><td>Format</td><td>RKT4 v2</td></tr><tr><td>Records</td><td>{summary['records']}</td></tr>
 <tr><td>Duration</td><td>{summary['duration_s']:.2f} s</td></tr><tr><td>Sample rate</td><td>{summary['sample_rate_hz']} Hz</td></tr>
 <tr><td>Estimated peak altitude</td><td>{summary['peak_altitude_m_estimated']:.2f} m</td></tr>
+<tr><td>Estimated peak vertical speed</td><td>{'Unavailable' if timeline['peak_vertical_speed_mps_estimated'] is None else f"{timeline['peak_vertical_speed_mps_estimated']:.2f} m/s"}</td></tr>
+<tr><td>Peak IMU acceleration magnitude</td><td>{peak_imu}</td></tr><tr><td>GIS1 companion</td><td>{sensor}</td></tr>
 <tr><td>Battery</td><td>{summary['start_battery_v']:.3f} V to {summary['end_battery_v']:.3f} V</td></tr></table>
-<h3>Integrity warnings</h3><ul>{warnings}</ul><p><strong>Evidence note:</strong> {summary['disclaimer']} This report is not physical sensor verification.</p></body></html>"""
+<h3>Estimated barometric altitude</h3>{chart}<h3>Integrity warnings</h3><ul>{warnings}</ul><p><strong>Evidence note:</strong> {escape(summary['disclaimer'])} Velocity is a direct difference between neighboring valid pressure-derived samples. IMU magnitude includes gravity and is not net thrust acceleration. The chart is reduced for display and retains the barometric peak. Save PDF through the browser print dialog; this page does not generate a native PDF. This report is not physical sensor verification.</p></body></html>"""
         return html.encode()

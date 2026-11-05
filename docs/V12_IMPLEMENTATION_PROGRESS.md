@@ -1,6 +1,6 @@
 # GREEN ION V12 implementation progress
 
-Updated 2026-11-05 1:22 PM Pacific (Phase 6 Analysis underway). Development branch: `codex/green-ion-v12`. This run fetched remote `94291ebd56d360d47d23f05ce36d5f3d0b884833`, matching a clean worktree, reviewed the prior checkpoint, and pushed `8242888`, `656fb0a`, `96e7a99`, `7d36f11`, `115363d` and `ba39a46` before the current changes. Phase 1 checkpoint commit: `63119eb`.
+Updated 2026-11-05 1:30 PM Pacific (Phase 6 Analysis underway). Development branch: `codex/green-ion-v12`. This run fetched remote `94291ebd56d360d47d23f05ce36d5f3d0b884833`, matching a clean worktree, reviewed the prior checkpoint, and pushed `8242888`, `656fb0a`, `96e7a99`, `7d36f11`, `115363d`, `ba39a46` and `4d0503b` before the current changes. Phase 1 checkpoint commit: `63119eb`.
 
 ## Current phase
 
@@ -46,6 +46,8 @@ Phase 6 first increment: the library can now attach matching GIS1 `.SEN` compani
 
 Phase 6 library usability increment: new imports record source and import UTC separately from the unknown flight date. A user can add a label, rocket profile and known date without changing original bytes or recorded measurements. Duplicate import preserves those details and the original source. Metadata writes are atomic, and mutating operations use a library lock. Analysis now searches filename/label/profile/SHA and filters source, attached sensor data and parser warnings. The 390-pixel browser smoke exercised the filters and saved details. Current verification: 136 Python tests, Node syntax, RKT4 browser analysis and browser smoke passed. No physical flight date was inferred.
 
+Phase 6 graph/replay increment: the server now streams RKT4 records into a bounded elapsed-time timeline, retains the actual altitude peak and final sample, calculates pressure-derived neighbor velocity only across valid samples, and attaches only GIS1 rows within half a sample period. Missing or stale GPS is explicit. The Analysis page offers 14 series, a recorded-time play/pause/scrub cursor, estimated trajectory position relative to apogee, and a current-fix GPS trail; it never feeds live telemetry. The printable HTML report includes an estimated altitude SVG and available peak velocity/IMU magnitude, escaping user labels and stating that PDF is a browser print action. Raw BIN and SEN SHA-256 are checked on access; a damaged BIN cannot be silently reused during duplicate import. Current verification: 141 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium smoke of SEN attach, library filters, detail saves and recorded replay passed. Actual hardware flight files remain NOT TESTED.
+
 ## Existing implementation verified in code
 
 - Feather firmware, Uno receiver, shared protocol, and recorder components are present.
@@ -63,4 +65,4 @@ Phase 6 library usability increment: new imports record source and import UTC se
 
 ## Next exact task
 
-Continue Phase 6 with synchronized graph/replay views of RKT4 and attached GIS1 data with explicit missing samples and integrity warnings. Add flight comparisons, backups and protected deletion after the visual analysis workflow. Audit timestamp alignment against actual firmware files during the local hardware session. Preserve raw bytes, checksums, V11 library behavior and existing exports. Physical Recovery and Phase 4 hardware outcomes remain NOT TESTED. Codex usage balance and reset time are unavailable from exposed tools; no reset interval is assumed. Scheduler-side nonoverlap remains unverified.
+Continue Phase 6 with flight comparisons, JSONL import, backup/restore and protected deletion. Review graph gap handling and synchronization with actual `.BIN`/`.SEN` pairs during the local hardware session. Audit timestamp alignment against actual firmware files during the local hardware session. Preserve raw bytes, checksums, V11 library behavior and existing exports. Physical Recovery and Phase 4 hardware outcomes remain NOT TESTED. Codex usage balance and reset time are unavailable from exposed tools; no reset interval is assumed. Scheduler-side nonoverlap remains unverified.

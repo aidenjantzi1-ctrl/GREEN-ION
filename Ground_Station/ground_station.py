@@ -868,6 +868,9 @@ class Handler(SimpleHTTPRequestHandler):
                 return
             _, _, identifier, export = parts
             try:
+                if export == "timeline":
+                    json_response(self, FLIGHTS.analysis_timeline(identifier))
+                    return
                 metadata, raw = FLIGHTS.get(identifier)
                 if export == "raw":
                     bytes_response(self, raw.read_bytes(), "application/octet-stream", metadata["original_name"])

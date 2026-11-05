@@ -976,3 +976,10 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 - Added distinct import source and import UTC metadata; flight date remains unknown until a user supplies it. Editable label, rocket profile and known date do not alter raw files or measurements. Duplicate import retains original details. Metadata writes are atomic and mutation paths use a library lock.
 - Analysis searches filename, label, rocket profile and SHA-256 and filters source, SEN presence and parser warnings.
 - Verification: 136 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium smoke of filters, details and SEN attachment passed. Physical flight metadata remains unverified unless supplied by the operator.
+
+### Phase 6 synchronized timeline, replay and integrity (2026-11-05)
+
+- Added a bounded RKT4 analysis timeline that retains peak and final samples and matches GIS1 rows within half a sample period; missing sensor or stale GPS values stay explicit. It reports available pressure-derived peak ascent speed and IMU acceleration magnitude without claiming physical calibration.
+- Analysis has series selection, recorded-time replay play/pause/scrub, cursor readings and a current-fix GPS trail. Printable HTML includes estimated barometric altitude SVG, integrity warnings and browser Print / Save PDF wording. User labels are HTML-escaped.
+- Invalid RKT4 baseline and nonfinite sample values now fail or report invalid cleanly. Raw flight and sensor SHA-256 are verified when read; a changed raw BIN cannot be silently reused as a duplicate.
+- Verification: 141 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium smoke including replay passed. Hardware file timing and sensor accuracy remain NOT TESTED.

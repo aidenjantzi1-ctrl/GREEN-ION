@@ -16,12 +16,17 @@ for key in ('firmware_version','recorder_mode','recording','sd_ok','battery_v','
 requests=[]
 flight_sensor={"value":None}
 flight_details={"label":"","rocket_profile":"","flight_date":None}
+timeline={'flight_id':'a'*64,'source':'onboard_rkt4','total_records':3,'displayed_records':3,'display_stride':1,'sensor_status':'valid','estimated_peak_index':1,'peak_vertical_speed_mps_estimated':12.0,'peak_acceleration_g':1.2,'warnings':[],
+          'points':[{'index':0,'elapsed_s':0,'altitude_m_estimated':0,'vertical_speed_mps_estimated':None,'pressure_pa':101325,'temperature_c':20,'battery_v':4.1,'sensor':None},
+                    {'index':1,'elapsed_s':.04,'altitude_m_estimated':10,'vertical_speed_mps_estimated':12,'pressure_pa':101000,'temperature_c':20,'battery_v':4.0,'sensor':{'gps_status':'live','latitude':37.1,'longitude':-121.9,'gps_altitude_m':100,'gps_speed_mps':5,'imu_valid':True,'acceleration_mps2':[1,2,3],'gyro_rad_s':[.1,.2,.3]}},
+                    {'index':2,'elapsed_s':.08,'altitude_m_estimated':8,'vertical_speed_mps_estimated':-5,'pressure_pa':101050,'temperature_c':20,'battery_v':3.9,'sensor':None}]}
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path=='/': data,ctype=html,'text/html'
         elif self.path.startswith('/api/status'): data,ctype=json.dumps(state).encode(),'application/json'
         elif self.path=='/api/ports': data,ctype=json.dumps({'ports':[],'config':{'serial_port':'auto','feather_url':'http://192.168.4.1'}}).encode(),'application/json'
         elif self.path=='/api/flights': data,ctype=json.dumps({'flights':[{'id':'a'*64,'original_name':'V12D007.BIN','sha256':'a'*64,'summary':{'records':3,'duration_s':.08,'peak_altitude_m_estimated':1.0,'bytes':80,'warnings':[]},**flight_details,**({'sensor':flight_sensor['value']} if flight_sensor['value'] else {})}]}).encode(),'application/json'
+        elif self.path.startswith('/api/flight/') and self.path.endswith('/timeline'): data,ctype=json.dumps(timeline).encode(),'application/json'
         elif self.path=='/api/sessions': data,ctype=b'{"sessions":[]}','application/json'
         else: data,ctype=b'{}','application/json'
         self.send_response(200);self.send_header('Content-Type',ctype);self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data)
@@ -162,6 +167,19 @@ with sync_playwright() as p:
     page.click('[data-details-save]')
     page.wait_for_function('document.querySelector("[data-flight-row] strong").textContent==="Recovery test"')
     assert 'Estes So Long' in page.locator('#flightLibrary').inner_text()
+    page.click('[data-analyze]')
+    page.wait_for_function('document.querySelector("#analysisSummary").textContent.includes("3 display points")')
+    assert 'ONBOARD REPLAY' in page.locator('#analysisReadout').inner_text()
+    page.locator('#analysisScrub').fill('1')
+    assert 'estimated apogee sample' in page.locator('#analysisReadout').inner_text()
+    assert '37.100000' in page.locator('#analysisReadout').inner_text()
+    page.select_option('#analysisSeries','gps_altitude_m')
+    assert '100.00' in page.locator('#analysisReadout').inner_text()
+    page.locator('#analysisScrub').fill('2')
+    assert 'missing' in page.locator('#analysisReadout').inner_text()
+    page.select_option('#analysisSpeed','16')
+    page.click('#analysisPlay')
+    page.wait_for_function('document.querySelector("#analysisPlay").textContent==="Play replay"')
     assert not errors,errors
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     print('Recovery browser smoke passed: bench source return, location, map, units, offline fallback, mobile width')

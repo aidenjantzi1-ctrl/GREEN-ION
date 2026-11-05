@@ -1,4 +1,5 @@
 import io
+import json
 from pathlib import Path
 import struct
 import sys
@@ -87,17 +88,50 @@ class FlightLibraryTests(unittest.TestCase):
         self.assertIn(b"altitude_m_estimated", self.library.csv_export(imported["id"]))
         self.assertIn(b'"analysis_version": 1', self.library.json_export(imported["id"]))
         self.assertIn(b"Print / Save PDF", self.library.report_html(imported["id"]))
+        self.library.update_details(imported["id"], "Flight <A>", "Estes So Long", "2026-11-05")
+        report = self.library.report_html(imported["id"])
+        self.assertIn(b"Flight &lt;A&gt;", report)
+        self.assertNotIn(b"<h2>Flight <A></h2>", report)
+        self.assertIn(b"Estimated barometric altitude", report)
+        self.assertIn(b"Peak IMU acceleration magnitude", report)
+        self.assertIn(b"does not generate a native PDF", report)
 
     def test_trailing_bytes_are_retained_and_reported(self):
         imported = self.library.import_stream("AIRP001.BIN", io.BytesIO(fixture(b"xyz")))
         self.assertEqual(3, imported["summary"]["trailing_bytes"])
         self.assertRegex(imported["summary"]["warnings"][0], "truncated")
 
+    def test_nonfinite_record_is_invalid_and_json_safe(self):
+        raw = fixture() + struct.pack("<IffHH", 120000, float("nan"), float("inf"), 3990, 1)
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        self.assertEqual(1, imported["summary"]["invalid_records"])
+        exported = json.loads(self.library.json_export(imported["id"]))
+        self.assertFalse(exported["records"][-1]["valid"])
+        self.assertIsNone(exported["records"][-1]["pressure_pa"])
+        self.assertIsNone(exported["records"][-1]["temperature_c"])
+        damaged = bytearray(fixture())
+        struct.pack_into("<f", damaged, 12, float("nan"))
+        with self.assertRaisesRegex(FlightImportError, "baseline"):
+            self.library.import_stream("V12D008.BIN", io.BytesIO(damaged))
+
     def test_incomplete_transfer_is_rejected_without_library_entry(self):
         raw = fixture()
         with self.assertRaisesRegex(FlightImportError, "incomplete transfer"):
             self.library.import_stream("V12D002.BIN", io.BytesIO(raw), len(raw) + 1)
         self.assertEqual([], self.library.list())
+
+    def test_changed_library_raw_is_not_reused_as_a_duplicate_or_replayed(self):
+        raw = fixture()
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        _metadata, path = self.library.get(imported["id"])
+        path.write_bytes(raw[:-1] + b"x")
+        with self.assertRaisesRegex(FlightImportError, "checksum"):
+            self.library.get(imported["id"])
+        with self.assertRaisesRegex(FlightImportError, "checksum"):
+            self.library.analysis_timeline(imported["id"])
+        with self.assertRaisesRegex(FlightImportError, "checksum"):
+            self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        self.assertFalse(list(self.library.root.glob("*.part")))
 
     def test_corrupt_header_and_unsafe_filename_are_rejected(self):
         with self.assertRaisesRegex(FlightImportError, "magic"):
@@ -144,6 +178,45 @@ class FlightLibraryTests(unittest.TestCase):
             self.library.import_sensor_stream(imported["id"], "V12D007.SEN",
                                               io.BytesIO(sensor), 16 * 1024 * 1024 + 1)
         self.assertNotIn("sensor", self.library.get(imported["id"])[0])
+
+    def test_analysis_timeline_aligns_sensor_sample_without_calling_it_live(self):
+        raw = fixture()
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        self.library.import_sensor_stream(imported["id"], "V12D007.SEN",
+                                          io.BytesIO(sensor_fixture(raw)))
+        timeline = self.library.analysis_timeline(imported["id"])
+        self.assertEqual((3, 3, 1), (timeline["total_records"], timeline["displayed_records"],
+                                    timeline["display_stride"]))
+        self.assertEqual("onboard_rkt4", timeline["source"])
+        self.assertEqual("valid", timeline["sensor_status"])
+        self.assertEqual(0.04, timeline["points"][1]["elapsed_s"])
+        self.assertEqual(0, timeline["points"][1]["sensor"]["time_delta_ms"])
+        self.assertIsNone(timeline["points"][0]["sensor"])
+        self.assertEqual("missing", timeline["points"][1]["sensor"]["gps_status"])
+        self.assertGreater(timeline["peak_vertical_speed_mps_estimated"], 0)
+        self.assertIsNotNone(timeline["peak_acceleration_g"])
+        json.dumps(timeline, allow_nan=False)
+        with self.assertRaisesRegex(FlightImportError, "point limit"):
+            self.library.analysis_timeline(imported["id"], 10)
+
+    def test_large_timeline_is_bounded_and_retains_peak_and_final_sample(self):
+        header = fixture()[:32]
+        records = b"".join(struct.pack("<IffHH", index * 40000,
+                                        101325 - (5000 if index == 123 else index), 20.0, 4000, 1)
+                           for index in range(1001))
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(header + records))
+        timeline = self.library.analysis_timeline(imported["id"], 100)
+        self.assertLessEqual(timeline["displayed_records"], 102)
+        self.assertEqual(1000, timeline["points"][-1]["index"])
+        self.assertEqual(123, timeline["estimated_peak_index"])
+        self.assertIn(123, [point["index"] for point in timeline["points"]])
+
+    def test_empty_or_invalid_flight_does_not_claim_a_peak_speed(self):
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(fixture()[:32]))
+        timeline = self.library.analysis_timeline(imported["id"])
+        self.assertEqual([], timeline["points"])
+        self.assertIsNone(timeline["peak_vertical_speed_mps_estimated"])
+        self.assertIn(b"Unavailable", self.library.report_html(imported["id"]))
 
 
 if __name__ == "__main__":
