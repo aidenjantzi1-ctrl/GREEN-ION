@@ -23,7 +23,8 @@ from urllib.request import Request, urlopen
 from urllib.parse import parse_qs, quote, urlparse
 import webbrowser
 
-from flight_library import FlightImportError, FlightLibrary
+from flight_library import FlightImportError, FlightLibrary, MAX_SENSOR_BYTES
+from sensor_log import SensorLogError
 from telemetry_manager import SessionWriter, TelemetryManager, valid_coordinate
 
 ROOT = Path(__file__).resolve().parent
@@ -869,6 +870,14 @@ class Handler(SimpleHTTPRequestHandler):
                 metadata, raw = FLIGHTS.get(identifier)
                 if export == "raw":
                     bytes_response(self, raw.read_bytes(), "application/octet-stream", metadata["original_name"])
+                elif export == "sensor-raw":
+                    sensor, path = FLIGHTS.get_sensor(identifier)
+                    bytes_response(self, path.read_bytes(), "application/octet-stream", sensor["original_name"])
+                elif export == "sensor-csv":
+                    sensor, _path = FLIGHTS.get_sensor(identifier)
+                    bytes_response(self, FLIGHTS.sensor_csv_export(identifier), "text/csv",
+                                   Path(sensor["original_name"]).stem +
+                                   ("-valid-prefix.csv" if sensor["inspection"]["status"] != "valid" else ".csv"))
                 elif export == "csv":
                     bytes_response(self, FLIGHTS.csv_export(identifier), "text/csv", metadata["original_name"].replace(".BIN", ".csv"))
                 elif export == "json":
@@ -877,7 +886,7 @@ class Handler(SimpleHTTPRequestHandler):
                     bytes_response(self, FLIGHTS.report_html(identifier), "text/html")
                 else:
                     json_response(self, {"error": "unknown export"}, 404)
-            except (OSError, FlightImportError, json.JSONDecodeError) as error:
+            except (OSError, FlightImportError, SensorLogError, json.JSONDecodeError) as error:
                 json_response(self, {"error": str(error)}, 404)
             return
         if path.startswith("/api/session/"):
@@ -971,6 +980,19 @@ class Handler(SimpleHTTPRequestHandler):
             except (OSError, ValueError, FlightImportError) as error:
                 json_response(self, {"success": False, "error": str(error)}, 400)
             return
+        if self.path.startswith("/api/import-sen/"):
+            try:
+                identifier = self.path.rsplit("/", 1)[-1]
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > MAX_SENSOR_BYTES:
+                    raise FlightImportError("SEN upload must be between 1 byte and 16 MB")
+                filename = self.headers.get("X-Green-Ion-Filename", "")
+                result = FLIGHTS.import_sensor_stream(identifier, filename,
+                                                     LimitedReader(self.rfile, length), expected_bytes=length)
+                json_response(self, {"success": True, "sensor": result})
+            except (OSError, ValueError, FlightImportError) as error:
+                json_response(self, {"success": False, "error": str(error)}, 400)
+            return
         if self.path == "/api/feather/download":
             try:
                 length = min(int(self.headers.get("Content-Length", "0")), 4096)
@@ -986,6 +1008,24 @@ class Handler(SimpleHTTPRequestHandler):
                 json_response(self, {"success": True, "flight": result})
             except (OSError, URLError, TimeoutError, ValueError, json.JSONDecodeError, FlightImportError) as error:
                 json_response(self, {"success": False, "error": f"Feather download failed: {error}"}, 502)
+            return
+        if self.path == "/api/feather/sensor":
+            try:
+                length = min(int(self.headers.get("Content-Length", "0")), 4096)
+                payload = json.loads(self.rfile.read(length))
+                metadata, _raw = FLIGHTS.get(str(payload.get("id", "")))
+                filename = Path(metadata["original_name"]).stem + ".SEN"
+                with CONFIG_LOCK:
+                    base = CONFIG["feather_url"]
+                url = base + "/api/sensor?name=" + quote(filename)
+                with urlopen(Request(url, headers={"Accept": "application/octet-stream"}), timeout=20.0) as response:
+                    expected_header = response.headers.get("X-Green-Ion-Bytes") or response.headers.get("Content-Length")
+                    expected = int(expected_header) if expected_header else None
+                    result = FLIGHTS.import_sensor_stream(metadata["id"], filename, response,
+                                                          expected_bytes=expected)
+                json_response(self, {"success": True, "sensor": result})
+            except (OSError, URLError, TimeoutError, ValueError, json.JSONDecodeError, FlightImportError) as error:
+                json_response(self, {"success": False, "error": f"Feather sensor download failed: {error}"}, 502)
             return
         if self.path == "/api/preflight":
             started_utc = datetime.now(timezone.utc).isoformat()

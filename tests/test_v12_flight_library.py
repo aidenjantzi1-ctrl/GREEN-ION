@@ -4,11 +4,13 @@ import struct
 import sys
 import tempfile
 import unittest
+import zlib
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "Ground_Station"))
 
 from flight_library import FlightImportError, FlightLibrary
+import sensor_log
 
 
 def fixture(trailing=b""):
@@ -21,6 +23,21 @@ def fixture(trailing=b""):
         struct.pack("<IffHH", 80000, 100700.0, 20.2, 4000, 1),
     ])
     return bytes(header) + records + trailing
+
+
+def sensor_fixture(rkt4: bytes, *, start_us: int = 40000, rate: int = 25,
+                   header_crc: int | None = None, torn: bytes = b"") -> bytes:
+    header = bytearray(32)
+    struct.pack_into("<4sHHHHH2xII4x", header, 0, b"GIS1", 1, 32, 68, rate, 7,
+                     start_us, zlib.crc32(rkt4[:32]) & 0xFFFFFFFF if header_crc is None else header_crc)
+    struct.pack_into("<I", header, 28, zlib.crc32(header[:28]) & 0xFFFFFFFF)
+    record = bytearray(sensor_log.RECORD.pack(
+        40000, 1, 1.0, 2.0, 3.0, 0.1, 0.2, 0.3,
+        0, 0, 0.0, 0.0, 0xFFFFFFFF, 0,
+        sensor_log.FLAG_IMU_VALID, 0, 12, 34, 56, 0,
+    ))
+    struct.pack_into("<I", record, 64, zlib.crc32(record[:64]) & 0xFFFFFFFF)
+    return bytes(header) + bytes(record) + torn
 
 
 class FlightLibraryTests(unittest.TestCase):
@@ -68,6 +85,46 @@ class FlightLibraryTests(unittest.TestCase):
             self.library.import_stream("bad.BIN", io.BytesIO(b"x" * 64))
         with self.assertRaisesRegex(FlightImportError, "filename"):
             self.library.import_stream("../bad.BIN", io.BytesIO(fixture()))
+
+    def test_sensor_companion_binding_preserves_raw_and_exports_valid_prefix(self):
+        raw = fixture()
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        sensor = sensor_fixture(raw, torn=b"x")
+        attached = self.library.import_sensor_stream(imported["id"], "V12D007.SEN",
+                                                     io.BytesIO(sensor), len(sensor))
+        self.assertEqual("torn_tail", attached["inspection"]["status"])
+        self.assertEqual(1, attached["inspection"]["valid_prefix_records"])
+        saved, path = self.library.get_sensor(imported["id"])
+        self.assertEqual(sensor, path.read_bytes())
+        self.assertEqual(attached["sha256"], saved["sha256"])
+        self.assertIn(b"acceleration_x_mps2", self.library.sensor_csv_export(imported["id"]))
+        self.assertEqual(attached["sha256"], self.library.list()[0]["sensor"]["sha256"])
+        duplicate = self.library.import_sensor_stream(imported["id"], "V12D007.SEN", io.BytesIO(sensor))
+        self.assertTrue(duplicate["duplicate"])
+        path.write_bytes(sensor[:-1] + b"y")
+        with self.assertRaisesRegex(FlightImportError, "checksum"):
+            self.library.get_sensor(imported["id"])
+
+    def test_sensor_companion_rejects_unrelated_or_incomplete_data(self):
+        raw = fixture()
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        sensor = sensor_fixture(raw)
+        cases = [
+            ("V12D008.SEN", sensor, "filename"),
+            ("V12D007.SEN", sensor_fixture(raw, header_crc=0), "bind"),
+            ("V12D007.SEN", sensor_fixture(raw, rate=50), "bind"),
+            ("V12D007.SEN", sensor_fixture(raw, start_us=10000000), "outside"),
+        ]
+        for name, data, message in cases:
+            with self.subTest(message=message), self.assertRaisesRegex(FlightImportError, message):
+                self.library.import_sensor_stream(imported["id"], name, io.BytesIO(data))
+        with self.assertRaisesRegex(FlightImportError, "incomplete"):
+            self.library.import_sensor_stream(imported["id"], "V12D007.SEN",
+                                              io.BytesIO(sensor), len(sensor) + 1)
+        with self.assertRaisesRegex(FlightImportError, "16 MB"):
+            self.library.import_sensor_stream(imported["id"], "V12D007.SEN",
+                                              io.BytesIO(sensor), 16 * 1024 * 1024 + 1)
+        self.assertNotIn("sensor", self.library.get(imported["id"])[0])
 
 
 if __name__ == "__main__":

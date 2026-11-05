@@ -964,3 +964,9 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 - Rejected invalid rocket coordinates and cleared the display when a fix disappears. Manual-entry errors now persist until corrected. Browser geolocation timeouts retain the watch and its last position so a later fix can recover; permission denial stops the watch.
 - Added a committed 390-pixel Chromium smoke for Recovery, including browser and injected location callbacks, GPS/radio loss and restoration, tile failure, units, coordinate link and Wi-Fi return. `V12_PHASE5_AUDIT.md` records software evidence and physical limits.
 - Verification: 130 Python tests, Node syntax, RKT4 browser analysis and Recovery browser smoke passed. Physical rocket, receiver, Windows and iPhone outcomes remain NOT TESTED. Phase 6 Analysis is next.
+
+### Phase 6 paired sensor companion import (2026-11-05)
+
+- Added a bounded `.SEN` import/fetch path for a matching V12D, AIRP or TEST RKT4 `.BIN`. The library requires filename sequence, GIS1 header CRC, RKT4 header CRC and matching sample rate, plus a start timestamp in the primary recording window. It preserves original SEN bytes and SHA-256, records valid-prefix/torn/corrupt status, and updates the flight metadata atomically. A stored raw sensor checksum is verified on access.
+- Analysis now supports manual SEN attachment, Feather `/api/sensor` download, raw SEN export and valid-prefix CSV export. The existing CLI binding check now rejects sample-rate mismatch. No unrelated file is silently paired.
+- Verification: 134 Python tests, Node syntax, RKT4 browser analysis and a 390-pixel Chromium smoke including SEN attachment UI passed. No physical `.SEN` was exercised. Phase 6 graphs, replay, library metadata and comparison remain open.

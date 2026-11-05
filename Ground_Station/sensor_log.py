@@ -188,7 +188,7 @@ def validate_rkt4_binding(header: Header, rkt4_data: bytes) -> bool:
     version, header_bytes, record_bytes, rate = struct.unpack_from("<HHHH", rkt4_data, 4)
     return (
         version == 2 and header_bytes == 32 and record_bytes == 16
-        and rate in ALLOWED_RATES
+        and rate == header.sample_rate_hz
         and header.rkt4_header_crc32 == _crc32(rkt4_data[:32])
     )
 
@@ -237,19 +237,19 @@ def write_csv(records: list[dict], output: Path) -> None:
 
 
 def _sequence_from_name(path: Path) -> int | None:
-    match = re.fullmatch(r"(?:V12D|AIRP)(\d{3})\.SEN", path.name, re.IGNORECASE)
+    match = re.fullmatch(r"(?:V12D|AIRP|TEST)(\d{3})\.SEN", path.name, re.IGNORECASE)
     return int(match.group(1)) if match else None
 
 
 def _rkt4_sequence_from_name(path: Path) -> int | None:
-    match = re.fullmatch(r"(?:V12D|AIRP)(\d{3})\.BIN", path.name, re.IGNORECASE)
+    match = re.fullmatch(r"(?:V12D|AIRP|TEST)(\d{3})\.BIN", path.name, re.IGNORECASE)
     return int(match.group(1)) if match else None
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate and export a GREEN ION GIS1 sensor log")
-    parser.add_argument("sensor_log", type=Path, help="V12Dxxx.SEN or AIRPxxx.SEN input")
-    parser.add_argument("--rkt4", type=Path, help="matching V12Dxxx.BIN or AIRPxxx.BIN")
+    parser.add_argument("sensor_log", type=Path, help="V12Dxxx.SEN, AIRPxxx.SEN or TESTxxx.SEN input")
+    parser.add_argument("--rkt4", type=Path, help="matching V12Dxxx.BIN, AIRPxxx.BIN or TESTxxx.BIN")
     parser.add_argument("--csv", type=Path, help="output CSV path; defaults beside the input")
     parser.add_argument("--json", type=Path, help="write integrity/header summary as JSON")
     parser.add_argument("--allow-partial", action="store_true", help="export the valid prefix of corrupt or torn input")

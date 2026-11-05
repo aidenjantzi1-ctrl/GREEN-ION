@@ -7,15 +7,21 @@ import hashlib
 import io
 import json
 import math
+import os
 from pathlib import Path
 import re
 import struct
+import tempfile
 from typing import BinaryIO
+
+from sensor_log import SensorLogError, csv_row, parse_sensor_log, validate_rkt4_binding, CSV_FIELDS
 
 HEADER_BYTES = 32
 RECORD_BYTES = 16
 ALLOWED_RATES = (10, 25, 50)
 SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}\.BIN$", re.IGNORECASE)
+FLIGHT_STEM = re.compile(r"^(?:V12D|AIRP|TEST)[0-9]{3}$", re.IGNORECASE)
+MAX_SENSOR_BYTES = 16 * 1024 * 1024
 EXPONENT = 0.190294957
 
 
@@ -171,6 +177,112 @@ class FlightLibrary:
         if raw.parent != self.raw.resolve() or not raw.is_file():
             raise FlightImportError("raw flight file is unavailable")
         return metadata, raw
+
+    def import_sensor_stream(self, identifier: str, filename: str, source: BinaryIO,
+                             expected_bytes: int | None = None) -> dict:
+        metadata, raw = self.get(identifier)
+        bin_stem = Path(metadata["original_name"]).stem
+        if not FLIGHT_STEM.fullmatch(bin_stem) or filename.upper() != bin_stem.upper() + ".SEN":
+            raise FlightImportError("sensor filename must match a V12D, AIRP or TEST flight BIN")
+        if expected_bytes is not None and (expected_bytes < 0 or expected_bytes > MAX_SENSOR_BYTES):
+            raise FlightImportError("sensor file exceeds the 16 MB safety limit")
+        data = bytearray()
+        while chunk := source.read(min(65536, MAX_SENSOR_BYTES + 1 - len(data))):
+            data.extend(chunk)
+            if len(data) > MAX_SENSOR_BYTES:
+                raise FlightImportError("sensor file exceeds the 16 MB safety limit")
+        if expected_bytes is not None and len(data) != expected_bytes:
+            raise FlightImportError(f"incomplete sensor transfer: expected {expected_bytes} bytes, received {len(data)}")
+        try:
+            header, rows, inspection = parse_sensor_log(data, int(bin_stem[-3:]))
+        except SensorLogError as error:
+            raise FlightImportError(f"GIS1 sensor header invalid: {error}") from error
+        with raw.open("rb") as handle:
+            rkt4_header = handle.read(HEADER_BYTES)
+            if not validate_rkt4_binding(header, rkt4_header):
+                raise FlightImportError("sensor header does not bind to the RKT4 header and sample rate")
+            record_count = (raw.stat().st_size - HEADER_BYTES) // RECORD_BYTES
+            if record_count <= 0:
+                raise FlightImportError("RKT4 has no samples for sensor time alignment")
+            first_us = struct.unpack("<I", handle.read(4))[0]
+            handle.seek(HEADER_BYTES + (record_count - 1) * RECORD_BYTES)
+            last_us = struct.unpack("<I", handle.read(4))[0]
+        span_us = (last_us - first_us) & 0xFFFFFFFF
+        start_offset_us = (header.start_timestamp_us - first_us) & 0xFFFFFFFF
+        if start_offset_us > span_us + 1_000_000:
+            raise FlightImportError("sensor start time is outside the RKT4 recording window")
+        if rows and ((rows[0]["timestamp_us"] - first_us) & 0xFFFFFFFF) > span_us + 1_000_000:
+            raise FlightImportError("sensor samples are outside the RKT4 recording window")
+        digest = hashlib.sha256(data).hexdigest()
+        previous = metadata.get("sensor")
+        if previous and previous.get("sha256") != digest:
+            raise FlightImportError("this flight already has a different sensor companion")
+        destination = self.raw / f"{digest}.sen"
+        duplicate = destination.exists() and hashlib.sha256(destination.read_bytes()).hexdigest() == digest
+        if not duplicate:
+            with tempfile.NamedTemporaryFile(dir=self.raw, prefix="sensor-", suffix=".part", delete=False) as output:
+                temporary = Path(output.name)
+                try:
+                    output.write(data)
+                    output.flush()
+                    os.fsync(output.fileno())
+                except Exception:
+                    temporary.unlink(missing_ok=True)
+                    raise
+            temporary.replace(destination)
+        sensor = {
+            "original_name": filename, "sha256": digest, "raw_file": destination.name,
+            "bytes": len(data), "header": {
+                "sample_rate_hz": header.sample_rate_hz,
+                "flight_sequence": header.flight_sequence,
+                "start_timestamp_us": header.start_timestamp_us,
+                "rkt4_header_crc32": header.rkt4_header_crc32,
+            },
+            "inspection": {
+                "status": inspection.status, "complete_records": inspection.complete_records,
+                "valid_prefix_records": inspection.valid_prefix_records,
+                "trailing_bytes": inspection.trailing_bytes,
+                "first_invalid_record": inspection.first_invalid_record,
+                "first_invalid_reason": inspection.first_invalid_reason,
+                "sequence_gaps": inspection.sequence_gaps,
+            },
+            "rkt4_binding": "valid", "timestamp_alignment": "within_recording_window",
+        }
+        metadata["sensor"] = sensor
+        metadata_path = self._metadata_path(identifier)
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=self.meta,
+                                         prefix="sensor-meta-", suffix=".part", delete=False) as output:
+            temporary = Path(output.name)
+            try:
+                json.dump(metadata, output, indent=2, allow_nan=False)
+                output.flush()
+                os.fsync(output.fileno())
+            except Exception:
+                temporary.unlink(missing_ok=True)
+                raise
+        temporary.replace(metadata_path)
+        return {**sensor, "duplicate": duplicate}
+
+    def get_sensor(self, identifier: str) -> tuple[dict, Path]:
+        metadata, _raw = self.get(identifier)
+        sensor = metadata.get("sensor")
+        if not isinstance(sensor, dict) or not re.fullmatch(r"[0-9a-f]{64}", str(sensor.get("sha256", ""))):
+            raise FlightImportError("sensor companion is unavailable")
+        path = (self.raw / f"{sensor['sha256']}.sen").resolve()
+        if path.parent != self.raw.resolve() or not path.is_file():
+            raise FlightImportError("raw sensor file is unavailable")
+        if hashlib.sha256(path.read_bytes()).hexdigest() != sensor["sha256"]:
+            raise FlightImportError("raw sensor checksum no longer matches import metadata")
+        return sensor, path
+
+    def sensor_csv_export(self, identifier: str) -> bytes:
+        sensor, path = self.get_sensor(identifier)
+        _header, rows, _inspection = parse_sensor_log(path.read_bytes(), sensor["header"]["flight_sequence"])
+        text = io.StringIO(newline="")
+        writer = csv.DictWriter(text, fieldnames=CSV_FIELDS)
+        writer.writeheader()
+        writer.writerows(csv_row(row) for row in rows)
+        return text.getvalue().encode()
 
     def json_export(self, identifier: str) -> bytes:
         metadata, raw = self.get(identifier)

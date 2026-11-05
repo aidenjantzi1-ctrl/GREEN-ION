@@ -125,6 +125,44 @@ class RecorderStopTests(unittest.TestCase):
             self.assertEqual(200, ground_station.stop_bench_recording("STOP BENCH TEST", "/TEST001.BIN")[0])
             stop.assert_called_once_with("STOP AND SAVE", "/TEST001.BIN")
 
+    def test_sensor_import_route_bounds_upload_and_keeps_raw_in_library(self):
+        class Request:
+            path = "/api/import-sen/" + "a" * 64
+            headers = {"Content-Length": "4", "X-Green-Ion-Filename": "V12D007.SEN"}
+            rfile = BytesIO(b"GIS1")
+
+        with patch.object(ground_station.FLIGHTS, "import_sensor_stream", return_value={
+                "sha256": "b" * 64, "inspection": {"status": "valid"}}) as imported, \
+                patch.object(ground_station, "json_response") as reply:
+            ground_station.Handler.do_POST(Request())
+            self.assertEqual(4, imported.call_args.kwargs["expected_bytes"])
+            self.assertEqual("V12D007.SEN", imported.call_args.args[1])
+            self.assertEqual(200, reply.call_args.args[2] if len(reply.call_args.args) > 2 else 200)
+            Request.headers["Content-Length"] = str(16 * 1024 * 1024 + 1)
+            ground_station.Handler.do_POST(Request())
+            self.assertEqual(1, imported.call_count)
+            self.assertEqual(400, reply.call_args.args[2])
+
+    def test_sensor_feather_download_uses_imported_bin_identity(self):
+        class Request:
+            path = "/api/feather/sensor"
+            headers = {"Content-Length": str(len(b'{"id":"' + b"a" * 64 + b'"}'))}
+            rfile = BytesIO(b'{"id":"' + b"a" * 64 + b'"}')
+
+        response = BytesIO(b"GIS1")
+        response.headers = {"Content-Length": "4"}
+        with patch.object(ground_station.FLIGHTS, "get", return_value=(
+                {"id": "a" * 64, "original_name": "V12D007.BIN"}, Path("unused"))), \
+                patch.object(ground_station, "urlopen", return_value=response) as download, \
+                patch.object(ground_station.FLIGHTS, "import_sensor_stream", return_value={
+                    "sha256": "b" * 64}) as imported, \
+                patch.object(ground_station, "json_response") as reply:
+            ground_station.Handler.do_POST(Request())
+            self.assertIn("/api/sensor?name=V12D007.SEN", download.call_args.args[0].full_url)
+            self.assertEqual("V12D007.SEN", imported.call_args.args[1])
+            self.assertEqual(4, imported.call_args.kwargs["expected_bytes"])
+            self.assertTrue(reply.call_args.args[1]["success"])
+
     def test_bench_verify_requires_completed_exact_file_and_preserves_raw_import(self):
         ready = {"active_source": "wifi", "sources": {"wifi": {"status": "live"}},
                  "field_meta": {name: {"freshness": "live"} for name in

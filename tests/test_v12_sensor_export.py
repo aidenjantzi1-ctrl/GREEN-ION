@@ -67,7 +67,15 @@ class SensorExportTests(unittest.TestCase):
         changed = bytearray(rkt4_header())
         changed[16] ^= 1
         self.assertFalse(sensor_log.validate_rkt4_binding(decoded_header, changed))
+        changed_rate = bytearray(rkt4_header())
+        struct.pack_into("<H", changed_rate, 10, 25)
+        changed_header = bytearray(header())
+        struct.pack_into("<I", changed_header, 20, zlib.crc32(changed_rate) & 0xFFFFFFFF)
+        struct.pack_into("<I", changed_header, 28, zlib.crc32(changed_header[:28]) & 0xFFFFFFFF)
+        mismatched, _, _ = sensor_log.parse_sensor_log(bytes(changed_header), 7)
+        self.assertFalse(sensor_log.validate_rkt4_binding(mismatched, changed_rate))
         self.assertEqual(sensor_log._rkt4_sequence_from_name(Path("V12D007.BIN")), 7)
+        self.assertEqual(sensor_log._sequence_from_name(Path("TEST007.SEN")), 7)
         self.assertNotEqual(sensor_log._rkt4_sequence_from_name(Path("V12D008.BIN")),
                             decoded_header.flight_sequence)
         with self.assertRaisesRegex(sensor_log.SensorLogError, "filename_sequence_mismatch"):
