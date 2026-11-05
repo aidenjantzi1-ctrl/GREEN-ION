@@ -58,6 +58,14 @@
 | `prebuffer_records` | integer | count | measured |
 | `checkpoint_generation` | integer | count | measured |
 | `checkpoint_failures` | integer | count | measured |
+| `checkpoint_committed_bytes` | integer | bytes | measured |
+| `checkpoint_committed_records` | integer | count | measured |
+| `sample_rate_hz` | integer | Hz | calculated |
+| `sd_capacity_known` | boolean | — | calculated |
+| `sd_total_bytes` | integer | bytes | measured |
+| `sd_used_bytes` | integer | bytes | measured |
+| `sd_free_bytes` | integer | bytes | calculated |
+| `sd_capacity_age_ms` | integer | ms | calculated |
 | `sensor_log_file` | string | — | measured |
 | `sensor_log_failures` | integer | count | measured |
 | `sensor_log_pending` | integer | count | measured |
@@ -99,3 +107,5 @@ The Uno bridge's fixed-width v2 JSON includes a `flags` bitmask. The Ground Stat
 The PA1010D parser uses Adafruit GPS `altitude`, which that library documents as meters above mean sea level (MSL). Firmware marks `gps_altitude_valid` only when a parsed GGA sentence reports a positive fix quality and a finite altitude, and the altitude observation is still recent. RMC may supply a position and course before a valid GGA altitude arrives. `gps_fix_quality` is the GGA quality code (0 means invalid; 1 means GPS; 2 means DGPS). `gps_course_deg` is the RMC course clockwise from true north. The Feather also reports whether NMEA messages are arriving and the parsed/received sentence counts. Fixed LoRa v2 packets do not carry separate altitude quality, fix quality, course, or NMEA communication fields, so those fields are unknown in radio-only reception. Firmware compilation does not verify actual PA1010D behavior.
 
 Feather Wi-Fi reports recorder filenames, mode/status numeric codes, prebuffer count, checkpoint generation/failures, sensor-log queue/failures/drops, missed sample periods, and recovery state. These fields are absent from fixed LoRa v2 telemetry; the Ground Station marks them unavailable during radio-only reception rather than retaining old Wi-Fi values as current. `recovery_pending` is a 0/1 numeric flag in the current Feather JSON. SD capacity is available only from the separate `/api/files` endpoint when recording is idle; it is not sampled in the live status loop.
+
+`sd_total_bytes`, `sd_used_bytes`, and `sd_free_bytes` are cached values measured at SD initialization and refreshed only by an idle `/api/files` request. Their `field_meta.freshness` becomes `stale` during recording or when the capacity reading is older than 10 seconds. `sd_capacity_age_ms` reports the age; `sd_capacity_known=false` yields null capacity values. `checkpoint_committed_bytes` and `checkpoint_committed_records` advance only after a successfully written recovery checkpoint. They are committed checkpoint evidence, not the current file size or all samples collected. `sample_rate_hz` is the configured rate, not a guarantee that no sample deadlines were missed.

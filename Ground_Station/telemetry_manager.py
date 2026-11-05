@@ -14,6 +14,7 @@ import uuid
 
 LIVE_AFTER_SECONDS = {"wifi": 2.5, "radio": 5.0, "simulation": 2.5}
 GPS_MAX_AGE_MS = 3000
+SD_CAPACITY_FRESH_MS = 10000
 RADIO_FLAG_SD_OK = 1 << 2
 RADIO_FLAG_IMU_OK = 1 << 3
 RADIO_FLAG_BARO_OK = 1 << 4
@@ -36,6 +37,9 @@ MEASUREMENT_FIELDS = (
     "rssi_dbm", "flags", "log_file", "barometer_ready", "recorder_status",
     "recorder_mode", "calibration_baseline_pa", "calibration_noise_m",
     "prebuffer_records", "checkpoint_generation", "checkpoint_failures",
+    "checkpoint_committed_bytes", "checkpoint_committed_records", "sample_rate_hz",
+    "sd_capacity_known", "sd_total_bytes", "sd_used_bytes", "sd_free_bytes",
+    "sd_capacity_age_ms",
     "sensor_log_file", "sensor_log_failures", "sensor_log_pending",
     "sensor_log_dropped", "finalization_failures", "missed_sample_periods",
     "recovery_pending", "recovery_status", "recovered_logs",
@@ -97,6 +101,14 @@ FIELD_SPECS = {
     "prebuffer_records": ("integer", "count", "measured"),
     "checkpoint_generation": ("integer", "count", "measured"),
     "checkpoint_failures": ("integer", "count", "measured"),
+    "checkpoint_committed_bytes": ("integer", "bytes", "measured"),
+    "checkpoint_committed_records": ("integer", "count", "measured"),
+    "sample_rate_hz": ("integer", "Hz", "calculated"),
+    "sd_capacity_known": ("boolean", None, "calculated"),
+    "sd_total_bytes": ("integer", "bytes", "measured"),
+    "sd_used_bytes": ("integer", "bytes", "measured"),
+    "sd_free_bytes": ("integer", "bytes", "calculated"),
+    "sd_capacity_age_ms": ("integer", "ms", "calculated"),
     "sensor_log_file": ("string", None, "measured"),
     "sensor_log_failures": ("integer", "count", "measured"),
     "sensor_log_pending": ("integer", "count", "measured"),
@@ -384,6 +396,13 @@ class TelemetryManager:
                 freshness = "stale"
             if valid and name == "gps_altitude_m" and combined.get("gps_altitude_valid") is False:
                 freshness = "stale"
+            if valid and name in ("sd_total_bytes", "sd_used_bytes", "sd_free_bytes"):
+                age = combined.get("sd_capacity_age_ms")
+                if combined.get("sd_capacity_known") is not True or combined.get("recording") is True or (
+                    not isinstance(age, (int, float)) or not math.isfinite(age) or
+                    age > SD_CAPACITY_FRESH_MS
+                ):
+                    freshness = "stale"
             fields[name] = {
                 "type": kind, "unit": unit, "origin": origin,
                 "source": selected if valid else None,

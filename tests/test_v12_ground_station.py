@@ -172,6 +172,38 @@ class GroundStationManagerTests(unittest.TestCase):
         self.assertFalse(snapshot["field_meta"]["checkpoint_failures"]["valid"])
         self.assertFalse(snapshot["field_meta"]["log_file"]["valid"])
 
+    def test_sd_capacity_snapshot_is_labeled_stale_during_recording(self):
+        row = {**self.row(1), "sd_capacity_known": True,
+               "sd_total_bytes": 8_000_000, "sd_used_bytes": 2_000_000,
+               "sd_free_bytes": 6_000_000, "sd_capacity_age_ms": 100,
+               "sample_rate_hz": 50, "checkpoint_committed_records": 42,
+               "recording": False}
+        self.manager.ingest("wifi", row)
+        snapshot = self.manager.snapshot()
+        self.assertEqual("live", snapshot["field_meta"]["sd_free_bytes"]["freshness"])
+        self.assertEqual(42, snapshot["checkpoint_committed_records"])
+        row.update(sequence=2, uptime_ms=200, recording=True, sd_capacity_age_ms=200)
+        self.manager.ingest("wifi", row)
+        snapshot = self.manager.snapshot()
+        self.assertEqual("stale", snapshot["field_meta"]["sd_free_bytes"]["freshness"])
+        row.update(sequence=3, uptime_ms=300, recording=False, sd_capacity_age_ms=12000)
+        self.manager.ingest("wifi", row)
+        self.assertEqual("stale", self.manager.snapshot()["field_meta"]["sd_free_bytes"]["freshness"])
+
+    def test_missing_sd_and_lost_link_do_not_report_live_capacity(self):
+        self.manager.ingest("wifi", {**self.row(1), "sd_ok": False,
+                                     "sd_capacity_known": False,
+                                     "sd_free_bytes": None})
+        snapshot = self.manager.snapshot()
+        self.assertEqual("missing", snapshot["field_meta"]["sd_free_bytes"]["freshness"])
+        self.manager.ingest("wifi", {**self.row(2), "sd_ok": True,
+                                     "sd_capacity_known": True,
+                                     "sd_free_bytes": 6000,
+                                     "sd_capacity_age_ms": 100})
+        self.clock.advance(3)
+        snapshot = self.manager.snapshot()
+        self.assertEqual("stale", snapshot["field_meta"]["sd_free_bytes"]["freshness"])
+
     def test_bad_coordinates_are_not_saved(self):
         self.assertFalse(valid_coordinate(91, 0))
         row = self.row(1)

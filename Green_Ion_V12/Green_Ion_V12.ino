@@ -148,6 +148,12 @@ uint32_t lastSensorLogFlushMs = 0;
 uint32_t lastCheckpointMs = 0;
 uint32_t checkpointGeneration = 0;
 uint32_t checkpointFailures = 0;
+uint32_t checkpointCommittedBytes = 0;
+uint32_t checkpointCommittedRecords = 0;
+uint64_t sdTotalBytesCached = 0;
+uint64_t sdUsedBytesCached = 0;
+uint32_t sdCapacityCheckedMs = 0;
+bool sdCapacityKnown = false;
 uint32_t metadataFailures = 0;
 uint32_t finalizationFailures = 0;
 uint32_t sensorLogSequence = 0;
@@ -274,6 +280,12 @@ static void initializeSensors() {
 static void initializeStorage() {
   digitalWrite(config::PIN_LORA_CS, HIGH);
   state.sdOk = SD.begin(config::PIN_SD_CS, SPI);
+  if (state.sdOk) {
+    sdTotalBytesCached = SD.totalBytes();
+    sdUsedBytesCached = SD.usedBytes();
+    sdCapacityKnown = sdTotalBytesCached > 0 && sdUsedBytesCached <= sdTotalBytesCached;
+    sdCapacityCheckedMs = millis();
+  }
 }
 
 static bool isV12JournalName(const String &name, const char *suffix) {
@@ -1237,6 +1249,8 @@ static bool saveCheckpoint(uint32_t nowMs) {
     return false;
   }
   checkpointGeneration = checkpoint.generation;
+  checkpointCommittedBytes = checkpoint.committedBytes;
+  checkpointCommittedRecords = checkpoint.recordCount;
   checkpointSlotB = !checkpointSlotB;
   return true;
 }
@@ -1371,6 +1385,8 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs,
   sensorLogFilename = logFilename;
   sensorLogFilename.replace(".BIN", ".SEN");
   checkpointGeneration = 0;
+  checkpointCommittedBytes = 0;
+  checkpointCommittedRecords = 0;
   checkpointSlotB = false;
   sensorLogCommittedBytes = 0;
   sensorLogCommittedRecords = 0;
@@ -1740,6 +1756,9 @@ static void sendDashboardStatus() {
   body += ",\"vertical_speed_mps\":" + numberOrNull(watcherSpeedMps, 2);
   body += ",\"checkpoint_generation\":" + String(checkpointGeneration);
   body += ",\"checkpoint_failures\":" + String(checkpointFailures);
+  body += ",\"checkpoint_committed_bytes\":" + String(checkpointCommittedBytes);
+  body += ",\"checkpoint_committed_records\":" + String(checkpointCommittedRecords);
+  body += ",\"sample_rate_hz\":" + String(config::SENSOR_RATE_HZ);
   body += ",\"metadata_file\":\"" + metadataFilename + "\"";
   body += ",\"metadata_failures\":" + String(metadataFailures);
   body += ",\"sensor_log_file\":\"" + sensorLogFilename + "\"";
@@ -1758,6 +1777,17 @@ static void sendDashboardStatus() {
   body += ",\"recovery_pending\":" + String(recoveryPending);
   body += ",\"recovery_status\":\"" + recoveryStatus + "\"}";
   body.remove(body.length() - 1);
+  const bool capacityAvailable = state.sdOk && sdCapacityKnown;
+  body += ",\"sd_capacity_known\":";
+  body += capacityAvailable ? "true" : "false";
+  body += ",\"sd_total_bytes\":";
+  body += capacityAvailable ? String(sdTotalBytesCached) : String("null");
+  body += ",\"sd_used_bytes\":";
+  body += capacityAvailable ? String(sdUsedBytesCached) : String("null");
+  body += ",\"sd_free_bytes\":";
+  body += capacityAvailable ? String(sdTotalBytesCached - sdUsedBytesCached) : String("null");
+  body += ",\"sd_capacity_age_ms\":";
+  body += capacityAvailable ? String(millis() - sdCapacityCheckedMs) : String("null");
   body += ",\"airplane_state\":\"" + String(airplaneStateName(airplaneMode.state())) + "\"";
   body += ",\"airplane_recording\":";
   body += airplaneMode.recording() ? "true" : "false";
@@ -1791,8 +1821,12 @@ static void sendDashboardFiles() {
                          "{\"success\":false,\"message\":\"SD card is unavailable\"}");
     return;
   }
-  String body = "{\"success\":true,\"used\":" + String(SD.usedBytes()) +
-                ",\"total\":" + String(SD.totalBytes()) + ",\"files\":[";
+  sdTotalBytesCached = SD.totalBytes();
+  sdUsedBytesCached = SD.usedBytes();
+  sdCapacityKnown = sdTotalBytesCached > 0 && sdUsedBytesCached <= sdTotalBytesCached;
+  sdCapacityCheckedMs = millis();
+  String body = "{\"success\":true,\"used\":" + String(sdUsedBytesCached) +
+                ",\"total\":" + String(sdTotalBytesCached) + ",\"files\":[";
   bool first = true;
   digitalWrite(config::PIN_LORA_CS, HIGH);
   File root = SD.open("/");
