@@ -13,6 +13,7 @@
 ## Phase 2 — complete pre-hardware software
 
 - [x] Add independent serial bench diagnostics for LSM6DSO32 and PA1010D, including explicit units, live/stale GPS semantics, and first-day procedures.
+- [x] Add phone/laptop hardware-test controls with stationary IMU bias classification, GPS communication-versus-fix classification, STEMMA QT rail power, reconnection handling, and recording lockout.
 - [x] Add a first-packet LoRa bench mode and verify the shared Feather/Uno modem and packet contract before sensor integration.
 - [x] Add a bounded telemetry queue so radio work is deferred behind recorder/flush operations and guarded from the next sample deadline.
 - [x] Add bounded radio degradation/recovery policy that never performs blocking reinitialization during recorder-critical states.

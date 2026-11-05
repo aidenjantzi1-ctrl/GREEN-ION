@@ -719,3 +719,25 @@ Add a deterministic storage/recovery transaction boundary that can inject checkp
 
 - GitHub Actions run `41951788923`: PASS for all 78 Python regression tests, all native C++ suites including the new barometer initialization/runtime-loss, backoff, recovery, deferral, and rollover policy cases, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `8ebddc9`.
 
+## 2026-11-04 — Session 29: urgent phone and USB IMU/GPS hardware tests
+
+### Implemented
+
+- Added a nonblocking five-second stationary LSM6DSO32 test that verifies the configured ±32 g range by readback, collects at least 100 existing 50 Hz samples, and reports X/Y/Z acceleration, mean total g, X/Y/Z gyro bias, peak motion, temperature, valid/invalid counts, and PASS/FAIL/INCONCLUSIVE with a specific reason.
+- Added a 12-second PA1010D test that separately reports I2C detection, raw NMEA reception, successfully parsed NMEA, current fix, satellites, latitude, longitude, GPS altitude, speed, UTC, and fix age. Communication without an outdoor fix is INCONCLUSIVE rather than FAIL; stale last-known coordinates remain visibly stale.
+- Added Test IMU, Test GPS, and Test All Sensors controls to the Feather Wi-Fi dashboard. Healthy tests consume existing sensor samples only. Missing/stale devices can be reinitialized after explicitly restarting preflight calibration, but tests and reinitialization are forbidden during active RKT4 recording and an in-progress test aborts if recording begins.
+- Added USB Serial commands `test imu`, `test gps`, `test all`, and `test status`; expanded continuous bench output with IMU temperature/total g/range readback and GPS NMEA/parse/speed evidence. LoRa hardware is not required.
+- The Feather STEMMA QT rail now uses the board's `NEOPIXEL_I2C_POWER` definition. IMU runtime failures clear invalid data and permit explicit reconnection. GPS service cadence is 5 ms so RMC+GGA traffic can be consumed while existing stale-fix semantics remain intact.
+- Added portable fixed-memory IMU/GPS test classifiers and native tests for stationary pass, motion inconclusive, missing sensor failure, GPS communication without fix, current fix, no NMEA, deferral, and timestamp rollover. RKT4 v2 and V11 were not changed.
+
+### Evidence
+
+- Full local Python/source regression suite: PASS, 79 tests.
+- `git diff --check`: PASS before documentation updates.
+- A native C++ compiler and Arduino CLI are unavailable locally. Native classifier execution and Adafruit Feather ESP32 V2 compilation are **PENDING CI**.
+- The user's earlier stationary observation of 1.018 g with near-zero gyro is recorded only as user-provided hardware evidence. This implementation has not yet received measured dashboard/Serial output from the updated firmware, so IMU, GPS, reconnection, Wi-Fi, and outdoor-fix behavior remain **NOT TESTED on hardware**.
+
+### Next task
+
+Upload the CI-compiled V12 build to the Feather, run Test IMU while motionless, then run Test GPS first indoors to prove NMEA communication and outdoors to obtain a current fix. Save the exact displayed values and any errors as bench evidence before further firmware development.
+

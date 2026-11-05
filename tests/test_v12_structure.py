@@ -23,6 +23,7 @@ class V12StructureTests(unittest.TestCase):
             "libraries/GreenIonRecorder/src/GreenIonSensorLogCore.h",
             "libraries/GreenIonRecorder/src/GreenIonSensorRecovery.h",
             "libraries/GreenIonRecorder/src/GreenIonSensorHealth.h",
+            "libraries/GreenIonRecorder/src/GreenIonBenchTests.h",
             "libraries/GreenIonProtocol/src/GreenIonTelemetryQueue.h",
             "libraries/GreenIonProtocol/src/GreenIonRadioRecovery.h",
             "tests/cpp/test_v12_recorder_core.cpp",
@@ -52,7 +53,7 @@ class V12StructureTests(unittest.TestCase):
         config = (ROOT / "Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
         self.assertIn("PIN_SD_CS = 33", config)
         self.assertIn("PIN_LORA_CS = 27", config)
-        self.assertIn("PIN_I2C_POWER = 2", config)
+        self.assertIn("PIN_I2C_POWER = NEOPIXEL_I2C_POWER", config)
         self.assertIn("PIN_SD_CS != PIN_LORA_CS", config)
 
     def test_both_radios_use_the_shared_configuration(self):
@@ -143,6 +144,7 @@ class V12StructureTests(unittest.TestCase):
         for token in (
             "BENCH IMU status=OK", "range=+-32g", "rate_hz=104",
             "accel_mps2=", "accel_g=", "gyro_rad_s=", "gyro_dps=",
+            "total_g=", "temperature_c=", "range_verified=",
             "BENCH GPS status=%s", '"LIVE" : "STALE"',
             "bench imu | bench gps | bench all | bench status | bench off",
         ):
@@ -151,6 +153,27 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("state.gpsFixCurrent = gps.fix", firmware)
         self.assertIn("state.gpsHasPosition && state.gpsFixCurrent", firmware)
         self.assertIn("bool gpsFixCurrent = false", state)
+
+    def test_nonblocking_hardware_test_dashboard_contract(self):
+        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        dashboard = (ROOT / "Green_Ion_V12" / "Dashboard.h").read_text(encoding="utf-8")
+        bench = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonBenchTests.h").read_text(encoding="utf-8")
+        for token in ("Test IMU", "Test GPS", "Test All Sensors", "/api/hardware-test"):
+            self.assertIn(token, dashboard + firmware)
+        for token in ("test imu", "test gps", "test all", "test status"):
+            self.assertIn(token, firmware)
+        self.assertIn("imu.getAccelRange() == LSM6DSO32_ACCEL_RANGE_32_G", firmware)
+        self.assertIn("gpsNmeaSentences", firmware)
+        self.assertIn("gpsParsedSentences", firmware)
+        self.assertIn("GPS_SERVICE_INTERVAL_MS = 5", (ROOT / "Green_Ion_V12" / "Config.h").read_text(encoding="utf-8"))
+        self.assertIn("recorderMode != RECORDER_RECORDING", firmware)
+        self.assertIn("benchMode != BENCH_OFF && recorderMode != RECORDER_RECORDING", firmware)
+        self.assertIn("sensorReinitializationAllowed", firmware)
+        self.assertIn("recorderMode != RECORDER_WATCHING", firmware)
+        self.assertIn("resetCalibration(nowMs)", firmware)
+        self.assertIn("RESULT_INCONCLUSIVE", bench)
+        self.assertIn("peakGyroDps_ <= 20.0f", bench)
+        self.assertNotIn("delay(", bench)
 
     def test_first_packet_radio_bench_contract(self):
         protocol = (ROOT / "libraries" / "GreenIonProtocol" / "src" / "GreenIonProtocol.h").read_text(encoding="utf-8")

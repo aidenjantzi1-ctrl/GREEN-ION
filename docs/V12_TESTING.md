@@ -9,6 +9,8 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Shared transmitter/receiver radio constants for provisional 920.5 MHz, 125 kHz bandwidth, spreading factor 7, coding rate 4/5, and 13 dBm transmit power.
 - [x] Live/stale/missing GPS classification test; stale coordinates remain last-known, never current.
 - [x] Source-contract test for bounded IMU/GPS Serial bench commands, explicit IMU units/range/rate, runtime read validation, and current-fix gating.
+- [x] Native nonblocking hardware-test classifiers for stationary IMU PASS, motion INCONCLUSIVE, missing IMU FAIL, GPS communication-without-fix INCONCLUSIVE, current-fix PASS, absent NMEA FAIL, deferral, and timestamp rollover.
+- [x] Dashboard source tests for Test IMU, Test GPS, Test All Sensors, ±32 g readback, NMEA/parsed counts, stale fix reporting, sensor reconnection, and active-recording lockout.
 - [x] Source-contract test for a five-packet LoRa bench marker, CRC-preserving shared packet layout, explicit receiver identification, and matching modem output.
 - [x] Native fixed-capacity telemetry-queue tests for FIFO order, oldest replacement, drop accounting, radio/storage busy deferral, sample-deadline margin, and `micros()` rollover.
 - [x] Native radio-recovery tests for transient failure reset, threshold degradation, retry backoff, recorder-critical deferral, initialization failure, recovery, invalid configuration, and timestamp rollover.

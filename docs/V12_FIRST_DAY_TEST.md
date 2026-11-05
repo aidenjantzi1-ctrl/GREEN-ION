@@ -11,6 +11,24 @@ These are bench tests, not flight approval. Stop if a board, wire, radio, or bat
 5. Unplug USB. Connect the PA1010D on the same I²C/STEMMA QT bus at `0x10`; use a QT splitter or chained QT connector if available. Do not force or reverse a connector. Reconnect USB and enter `bench gps`.
 6. Indoors, `BENCH GPS status=NO_FIX` is normal. Move the antenna outdoors with a clear sky view. Success is `status=LIVE fix=1` with satellites, age, latitude, longitude, altitude, and UTC. After fix loss, the last position remains visible as `status=STALE fix=0`; it is never labeled live. `INIT_FAILED` means the I²C device was not detected.
 
+### Upload from Arduino IDE
+
+1. Open `Green_Ion_V12/Green_Ion_V12.ino` in Arduino IDE 2.
+2. In Boards Manager, install **esp32 by Espressif Systems**. Select **Adafruit Feather ESP32 V2** under Tools > Board.
+3. Install Adafruit BMP3XX, Adafruit LSM6DS, Adafruit GPS, RadioHead, Adafruit BusIO, and Adafruit Unified Sensor from Library Manager. Add this repository's `libraries/GreenIonProtocol` and `libraries/GreenIonRecorder` folders as local Arduino libraries.
+4. Connect the Feather by a data-capable USB cable, select its COM port, and click **Upload**. If no port appears, try another data cable and press Feather reset once.
+5. Open Serial Monitor at **115200 baud** with newline enabled. V12 raises the Feather's `NEOPIXEL_I2C_POWER` STEMMA QT rail before starting I²C.
+
+### Run tests from a phone or laptop
+
+1. Power the Feather by USB. On the phone or laptop, join Wi-Fi **GREEN-ION-V12** using password **GreenIon2026**. No LoRa, receiver, or internet connection is required.
+2. Open `http://192.168.4.1/`. In **Hardware Tests**, choose **Test IMU**, **Test GPS**, or **Test All Sensors**.
+3. Keep the Feather completely still during the five-second IMU test. PASS requires the LSM6DSO32 to be detected, its configured range to read back as ±32 g, at least 100 valid samples, mean total acceleration from 0.85–1.15 g, mean bias within ±3 °/s on every gyro axis, and no motion peak over 20 °/s. Motion produces **INCONCLUSIVE**, not a false hardware failure.
+4. The 12-second GPS test reports I²C detection and NMEA communication separately from position. NMEA communication with no outdoor fix is **INCONCLUSIVE**; a current valid fix is **PASS**; no valid NMEA is **FAIL**. Last-known coordinates remain labeled stale after signal loss.
+5. If a disconnected IMU or GPS is reattached, request its test again. V12 may restart preflight pressure calibration to reinitialize it, but it never reinitializes a sensor or runs a test during active recording.
+
+USB-only alternative: in Serial Monitor enter `test imu`, `test gps`, `test all`, or `test status`. Continuous raw output remains available with `bench imu`, `bench gps`, and `bench all`.
+
 The IMU and GPS cable tests require no permanent soldering. Perfboard mounting, strain relief, and the RFM95W header/antenna connections do require suitable soldered connections before vehicle use.
 
 ## 2. First LoRa link

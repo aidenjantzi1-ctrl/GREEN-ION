@@ -33,6 +33,7 @@
 #include <GreenIonSensorLogCore.h>
 #include <GreenIonSensorRecovery.h>
 #include <GreenIonSensorHealth.h>
+#include <GreenIonBenchTests.h>
 
 #include "Config.h"
 #include "SensorState.h"
@@ -90,6 +91,21 @@ green_ion::RadioRecovery radioRecovery(config::RADIO_REINITIALIZE_DELAY_MS,
 green_ion::SensorHealth barometerHealth(
     config::BAROMETER_REINITIALIZE_DELAY_MS,
     config::BAROMETER_READ_FAILURE_THRESHOLD);
+green_ion::bench::ImuTest imuHardwareTest(config::IMU_TEST_DURATION_MS,
+                                          config::IMU_TEST_MINIMUM_SAMPLES);
+green_ion::bench::GpsTest gpsHardwareTest(config::GPS_TEST_DURATION_MS);
+
+enum HardwareTestRequest : uint8_t {
+  HARDWARE_TEST_NONE = 0,
+  HARDWARE_TEST_IMU,
+  HARDWARE_TEST_GPS,
+  HARDWARE_TEST_ALL,
+};
+
+HardwareTestRequest hardwareTestRequest = HARDWARE_TEST_NONE;
+bool imuHardwareTestReported = true;
+bool gpsHardwareTestReported = true;
+bool imuRange32gVerified = false;
 
 enum RecorderMode : uint8_t {
   RECORDER_CALIBRATING = 0,
@@ -206,28 +222,41 @@ static bool configureBarometerHardware() {
   return initialized;
 }
 
+static bool configureImuHardware() {
+  const bool initialized = imu.begin_I2C(0x6A, &Wire) ||
+                           imu.begin_I2C(0x6B, &Wire);
+  if (initialized) {
+    imu.setAccelRange(LSM6DSO32_ACCEL_RANGE_32_G);
+    imu.setGyroRange(LSM6DS_GYRO_RANGE_2000_DPS);
+    imu.setAccelDataRate(LSM6DS_RATE_104_HZ);
+    imu.setGyroDataRate(LSM6DS_RATE_104_HZ);
+    imuRange32gVerified =
+        imu.getAccelRange() == LSM6DSO32_ACCEL_RANGE_32_G;
+  } else {
+    imuRange32gVerified = false;
+  }
+  return initialized;
+}
+
+static bool configureGpsHardware() {
+  const bool initialized = gps.begin(0x10);
+  if (initialized) {
+    gps.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);
+    gps.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);
+  }
+  return initialized;
+}
+
 static void initializeSensors() {
   state.barometerOk = configureBarometerHardware();
   barometerHealth.begin(millis(), state.barometerOk);
   if (!state.barometerOk) healthBits |= green_ion::HEALTH_BARO_INIT_ERROR;
 
-  state.imuOk = imu.begin_I2C(0x6A, &Wire) || imu.begin_I2C(0x6B, &Wire);
-  if (state.imuOk) {
-    imu.setAccelRange(LSM6DSO32_ACCEL_RANGE_32_G);
-    imu.setGyroRange(LSM6DS_GYRO_RANGE_2000_DPS);
-    imu.setAccelDataRate(LSM6DS_RATE_104_HZ);
-    imu.setGyroDataRate(LSM6DS_RATE_104_HZ);
-  } else {
-    healthBits |= green_ion::HEALTH_IMU_INIT_ERROR;
-  }
+  state.imuOk = configureImuHardware();
+  if (!state.imuOk) healthBits |= green_ion::HEALTH_IMU_INIT_ERROR;
 
-  state.gpsOk = gps.begin(0x10);
-  if (state.gpsOk) {
-    gps.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);
-    gps.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);
-  } else {
-    healthBits |= green_ion::HEALTH_GPS_INIT_ERROR;
-  }
+  state.gpsOk = configureGpsHardware();
+  if (!state.gpsOk) healthBits |= green_ion::HEALTH_GPS_INIT_ERROR;
 }
 
 static void initializeStorage() {
@@ -574,13 +603,28 @@ static bool readSensors(uint32_t nowMs) {
       state.gyroX = gyro.gyro.x;
       state.gyroY = gyro.gyro.y;
       state.gyroZ = gyro.gyro.z;
+      state.imuTemperatureC = temperature.temperature;
+      state.imuConsecutiveReadFailures = 0;
     } else {
       ++state.imuReadFailures;
+      if (state.imuConsecutiveReadFailures != UINT8_MAX)
+        ++state.imuConsecutiveReadFailures;
       healthBits |= green_ion::HEALTH_IMU_READ_ERROR;
       state.accelX = state.accelY = state.accelZ = state.accelMagnitude = NAN;
       state.gyroX = state.gyroY = state.gyroZ = NAN;
+      state.imuTemperatureC = NAN;
+      if (state.imuConsecutiveReadFailures >= 3) state.imuOk = false;
     }
   }
+
+  const float toG = 1.0f / 9.80665f;
+  const float toDegrees = 180.0f / PI;
+  imuHardwareTest.observe(nowMs, state.imuDataValid,
+                          state.accelMagnitude * toG,
+                          state.gyroX * toDegrees,
+                          state.gyroY * toDegrees,
+                          state.gyroZ * toDegrees,
+                          state.imuTemperatureC);
 
   state.batteryMv = static_cast<uint16_t>(analogReadMilliVolts(config::PIN_BATTERY) * 2u);
   return barometerReadingValid;
@@ -591,11 +635,14 @@ static void serviceGps(uint32_t nowMs) {
   lastGpsServiceMs = nowMs;
   gps.read();
   if (!gps.newNMEAreceived()) return;
+  state.lastGpsNmeaMs = nowMs;
+  if (state.gpsNmeaSentences != UINT32_MAX) ++state.gpsNmeaSentences;
   char *sentence = gps.lastNMEA();
   if (!sentence || !gps.parse(sentence)) {
     ++state.gpsParseFailures;
     return;
   }
+  if (state.gpsParsedSentences != UINT32_MAX) ++state.gpsParsedSentences;
   state.lastGpsSentenceMs = nowMs;
   state.satellites = gps.satellites;
   state.gpsHour = gps.hour;
@@ -621,6 +668,156 @@ static bool gpsPositionCurrent(uint32_t nowMs) {
          gpsAgeMs(nowMs) <= config::GPS_CURRENT_MAX_AGE_MS;
 }
 
+static void resetCalibration(uint32_t nowMs);
+
+static const char *hardwareTestResultName(green_ion::bench::Result result) {
+  switch (result) {
+    case green_ion::bench::RESULT_RUNNING: return "RUNNING";
+    case green_ion::bench::RESULT_PASS: return "PASS";
+    case green_ion::bench::RESULT_FAIL: return "FAIL";
+    case green_ion::bench::RESULT_INCONCLUSIVE: return "INCONCLUSIVE";
+    case green_ion::bench::RESULT_DEFERRED: return "DEFERRED";
+    default: return "IDLE";
+  }
+}
+
+static const char *imuHardwareTestMessage() {
+  const auto result = imuHardwareTest.result();
+  if (result == green_ion::bench::RESULT_RUNNING)
+    return "Keep the Feather still while samples are collected";
+  if (result == green_ion::bench::RESULT_DEFERRED)
+    return "Test stopped because flight recording became active";
+  if (result == green_ion::bench::RESULT_INCONCLUSIVE)
+    return "Measurements are valid but the Feather moved; repeat while stationary";
+  if (result == green_ion::bench::RESULT_FAIL) {
+    if (!state.imuOk) return "LSM6DSO32 not detected at 0x6A or 0x6B";
+    if (!imuRange32gVerified) return "LSM6DSO32 range did not read back as +/-32 g";
+    return "Too few valid IMU samples; check the STEMMA QT cable";
+  }
+  if (result == green_ion::bench::RESULT_PASS)
+    return "Stationary acceleration and gyro bias are within test limits";
+  return "Not run";
+}
+
+static const char *gpsHardwareTestMessage() {
+  const auto result = gpsHardwareTest.result();
+  if (result == green_ion::bench::RESULT_RUNNING)
+    return "Listening for PA1010D NMEA sentences";
+  if (result == green_ion::bench::RESULT_DEFERRED)
+    return "Test stopped because flight recording became active";
+  if (result == green_ion::bench::RESULT_INCONCLUSIVE)
+    return "NMEA communication passed; move outdoors for a current fix";
+  if (result == green_ion::bench::RESULT_FAIL)
+    return state.gpsOk ? "No valid NMEA received; check cable and GPS power" :
+                         "PA1010D not detected at I2C address 0x10";
+  if (result == green_ion::bench::RESULT_PASS)
+    return "NMEA communication and current GPS fix passed";
+  return "Not run";
+}
+
+static bool hardwareTestsAllowed() {
+  return recorderMode != RECORDER_RECORDING && !recorderCore.recording();
+}
+
+static bool sensorReinitializationAllowed() {
+  return recorderMode != RECORDER_WATCHING && hardwareTestsAllowed();
+}
+
+static void requestHardwareTest(HardwareTestRequest request) {
+  if (!hardwareTestsAllowed()) {
+    if (request == HARDWARE_TEST_IMU || request == HARDWARE_TEST_ALL)
+      imuHardwareTest.defer();
+    if (request == HARDWARE_TEST_GPS || request == HARDWARE_TEST_ALL)
+      gpsHardwareTest.defer();
+    return;
+  }
+  hardwareTestRequest = request;
+}
+
+static void startRequestedHardwareTests(uint32_t nowMs) {
+  if (hardwareTestRequest == HARDWARE_TEST_NONE) return;
+  const HardwareTestRequest request = hardwareTestRequest;
+  hardwareTestRequest = HARDWARE_TEST_NONE;
+  if (!hardwareTestsAllowed()) {
+    requestHardwareTest(request);
+    return;
+  }
+
+  if (request == HARDWARE_TEST_IMU || request == HARDWARE_TEST_ALL) {
+    if (!state.imuOk && recorderMode == RECORDER_WATCHING)
+      resetCalibration(nowMs);
+    if (!state.imuOk && sensorReinitializationAllowed()) {
+      state.imuOk = configureImuHardware();
+      state.imuConsecutiveReadFailures = 0;
+      state.imuDataValid = false;
+      if (!state.imuOk) healthBits |= green_ion::HEALTH_IMU_INIT_ERROR;
+    }
+    imuHardwareTest.begin(nowMs, state.imuOk, imuRange32gVerified);
+    imuHardwareTestReported = false;
+  }
+
+  if (request == HARDWARE_TEST_GPS || request == HARDWARE_TEST_ALL) {
+    const bool communicationStale = state.lastGpsNmeaMs == 0 ||
+        nowMs - state.lastGpsNmeaMs > config::GPS_COMMUNICATION_STALE_MS;
+    if ((!state.gpsOk || communicationStale) &&
+        recorderMode == RECORDER_WATCHING)
+      resetCalibration(nowMs);
+    if ((!state.gpsOk || communicationStale) && sensorReinitializationAllowed()) {
+      state.gpsOk = configureGpsHardware();
+      if (!state.gpsOk) healthBits |= green_ion::HEALTH_GPS_INIT_ERROR;
+    }
+    gpsHardwareTest.begin(nowMs, state.gpsOk, state.gpsNmeaSentences,
+                          state.gpsParsedSentences);
+    gpsHardwareTestReported = false;
+  }
+}
+
+static void printHardwareTestStatus(uint32_t nowMs) {
+  Serial.printf(
+      "TEST IMU result=%s detected=%d range_32g=%d samples=%u invalid=%u "
+      "mean_g=%.3f gyro_bias_dps=%.3f,%.3f,%.3f temperature_c=%.2f message=%s\n",
+      hardwareTestResultName(imuHardwareTest.result()), state.imuOk ? 1 : 0,
+      imuRange32gVerified ? 1 : 0, imuHardwareTest.validSamples(),
+      imuHardwareTest.invalidSamples(), imuHardwareTest.meanAccelerationG(),
+      imuHardwareTest.gyroBiasXDps(), imuHardwareTest.gyroBiasYDps(),
+      imuHardwareTest.gyroBiasZDps(), imuHardwareTest.meanTemperatureC(),
+      imuHardwareTestMessage());
+  Serial.printf(
+      "TEST GPS result=%s detected=%d communication=%s nmea=%lu parsed=%lu "
+      "fix=%d satellites=%u age_ms=%lu lat=%.7f lon=%.7f alt_m=%.2f "
+      "speed_mps=%.2f utc=%02u:%02u:%02u message=%s\n",
+      hardwareTestResultName(gpsHardwareTest.result()), state.gpsOk ? 1 : 0,
+      gpsHardwareTest.communicationOk() ? "PASS" :
+        (gpsHardwareTest.running() ? "TESTING" : "FAIL"),
+      static_cast<unsigned long>(gpsHardwareTest.nmeaReceived()),
+      static_cast<unsigned long>(gpsHardwareTest.parsedSentences()),
+      gpsPositionCurrent(nowMs) ? 1 : 0, state.satellites,
+      static_cast<unsigned long>(gpsAgeMs(nowMs)), state.latitude,
+      state.longitude, state.gpsAltitudeM, state.gpsSpeedMps,
+      state.gpsHour, state.gpsMinute, state.gpsSecond,
+      gpsHardwareTestMessage());
+}
+
+static void serviceHardwareTests(uint32_t nowMs) {
+  if (!hardwareTestsAllowed()) {
+    if (imuHardwareTest.running()) imuHardwareTest.defer();
+    if (gpsHardwareTest.running()) gpsHardwareTest.defer();
+    return;
+  }
+  startRequestedHardwareTests(nowMs);
+  gpsHardwareTest.update(nowMs, state.gpsNmeaSentences,
+                         state.gpsParsedSentences, gpsPositionCurrent(nowMs),
+                         state.satellites, gpsAgeMs(nowMs));
+  if (!imuHardwareTest.running() && !imuHardwareTestReported) {
+    imuHardwareTestReported = true;
+    printHardwareTestStatus(nowMs);
+  }
+  if (!gpsHardwareTest.running() && !gpsHardwareTestReported) {
+    gpsHardwareTestReported = true;
+    printHardwareTestStatus(nowMs);
+  }
+}
+
 static void printImuBenchStatus() {
   if (!state.imuOk) {
     Serial.println("BENCH IMU status=INIT_FAILED expected_i2c=0x6A_or_0x6B");
@@ -636,12 +833,15 @@ static void printImuBenchStatus() {
   Serial.printf(
       "BENCH IMU status=OK range=+-32g rate_hz=104 "
       "accel_mps2=%.3f,%.3f,%.3f accel_g=%.3f,%.3f,%.3f "
-      "gyro_rad_s=%.3f,%.3f,%.3f gyro_dps=%.2f,%.2f,%.2f\n",
+      "total_g=%.3f gyro_rad_s=%.3f,%.3f,%.3f "
+      "gyro_dps=%.2f,%.2f,%.2f temperature_c=%.2f range_verified=%d\n",
       state.accelX, state.accelY, state.accelZ,
       state.accelX * toG, state.accelY * toG, state.accelZ * toG,
+      state.accelMagnitude * toG,
       state.gyroX, state.gyroY, state.gyroZ,
       state.gyroX * toDegrees, state.gyroY * toDegrees,
-      state.gyroZ * toDegrees);
+      state.gyroZ * toDegrees, state.imuTemperatureC,
+      imuRange32gVerified ? 1 : 0);
 }
 
 static void printGpsBenchStatus(uint32_t nowMs) {
@@ -650,19 +850,26 @@ static void printGpsBenchStatus(uint32_t nowMs) {
     return;
   }
   if (!state.gpsHasPosition) {
-    Serial.printf("BENCH GPS status=NO_FIX satellites=%u parse_failures=%lu\n",
+    Serial.printf("BENCH GPS status=NO_FIX communication=%s satellites=%u nmea=%lu parsed=%lu parse_failures=%lu\n",
+                  state.lastGpsNmeaMs ? "OK" : "WAITING",
                   state.satellites,
+                  static_cast<unsigned long>(state.gpsNmeaSentences),
+                  static_cast<unsigned long>(state.gpsParsedSentences),
                   static_cast<unsigned long>(state.gpsParseFailures));
     return;
   }
   const uint32_t age = gpsAgeMs(nowMs);
   Serial.printf(
       "BENCH GPS status=%s fix=%d satellites=%u age_ms=%lu "
-      "last_lat=%.7f last_lon=%.7f last_alt_m=%.2f utc=%02u:%02u:%02u\n",
+      "last_lat=%.7f last_lon=%.7f last_alt_m=%.2f speed_mps=%.2f "
+      "nmea=%lu parsed=%lu utc=%02u:%02u:%02u\n",
       gpsPositionCurrent(nowMs) ? "LIVE" : "STALE",
       state.gpsFixCurrent ? 1 : 0, state.satellites,
       static_cast<unsigned long>(age), state.latitude, state.longitude,
-      state.gpsAltitudeM, state.gpsHour, state.gpsMinute, state.gpsSecond);
+      state.gpsAltitudeM, state.gpsSpeedMps,
+      static_cast<unsigned long>(state.gpsNmeaSentences),
+      static_cast<unsigned long>(state.gpsParsedSentences),
+      state.gpsHour, state.gpsMinute, state.gpsSecond);
 }
 
 static void printBenchStatus(uint32_t nowMs) {
@@ -676,6 +883,28 @@ static void applySerialCommand(uint32_t nowMs) {
   else if (!strcmp(serialCommand, "bench all")) benchMode = BENCH_ALL;
   else if (!strcmp(serialCommand, "bench off")) benchMode = BENCH_OFF;
   else if (!strcmp(serialCommand, "bench status")) printBenchStatus(nowMs);
+  else if (!strcmp(serialCommand, "test imu")) {
+    requestHardwareTest(HARDWARE_TEST_IMU);
+    Serial.println(hardwareTestsAllowed() ? "TEST IMU requested" :
+                   "TEST IMU DEFERRED recorder_critical=1");
+    return;
+  }
+  else if (!strcmp(serialCommand, "test gps")) {
+    requestHardwareTest(HARDWARE_TEST_GPS);
+    Serial.println(hardwareTestsAllowed() ? "TEST GPS requested" :
+                   "TEST GPS DEFERRED recorder_critical=1");
+    return;
+  }
+  else if (!strcmp(serialCommand, "test all")) {
+    requestHardwareTest(HARDWARE_TEST_ALL);
+    Serial.println(hardwareTestsAllowed() ? "TEST ALL requested" :
+                   "TEST ALL DEFERRED recorder_critical=1");
+    return;
+  }
+  else if (!strcmp(serialCommand, "test status")) {
+    printHardwareTestStatus(nowMs);
+    return;
+  }
   else if (!strcmp(serialCommand, "radio test")) {
     if (!state.radioOk) {
       Serial.println("BENCH RADIO status=INIT_FAILED; test not started");
@@ -712,7 +941,7 @@ static void applySerialCommand(uint32_t nowMs) {
     return;
   }
   else {
-    Serial.println("Commands: bench imu | bench gps | bench all | bench status | bench off | radio test | radio retry | radio status");
+    Serial.println("Commands: test imu | test gps | test all | test status | bench imu | bench gps | bench all | bench status | bench off | radio test | radio retry | radio status");
     return;
   }
   Serial.printf("BENCH mode=%u\n", static_cast<unsigned int>(benchMode));
@@ -733,7 +962,7 @@ static void serviceSerialBench(uint32_t nowMs) {
       Serial.println("BENCH command too long; input cleared");
     }
   }
-  if (benchMode != BENCH_OFF &&
+  if (benchMode != BENCH_OFF && recorderMode != RECORDER_RECORDING &&
       nowMs - lastBenchOutputMs >= config::BENCH_OUTPUT_INTERVAL_MS) {
     lastBenchOutputMs = nowMs;
     printBenchStatus(nowMs);
@@ -1222,19 +1451,56 @@ static void sendDashboardStatus() {
     return isfinite(value) ? String(value, static_cast<unsigned int>(decimals)) : String("null");
   };
   String body;
-  body.reserve(512);
+  body.reserve(1536);
   body += "{\"recording\":";
   body += state.recording ? "true" : "false";
   body += ",\"log_file\":\"" + logFilename + "\",\"pressure_pa\":";
   body += numberOrNull(state.pressurePa, 0);
   body += ",\"altitude_m\":" + numberOrNull(state.altitudeM, 2);
   body += ",\"acceleration_g\":" + numberOrNull(state.accelMagnitude / 9.80665f, 3);
+  body += ",\"acceleration_x_g\":" + numberOrNull(state.accelX / 9.80665f, 3);
+  body += ",\"acceleration_y_g\":" + numberOrNull(state.accelY / 9.80665f, 3);
+  body += ",\"acceleration_z_g\":" + numberOrNull(state.accelZ / 9.80665f, 3);
   body += ",\"rotation_x_dps\":" + numberOrNull(state.gyroX * radiansToDegrees, 1);
   body += ",\"rotation_y_dps\":" + numberOrNull(state.gyroY * radiansToDegrees, 1);
   body += ",\"rotation_z_dps\":" + numberOrNull(state.gyroZ * radiansToDegrees, 1);
+  body += ",\"imu_temperature_c\":" + numberOrNull(state.imuTemperatureC, 2);
   body += ",\"battery_v\":" + String(state.batteryMv / 1000.0f, 3);
   body += ",\"gps_status\":\"" + String(gpsStatus) + "\",\"satellites\":";
   body += String(state.satellites);
+  body += ",\"gps_communication\":\"";
+  body += state.lastGpsNmeaMs ? "ok" : "waiting";
+  body += "\",\"gps_nmea_sentences\":" + String(state.gpsNmeaSentences);
+  body += ",\"gps_parsed_sentences\":" + String(state.gpsParsedSentences);
+  body += ",\"gps_fix_age_ms\":" + String(age);
+  body += ",\"latitude\":";
+  body += state.gpsHasPosition ? String(state.latitude, 7) : String("null");
+  body += ",\"longitude\":";
+  body += state.gpsHasPosition ? String(state.longitude, 7) : String("null");
+  body += ",\"gps_altitude_m\":" + numberOrNull(state.gpsAltitudeM, 2);
+  body += ",\"gps_speed_mps\":" + numberOrNull(state.gpsSpeedMps, 2);
+  body += ",\"gps_utc_hour\":" + String(state.gpsHour);
+  body += ",\"gps_utc_minute\":" + String(state.gpsMinute);
+  body += ",\"gps_utc_second\":" + String(state.gpsSecond);
+  body += ",\"hardware_tests_allowed\":";
+  body += hardwareTestsAllowed() ? "true" : "false";
+  body += ",\"imu_test_result\":\"" + String(hardwareTestResultName(imuHardwareTest.result())) + "\"";
+  body += ",\"imu_test_message\":\"" + String(imuHardwareTestMessage()) + "\"";
+  body += ",\"imu_range_32g\":";
+  body += imuRange32gVerified ? "true" : "false";
+  body += ",\"imu_test_samples\":" + String(imuHardwareTest.validSamples());
+  body += ",\"imu_test_invalid\":" + String(imuHardwareTest.invalidSamples());
+  body += ",\"imu_test_mean_g\":" + numberOrNull(imuHardwareTest.meanAccelerationG(), 3);
+  body += ",\"imu_test_bias_x_dps\":" + numberOrNull(imuHardwareTest.gyroBiasXDps(), 3);
+  body += ",\"imu_test_bias_y_dps\":" + numberOrNull(imuHardwareTest.gyroBiasYDps(), 3);
+  body += ",\"imu_test_bias_z_dps\":" + numberOrNull(imuHardwareTest.gyroBiasZDps(), 3);
+  body += ",\"imu_test_temperature_c\":" + numberOrNull(imuHardwareTest.meanTemperatureC(), 2);
+  body += ",\"gps_test_result\":\"" + String(hardwareTestResultName(gpsHardwareTest.result())) + "\"";
+  body += ",\"gps_test_message\":\"" + String(gpsHardwareTestMessage()) + "\"";
+  body += ",\"gps_test_communication\":";
+  body += gpsHardwareTest.communicationOk() ? "true" : "false";
+  body += ",\"gps_test_nmea\":" + String(gpsHardwareTest.nmeaReceived());
+  body += ",\"gps_test_parsed\":" + String(gpsHardwareTest.parsedSentences());
   body += ",\"health\":" + String(healthBits);
   body += ",\"barometer_ready\":";
   body += state.barometerOk ? "true" : "false";
@@ -1276,6 +1542,31 @@ static void initializeDashboard() {
     dashboardServer.send_P(200, "text/html", DASHBOARD_HTML);
   });
   dashboardServer.on("/api/status", sendDashboardStatus);
+  dashboardServer.on("/api/hardware-test", HTTP_POST, []() {
+    if (!dashboardServer.hasArg("sensor")) {
+      dashboardServer.send(400, "application/json",
+                           "{\"accepted\":false,\"error\":\"missing sensor\"}");
+      return;
+    }
+    HardwareTestRequest request = HARDWARE_TEST_NONE;
+    const String sensor = dashboardServer.arg("sensor");
+    if (sensor == "imu") request = HARDWARE_TEST_IMU;
+    else if (sensor == "gps") request = HARDWARE_TEST_GPS;
+    else if (sensor == "all") request = HARDWARE_TEST_ALL;
+    else {
+      dashboardServer.send(400, "application/json",
+                           "{\"accepted\":false,\"error\":\"unknown sensor\"}");
+      return;
+    }
+    if (!hardwareTestsAllowed()) {
+      requestHardwareTest(request);
+      dashboardServer.send(409, "application/json",
+                           "{\"accepted\":false,\"error\":\"flight recorder active; test deferred\"}");
+      return;
+    }
+    requestHardwareTest(request);
+    dashboardServer.send(202, "application/json", "{\"accepted\":true}");
+  });
   dashboardServer.begin();
 }
 
@@ -1364,7 +1655,7 @@ void setup() {
   initializeDashboard();
   Serial.printf("GREEN ION V12 dev: baro=%d imu=%d gps=%d sd=%d radio=%d\n",
                 state.barometerOk, state.imuOk, state.gpsOk, state.sdOk, state.radioOk);
-  Serial.println("Serial bench output is ON. Commands: bench imu | bench gps | bench all | bench status | bench off | radio test | radio retry | radio status");
+  Serial.println("Hardware tests: test imu | test gps | test all | test status. Live output: bench imu | bench gps | bench all | bench status | bench off.");
   Serial.println("RADIO SAFETY: attach a suitable antenna before entering 'radio test'.");
   sampleClock.start(micros());
 }
@@ -1378,6 +1669,7 @@ void loop() {
     appendLog(nowUs, nowMs, barometerReadingValid);
   }
   serviceGps(nowMs);
+  serviceHardwareTests(nowMs);
   serviceSerialBench(nowMs);
 
   if (state.sdOk && recorderCore.recording() && nowMs - lastFlushMs >= config::LOG_FLUSH_INTERVAL_MS) {

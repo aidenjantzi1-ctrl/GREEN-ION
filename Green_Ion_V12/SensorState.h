@@ -23,6 +23,7 @@ struct SensorState {
   float gyroX = NAN;
   float gyroY = NAN;
   float gyroZ = NAN;
+  float imuTemperatureC = NAN;
   uint16_t batteryMv = 0;
 
   bool gpsHasPosition = false;
@@ -30,7 +31,11 @@ struct SensorState {
   uint32_t lastGpsFixMs = 0;
   uint32_t lastGpsSentenceMs = 0;
   uint32_t imuReadFailures = 0;
+  uint8_t imuConsecutiveReadFailures = 0;
   uint32_t gpsParseFailures = 0;
+  uint32_t gpsNmeaSentences = 0;
+  uint32_t gpsParsedSentences = 0;
+  uint32_t lastGpsNmeaMs = 0;
   double latitude = 0.0;
   double longitude = 0.0;
   float gpsAltitudeM = NAN;

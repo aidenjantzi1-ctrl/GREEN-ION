@@ -18,7 +18,7 @@ static const uint8_t PIN_LORA_RST = 15;
 static const uint8_t PIN_LORA_DIO0 = 32;
 static const uint8_t PIN_BUZZER = 14;  // Drives a transistor, never the buzzer directly.
 static const uint8_t PIN_BATTERY = 35;
-static const uint8_t PIN_I2C_POWER = 2;
+static const uint8_t PIN_I2C_POWER = NEOPIXEL_I2C_POWER;
 
 static const uint32_t SERIAL_BAUD = 115200;
 static const uint16_t SENSOR_RATE_HZ = 50;
@@ -34,7 +34,7 @@ static const uint16_t CALIBRATION_MAX_ATTEMPTS = 125;
 static const uint32_t CALIBRATION_RETRY_MS = 5000;
 static const uint32_t BAROMETER_REINITIALIZE_DELAY_MS = 5000;
 static const uint8_t BAROMETER_READ_FAILURE_THRESHOLD = 3;
-static const uint32_t GPS_SERVICE_INTERVAL_MS = 20;
+static const uint32_t GPS_SERVICE_INTERVAL_MS = 5;
 static const uint32_t BENCH_OUTPUT_INTERVAL_MS = 1000;
 static const uint32_t TELEMETRY_INTERVAL_MS = 1000;
 static const uint8_t TELEMETRY_QUEUE_CAPACITY = 3;
@@ -45,6 +45,10 @@ static const uint8_t RADIO_SEND_FAILURE_THRESHOLD = 3;
 static const uint32_t LOG_FLUSH_INTERVAL_MS = 500;
 static const uint32_t CHECKPOINT_INTERVAL_MS = 5000;
 static const uint32_t GPS_CURRENT_MAX_AGE_MS = 3000;
+static const uint32_t IMU_TEST_DURATION_MS = 5000;
+static const uint16_t IMU_TEST_MINIMUM_SAMPLES = 100;
+static const uint32_t GPS_TEST_DURATION_MS = 12000;
+static const uint32_t GPS_COMMUNICATION_STALE_MS = 5000;
 
 // Shared with the receiver. This is provisional until coordinated for the
 // launch site; it is not a statement of FCC compliance or channel clearance.
