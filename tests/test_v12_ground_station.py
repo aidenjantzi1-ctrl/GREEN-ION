@@ -1,4 +1,5 @@
 import json
+from io import BytesIO
 from pathlib import Path
 import re
 import sys
@@ -30,14 +31,21 @@ class RecorderPrepareTests(unittest.TestCase):
         ready = {"active_source": "wifi", "sources": {"wifi": {"status": "live"}},
                  "field_meta": {"recorder_mode": {"freshness": "live"}},
                  "recorder_mode": 1, "recording": False, "flight_state": 1}
+        current = {"recorder_mode": 1, "recording": False, "flight_state": 1}
         with patch.object(ground_station.MANAGER, "snapshot", return_value=ready), \
+                patch.object(ground_station, "feather_status", return_value=("http://192.168.4.1", current)), \
                 patch.object(ground_station, "feather_post", return_value=(202, {"success": True})) as post:
             self.assertEqual((202, {"success": True}), ground_station.prepare_recorder())
-            post.assert_called_once_with("/api/calibrate")
+            post.assert_called_once_with("/api/calibrate", base_url="http://192.168.4.1")
             ready.update({"recorder_mode": 3, "flight_state": 6})
+            current.update({"recorder_mode": 3, "flight_state": 6})
             self.assertEqual(202, ground_station.prepare_recorder()[0])
-            post.assert_called_with("/api/calibrate")
+            post.assert_called_with("/api/calibrate", base_url="http://192.168.4.1")
             ready.update({"recorder_mode": 1, "flight_state": 1})
+            current.update({"recorder_mode": 1, "flight_state": 1})
+            current["recording"] = True
+            self.assertEqual(409, ground_station.prepare_recorder()[0])
+            current["recording"] = False
             for change in ({"active_source": "simulation"}, {"recording": True},
                            {"flight_state": 3}, {"recorder_mode": None},
                            {"field_meta": {"recorder_mode": {"freshness": "stale"}}}):
@@ -50,6 +58,49 @@ class RecorderPrepareTests(unittest.TestCase):
                 ready.update({"active_source": "wifi", "recording": False,
                               "flight_state": 1, "recorder_mode": 1,
                               "field_meta": {"recorder_mode": {"freshness": "live"}}})
+
+
+class RecorderStopTests(unittest.TestCase):
+    def test_stop_save_requires_current_file_and_explicit_confirmation(self):
+        active = {"active_source": "wifi", "sources": {"wifi": {"status": "live"}},
+                  "field_meta": {name: {"freshness": "live"}
+                                 for name in ("recording", "recorder_mode", "log_file")},
+                  "recording": True, "recorder_mode": 2, "log_file": "/V12D007.BIN"}
+        current = {"recording": True, "recorder_mode": 2, "log_file": "/V12D007.BIN"}
+        with patch.object(ground_station.MANAGER, "snapshot", return_value=active), \
+                patch.object(ground_station, "feather_status", return_value=("http://192.168.4.1", current)), \
+                patch.object(ground_station, "feather_post", return_value=(200, {"success": True})) as post:
+            self.assertEqual(400, ground_station.stop_recorder("STOP", "/V12D007.BIN")[0])
+            self.assertEqual(409, ground_station.stop_recorder("STOP AND SAVE", "/V12D008.BIN")[0])
+            post.assert_not_called()
+            self.assertEqual((200, {"success": True}),
+                             ground_station.stop_recorder("STOP AND SAVE", "/V12D007.BIN"))
+            post.assert_called_once_with("/api/stop", base_url="http://192.168.4.1")
+            current["log_file"] = "/V12D008.BIN"
+            self.assertEqual(409, ground_station.stop_recorder("STOP AND SAVE", "/V12D007.BIN")[0])
+            post.assert_called_once()
+            current["log_file"] = "/V12D007.BIN"
+            for change in ({"recording": False}, {"active_source": "radio"},
+                           {"field_meta": {"recording": {"freshness": "stale"}}}):
+                active.update(change)
+                post.reset_mock()
+                self.assertEqual(409, ground_station.stop_recorder("STOP AND SAVE", "/V12D007.BIN")[0])
+                post.assert_not_called()
+                active.update({"recording": True, "active_source": "wifi",
+                               "field_meta": {name: {"freshness": "live"}
+                                              for name in ("recording", "recorder_mode", "log_file")}})
+
+    def test_stop_route_rejects_non_json_confirmation(self):
+        class Request:
+            path = "/api/recorder/stop"
+            headers = {"Content-Type": "text/plain", "Content-Length": "2"}
+            rfile = BytesIO(b"{}")
+
+        with patch.object(ground_station, "stop_recorder") as stop, \
+                patch.object(ground_station, "json_response") as reply:
+            ground_station.Handler.do_POST(Request())
+            stop.assert_not_called()
+            self.assertEqual(400, reply.call_args.args[2])
 
 
 class GroundStationManagerTests(unittest.TestCase):
@@ -100,7 +151,9 @@ class GroundStationManagerTests(unittest.TestCase):
     def test_recent_history_retains_fields_needed_to_restore_mission_trail(self):
         row = {**self.row(7), "gps_status": "live", "gps_fix_age_ms": 0,
                "latitude": 37.1, "longitude": -121.9, "gps_altitude_m": 125.0,
-               "battery_v": 3.9, "pressure_pa": 101000}
+               "battery_v": 3.9, "pressure_pa": 101000,
+               "acceleration_x_g": 0.1, "rotation_z_dps": 2.5,
+               "flight_state": 3}
         self.manager.ingest("wifi", row)
         point = self.manager.recent_history()[-1]
         self.assertEqual(("wifi", 7, 125.0, 3.9, 101000),
@@ -108,6 +161,8 @@ class GroundStationManagerTests(unittest.TestCase):
                           point["battery_v"], point["pressure_pa"]))
         self.assertEqual((37.1, -121.9, 0),
                          (point["latitude"], point["longitude"], point["gps_fix_age_ms"]))
+        self.assertEqual((0.1, 2.5), (point["acceleration_x_g"], point["rotation_z_dps"]))
+        self.assertEqual(3, point["flight_state"])
 
     def test_field_contract_distinguishes_missing_zero_and_source_fallback(self):
         self.manager.ingest("wifi", {**self.row(1, 0.0), "pressure_pa": 101325})
@@ -293,6 +348,29 @@ class GroundStationManagerTests(unittest.TestCase):
         self.assertEqual("FAIL", battery_check()["status"])
         self.manager.ingest("wifi", {**self.row(3), "battery_v": 3.49})
         self.assertEqual("FAIL", battery_check()["status"])
+
+    def test_preflight_requires_fresh_sensor_evidence_and_separate_sd_readback(self):
+        with patch.object(ground_station, "MANAGER", self.manager), \
+                patch.object(ground_station, "available_ports", return_value=[]):
+            self.manager.ingest("wifi", {**self.row(1), "sd_ok": True,
+                                         "barometer_ready": True, "imu_test_result": "PASS"})
+            checks = {item["name"]: item for item in ground_station.preflight_report()["checks"]}
+            self.assertEqual("PASS", checks["SD initialization"]["status"])
+            self.assertEqual("NOT TESTED", checks["SD write/read/cleanup"]["status"])
+            self.assertEqual("NOT TESTED", checks["Uno USB port"]["status"])
+            self.assertEqual("NOT TESTED", checks["LoRa packets"]["status"])
+            with patch.object(ground_station, "available_ports", return_value=[
+                    {"device": "COM4", "description": "USB Serial", "hwid": "generic"}]):
+                generic = {item["name"]: item for item in ground_station.preflight_report()["checks"]}
+                self.assertEqual("WARNING", generic["Uno USB port"]["status"])
+            self.clock.advance(3)
+            checks = {item["name"]: item for item in ground_station.preflight_report()["checks"]}
+            self.assertNotEqual("PASS", checks["SD initialization"]["status"])
+            self.assertNotEqual("PASS", checks["LSM6DSO32"]["status"])
+            actions = {"sd_test": {"http_status": 200, "success": True,
+                                   "message": "temporary file verified and removed"}}
+            checks = {item["name"]: item for item in ground_station.preflight_report(actions)["checks"]}
+            self.assertEqual("PASS", checks["SD write/read/cleanup"]["status"])
 
     def test_feather_status_fields_are_accepted_by_ground_station(self):
         firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")

@@ -23,7 +23,7 @@ No internet, phone, cloud account, Bluetooth, or hotspot is needed. The server c
 ## Final navigation
 
 - **Preflight**: connected hardware readiness checks and results.
-- **Mission Control**: live primary measurements, separate GPS/barometric altitude, last-known GPS coordinates and an offline track restored after page refresh, optional online street map with accepted trail, link health, expandable telemetry fields with source/freshness/sample times, selectable time-window graphs, real recorder state, and a guarded Prepare Recorder action.
+- **Mission Control**: live primary measurements, separate GPS/barometric altitude, last-known GPS coordinates and an offline track restored after page refresh, optional online street map with accepted trail, link health, expandable telemetry fields with source/freshness/sample times, selectable time-window graphs, real recorder state, and guarded Prepare Recorder and manual Stop/Save actions. Stop/Save finalizes an active file and requires typed and second confirmations; use it only when the recording must end.
 - **Recovery**: last valid position, fix age, LoRa age, RSSI, and offline relative track.
 - **Analysis**: append-only ground telemetry sessions, validated manual BIN import, Feather SD downloads, checksum deduplication, CSV/JSON exports and printable reports. Original RKT4 files are retained byte-for-byte.
 - **Diagnostics**: source errors, duplicates, sequence gaps, rejected out-of-order packets, and parse errors.
@@ -66,6 +66,6 @@ The **Analysis** screen can also import an RKT4 BIN directly or download one fro
 
 ## Verification boundary
 
-Automated tests exercise merging, stale handling, sequence gaps, duplicate rejection, GPS retention and persistence. Feather/Uno compilation is verified in CI. Physical radio range, packet-loss behavior, USB reconnect timing, GPS accuracy, SD power-loss survival and full launch-day operation still require measured bench and field tests.
+Automated tests exercise merging, stale handling, sequence gaps, duplicate rejection, GPS retention, persistence, guarded recorder controls, and fresh-evidence Preflight classifications. The SD self-test uses an unused temporary filename and checks cleanup; it is disabled during active recording. Feather/Uno compilation is verified in CI. Physical radio range, packet-loss behavior, USB reconnect timing, GPS accuracy, SD power-loss survival and full launch-day operation still require measured bench and field tests.
 
 The merged `/api/status` response includes per-field validity, source, freshness, units and origin in `field_meta`. See `docs/V12_TELEMETRY_MODEL.md` for the contract.

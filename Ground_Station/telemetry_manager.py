@@ -25,7 +25,8 @@ RADIO_FLAG_RECORDING = 1 << 6
 BATTERY_CURVE = ((3.30, 0), (3.60, 10), (3.70, 25), (3.80, 45),
                  (3.90, 65), (4.00, 80), (4.10, 95), (4.20, 100))
 MEASUREMENT_FIELDS = (
-    "uptime_ms", "flight_state", "recording", "altitude_m", "pressure_pa",
+    "uptime_ms", "firmware_version", "telemetry_protocol_version",
+    "recording_format_version", "flight_state", "recording", "altitude_m", "pressure_pa",
     "vertical_speed_mps", "speed_mps", "gps_speed_mps",
     "relative_altitude_m", "temperature_c", "acceleration_g", "acceleration_x_g",
     "acceleration_y_g", "acceleration_z_g", "rotation_x_dps",
@@ -67,6 +68,9 @@ MEASUREMENT_FIELDS = (
 # Station estimates. A received timestamp is not a GPS fix timestamp.
 FIELD_SPECS = {
     "uptime_ms": ("integer", "ms", "measured"),
+    "firmware_version": ("string", None, "measured"),
+    "telemetry_protocol_version": ("integer", "version", "measured"),
+    "recording_format_version": ("integer", "version", "measured"),
     "flight_state": ("integer", None, "calculated"),
     "recording": ("boolean", None, "measured"),
     "altitude_m": ("number", "m", "calculated"),
@@ -355,8 +359,10 @@ class TelemetryManager:
                 }
             point = {
                 key: clean.get(key) for key in
-                ("received_utc", "source", "sequence", "uptime_ms", "altitude_m",
+                ("received_utc", "source", "sequence", "uptime_ms", "flight_state", "altitude_m",
                  "gps_altitude_m", "vertical_speed_mps", "acceleration_g",
+                 "acceleration_x_g", "acceleration_y_g", "acceleration_z_g",
+                 "rotation_x_dps", "rotation_y_dps", "rotation_z_dps",
                  "battery_v", "pressure_pa", "latitude", "longitude",
                  "gps_status", "gps_fix_age_ms")
             }

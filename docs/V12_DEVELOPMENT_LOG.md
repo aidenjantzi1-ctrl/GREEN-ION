@@ -1,5 +1,14 @@
 # GREEN ION V12 development log
 
+## 2026-11-05 — Managed cloud run: Phase 3 software acceptance
+
+- Added guarded manual Stop/Save for the V12 Feather's existing finalization endpoint. Mission Control requires the active file name, a typed phrase and a second confirmation. Ground Station requires live Wi-Fi recorder and file evidence and rechecks the Feather immediately before forwarding. Preparation now also rechecks Feather state.
+- Desktop and phone browser checks passed for stationary idle readings, LoRa fallback, total link loss, retained last-known position, no recorder calls on page navigation, Stop/Save confirmation and disabled controls when source-limited. These are software fixtures, not hardware tests.
+- Added six selectable IMU-axis graph series, measured peak G, and an observed flight timer that restores from accepted history and resets at the next idle state. Phase 3 software acceptance is complete for currently supported telemetry. A fused altitude remains unavailable because no validated method exists; physical hardware remains NOT TESTED.
+- Began Phase 4: separated Uno USB, receiver telemetry, LoRa packet, Feather radio, SD initialization and actual SD readback results. Required fresh sensor evidence for PASS, added firmware/protocol/RKT4 version and 50 Hz sample-rate checks, calibration noise and autonomous watcher checks. Firmware SD self-test now chooses an unused temporary filename and attempts cleanup after readback failures. ESP32 compile and 116 Python tests passed. Physical hardware was NOT TESTED.
+- Next: independent Uno receiver boot/status evidence, detailed Diagnostics, and exportable Preflight reports.
+
+
 ## 2026-11-05 — Managed cloud run: Phase 2 acceptance and Phase 3 Mission Control start
 
 - Finished Phase 2 software telemetry acceptance for the supported Wi-Fi and LoRa packet fields; documented unsupported hardware checks as NOT TESTED. Kept GPS MSL altitude and barometric altitude separate.

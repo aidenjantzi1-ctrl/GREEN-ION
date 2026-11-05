@@ -24,6 +24,7 @@ from flight_library import FlightImportError, FlightLibrary
 from telemetry_manager import SessionWriter, TelemetryManager
 
 ROOT = Path(__file__).resolve().parent
+GROUND_STATION_VERSION = "V12-development"
 DATA_DIR = ROOT / "data"
 MANAGER = TelemetryManager(SessionWriter(DATA_DIR))
 STOP = threading.Event()
@@ -68,9 +69,9 @@ def bytes_response(handler: SimpleHTTPRequestHandler, body: bytes, content_type:
     handler.wfile.write(body)
 
 
-def feather_post(path: str, timeout: float = 4.0) -> tuple[int, dict]:
+def feather_post(path: str, timeout: float = 4.0, base_url: str | None = None) -> tuple[int, dict]:
     with CONFIG_LOCK:
-        base = CONFIG["feather_url"]
+        base = base_url or CONFIG["feather_url"]
     request = Request(base + path, data=b"", method="POST", headers={"Accept": "application/json"})
     try:
         with urlopen(request, timeout=timeout) as response:
@@ -82,6 +83,14 @@ def feather_post(path: str, timeout: float = 4.0) -> tuple[int, dict]:
             except (AttributeError, json.JSONDecodeError):
                 pass
         raise
+
+
+def feather_status() -> tuple[str, dict]:
+    with CONFIG_LOCK:
+        base = CONFIG["feather_url"]
+    request = Request(base + "/api/status", headers={"Accept": "application/json"})
+    with urlopen(request, timeout=1.5) as response:
+        return base, json.loads(response.read(65536))
 
 
 def prepare_recorder() -> tuple[int, dict]:
@@ -100,33 +109,155 @@ def prepare_recorder() -> tuple[int, dict]:
     if mode not in (0, 1, 3, 4):
         return 409, {"success": False, "error": "Recorder mode is unknown; calibration was not changed."}
     try:
-        return feather_post("/api/calibrate")
+        base, current = feather_status()
+        if (not isinstance(current, dict) or current.get("recording") is True or
+                current.get("recorder_mode") not in (0, 1, 3, 4) or
+                (current.get("flight_state") not in (0, 1) and not
+                 (current.get("recorder_mode") == 3 and current.get("flight_state") == 6))):
+            return 409, {"success": False, "error": "Feather is no longer stationary and idle; calibration was not sent."}
+        return feather_post("/api/calibrate", base_url=base)
     except (OSError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
         return 502, {"success": False, "error": f"Feather calibration request failed: {error}"}
 
 
-def preflight_report() -> dict:
+def stop_recorder(confirmation: str, filename: str) -> tuple[int, dict]:
+    """Manually finalize the current V12 recording after explicit user confirmation."""
+    if confirmation != "STOP AND SAVE":
+        return 400, {"success": False, "error": "Type STOP AND SAVE to confirm manual finalization."}
+    snapshot = MANAGER.snapshot()
+    fields = snapshot.get("field_meta", {})
+    if (snapshot.get("active_source") != "wifi" or
+            snapshot.get("sources", {}).get("wifi", {}).get("status") != "live" or
+            any(fields.get(name, {}).get("freshness") != "live"
+                for name in ("recording", "recorder_mode", "log_file"))):
+        return 409, {"success": False, "error": "Fresh V12 Feather Wi-Fi recorder and file status is required."}
+    if snapshot.get("recording") is not True or snapshot.get("recorder_mode") != 2:
+        return 409, {"success": False, "error": "No active V12 flight recording is available to stop."}
+    current_file = snapshot.get("log_file")
+    if not isinstance(current_file, str) or not current_file or filename != current_file:
+        return 409, {"success": False, "error": "Flight file changed or is unknown; refresh Mission Control."}
+    try:
+        base, current = feather_status()
+        if (not isinstance(current, dict) or current.get("recording") is not True or
+                current.get("recorder_mode") != 2 or
+                current.get("log_file") != filename):
+            return 409, {"success": False, "error": "Feather recording changed; Stop/Save was not sent."}
+        return feather_post("/api/stop", base_url=base)
+    except (OSError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
+        return 502, {"success": False, "error": f"Feather stop/save request failed: {error}"}
+
+
+def preflight_report(actions: dict | None = None) -> dict:
     snapshot = MANAGER.snapshot()
     wifi = snapshot["sources"]["wifi"]
     radio = snapshot["sources"]["radio"]
     checks = []
     def add(name: str, status: str, message: str) -> None:
         checks.append({"name": name, "status": status, "message": message})
+    def live(name: str) -> bool:
+        meta = snapshot.get("field_meta", {}).get(name, {})
+        return meta.get("valid") is True and meta.get("freshness") == "live"
     add("Feather Wi-Fi", "PASS" if wifi["status"] == "live" else "FAIL",
         "Live Feather status is available." if wifi["status"] == "live" else (wifi["error"] or "No live Feather status."))
-    add("Uno USB and LoRa", "PASS" if radio["status"] == "live" else "NOT TESTED",
-        "A validated LoRa telemetry packet reached the laptop." if radio["status"] == "live" else (radio["error"] or "No validated radio packet received."))
-    add("SD recorder", "PASS" if snapshot.get("sd_ok") is True else "FAIL" if snapshot.get("sd_ok") is False else "NOT TESTED",
-        "Feather reports the SD recorder ready." if snapshot.get("sd_ok") is True else "No ready SD result is available.")
-    add("BMP388", "PASS" if snapshot.get("barometer_ready") is True else "FAIL" if snapshot.get("barometer_ready") is False else "NOT TESTED",
-        "Barometer runtime status is ready." if snapshot.get("barometer_ready") is True else "No ready barometer status is available.")
-    add("LSM6DSO32", snapshot.get("imu_test_result", "NOT TESTED"), snapshot.get("imu_test_message", "Run the IMU hardware test."))
-    gps_result = snapshot.get("gps_test_result", "NOT TESTED")
-    add("PA1010D communication", gps_result, snapshot.get("gps_test_message", "Run the GPS hardware test."))
-    add("GPS fix", "PASS" if snapshot.get("gps_status") == "live" else "WARNING" if snapshot.get("gps_status") == "stale" else "NOT TESTED",
-        "Current valid GPS position." if snapshot.get("gps_status") == "live" else "A current outdoor GPS fix is not available; communication can still pass independently.")
+    add("Feather API", "PASS" if wifi["status"] == "live" else "NOT TESTED",
+        "Fresh /api/status response received." if wifi["status"] == "live" else
+        "Connect Windows to Feather Wi-Fi and confirm the status endpoint responds.")
+    add("Ground Station server", "PASS", "This report was served by the local Ground Station.")
+    add("Ground Station version", "PASS", f"Local Ground Station {GROUND_STATION_VERSION}.")
+    add("Telemetry source freshness", "PASS" if snapshot["link_status"] == "live" else
+        "WARNING" if snapshot["link_status"] == "stale" else "NOT TESTED",
+        f"Selected source: {snapshot.get('active_source') or 'none'}; link is {snapshot['link_status']}.")
+    version = snapshot.get("firmware_version") if live("firmware_version") else None
+    add("Feather firmware version", "PASS" if isinstance(version, str) and version.startswith("V12") else
+        "WARNING" if version is not None else "NOT TESTED",
+        f"Reported firmware: {version}." if version is not None else
+        "V12 firmware version has not been reported by a live Feather connection.")
+    format_version = snapshot.get("recording_format_version") if live("recording_format_version") else None
+    add("RKT4 recording format", "PASS" if format_version == 2 else
+        "WARNING" if format_version is not None else "NOT TESTED",
+        f"Reported recording format version: {format_version}; expected RKT4 v2."
+        if format_version is not None else "Connect the V12 Feather to verify recording format v2.")
+    sample_rate = snapshot.get("sample_rate_hz") if live("sample_rate_hz") else None
+    add("Recorder sample rate", "PASS" if sample_rate == 50 else
+        "WARNING" if sample_rate is not None else "NOT TESTED",
+        f"Reported sample rate: {sample_rate} Hz; current V12 configuration expects 50 Hz."
+        if sample_rate is not None else "Current sample rate is unavailable.")
+    ports = available_ports()
+    identified_uno = [port for port in ports if
+                      "arduino" in (port["description"] + port["hwid"]).lower() or
+                      "uno" in port["description"].lower()]
+    add("Uno USB port", "PASS" if radio["status"] == "live" or len(identified_uno) == 1 else
+        "WARNING" if ports else "NOT TESTED",
+        "Validated Uno telemetry confirms an active USB connection." if radio["status"] == "live" else
+        f"{len(ports)} serial port(s) detected; select and confirm the Uno COM port in Settings."
+        if ports else "Connect the Arduino Uno by USB; the LoRa module can still be disconnected.")
+    add("Uno receiver protocol", "PASS" if radio["status"] == "live" else "NOT TESTED",
+        "Validated receiver telemetry reached the laptop." if radio["status"] == "live"
+        else "No validated Uno telemetry. USB detection alone does not verify the receiver protocol.")
+    add("LoRa packets", "PASS" if radio["status"] == "live" else "NOT TESTED",
+        "Validated radio packets received." if radio["status"] == "live"
+        else "Connect both LoRa modules and antennas, then verify actual packets; USB alone is insufficient.")
+    wifi_protocol = snapshot.get("telemetry_protocol_version") if live("telemetry_protocol_version") else None
+    radio_protocol = snapshot.get("protocol") if live("protocol") else None
+    protocol = wifi_protocol if wifi_protocol is not None else radio_protocol
+    add("Telemetry protocol", "PASS" if protocol == 2 else
+        "WARNING" if protocol is not None else "NOT TESTED",
+        f"Reported telemetry protocol v{protocol}; expected v2." if protocol is not None
+        else "No current V12 protocol version reported by Feather or Uno.")
+    add("Feather LoRa module", "PASS" if live("radio_ok") and snapshot.get("radio_ok") is True else
+        "FAIL" if live("radio_ok") and snapshot.get("radio_ok") is False else "NOT TESTED",
+        "Feather reports its radio initialized; packet reception is checked separately."
+        if live("radio_ok") and snapshot.get("radio_ok") is True else "Current Feather radio initialization evidence is unavailable or reports a fault.")
+    add("SD initialization", "PASS" if live("sd_ok") and snapshot.get("sd_ok") is True else
+        "FAIL" if live("sd_ok") and snapshot.get("sd_ok") is False else "NOT TESTED",
+        "Current SD initialization status is ready; a write/read test is separate."
+        if live("sd_ok") and snapshot.get("sd_ok") is True else "Current SD initialization evidence is unavailable or reports a fault.")
+    sd_action = (actions or {}).get("sd_test")
+    add("SD write/read/cleanup", "PASS" if sd_action and sd_action.get("http_status") == 200 and sd_action.get("success") is True else
+        "FAIL" if sd_action else "NOT TESTED",
+        sd_action.get("message", "SD test failed; inspect the Feather response.") if sd_action else
+        "Run Full Preflight to verify a dedicated temporary file; never use a flight recording.")
+    add("BMP388", "PASS" if live("barometer_ready") and snapshot.get("barometer_ready") is True else
+        "FAIL" if live("barometer_ready") and snapshot.get("barometer_ready") is False else "NOT TESTED",
+        "Current barometer runtime status is ready." if live("barometer_ready") and snapshot.get("barometer_ready") is True
+        else "Current barometer status is unavailable or reports a fault; inspect Diagnostics.")
+    baseline = snapshot.get("calibration_baseline_pa") if live("calibration_baseline_pa") else None
+    noise = snapshot.get("calibration_noise_m") if live("calibration_noise_m") else None
+    calibration_ready = (isinstance(baseline, (int, float)) and not isinstance(baseline, bool) and
+                         isinstance(noise, (int, float)) and not isinstance(noise, bool) and
+                         math.isfinite(baseline) and math.isfinite(noise) and
+                         baseline > 0 and 0 <= noise <= 0.55)
+    add("Stationary barometer baseline", "PASS" if calibration_ready else
+        "WARNING" if live("recorder_mode") and snapshot.get("recorder_mode") in (0, 1, 4) else "NOT TESTED",
+        f"Baseline {baseline:.1f} Pa; altitude noise {noise:.3f} m (firmware limit 0.55 m)."
+        if calibration_ready else "Keep the rocket stationary and prepare the recorder; inspect calibration noise and retry if unstable.")
+    mode = snapshot.get("recorder_mode") if live("recorder_mode") else None
+    add("Autonomous recorder watcher", "PASS" if mode == 1 and calibration_ready and
+        live("sd_ok") and snapshot.get("sd_ok") is True else
+        "FAIL" if mode == 4 else "WARNING" if mode is not None else "NOT TESTED",
+        "V12 recorder is watching for launch with valid baseline and initialized SD."
+        if mode == 1 and calibration_ready and live("sd_ok") and snapshot.get("sd_ok") is True else
+        "Recorder is not yet confirmed ready to watch; check calibration, SD and mode in Mission Control.")
+    imu_result = snapshot.get("imu_test_result") if live("imu_test_result") else None
+    add("LSM6DSO32", imu_result if imu_result in ("PASS", "WARNING", "FAIL") else
+        "WARNING" if imu_result else "NOT TESTED",
+        snapshot.get("imu_test_message") if live("imu_test_message") else "Run the stationary IMU hardware test in Preflight.")
+    gps_result = snapshot.get("gps_test_result") if live("gps_test_result") else None
+    add("PA1010D communication", gps_result if gps_result in ("PASS", "WARNING", "FAIL") else
+        "WARNING" if gps_result else "NOT TESTED",
+        snapshot.get("gps_test_message") if live("gps_test_message") else "Run the GPS communication test; a satellite fix is separate.")
+    sensor_action = (actions or {}).get("sensor_test")
+    add("Stationary sensor test request", "WARNING" if sensor_action and sensor_action.get("http_status") == 202 else
+        "FAIL" if sensor_action else "NOT TESTED",
+        "Feather accepted the sensor tests; refresh after completion to see measured results."
+        if sensor_action and sensor_action.get("http_status") == 202 else
+        "Run Full Preflight with the rocket stationary." if not sensor_action else
+        sensor_action.get("message", "Feather did not accept the sensor tests."))
+    fix_live = snapshot.get("gps_status") == "live" and live("latitude") and live("longitude")
+    add("GPS fix", "PASS" if fix_live else "WARNING" if snapshot.get("gps_status") == "stale" else "NOT TESTED",
+        "Current valid GPS position." if fix_live else "A current outdoor GPS fix is unavailable; GPS communication can still pass independently.")
     battery = snapshot.get("battery_v")
-    battery_live = snapshot["link_status"] == "live"
+    battery_live = live("battery_v")
     battery_valid = snapshot.get("battery_measurement_valid") is True
     battery_status = (
         "NOT TESTED" if not battery_live or battery is None else
@@ -138,7 +269,7 @@ def preflight_report() -> dict:
     add("Battery", battery_status,
         "Battery reading is unavailable or stale." if not battery_live or battery is None else
         f"Reported battery: {battery_text}; outside plausible one-cell LiPo range."
-        if not battery_valid else f"Reported battery: {battery_text}.")
+        if not battery_valid else f"Reported battery: {battery_text}; one reading does not verify charge endurance or voltage stability.")
     persistence_ok = MANAGER.writer is not None and MANAGER.writer.directory.is_dir()
     add("Ground persistence", "PASS" if persistence_ok else "FAIL",
         "Append-only session directory is available." if persistence_ok else "Session directory is unavailable.")
@@ -242,6 +373,21 @@ class Handler(SimpleHTTPRequestHandler):
             status, result = prepare_recorder()
             json_response(self, result, status)
             return
+        if self.path == "/api/recorder/stop":
+            try:
+                if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
+                    raise ValueError("A JSON confirmation is required.")
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > 512:
+                    raise ValueError("Invalid confirmation length.")
+                payload = json.loads(self.rfile.read(length))
+                if not isinstance(payload, dict):
+                    raise ValueError("Invalid confirmation payload.")
+                status, result = stop_recorder(payload.get("confirm"), payload.get("file"))
+                json_response(self, result, status)
+            except (ValueError, json.JSONDecodeError) as error:
+                json_response(self, {"success": False, "error": str(error)}, 400)
+            return
         if self.path == "/api/import-bin":
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -276,11 +422,12 @@ class Handler(SimpleHTTPRequestHandler):
                     return
                 sd_status, sd_result = feather_post("/api/sdtest")
                 test_status, test_result = feather_post("/api/hardware-test?sensor=all")
-                report = preflight_report()
-                report["actions"] = {
+                actions = {
                     "sd_test": {"http_status": sd_status, **sd_result},
                     "sensor_test": {"http_status": test_status, **test_result},
                 }
+                report = preflight_report(actions)
+                report["actions"] = actions
                 report["message"] = "Sensor tests started. Keep the unit stationary; GPS fix may require an outdoor view. Refresh the report after the test interval."
                 json_response(self, {"success": True, "report": report}, 202)
             except (OSError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:

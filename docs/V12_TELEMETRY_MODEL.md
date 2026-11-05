@@ -12,6 +12,9 @@
 | Field | Type | Unit | Origin |
 | --- | --- | --- | --- |
 | `uptime_ms` | integer | ms | measured |
+| `firmware_version` | string | — | measured |
+| `telemetry_protocol_version` | integer | version | measured |
+| `recording_format_version` | integer | version | measured |
 | `flight_state` | integer | — | calculated |
 | `recording` | boolean | — | measured |
 | `altitude_m` | number | m | calculated |

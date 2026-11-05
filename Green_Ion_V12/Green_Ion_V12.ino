@@ -1691,6 +1691,9 @@ static void sendDashboardStatus() {
   body += "{\"recording\":";
   body += state.recording ? "true" : "false";
   body += ",\"uptime_s\":" + String(millis() / 1000UL);
+  body += ",\"firmware_version\":\"V12-development\"";
+  body += ",\"telemetry_protocol_version\":" + String(green_ion::kProtocolVersion);
+  body += ",\"recording_format_version\":" + String(green_ion::rkt4::kVersion);
   body += ",\"flight_state\":" + String(static_cast<uint8_t>(flightState));
   body += ",\"sd_ok\":";
   body += state.sdOk ? "true" : "false";
@@ -1935,10 +1938,19 @@ static void runDashboardSdTest() {
                          "{\"success\":false,\"message\":\"SD card is unavailable\"}");
     return;
   }
-  static const char path[] = "/V12SD.TMP";
-  static const uint8_t pattern[] = {0x47, 0x49, 0x4f, 0x4e, 0x12, 0xa5};
   digitalWrite(config::PIN_LORA_CS, HIGH);
-  SD.remove(path);
+  char path[16] = {};
+  for (unsigned int slot = 0; slot < 1000; ++slot) {
+    snprintf(path, sizeof(path), "/V12T%03u.TMP", slot);
+    if (!SD.exists(path)) break;
+    path[0] = '\0';
+  }
+  if (!path[0]) {
+    dashboardServer.send(507, "application/json",
+                         "{\"success\":false,\"message\":\"No unused SD test filename is available\"}");
+    return;
+  }
+  static const uint8_t pattern[] = {0x47, 0x49, 0x4f, 0x4e, 0x12, 0xa5};
   File file = SD.open(path, FILE_WRITE);
   bool ok = file && file.write(pattern, sizeof(pattern)) == sizeof(pattern);
   if (file) { file.flush(); file.close(); }
@@ -1947,10 +1959,12 @@ static void runDashboardSdTest() {
   ok = ok && file && file.read(readback, sizeof(readback)) == sizeof(readback) &&
        memcmp(pattern, readback, sizeof(pattern)) == 0;
   if (file) file.close();
-  ok = ok && SD.remove(path);
-  dashboardServer.send(ok ? 200 : 500, "application/json",
-      ok ? "{\"success\":true,\"message\":\"SD write, read, verify and cleanup passed\"}"
-         : "{\"success\":false,\"message\":\"SD write/read verification failed\"}");
+  const bool cleanupOk = !SD.exists(path) || SD.remove(path);
+  const bool passed = ok && cleanupOk;
+  dashboardServer.send(passed ? 200 : 500, "application/json",
+      passed ? "{\"success\":true,\"message\":\"SD write, read, verify and cleanup passed\"}"
+             : cleanupOk ? "{\"success\":false,\"message\":\"SD write/read verification failed; test-file cleanup attempted\"}"
+                         : "{\"success\":false,\"message\":\"SD test-file cleanup failed; inspect the temporary file\"}");
 }
 
 static void initializeDashboard() {
