@@ -741,3 +741,7 @@ Add a deterministic storage/recovery transaction boundary that can inject checkp
 
 Upload the CI-compiled V12 build to the Feather, run Test IMU while motionless, then run Test GPS first indoors to prove NMEA communication and outdoors to obtain a current fix. Save the exact displayed values and any errors as bench evidence before further firmware development.
 
+### CI follow-up
+
+- GitHub Actions run `41953454159`: PASS for all 79 Python regressions, all native C++ suites including the new IMU/GPS classifier cases, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development binary upload on commit `67df1d8`.
+
