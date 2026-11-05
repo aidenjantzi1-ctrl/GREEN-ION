@@ -951,3 +951,10 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 - Added distinct-fix stationary GPS scatter, explicit SD free-space and battery power-classification results. Full Preflight refreshes SD capacity through the idle-only Feather file endpoint; stale capacity does not pass.
 - Added a fixed Diagnostics flight playback labeled SIMULATION — NOT HARDWARE, isolated from live telemetry and recorder controls. `V12_PHASE4_AUDIT.md` records the requirement-by-requirement software evidence and physical limits.
 - Verification: 130 Python tests, Node syntax, RKT4 analysis and mobile Chromium smoke of all 22 Diagnostics controls and playback passed. Physical Phase 4 checks remain NOT TESTED. The next software phase is Recovery.
+
+### Phase 5 Recovery position and map increment (2026-11-05)
+
+- Retained saved-fix flight phase, quality and satellite evidence. Recovery distinguishes descent coordinates from unconfirmed landing, and shows current or stale position age and source.
+- Added browser geolocation with permission and secure-context checks, manual coordinates, geodesic straight-line distance and true bearing, metric/imperial choice, a coordinate Google Maps link, and an opt-in OpenStreetMap view with rocket trail, rocket marker and user marker. The offline track and numeric recovery data remain independent of tiles.
+- Current Feather Wi-Fi telemetry after an observed noncurrent state triggers a reconnection banner and Analysis SD-inspection handoff. No proximity inference is used.
+- Verification: 130 Python tests, Node syntax, and 390-pixel Chromium smoke of manual/invalid location, distance/bearing, antimeridian, unit switch, map markers, Google link, source return and missing rocket coordinate passed. Physical GPS, radio, SD, Wi-Fi reconnection and iPhone geolocation remain NOT TESTED.

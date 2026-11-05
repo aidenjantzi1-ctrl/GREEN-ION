@@ -375,12 +375,18 @@ class TelemetryManager:
             current_fix = (isinstance(fix_age, (int, float)) and not isinstance(fix_age, bool)
                            and math.isfinite(fix_age) and 0 <= fix_age <= GPS_MAX_AGE_MS)
             if valid_coordinate(clean.get("latitude"), clean.get("longitude")) and gps_status == "live" and current_fix:
+                phase = clean.get("flight_state")
+                quality = clean.get("gps_fix_quality")
+                satellites = clean.get("satellites")
                 self.last_position = {
                     "latitude": float(clean["latitude"]),
                     "longitude": float(clean["longitude"]),
                     "received_monotonic": now,
                     "received_utc": clean["received_utc"],
                     "source": source,
+                    "flight_state": phase if isinstance(phase, int) and not isinstance(phase, bool) and 0 <= phase <= 7 else None,
+                    "fix_quality": quality if isinstance(quality, int) and not isinstance(quality, bool) and quality >= 0 else None,
+                    "satellites": satellites if isinstance(satellites, int) and not isinstance(satellites, bool) and satellites >= 0 else None,
                 }
             point = {
                 key: clean.get(key) for key in
@@ -441,9 +447,15 @@ class TelemetryManager:
             combined["last_position_source"] = self.last_position["source"]
             combined["last_position_utc"] = self.last_position["received_utc"]
             combined["last_position_age_ms"] = round((now - self.last_position["received_monotonic"]) * 1000)
+            combined["last_position_phase"] = self.last_position["flight_state"]
+            combined["last_position_fix_quality"] = self.last_position["fix_quality"]
+            combined["last_position_satellites"] = self.last_position["satellites"]
         else:
             combined["last_position"] = None
             combined["last_position_age_ms"] = None
+            combined["last_position_phase"] = None
+            combined["last_position_fix_quality"] = None
+            combined["last_position_satellites"] = None
         fix_age = combined.get("gps_fix_age_ms")
         if combined.get("gps_status") == "live" and (
             combined["link_status"] != "live" or

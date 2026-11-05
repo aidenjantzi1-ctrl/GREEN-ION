@@ -330,7 +330,8 @@ class GroundStationManagerTests(unittest.TestCase):
 
     def test_last_valid_position_survives_source_loss(self):
         row = self.row(1)
-        row.update(latitude=37.1, longitude=-121.9, gps_status="live", gps_fix_age_ms=0)
+        row.update(latitude=37.1, longitude=-121.9, gps_status="live", gps_fix_age_ms=0,
+                   flight_state=5, gps_fix_quality=1, satellites=7)
         self.manager.ingest("radio", row)
         self.clock.advance(20)
         snapshot = self.manager.snapshot()
@@ -339,6 +340,12 @@ class GroundStationManagerTests(unittest.TestCase):
         self.assertEqual(20000, snapshot["last_position_age_ms"])
         self.assertEqual("stale", snapshot["gps_status"])
         self.assertEqual("stale", snapshot["field_meta"]["latitude"]["freshness"])
+        self.assertEqual((5, 1, 7), (snapshot["last_position_phase"],
+                                     snapshot["last_position_fix_quality"],
+                                     snapshot["last_position_satellites"]))
+        self.manager.ingest("radio", {**self.row(2), "flight_state": 6,
+                                      "gps_status": "missing", "latitude": None, "longitude": None})
+        self.assertEqual(5, self.manager.snapshot()["last_position_phase"])
 
     def test_recent_history_retains_fields_needed_to_restore_mission_trail(self):
         row = {**self.row(7), "gps_status": "live", "gps_fix_age_ms": 0,
