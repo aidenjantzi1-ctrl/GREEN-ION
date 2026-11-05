@@ -18,6 +18,8 @@
 #include <RH_RF95.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <Preferences.h>
+#include "esp32-hal-bt.h"
 #include <GreenIonProtocol.h>
 #include <GreenIonTelemetryQueue.h>
 #include <GreenIonRadioRecovery.h>
@@ -34,6 +36,7 @@
 #include <GreenIonSensorRecovery.h>
 #include <GreenIonSensorHealth.h>
 #include <GreenIonBenchTests.h>
+#include <GreenIonAirplaneMode.h>
 
 #include "Config.h"
 #include "SensorState.h"
@@ -52,6 +55,7 @@ String checkpointFilenameA;
 String checkpointFilenameB;
 String metadataFilename;
 WebServer dashboardServer(80);
+Preferences airplanePreferences;
 
 class SdFileSink : public green_ion::recorder::ByteSink {
  public:
@@ -94,6 +98,7 @@ green_ion::SensorHealth barometerHealth(
 green_ion::bench::ImuTest imuHardwareTest(config::IMU_TEST_DURATION_MS,
                                           config::IMU_TEST_MINIMUM_SAMPLES);
 green_ion::bench::GpsTest gpsHardwareTest(config::GPS_TEST_DURATION_MS);
+green_ion::airplane::Controller airplaneMode(config::AIRPLANE_MAX_RECORDING_MS);
 
 enum HardwareTestRequest : uint8_t {
   HARDWARE_TEST_NONE = 0,
@@ -161,6 +166,13 @@ uint32_t recoveryPending = 0;
 String recoveryStatus = "Not scanned";
 uint16_t healthBits = 0;
 green_ion::FlightState flightState = green_ion::STATE_IDLE;
+bool airplanePrepareRequested = false;
+bool airplaneStartRequested = false;
+bool airplaneStopRequested = false;
+bool airplaneUnlockRequested = false;
+bool dashboardStarted = false;
+uint32_t airplaneStartNotBeforeMs = 0;
+float airplanePeakCabinDeltaM = 0.0f;
 
 enum BenchMode : uint8_t {
   BENCH_OFF = 0,
@@ -265,7 +277,9 @@ static void initializeStorage() {
 }
 
 static bool isV12JournalName(const String &name, const char *suffix) {
-  if (name.length() != 11 || !name.startsWith("V12D") || !name.endsWith(suffix))
+  if (name.length() != 11 ||
+      (!name.startsWith("V12D") && !name.startsWith("AIRP")) ||
+      !name.endsWith(suffix))
     return false;
   for (uint8_t i = 4; i < 7; ++i)
     if (name[i] < '0' || name[i] > '9') return false;
@@ -496,9 +510,11 @@ static void recoverInterruptedLogs() {
     recoveryStatus = "SD unavailable; recovery not scanned";
     return;
   }
-  // Two bits per possible V12D000..V12D999 log. Discovery completes before
+  // Two bits per possible V12D000..V12D999 and AIRP000..AIRP999 log.
+  // Discovery completes before
   // any journal is removed, avoiding mutation while the FAT directory is open.
   uint8_t journalSlots[250] = {};
+  uint8_t airplaneJournalSlots[250] = {};
   File root = SD.open("/");
   if (!root) {
     ++recoveryPending;
@@ -516,21 +532,27 @@ static void recoverInterruptedLogs() {
     if (sequence >= 0) {
       const uint16_t bit = static_cast<uint16_t>(sequence) * 2u +
                            (leaf.endsWith(".JRB") ? 1u : 0u);
-      journalSlots[bit / 8] |= static_cast<uint8_t>(1u << (bit % 8));
+      uint8_t *slots = leaf.startsWith("AIRP") ? airplaneJournalSlots : journalSlots;
+      slots[bit / 8] |= static_cast<uint8_t>(1u << (bit % 8));
     }
     entry = root.openNextFile();
   }
   root.close();
 
-  for (uint16_t sequence = 0; sequence < 1000; ++sequence) {
-    const uint16_t bitA = sequence * 2u;
-    const bool haveA = journalSlots[bitA / 8] & (1u << (bitA % 8));
-    const uint16_t bitB = bitA + 1u;
-    const bool haveB = journalSlots[bitB / 8] & (1u << (bitB % 8));
-    if (!haveA && !haveB) continue;
-    char leaf[12];
-    snprintf(leaf, sizeof(leaf), "V12D%03u.%s", sequence, haveA ? "JRA" : "JRB");
-    recoverInterruptedLog(String(leaf));
+  for (uint8_t family = 0; family < 2; ++family) {
+    uint8_t *slots = family ? airplaneJournalSlots : journalSlots;
+    const char *prefix = family ? "AIRP" : "V12D";
+    for (uint16_t sequence = 0; sequence < 1000; ++sequence) {
+      const uint16_t bitA = sequence * 2u;
+      const bool haveA = slots[bitA / 8] & (1u << (bitA % 8));
+      const uint16_t bitB = bitA + 1u;
+      const bool haveB = slots[bitB / 8] & (1u << (bitB % 8));
+      if (!haveA && !haveB) continue;
+      char leaf[12];
+      snprintf(leaf, sizeof(leaf), "%s%03u.%s", prefix, sequence,
+               haveA ? "JRA" : "JRB");
+      recoverInterruptedLog(String(leaf));
+    }
   }
   if (recoveryPending)
     recoveryStatus = String(recoveryPending) + " recovery item(s) pending inspection";
@@ -669,6 +691,47 @@ static bool gpsPositionCurrent(uint32_t nowMs) {
 }
 
 static void resetCalibration(uint32_t nowMs);
+
+static const char *airplaneStateName(green_ion::airplane::State value) {
+  switch (value) {
+    case green_ion::airplane::AIRPLANE_PREPARING: return "PREPARING";
+    case green_ion::airplane::AIRPLANE_READY: return "READY";
+    case green_ion::airplane::AIRPLANE_RECORDING: return "RECORDING";
+    case green_ion::airplane::AIRPLANE_COMPLETE: return "COMPLETE";
+    case green_ion::airplane::AIRPLANE_FAULT: return "FAULT";
+    case green_ion::airplane::AIRPLANE_RADIO_SILENCE_LOCKED: return "RADIO_SILENCE_LOCKED";
+    default: return "DISABLED";
+  }
+}
+
+static const char *airplaneStartResultName(green_ion::airplane::StartResult value) {
+  switch (value) {
+    case green_ion::airplane::START_SD_UNAVAILABLE: return "SD_UNAVAILABLE";
+    case green_ion::airplane::START_BAROMETER_UNAVAILABLE: return "BAROMETER_UNAVAILABLE";
+    case green_ion::airplane::START_IMU_UNAVAILABLE: return "IMU_UNAVAILABLE";
+    case green_ion::airplane::START_BATTERY_LOW: return "BATTERY_LOW";
+    case green_ion::airplane::START_NOT_READY: return "NOT_READY";
+    default: return "ALLOWED";
+  }
+}
+
+static void printAirplaneStatus(uint32_t nowMs) {
+  Serial.printf(
+      "AIRPLANE state=%s recording=%d radio_silence=%d wifi=%s lora=%s bluetooth=%s "
+      "elapsed_ms=%lu max_ms=%lu file=%s pressure_pa=%.1f cabin_delta_m=%.2f "
+      "battery_mv=%u sd=%d samples=%lu missed=%lu\n",
+      airplaneStateName(airplaneMode.state()), airplaneMode.recording() ? 1 : 0,
+      airplaneMode.radioSilenceLatched() ? 1 : 0,
+      airplaneMode.radioSilenceLatched() ? "OFF" : "ON",
+      airplaneMode.radioSilenceLatched() ? "RESET_HELD" : "AVAILABLE",
+      airplaneMode.radioSilenceLatched() ? "OFF" : "NOT_INITIALIZED",
+      static_cast<unsigned long>(airplaneMode.elapsedMs(nowMs)),
+      static_cast<unsigned long>(airplaneMode.maximumDurationMs()),
+      logFilename.c_str(), state.pressurePa, watcherAltitudeM, state.batteryMv,
+      state.sdOk ? 1 : 0,
+      static_cast<unsigned long>(logFile ? green_ion::rkt4::completeRecordCount(logFile.size()) : 0),
+      static_cast<unsigned long>(sampleClock.missedPeriods()));
+}
 
 static const char *hardwareTestResultName(green_ion::bench::Result result) {
   switch (result) {
@@ -906,6 +969,10 @@ static void applySerialCommand(uint32_t nowMs) {
     return;
   }
   else if (!strcmp(serialCommand, "radio test")) {
+    if (airplaneMode.radioSilenceLatched()) {
+      Serial.println("BENCH RADIO status=BLOCKED airplane_radio_silence=1");
+      return;
+    }
     if (!state.radioOk) {
       Serial.println("BENCH RADIO status=INIT_FAILED; test not started");
       return;
@@ -916,6 +983,10 @@ static void applySerialCommand(uint32_t nowMs) {
     return;
   }
   else if (!strcmp(serialCommand, "radio retry")) {
+    if (airplaneMode.radioSilenceLatched()) {
+      Serial.println("BENCH RADIO status=RETRY_BLOCKED airplane_radio_silence=1");
+      return;
+    }
     if (recorderMode == RECORDER_RECORDING) {
       Serial.println("BENCH RADIO status=RETRY_DEFERRED reason=recording_active");
       return;
@@ -940,8 +1011,33 @@ static void applySerialCommand(uint32_t nowMs) {
         config::LORA_TX_POWER_DBM);
     return;
   }
+  else if (!strcmp(serialCommand, "airplane prepare")) {
+    airplanePrepareRequested = true;
+    Serial.println("AIRPLANE prepare requested; keep device stationary for pressure calibration");
+    return;
+  }
+  else if (!strcmp(serialCommand, "airplane start")) {
+    airplaneStartRequested = true;
+    airplaneStartNotBeforeMs = nowMs;
+    Serial.println("AIRPLANE start requested; Wi-Fi, LoRa and Bluetooth will be disabled and remain off");
+    return;
+  }
+  else if (!strcmp(serialCommand, "airplane stop")) {
+    airplaneStopRequested = true;
+    Serial.println("AIRPLANE stop requested; radios remain disabled after save");
+    return;
+  }
+  else if (!strcmp(serialCommand, "airplane status")) {
+    printAirplaneStatus(nowMs);
+    return;
+  }
+  else if (!strcmp(serialCommand, "airplane unlock")) {
+    airplaneUnlockRequested = true;
+    Serial.println("AIRPLANE radio-silence unlock requested; reboot required to enable transmitters");
+    return;
+  }
   else {
-    Serial.println("Commands: test imu | test gps | test all | test status | bench imu | bench gps | bench all | bench status | bench off | radio test | radio retry | radio status");
+    Serial.println("Commands: airplane prepare | airplane start | airplane stop | airplane status | airplane unlock | test imu | test gps | test all | test status | bench imu | bench gps | bench all | bench status | bench off | radio test | radio retry | radio status");
     return;
   }
   Serial.printf("BENCH mode=%u\n", static_cast<unsigned int>(benchMode));
@@ -998,6 +1094,7 @@ static void serviceBarometerRecovery(uint32_t nowMs) {
 }
 
 static void serviceRadioRecovery(uint32_t nowMs) {
+  if (airplaneMode.radioSilenceLatched()) return;
   const bool recorderCritical = recorderMode != RECORDER_COMPLETE &&
                                 recorderMode != RECORDER_FAULT;
   const bool manual = radioManualRetryRequested;
@@ -1048,6 +1145,8 @@ static void processCalibration(uint32_t nowMs, bool valid) {
   const bool watching = flightWatcher.begin({
       config::SENSOR_RATE_HZ, 0.0f, calibrationBaselinePa, calibrationNoiseM});
   recorderMode = watching ? RECORDER_WATCHING : RECORDER_FAULT;
+  if (airplaneMode.state() == green_ion::airplane::AIRPLANE_PREPARING)
+    airplaneMode.calibrationReady(watching);
   if (!watching) calibrationRetryAtMs = nowMs + config::CALIBRATION_RETRY_MS;
 }
 
@@ -1174,7 +1273,8 @@ static bool writeCompletionMetadata(uint32_t nowMs, uint32_t fileBytes) {
     static_cast<uint32_t>(green_ion::rkt4::completeRecordCount(fileBytes)),
     sampleClock.missedPeriods(),
     state.batteryMv,
-    landingWatcher.peakAltitudeM(),
+    logFilename.startsWith("/AIRP") ? airplanePeakCabinDeltaM :
+                                      landingWatcher.peakAltitudeM(),
   };
   if (green_ion::metadata::encodeFlightComplete(
           encoded, sizeof(encoded), metadata, encodedBytes) !=
@@ -1208,6 +1308,7 @@ static bool finalizeRecording(uint32_t nowMs) {
     if (sensorLogFile) sensorLogFile.close();
     return false;
   }
+  const bool wasAirplane = logFilename.startsWith("/AIRP");
   const uint64_t size = static_cast<uint64_t>(logFile.size());
   logFile.close();
   if (sensorLogCore.active() && !sensorLogCore.stop()) ++sensorLogFailures;
@@ -1230,17 +1331,19 @@ static bool finalizeRecording(uint32_t nowMs) {
     return false;
   }
   landingWatcher.cancel();
+  if (wasAirplane) airplaneMode.stop();
   recorderMode = RECORDER_COMPLETE;
   flightState = green_ion::STATE_LANDED;
   return true;
 }
 
-static bool openRawLog(uint32_t nowMs, uint32_t nowUs) {
+static bool openRawLog(uint32_t nowMs, uint32_t nowUs,
+                       const char *prefix = "V12D") {
   if (!state.sdOk || logFile) return static_cast<bool>(logFile);
   digitalWrite(config::PIN_LORA_CS, HIGH);
   for (uint16_t sequence = 0; sequence < 1000; ++sequence) {
     char candidate[14];
-    snprintf(candidate, sizeof(candidate), "/V12D%03u.BIN", sequence);
+    snprintf(candidate, sizeof(candidate), "/%s%03u.BIN", prefix, sequence);
     if (!SD.exists(candidate)) {
       logFilename = candidate;
       break;
@@ -1326,6 +1429,84 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs) {
   return true;
 }
 
+static bool persistAirplaneSilence(bool enabled) {
+  return airplanePreferences.putBool("airSilent", enabled) == 1;
+}
+
+static void disableAirplaneTransmitters() {
+  airplaneMode.restoreRadioSilence();
+  radio.sleep();
+  state.radioOk = false;
+  radioBenchPacketsRemaining = 0;
+  while (telemetryQueue.pop()) {}
+  pinMode(config::PIN_LORA_RST, OUTPUT);
+  digitalWrite(config::PIN_LORA_RST, LOW);
+  WiFi.softAPdisconnect(true);
+  WiFi.mode(WIFI_OFF);
+  btStop();
+  Serial.println("AIRPLANE RADIO SILENCE LATCHED wifi=OFF lora=RESET_HELD bluetooth=OFF gps=RECEIVE_ONLY");
+}
+
+static void serviceAirplaneRequests(uint32_t nowMs, uint32_t nowUs) {
+  if (airplaneUnlockRequested) {
+    airplaneUnlockRequested = false;
+    if (airplaneMode.recording()) {
+      Serial.println("AIRPLANE unlock=DENIED recording_active=1");
+    } else if (airplaneMode.clearRadioSilenceWhenIdle() &&
+               persistAirplaneSilence(false)) {
+      Serial.println("AIRPLANE unlock=SAVED reboot_required=1 radios_still_off=1");
+    } else {
+      Serial.println("AIRPLANE unlock=FAILED");
+    }
+  }
+  if (airplanePrepareRequested) {
+    airplanePrepareRequested = false;
+    if (airplaneMode.prepare()) {
+      resetCalibration(nowMs);
+      Serial.println("AIRPLANE prepare=STARTED stationary_calibration=1");
+    } else {
+      Serial.println("AIRPLANE prepare=DENIED recording_active=1");
+    }
+  }
+  if (airplaneStartRequested &&
+      static_cast<int32_t>(nowMs - airplaneStartNotBeforeMs) >= 0) {
+    airplaneStartRequested = false;
+    const green_ion::airplane::Readiness ready = {
+      state.sdOk, state.barometerOk, state.imuOk, state.batteryMv,
+      config::AIRPLANE_MINIMUM_BATTERY_MV,
+    };
+    const auto result = airplaneMode.start(nowMs, ready);
+    if (result != green_ion::airplane::START_ALLOWED) {
+      Serial.printf("AIRPLANE start=DENIED reason=%s\n", airplaneStartResultName(result));
+    } else if (!persistAirplaneSilence(true)) {
+      airplaneMode.fault();
+      Serial.println("AIRPLANE start=FAILED reason=RADIO_SILENCE_LATCH_WRITE");
+    } else if (!openRawLog(nowMs, nowUs, "AIRP")) {
+      airplaneMode.fault();
+      disableAirplaneTransmitters();
+      Serial.println("AIRPLANE start=FAILED reason=SD_OPEN radios_remain_off=1");
+    } else {
+      recorderMode = RECORDER_RECORDING;
+      flightState = green_ion::STATE_IDLE;
+      airplanePeakCabinDeltaM = 0.0f;
+      disableAirplaneTransmitters();
+      Serial.printf("AIRPLANE start=PASS file=%s max_hours=8 dashboard_disconnect_expected=1\n",
+                    logFilename.c_str());
+    }
+  }
+  if (airplaneStopRequested) {
+    airplaneStopRequested = false;
+    const bool saved = airplaneMode.recording() && finalizeRecording(nowMs);
+    Serial.printf("AIRPLANE stop=%s radios_remain_off=1 file=%s\n",
+                  saved ? "PASS" : "FAILED", logFilename.c_str());
+  }
+  if (airplaneMode.automaticStopDue(nowMs)) {
+    const bool saved = finalizeRecording(nowMs);
+    Serial.printf("AIRPLANE automatic_limit_stop=%s radios_remain_off=1\n",
+                  saved ? "PASS" : "FAILED");
+  }
+}
+
 static green_ion::sensor_log::Record makeSensorLogRecord(uint32_t nowUs,
                                                           uint32_t nowMs) {
   uint16_t flags = 0;
@@ -1391,12 +1572,28 @@ static void appendLog(uint32_t nowUs, uint32_t nowMs, bool valid) {
   green_ion::rkt4::Record record = {
     nowUs,
     state.pressurePa,
-    state.temperatureC,
+    airplaneMode.recording() ? state.imuTemperatureC : state.temperatureC,
     state.batteryMv,
     valid,
   };
   recorderCore.observe(record);
   sensorLogCore.observe(makeSensorLogRecord(nowUs, nowMs));
+  if (airplaneMode.recording()) {
+    updateFlightEstimate(nowMs, valid);
+    if (isfinite(watcherAltitudeM))
+      airplanePeakCabinDeltaM = fmaxf(airplanePeakCabinDeltaM, watcherAltitudeM);
+    state.recording = recorderCore.recording();
+    if (recorderCore.status() == green_ion::recorder::CORE_RECORD_WRITE_FAILED) {
+      healthBits |= green_ion::HEALTH_SD_WRITE_ERROR;
+      state.sdOk = false;
+      state.recording = false;
+      recorderMode = RECORDER_FAULT;
+      airplaneMode.fault();
+      if (logFile) logFile.close();
+      if (sensorLogFile) sensorLogFile.close();
+    }
+    return;
+  }
   processCalibration(nowMs, valid);
   if (recorderMode == RECORDER_FAULT && calibrationRetryAtMs &&
       static_cast<int32_t>(nowMs - calibrationRetryAtMs) >= 0)
@@ -1543,11 +1740,23 @@ static void sendDashboardStatus() {
   body += ",\"sensor_recovery_issues\":" + String(sensorRecoveryIssues);
   body += ",\"recovery_pending\":" + String(recoveryPending);
   body += ",\"recovery_status\":\"" + recoveryStatus + "\"}";
+  body.remove(body.length() - 1);
+  body += ",\"airplane_state\":\"" + String(airplaneStateName(airplaneMode.state())) + "\"";
+  body += ",\"airplane_recording\":";
+  body += airplaneMode.recording() ? "true" : "false";
+  body += ",\"airplane_radio_silence\":";
+  body += airplaneMode.radioSilenceLatched() ? "true" : "false";
+  body += ",\"airplane_elapsed_ms\":" + String(airplaneMode.elapsedMs(millis()));
+  body += ",\"airplane_max_ms\":" + String(airplaneMode.maximumDurationMs());
+  body += ",\"airplane_records\":" + String(logFile ? green_ion::rkt4::completeRecordCount(logFile.size()) : 0);
+  body += ",\"cabin_pressure_delta_m\":" + numberOrNull(watcherAltitudeM, 2) + "}";
   dashboardServer.send(200, "application/json", body);
 }
 
 static bool dashboardFlightFilename(const String &name, const char *suffix) {
-  if (name.length() != 11 || !name.startsWith("V12D") || !name.endsWith(suffix))
+  if (name.length() != 11 ||
+      (!name.startsWith("V12D") && !name.startsWith("AIRP")) ||
+      !name.endsWith(suffix))
     return false;
   for (uint8_t index = 4; index < 7; ++index)
     if (!isDigit(name[index])) return false;
@@ -1617,6 +1826,27 @@ static void sendDashboardDownload(bool metadata) {
   file.close();
 }
 
+static void sendDashboardSensorDownload() {
+  if (state.recording) {
+    dashboardServer.send(409, "application/json", "{\"success\":false,\"message\":\"Recording is active; downloads are deferred\"}");
+    return;
+  }
+  String name = dashboardServer.arg("name");
+  if (dashboardFlightFilename(name, ".BIN")) name.replace(".BIN", ".SEN");
+  if (!dashboardFlightFilename(name, ".SEN")) {
+    dashboardServer.send(400, "application/json", "{\"success\":false,\"message\":\"Invalid sensor filename\"}");
+    return;
+  }
+  File file = SD.open("/" + name, FILE_READ);
+  if (!file) {
+    dashboardServer.send(404, "application/json", "{\"success\":false,\"message\":\"Sensor file not found\"}");
+    return;
+  }
+  dashboardServer.sendHeader("Content-Disposition", "attachment; filename=\"" + name + "\"");
+  dashboardServer.streamFile(file, "application/octet-stream");
+  file.close();
+}
+
 static void runDashboardSdTest() {
   if (state.recording || recorderMode == RECORDER_RECORDING) {
     dashboardServer.send(409, "application/json",
@@ -1672,6 +1902,7 @@ static void initializeDashboard() {
   dashboardServer.on("/api/files", sendDashboardFiles);
   dashboardServer.on("/api/download", []() { sendDashboardDownload(false); });
   dashboardServer.on("/api/metadata", []() { sendDashboardDownload(true); });
+  dashboardServer.on("/api/sensor", sendDashboardSensorDownload);
   dashboardServer.on("/api/sdtest", HTTP_POST, runDashboardSdTest);
   dashboardServer.on("/api/calibrate", HTTP_POST, []() {
     if (state.recording || recorderMode == RECORDER_RECORDING) {
@@ -1693,6 +1924,23 @@ static void initializeDashboard() {
     dashboardServer.send(saved ? 200 : 500, "application/json",
         saved ? "{\"success\":true,\"message\":\"Recording stopped, flushed and finalized\"}"
               : "{\"success\":false,\"message\":\"Recorder finalization failed; recovery evidence was retained\"}");
+  });
+  dashboardServer.on("/api/airplane/prepare", HTTP_POST, []() {
+    if (state.recording) {
+      dashboardServer.send(409, "application/json", "{\"success\":false,\"message\":\"A recording is already active\"}");
+      return;
+    }
+    airplanePrepareRequested = true;
+    dashboardServer.send(202, "application/json", "{\"success\":true,\"message\":\"Airplane preparation started; keep the device stationary\"}");
+  });
+  dashboardServer.on("/api/airplane/start", HTTP_POST, []() {
+    airplaneStartRequested = true;
+    airplaneStartNotBeforeMs = millis() + config::AIRPLANE_WIFI_SHUTDOWN_DELAY_MS;
+    dashboardServer.send(202, "application/json", "{\"success\":true,\"message\":\"Start requested. Wi-Fi will disconnect; use USB Serial 'airplane status' and 'airplane stop'.\"}");
+  });
+  dashboardServer.on("/api/airplane/stop", HTTP_POST, []() {
+    airplaneStopRequested = true;
+    dashboardServer.send(202, "application/json", "{\"success\":true,\"message\":\"Stop and save requested; radios remain off\"}");
   });
   dashboardServer.on("/api/hardware-test", HTTP_POST, []() {
     if (!dashboardServer.hasArg("sensor")) {
@@ -1720,9 +1968,11 @@ static void initializeDashboard() {
     dashboardServer.send(202, "application/json", "{\"accepted\":true}");
   });
   dashboardServer.begin();
+  dashboardStarted = true;
 }
 
 static void queueTelemetry(uint32_t nowMs) {
+  if (airplaneMode.radioSilenceLatched()) return;
   if (nowMs - lastTelemetryMs < config::TELEMETRY_INTERVAL_MS) return;
   lastTelemetryMs = nowMs;
   const uint32_t age = gpsAgeMs(nowMs);
@@ -1759,6 +2009,7 @@ static void queueTelemetry(uint32_t nowMs) {
 }
 
 static void serviceTelemetry(uint32_t nowMs, uint32_t nowUs) {
+  if (airplaneMode.radioSilenceLatched()) return;
   if (nowMs - lastRadioAttemptMs < config::RADIO_RETRY_INTERVAL_MS) return;
   const bool radioBusy = state.radioOk && radio.mode() == RHGenericDriver::RHModeTx;
   if (!green_ion::radioDispatchAllowed(
@@ -1794,8 +2045,16 @@ void setup() {
   Serial.begin(config::SERIAL_BAUD);
   pinMode(config::PIN_SD_CS, OUTPUT);
   pinMode(config::PIN_LORA_CS, OUTPUT);
+  pinMode(config::PIN_LORA_RST, OUTPUT);
   pinMode(config::PIN_BUZZER, OUTPUT);
   digitalWrite(config::PIN_BUZZER, LOW);
+  airplanePreferences.begin("greenion", false);
+  if (airplanePreferences.getBool("airSilent", false)) {
+    airplaneMode.restoreRadioSilence();
+    digitalWrite(config::PIN_LORA_RST, LOW);
+    WiFi.mode(WIFI_OFF);
+    btStop();
+  }
   selectNoSpiDevice();
   initializeI2c();
   SPI.begin(config::PIN_SPI_SCK, config::PIN_SPI_MISO, config::PIN_SPI_MOSI);
@@ -1803,12 +2062,18 @@ void setup() {
   initializeStorage();
   recoverInterruptedLogs();
   resetCalibration(millis());
-  initializeRadio();
-  initializeDashboard();
+  if (!airplaneMode.radioSilenceLatched()) {
+    initializeRadio();
+    initializeDashboard();
+  } else {
+    state.radioOk = false;
+    Serial.println("AIRPLANE boot radio_silence=RESTORED wifi=OFF lora=RESET_HELD bluetooth=OFF");
+  }
   Serial.printf("GREEN ION V12 dev: baro=%d imu=%d gps=%d sd=%d radio=%d\n",
                 state.barometerOk, state.imuOk, state.gpsOk, state.sdOk, state.radioOk);
   Serial.println("Hardware tests: test imu | test gps | test all | test status. Live output: bench imu | bench gps | bench all | bench status | bench off.");
   Serial.println("RADIO SAFETY: attach a suitable antenna before entering 'radio test'.");
+  Serial.println("Airplane: airplane prepare | airplane start | airplane status | airplane stop | airplane unlock (then reboot). Follow crew instructions.");
   sampleClock.start(micros());
 }
 
@@ -1823,6 +2088,7 @@ void loop() {
   serviceGps(nowMs);
   serviceHardwareTests(nowMs);
   serviceSerialBench(nowMs);
+  serviceAirplaneRequests(nowMs, nowUs);
 
   if (state.sdOk && recorderCore.recording() && nowMs - lastFlushMs >= config::LOG_FLUSH_INTERVAL_MS) {
     lastFlushMs = nowMs;
@@ -1831,6 +2097,7 @@ void loop() {
       state.sdOk = false;
       state.recording = false;
       recorderMode = RECORDER_FAULT;
+      if (airplaneMode.recording()) airplaneMode.fault();
       if (logFile) logFile.close();
       if (sensorLogFile) sensorLogFile.close();
     } else if (nowMs - lastCheckpointMs >= config::CHECKPOINT_INTERVAL_MS) {
@@ -1846,7 +2113,8 @@ void loop() {
   serviceRadioRecovery(nowMs);
   queueTelemetry(nowMs);
   serviceTelemetry(nowMs, micros());
-  dashboardServer.handleClient();
+  if (dashboardStarted && !airplaneMode.radioSilenceLatched())
+    dashboardServer.handleClient();
   yield();
 }
 

@@ -145,7 +145,7 @@ body.sunlight .guide-steps span.current{background:#badced;color:#10344c;outline
 body.sunlight .progress{background:#d2dfeb}
 body.sunlight .value.big{color:#006c98}
 body.sunlight .tabs button.active{background:#006c98!important;color:#fff!important}
-@media(min-width:900px){#status.page.active,#flight.page.active,#testing.page.active,#utilities.page.active,#system.page.active,#storage.page.active{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}#status .metrics,#storage #flightSummaryCard{grid-column:1/-1}#storage .card,#testing .card,#utilities .card,#system .card{margin-bottom:0}.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(min-width:900px){#status.page.active,#flight.page.active,#airplane.page.active,#testing.page.active,#utilities.page.active,#system.page.active,#storage.page.active{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}#status .metrics,#storage #flightSummaryCard{grid-column:1/-1}#storage .card,#airplane .card,#testing .card,#utilities .card,#system .card{margin-bottom:0}.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
 </style>
 </head>
 <body>
@@ -170,6 +170,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  <button class="active" data-tab="status">Status</button>
  <button data-tab="flight">Flight</button>
  <button data-tab="field">Field</button>
+ <button data-tab="airplane">Airplane Test</button>
  <button data-tab="testing">Testing</button>
  <button data-tab="utilities">Utilities</button>
  <button data-tab="storage">Storage</button>
@@ -308,6 +309,37 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <button id="fieldArm" class="wide green">2 · ARM &amp; WATCH</button>
   <button id="fieldStop" class="wide danger">STOP &amp; SAVE</button>
   <label><input id="audibleCues" type="checkbox"> Phone speaks preparation results</label>
+ </div>
+</section>
+
+<section id="airplane" class="page">
+ <div class="card">
+  <h2>Temporary Airplane Test</h2>
+  <div class="notice"><strong>Follow all airline and crew instructions.</strong> Start only when permitted. Starting latches Wi-Fi, LoRa, and Bluetooth off; GPS remains receive-only. The dashboard will disconnect by design.</div>
+  <div class="row"><span>Mode</span><strong id="airplaneState">DISABLED</strong></div>
+  <div class="row"><span>Radio silence</span><strong id="airplaneRadio">NOT LATCHED</strong></div>
+  <div class="row"><span>Elapsed / maximum</span><strong id="airplaneElapsed">--</strong></div>
+  <div class="row"><span>Cabin pressure</span><strong id="airplanePressure">--</strong></div>
+  <div class="row"><span>Cabin-pressure-equivalent change</span><strong id="airplaneAltitude">--</strong></div>
+  <div class="row"><span>Acceleration X / Y / Z / total</span><strong id="airplaneAcceleration">--</strong></div>
+  <div class="row"><span>Gyroscope X / Y / Z</span><strong id="airplaneGyro">--</strong></div>
+  <div class="row"><span>IMU temperature</span><strong id="airplaneTemperature">--</strong></div>
+  <div class="row"><span>GPS</span><strong id="airplaneGps">--</strong></div>
+  <div class="row"><span>Battery / SD</span><strong id="airplaneHealth">--</strong></div>
+  <div class="row"><span>Recorded samples</span><strong id="airplaneSamples">0</strong></div>
+  <div class="actions">
+   <button id="airplanePrepare">1 · PREPARE &amp; CALIBRATE</button>
+   <button id="airplaneStart" class="green">2 · START AIRPLANE RECORDING</button>
+   <button id="airplaneStop" class="danger">STOP &amp; SAVE</button>
+  </div>
+  <div class="notice" id="airplaneMessage">Prepare while stationary. For guaranteed offline control, use USB Serial commands shown below.</div>
+ </div>
+ <div class="card">
+  <h2>Offline controls and retrieval</h2>
+  <p><strong>USB Serial at 115200 baud:</strong> <code>airplane prepare</code>, wait for READY, <code>airplane start</code>, <code>airplane status</code>, and <code>airplane stop</code>.</p>
+  <p>Radios remain off after stop and after an unexpected reset. After landing and when permitted, send <code>airplane unlock</code>, then reboot to restore the dashboard.</p>
+  <p>Airplane files are named <strong>AIRP###.BIN</strong> with matching <strong>.SEN</strong> and <strong>.TXT</strong>. Download them under Storage after unlocking and rebooting.</p>
+  <p class="muted">Cabin-pressure-equivalent change is not aircraft altitude. GPS values appear only when valid. Eight hours is the automatic recording limit.</p>
  </div>
 </section>
 
@@ -1788,6 +1820,9 @@ function v12ConfigureUi(){
  $('testImu').onclick=()=>v12HardwareTest('imu');
  $('testGps').onclick=()=>v12HardwareTest('gps');
  $('testAllSensors').onclick=()=>v12HardwareTest('all');
+  $('airplanePrepare').onclick=()=>v12AirplaneCommand('prepare');
+  $('airplaneStart').onclick=()=>{if(confirm('Start offline airplane recording? Wi-Fi will disconnect and all transmitters will remain disabled until USB unlock plus reboot.'))v12AirplaneCommand('start');};
+  $('airplaneStop').onclick=()=>v12AirplaneCommand('stop');
  $('groundtest').onclick=v12GroundTest;
  $('sdtest').onclick=v12SdTest;
  $('refresh').onclick=v12LoadFiles;
@@ -1856,6 +1891,14 @@ function v12Render(d){
  v12Set('gpsFix',(d.gps_status||'missing')+' · '+String(d.satellites||0)+' satellites · '+String(d.gps_fix_age_ms||0)+' ms');
  v12Set('gpsCoordinates',d.latitude==null?'No position':Number(d.latitude).toFixed(7)+', '+Number(d.longitude).toFixed(7));
  v12Set('gpsMotion',v12Number(d.gps_altitude_m,1)+' m · '+v12Number(d.gps_speed_mps,2)+' m/s · '+String(d.gps_utc_hour||0).padStart(2,'0')+':'+String(d.gps_utc_minute||0).padStart(2,'0')+':'+String(d.gps_utc_second||0).padStart(2,'0')+' UTC');
+  v12Set('airplaneState',d.airplane_state||'DISABLED');v12Set('airplaneRadio',d.airplane_radio_silence?'LATCHED OFF':'NOT LATCHED');
+  v12Set('airplaneElapsed',Math.floor((d.airplane_elapsed_ms||0)/1000)+' s / '+Math.floor((d.airplane_max_ms||0)/3600000)+' h');
+  v12Set('airplanePressure',v12Number(d.pressure_pa,0)+' Pa');v12Set('airplaneAltitude',v12Number(d.cabin_pressure_delta_m,2)+' m equivalent change');
+  v12Set('airplaneAcceleration',[d.acceleration_x_g,d.acceleration_y_g,d.acceleration_z_g,d.acceleration_g].map(v=>v12Number(v,3)).join(' / ')+' g');
+  v12Set('airplaneGyro',[d.rotation_x_dps,d.rotation_y_dps,d.rotation_z_dps].map(v=>v12Number(v,2)).join(' / ')+' °/s');v12Set('airplaneTemperature',v12Number(d.imu_temperature_c,1)+' °C');
+  v12Set('airplaneGps',(d.gps_status||'missing')+' · '+String(d.satellites||0)+' satellites'+(d.latitude==null?'':' · '+Number(d.latitude).toFixed(5)+', '+Number(d.longitude).toFixed(5)));
+  v12Set('airplaneHealth',v12Number(d.battery_v,3)+' V · SD '+(d.sd_ok?'PASS':'FAIL')+' · recorder '+(d.recording?'ACTIVE':'IDLE'));v12Set('airplaneSamples',String(d.airplane_records||0));
+  v12Set('airplaneMessage',d.airplane_recording?'OFFLINE RECORDING ACTIVE — use USB Serial to stop':d.airplane_state==='READY'?'PASS — ready to start; dashboard will disconnect':'Prepare and wait for READY. Any FAIL blocks start.');
  ['testImu','testGps','testAllSensors'].forEach(id=>$(id).disabled=!d.hardware_tests_allowed);
   if(!paused){if(v12Finite(altitude))append('altitude',Number(altitude));if(v12Finite(pressure))append('pressure',Number(pressure));if(v12Finite(d.imu_temperature_c))append('temperature',Number(d.imu_temperature_c));drawAll();}
 }
@@ -1865,11 +1908,12 @@ function v12SetUnits(useImperial){imperial=useImperial;$('metric').classList.tog
 async function v12Calibrate(){try{notice((await v12Fetch('calibrate','POST')).message,true);}catch(error){notice(error.message,false);}finally{v12Poll();}}
 async function v12Stop(){if(!confirm('Stop, flush and finalize the active V12 recording?'))return;try{notice((await v12Fetch('stop','POST')).message,true);}catch(error){notice(error.message,false);}finally{v12Poll();}}
 async function v12HardwareTest(sensor){try{const result=await v12Fetch('hardware-test','POST',{sensor});notice(result.accepted?'Hardware test started. Keep the board stationary for the IMU bias test.':'Test not accepted',!!result.accepted);}catch(error){notice(error.message,false);}finally{v12Poll();}}
+async function v12AirplaneCommand(command){try{const result=await v12Fetch('airplane/'+command,'POST');v12Set('airplaneMessage',result.message);notice(result.message,true);}catch(error){v12Set('airplaneMessage','FAIL: '+error.message);notice(error.message,false);}finally{setTimeout(v12Poll,300);}}
 async function v12SdTest(){try{v12Set('sdTestFeedback','Running real write/read/delete verification...');const result=await v12Fetch('sdtest','POST');v12Set('sdTestFeedback',result.message);v12Set('sdTestResult','PASS');await v12LoadFiles();}catch(error){v12Set('sdTestFeedback',error.message);v12Set('sdTestResult','FAIL');}}
 async function v12GroundTest(){try{v12Set('groundTestResult','RUNNING');await v12Fetch('hardware-test','POST',{sensor:'all'});if(!state?.recording)await v12Fetch('sdtest','POST');v12Set('groundTestResult','IN PROGRESS');v12Set('groundTestDetail','Sensor tests are collecting live samples. PASS/FAIL/INCONCLUSIVE appears above; SD verification completed when idle.');}catch(error){v12Set('groundTestResult','INCONCLUSIVE');v12Set('groundTestDetail',error.message);}}
 
-async function v12ShowFlight(name){selectedFlight=name;flightMeta={file:name};v12Set('flightSummaryStatus','Loading and validating '+name+'...');$('flightSummaryDetails').replaceChildren();await loadSavedGraph(name);if(loadedFlightName===name){const valid=savedFlightSeries.filter(r=>r[4]===1),peak=valid.length?Math.max(...valid.map(r=>r[5]).filter(Number.isFinite)):NaN,duration=savedFlightSeries.length?savedFlightSeries[savedFlightSeries.length-1][0]:0;v12Set('flightSummaryStatus',name+' · RKT4 v2 decoded in this browser');for(const [label,value] of [['Samples',savedFlightSeries.length],['Valid samples',valid.length],['Duration',duration.toFixed(2)+' s'],['Peak barometric altitude',v12Number(peak,2)+' m']]){const row=document.createElement('div');row.className='row';row.innerHTML='<span>'+label+'</span><strong>'+value+'</strong>';$('flightSummaryDetails').appendChild(row);}}}
-async function v12LoadFiles(){try{const result=await v12Fetch('files');v12Set('storageUsed',bytes(result.used)+' / '+bytes(result.total));v12Set('sdFreeSpace',bytes(Math.max(0,result.total-result.used)));v12Set('fileCount',String(result.files.length));const list=$('fileList');list.replaceChildren();let files=result.files.slice();const sort=$('fileSort').value;files.sort((a,b)=>sort==='old'?a.name.localeCompare(b.name):sort==='size'?b.size-a.size:b.name.localeCompare(a.name));if(!files.length){list.textContent='No completed V12 RKT4 recordings yet.';return;}for(const file of files){const row=document.createElement('div');row.className='file';const label=document.createElement('span');label.textContent=file.name+' · '+bytes(file.size);const actions=document.createElement('span');const view=document.createElement('button');view.textContent='VIEW / GRAPH';view.onclick=()=>v12ShowFlight(file.name);const bin=document.createElement('button');bin.textContent='BIN';bin.onclick=()=>location.href='/api/download?name='+encodeURIComponent(file.name);const csv=document.createElement('button');csv.textContent='CSV';csv.onclick=async()=>{await v12ShowFlight(file.name);if(loadedFlightName===file.name)downloadRowsCsv(file.name,savedFlightSeries);};const txt=document.createElement('button');txt.textContent='TXT';txt.onclick=()=>location.href='/api/metadata?name='+encodeURIComponent(file.name);actions.append(view,bin,csv,txt);row.append(label,actions);list.appendChild(row);}if(!selectedFlight)await v12ShowFlight(files[0].name);}catch(error){v12Set('fileList','Cannot list recordings: '+error.message);}}
+async function v12ShowFlight(name){selectedFlight=name;flightMeta={file:name};v12Set('flightSummaryStatus','Loading and validating '+name+'...');$('flightSummaryDetails').replaceChildren();await loadSavedGraph(name);if(loadedFlightName===name){const valid=savedFlightSeries.filter(r=>r[4]===1),peak=valid.length?Math.max(...valid.map(r=>r[5]).filter(Number.isFinite)):NaN,duration=savedFlightSeries.length?savedFlightSeries[savedFlightSeries.length-1][0]:0,isAirplane=name.startsWith('AIRP');v12Set('flightSummaryStatus',name+' · RKT4 v2 decoded in this browser'+(isAirplane?' · AIRPLANE ANALYSIS':''));if(isAirplane){flightPhases=[];$('flightPhases').textContent='Airplane recording: rocket launch, apogee and landing labels are intentionally disabled.';$('flightConfidenceTimeline').textContent='Use the matching SEN export for IMU/GPS validity and timestamp gaps.';$('flightPerformance').textContent='Cabin pressure is not aircraft altitude. View pressure, temperature and battery here; export the matching SEN file for acceleration, gyro and GPS analysis.';$('savedGraphMetric').value='1';drawSavedGraph();}for(const [label,value] of [['Samples',savedFlightSeries.length],['Valid samples',valid.length],['Duration',duration.toFixed(2)+' s'],[isAirplane?'Peak cabin-pressure-equivalent change':'Peak barometric altitude',v12Number(peak,2)+' m']]){const row=document.createElement('div');row.className='row';row.innerHTML='<span>'+label+'</span><strong>'+value+'</strong>';$('flightSummaryDetails').appendChild(row);}}}
+async function v12LoadFiles(){try{const result=await v12Fetch('files');v12Set('storageUsed',bytes(result.used)+' / '+bytes(result.total));v12Set('sdFreeSpace',bytes(Math.max(0,result.total-result.used)));v12Set('fileCount',String(result.files.length));const list=$('fileList');list.replaceChildren();let files=result.files.slice();const sort=$('fileSort').value;files.sort((a,b)=>sort==='old'?a.name.localeCompare(b.name):sort==='size'?b.size-a.size:b.name.localeCompare(a.name));if(!files.length){list.textContent='No completed V12 RKT4 recordings yet.';return;}for(const file of files){const row=document.createElement('div');row.className='file';const label=document.createElement('span');label.textContent=file.name+' · '+bytes(file.size);const actions=document.createElement('span');const view=document.createElement('button');view.textContent='VIEW / GRAPH';view.onclick=()=>v12ShowFlight(file.name);const bin=document.createElement('button');bin.textContent='BIN';bin.onclick=()=>location.href='/api/download?name='+encodeURIComponent(file.name);const sen=document.createElement('button');sen.textContent='SEN';sen.onclick=()=>location.href='/api/sensor?name='+encodeURIComponent(file.name);const csv=document.createElement('button');csv.textContent='CSV';csv.onclick=async()=>{await v12ShowFlight(file.name);if(loadedFlightName===file.name)downloadRowsCsv(file.name,savedFlightSeries);};const txt=document.createElement('button');txt.textContent='TXT';txt.onclick=()=>location.href='/api/metadata?name='+encodeURIComponent(file.name);actions.append(view,bin,sen,csv,txt);row.append(label,actions);list.appendChild(row);}if(!selectedFlight)await v12ShowFlight(files[0].name);}catch(error){v12Set('fileList','Cannot list recordings: '+error.message);}}
 
 loadFiles=v12LoadFiles;
 v12ConfigureUi();

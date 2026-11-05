@@ -49,6 +49,9 @@ static const uint32_t IMU_TEST_DURATION_MS = 5000;
 static const uint16_t IMU_TEST_MINIMUM_SAMPLES = 100;
 static const uint32_t GPS_TEST_DURATION_MS = 12000;
 static const uint32_t GPS_COMMUNICATION_STALE_MS = 5000;
+static const uint16_t AIRPLANE_MINIMUM_BATTERY_MV = 3500;
+static const uint32_t AIRPLANE_MAX_RECORDING_MS = 8UL * 60UL * 60UL * 1000UL;
+static const uint32_t AIRPLANE_WIFI_SHUTDOWN_DELAY_MS = 1500;
 
 // Shared with the receiver. This is provisional until coordinated for the
 // launch site; it is not a statement of FCC compliance or channel clearance.

@@ -21,7 +21,8 @@ int main() {
       "calibration_noise_m=0.125\n"
       "start_battery_mv=4010\n"
       "prebuffer_records=150\n"
-      "checkpoint_format=GIC2\n";
+      "checkpoint_format=GIC2\n"
+      "recording_mode=rocket\n";
   char output[320];
   size_t written = 0;
   assert(encodeFlightStart(output, sizeof(output), start, written) == METADATA_VALID);
@@ -58,11 +59,22 @@ int main() {
       "complete_records=200\n"
       "missed_sample_periods=3\n"
       "end_battery_mv=3920\n"
-      "peak_altitude_m=125.50\n";
+      "peak_altitude_m=125.50\n"
+      "recording_mode=rocket\n"
+      "altitude_semantics=barometric_relative\n";
   assert(encodeFlightComplete(output, sizeof(output), complete, written) ==
          METADATA_VALID);
   assert(written == strlen(expectedComplete));
   assert(strcmp(output, expectedComplete) == 0);
+  FlightStart airplaneStart = start;
+  airplaneStart.logFilename = "/AIRP007.BIN";
+  assert(encodeFlightStart(output, sizeof(output), airplaneStart, written) == METADATA_VALID);
+  assert(strstr(output, "recording_mode=airplane") != nullptr);
+  FlightComplete airplaneComplete = complete;
+  airplaneComplete.logFilename = "/AIRP007.BIN";
+  assert(encodeFlightComplete(output, sizeof(output), airplaneComplete, written) == METADATA_VALID);
+  assert(strstr(output, "finish_reason=airplane_stop_or_limit") != nullptr);
+  assert(strstr(output, "altitude_semantics=cabin_pressure_equivalent_change") != nullptr);
   FlightComplete torn = complete;
   torn.fileBytes += 1;
   assert(encodeFlightComplete(output, sizeof(output), torn, written) ==

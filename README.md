@@ -62,6 +62,7 @@ GitHub Actions compiles both the Feather V2 recorder and Arduino Uno receiver an
 
 - [GitHub Actions](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions)
 - [`docs/V12_TESTING.md`](docs/V12_TESTING.md)
+- [`docs/V12_AIRPLANE_TEST.md`](docs/V12_AIRPLANE_TEST.md) — temporary offline airplane sensor test.
 - [`docs/V12_DEVELOPMENT_LOG.md`](docs/V12_DEVELOPMENT_LOG.md)
 - [`VERSIONS.md`](VERSIONS.md)
 

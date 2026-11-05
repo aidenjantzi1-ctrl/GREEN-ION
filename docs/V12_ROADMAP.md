@@ -52,6 +52,8 @@
 
 ## Phase 3 — simulated integration and release candidate
 
+- [x] Add a temporary separate airplane recorder with persistent transmitter lockout, USB controls, bounded duration, AIRP naming, recovery support, and non-rocket analysis semantics.
+
 - Run full V11 regression suite plus V12 host tests and both target compilers.
 - Replay nominal, no-GPS, no-radio, degraded-sensor, and SD-fault missions.
 - Document resource usage, loop timing, maximum SD flush latency, packet airtime, and queue depth.

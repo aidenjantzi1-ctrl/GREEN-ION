@@ -103,6 +103,11 @@ jobs:
             tests/cpp/test_v12_recording_failures.cpp \
             -o /tmp/test-v12-recording-failures
           /tmp/test-v12-recording-failures
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_airplane_mode.cpp \
+            -o /tmp/test-v12-airplane-mode
+          /tmp/test-v12-airplane-mode
 
   compile-firmware:
     runs-on: ubuntu-latest

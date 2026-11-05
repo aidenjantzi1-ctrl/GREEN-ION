@@ -791,3 +791,10 @@ Upload the CI-compiled V12 build to the Feather, run Test IMU while motionless, 
 
 After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` at `http://192.168.4.1`, verify all seven tabs on phone and desktop, run the stationary IMU test, prove GPS NMEA indoors, obtain a current GPS fix outdoors, run the idle SD test, and preserve screenshots plus measured values. Only then consider the restored dashboard physically verified.
 
+## 2026-11-04 — Session 32: temporary airplane recorder
+
+- Added a separate `AIRP###` RKT4/GIS workflow, Airplane Test tab, USB prepare/start/status/stop/unlock controls, eight-hour limit, recovery scanning, SEN downloads, and offline CSV/JSON export without rocket phase labels.
+- Start requires calibration, SD, BMP388, IMU, and at least 3.50 V. It persists radio silence, disables Wi-Fi/Bluetooth, holds LoRa reset low, clears telemetry, and blocks every telemetry/recovery path until idle USB unlock plus reboot.
+- Local evidence: 83 Python/source tests passed; both dashboard scripts passed syntax validation; `git diff --check` passed. The local Feather compiler again hung without diagnostics, so target compilation is pending CI.
+- Physical RF silence, aircraft use, battery endurance, GPS, SD interruption, and recovery remain **NOT TESTED**. Follow airline and crew instructions.
+

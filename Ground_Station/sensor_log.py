@@ -237,20 +237,21 @@ def write_csv(records: list[dict], output: Path) -> None:
 
 
 def _sequence_from_name(path: Path) -> int | None:
-    match = re.fullmatch(r"V12D(\d{3})\.SEN", path.name, re.IGNORECASE)
+    match = re.fullmatch(r"(?:V12D|AIRP)(\d{3})\.SEN", path.name, re.IGNORECASE)
     return int(match.group(1)) if match else None
 
 
 def _rkt4_sequence_from_name(path: Path) -> int | None:
-    match = re.fullmatch(r"V12D(\d{3})\.BIN", path.name, re.IGNORECASE)
+    match = re.fullmatch(r"(?:V12D|AIRP)(\d{3})\.BIN", path.name, re.IGNORECASE)
     return int(match.group(1)) if match else None
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate and export a GREEN ION GIS1 sensor log")
-    parser.add_argument("sensor_log", type=Path, help="V12Dxxx.SEN input")
-    parser.add_argument("--rkt4", type=Path, help="matching V12Dxxx.BIN for binding validation")
+    parser.add_argument("sensor_log", type=Path, help="V12Dxxx.SEN or AIRPxxx.SEN input")
+    parser.add_argument("--rkt4", type=Path, help="matching V12Dxxx.BIN or AIRPxxx.BIN")
     parser.add_argument("--csv", type=Path, help="output CSV path; defaults beside the input")
+    parser.add_argument("--json", type=Path, help="write integrity/header summary as JSON")
     parser.add_argument("--allow-partial", action="store_true", help="export the valid prefix of corrupt or torn input")
     args = parser.parse_args()
     try:
@@ -266,6 +267,10 @@ def main() -> int:
             binding = "valid" if binding_valid else "invalid"
         summary = {"header": asdict(header), "inspection": asdict(inspection), "rkt4_binding": binding}
         print(json.dumps(summary, indent=2, sort_keys=True))
+        if args.json:
+            payload = dict(summary)
+            payload["records"] = [csv_row(record) for record in records]
+            args.json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         if binding == "invalid":
             raise SensorLogError("rkt4_binding_mismatch")
         if inspection.status != "valid" and not args.allow_partial:

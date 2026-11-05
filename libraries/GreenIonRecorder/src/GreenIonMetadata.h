@@ -40,7 +40,10 @@ struct FlightComplete {
 inline bool validLogFilename(const char *name) {
   if (!name) return false;
   if (name[0] == '/') ++name;
-  if (strlen(name) != 11 || memcmp(name, "V12D", 4) != 0 ||
+  if (strlen(name) != 11) return false;
+  const bool knownPrefix = memcmp(name, "V12D", 4) == 0 ||
+                           memcmp(name, "AIRP", 4) == 0;
+  if (!knownPrefix ||
       memcmp(name + 7, ".BIN", 4) != 0) return false;
   return name[4] >= '0' && name[4] <= '9' &&
          name[5] >= '0' && name[5] <= '9' &&
@@ -59,6 +62,7 @@ inline EncodeResult encodeFlightStart(char *out, size_t capacity,
     return METADATA_INVALID_VALUES;
   const char *leaf = metadata.logFilename[0] == '/' ? metadata.logFilename + 1
                                                     : metadata.logFilename;
+  const char *mode = memcmp(leaf, "AIRP", 4) == 0 ? "airplane" : "rocket";
   const int needed = snprintf(
       out, capacity,
       "GREEN-ION-METADATA-1\n"
@@ -70,13 +74,14 @@ inline EncodeResult encodeFlightStart(char *out, size_t capacity,
       "calibration_noise_m=%.3f\n"
       "start_battery_mv=%u\n"
       "prebuffer_records=%u\n"
-      "checkpoint_format=GIC2\n",
+      "checkpoint_format=GIC2\n"
+      "recording_mode=%s\n",
       leaf, static_cast<unsigned int>(rkt4::kVersion),
       static_cast<unsigned int>(metadata.sampleRateHz),
       static_cast<double>(metadata.baselinePressurePa),
       static_cast<double>(metadata.calibrationNoiseM),
       static_cast<unsigned int>(metadata.startBatteryMv),
-      static_cast<unsigned int>(metadata.prebufferRecords));
+      static_cast<unsigned int>(metadata.prebufferRecords), mode);
   if (needed < 0 || static_cast<size_t>(needed) >= capacity)
     return METADATA_BUFFER_TOO_SMALL;
   written = static_cast<size_t>(needed);
@@ -96,24 +101,29 @@ inline EncodeResult encodeFlightComplete(char *out, size_t capacity,
     return METADATA_INVALID_VALUES;
   const char *leaf = metadata.logFilename[0] == '/' ? metadata.logFilename + 1
                                                     : metadata.logFilename;
+  const bool airplane = memcmp(leaf, "AIRP", 4) == 0;
   const int needed = snprintf(
       out, capacity,
       "GREEN-ION-COMPLETION-1\n"
       "status=complete\n"
-      "finish_reason=automatic_landing\n"
+      "finish_reason=%s\n"
       "file=%s\n"
       "duration_ms=%lu\n"
       "file_bytes=%lu\n"
       "complete_records=%lu\n"
       "missed_sample_periods=%lu\n"
       "end_battery_mv=%u\n"
-      "peak_altitude_m=%.2f\n",
+      "peak_altitude_m=%.2f\n"
+      "recording_mode=%s\n"
+      "altitude_semantics=%s\n",
+      airplane ? "airplane_stop_or_limit" : "automatic_landing",
       leaf, static_cast<unsigned long>(metadata.durationMs),
       static_cast<unsigned long>(metadata.fileBytes),
       static_cast<unsigned long>(metadata.recordCount),
       static_cast<unsigned long>(metadata.missedSamplePeriods),
       static_cast<unsigned int>(metadata.endBatteryMv),
-      static_cast<double>(metadata.peakAltitudeM));
+      static_cast<double>(metadata.peakAltitudeM), airplane ? "airplane" : "rocket",
+      airplane ? "cabin_pressure_equivalent_change" : "barometric_relative");
   if (needed < 0 || static_cast<size_t>(needed) >= capacity)
     return METADATA_BUFFER_TOO_SMALL;
   written = static_cast<size_t>(needed);
