@@ -1,0 +1,134 @@
+# Optional end-to-end browser smoke. Run: python3 tests/browser/recovery_smoke.py
+# Requires Playwright Python and a local Chromium installation.
+import json, sys, threading
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+from pathlib import Path
+from playwright.sync_api import sync_playwright
+ROOT=Path(__file__).resolve().parents[2]
+sys.path.insert(0,str(ROOT/'Ground_Station'))
+import ground_station
+html=(ROOT/'Ground_Station/index.html').read_bytes()
+state=ground_station.MANAGER.snapshot()
+state.update(active_source='wifi',link_status='live',firmware_version='V12-development',recorder_mode=1,recording=False,sd_ok=True,battery_v=3.9,bench_recording=False,bench_max_ms=120000,log_file='')
+state['sources']['wifi']['status']='live'
+for key in ('firmware_version','recorder_mode','recording','sd_ok','battery_v','bench_recording','log_file'):
+    state['field_meta'][key]={'freshness':'live','valid':True}
+requests=[]
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path=='/': data,ctype=html,'text/html'
+        elif self.path.startswith('/api/status'): data,ctype=json.dumps(state).encode(),'application/json'
+        elif self.path=='/api/ports': data,ctype=json.dumps({'ports':[],'config':{'serial_port':'auto','feather_url':'http://192.168.4.1'}}).encode(),'application/json'
+        else: data,ctype=b'{}','application/json'
+        self.send_response(200);self.send_header('Content-Type',ctype);self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data)
+    def do_POST(self):
+        body=json.loads(self.rfile.read(int(self.headers.get('Content-Length',0))) or b'{}');requests.append((self.path,body))
+        if self.path=='/api/bench/start': state.update(recorder_mode=2,recording=True,bench_recording=True,log_file='/TEST000.BIN')
+        if self.path=='/api/bench/stop': state.update(recorder_mode=3,recording=False,bench_recording=False)
+        data=json.dumps({'success':True,'file':state['log_file'],'status':'PASS' if self.path=='/api/bench/verify' else None,'message':'RKT4 file validated; physical disconnect unverified' if self.path=='/api/bench/verify' else 'OK'}).encode()
+        self.send_response(202);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data)
+    def log_message(self,*args): pass
+server=ThreadingHTTPServer(('127.0.0.1',0),Handler);threading.Thread(target=server.serve_forever,daemon=True).start()
+with sync_playwright() as p:
+    browser=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+    page=browser.new_page(viewport={'width':390,'height':844})
+    errors=[];page.on('pageerror',lambda e:errors.append(e.stack))
+    page.on('dialog',lambda d:d.accept('START BENCH TEST' if d.type=='prompt' and 'START BENCH' in d.message else 'STOP BENCH TEST' if d.type=='prompt' else None))
+    page.goto(f'http://127.0.0.1:{server.server_port}/');page.click('nav button[data-view=preflight]')
+    page.wait_for_function("!document.querySelector('#startBench').disabled")
+    page.evaluate("renderPreflight({run_status:'COMPLETE',overall:'WARNING',generated_utc:'2026-11-05T14:00:00Z',checks:[{name:'SD initialization',status:'FAIL',message:'SD fault',correction:'Inspect SD wiring.'}]})")
+    assert 'Next: Inspect SD wiring.' in page.locator('#preflightReport').inner_text()
+    page.click('#startBench');page.wait_for_function("!document.querySelector('#stopBench').disabled")
+    assert requests[-1]==('/api/bench/start',{'confirm':'START BENCH TEST'}),requests
+    state.update(active_source='radio',link_status='live');state['field_meta']['bench_recording']['freshness']='stale'
+    page.wait_for_function("document.querySelector('#benchStage').textContent.includes('unverified')",timeout=6000)
+    assert page.locator('#stopBench').is_disabled()
+    state.update(active_source='wifi',link_status='live');state['field_meta']['bench_recording']['freshness']='live'
+    page.wait_for_function("!document.querySelector('#stopBench').disabled",timeout=6000)
+    page.click('#stopBench');page.wait_for_function("document.querySelector('#benchStage').textContent.includes('No active bench')",timeout=6000)
+    assert requests[-1]==('/api/bench/stop',{'confirm':'STOP BENCH TEST','file':'/TEST000.BIN'}),requests
+    page.wait_for_function("!document.querySelector('#verifyBench').disabled")
+    page.click('#verifyBench')
+    page.wait_for_function("document.querySelector('#benchResult').textContent.includes('RKT4 file validated')")
+    assert requests[-1]==('/api/bench/verify',{'file':'/TEST000.BIN'}),requests
+    page.click('nav button[data-view=diagnostics]')
+    assert page.locator('[data-diagnostic]').count()==22
+    before_demo=len(requests)
+    page.click('#playDiagnosticSimulation')
+    page.wait_for_function("document.querySelector('#diagnosticSimulation').textContent.includes('ASCENT')")
+    assert 'SIMULATION — NOT HARDWARE' in page.locator('#diagnosticSimulation').inner_text()
+    assert len(requests)==before_demo
+    state.update(last_position=[37.1,-121.9],last_position_phase=5,last_position_fix_quality=1,last_position_satellites=7,last_position_utc='2026-11-05T19:00:00Z',last_position_age_ms=10000,flight_state=6,gps_status='stale')
+    page.click('nav button[data-view=recovery]')
+    assert not page.locator('#rocketWiFiReturn').is_hidden()
+    assert not page.locator('#recoveryInspectSD').is_disabled()
+    assert page.locator('#recoveryDistance').inner_text()=='—'
+    page.wait_for_function("document.querySelector('#positionConfidence').textContent.includes('not a confirmed landing')")
+    assert 'unconfirmed' in page.locator('#landingEstimate').inner_text().lower()
+    state['last_position_phase']=6
+    page.wait_for_function("document.querySelector('#positionConfidence').textContent.includes('landing location still needs confirmation')")
+    assert page.locator('#googleRocket').get_attribute('href')=='https://www.google.com/maps/search/?api=1&query=37.1%2C-121.9'
+    assert page.evaluate('directDistanceBearing([0,0],[0,1]).meters')>111000
+    assert abs(page.evaluate('directDistanceBearing([0,0],[0,1]).bearing')-90)<.01
+    assert page.evaluate('directDistanceBearing([0,179.5],[0,-179.5]).meters')<112000
+    assert page.evaluate('directDistanceBearing([0,0],[0,0]).bearing') is None
+    assert page.evaluate('directDistanceBearing([91,0],[0,0])') is None
+    page.fill('#manualLatitude','37.1');page.fill('#manualLongitude','-121.89');page.click('#setManualLocation')
+    assert 'm' in page.locator('#recoveryDistance').inner_text()
+    assert '270° true' in page.locator('#recoveryBearing').inner_text()
+    page.click('#loadRecoveryMap')
+    page.wait_for_function('document.querySelectorAll("#recoveryMapOverlay [data-marker]").length===2')
+    assert page.locator('#recoveryMapOverlay [data-marker=rocket]').count()==1
+    assert page.locator('#recoveryMapOverlay [data-marker=user]').count()==1
+    page.evaluate("document.querySelector('#recoveryMapTiles img').dispatchEvent(new Event('error'))")
+    assert 'imagery unavailable' in page.locator('#recoveryMapStatus').inner_text()
+    assert page.locator('#recoveryDistance').inner_text()!='—'
+    state.update(active_source='radio',gps_status='stale',link_status='live')
+    state['sources']['wifi']['status']='stale'
+    page.wait_for_function('document.querySelector("#recoveryWiFi").textContent.includes("Disconnected")')
+    assert page.locator('#recoveryInspectSD').is_disabled()
+    assert not page.locator('#rocketWiFiReturn').is_visible()
+    state['sources']['radio']['status']='missing'
+    state.update(active_source=None,link_status='stale',last_position_age_ms=60000)
+    page.wait_for_function('document.querySelector("#recoveryDistance").textContent!=="—" && document.querySelector("#gpsStatus").textContent==="STALE"')
+    page.wait_for_function('document.querySelector("#positionDetail").textContent.includes("60.0 s")')
+    assert page.locator('#coords').inner_text()=='37.100000, -121.900000'
+    state.update(active_source='wifi',gps_status='live',link_status='live')
+    state['sources']['wifi']['status']='live'
+    page.wait_for_function('document.querySelector("#rocketWiFiReturn").offsetParent!==null')
+    assert not page.locator('#recoveryInspectSD').is_disabled()
+    page.click('nav button[data-view=settings]');page.select_option('#recoveryUnits','imperial')
+    page.click('nav button[data-view=recovery]')
+    assert 'ft' in page.locator('#recoveryDistance').inner_text()
+    page.fill('#manualLatitude','95');page.click('#setManualLocation')
+    assert 'valid latitude' in page.locator('#userPositionStatus').inner_text()
+    page.wait_for_timeout(700)
+    assert 'valid latitude' in page.locator('#userPositionStatus').inner_text()
+    page.context.grant_permissions(['geolocation'],origin=f'http://127.0.0.1:{server.server_port}')
+    page.context.set_geolocation({'latitude':37.1,'longitude':-121.88,'accuracy':15})
+    page.click('#useDeviceLocation')
+    page.wait_for_function('document.querySelector("#userPositionStatus").textContent.startsWith("device ·")')
+    assert 'accuracy ±15 m' in page.locator('#userPositionStatus').inner_text()
+    page.click('#useDeviceLocation')
+    page.evaluate('navigator.geolocation.watchPosition=(success,error)=>{window.geoSuccess=success;window.geoError=error;return 42}')
+    page.click('#useDeviceLocation')
+    page.evaluate('window.geoSuccess({coords:{latitude:37.1,longitude:-121.88,accuracy:15},timestamp:Date.now()})')
+    first_distance=page.locator('#recoveryDistance').inner_text()
+    page.evaluate('window.geoError({code:3,message:""})')
+    assert 'temporarily unavailable' in page.locator('#userPositionStatus').inner_text()
+    assert page.locator('#useDeviceLocation').inner_text()=='Stop device location'
+    page.evaluate('window.geoSuccess({coords:{latitude:37.1,longitude:-121.87,accuracy:15},timestamp:Date.now()})')
+    assert page.locator('#recoveryDistance').inner_text()!=first_distance
+    assert 'temporarily unavailable' not in page.locator('#userPositionStatus').inner_text()
+    assert page.locator('#recoveryMapOverlay [data-marker=user]').count()==1
+    state.update(last_position=[95,-121.9])
+    page.wait_for_function('document.querySelector("#coords").textContent==="No valid position"')
+    assert page.locator('#googleRocket').is_hidden()
+    state.update(last_position=None)
+    page.wait_for_function('document.querySelector("#googleRocket").hidden')
+    assert page.locator('#recoveryDistance').inner_text()=='—'
+    assert not errors,errors
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    print('Recovery browser smoke passed: bench source return, location, map, units, offline fallback, mobile width')
+    browser.close()
+server.shutdown()

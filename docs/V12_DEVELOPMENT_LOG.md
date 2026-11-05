@@ -958,3 +958,9 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 - Added browser geolocation with permission and secure-context checks, manual coordinates, geodesic straight-line distance and true bearing, metric/imperial choice, a coordinate Google Maps link, and an opt-in OpenStreetMap view with rocket trail, rocket marker and user marker. The offline track and numeric recovery data remain independent of tiles.
 - Current Feather Wi-Fi telemetry after an observed noncurrent state triggers a reconnection banner and Analysis SD-inspection handoff. No proximity inference is used.
 - Verification: 130 Python tests, Node syntax, and 390-pixel Chromium smoke of manual/invalid location, distance/bearing, antimeridian, unit switch, map markers, Google link, source return and missing rocket coordinate passed. Physical GPS, radio, SD, Wi-Fi reconnection and iPhone geolocation remain NOT TESTED.
+
+### Phase 5 software acceptance and location timeout repair (2026-11-05)
+
+- Rejected invalid rocket coordinates and cleared the display when a fix disappears. Manual-entry errors now persist until corrected. Browser geolocation timeouts retain the watch and its last position so a later fix can recover; permission denial stops the watch.
+- Added a committed 390-pixel Chromium smoke for Recovery, including browser and injected location callbacks, GPS/radio loss and restoration, tile failure, units, coordinate link and Wi-Fi return. `V12_PHASE5_AUDIT.md` records software evidence and physical limits.
+- Verification: 130 Python tests, Node syntax, RKT4 browser analysis and Recovery browser smoke passed. Physical rocket, receiver, Windows and iPhone outcomes remain NOT TESTED. Phase 6 Analysis is next.
