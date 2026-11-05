@@ -262,6 +262,37 @@ class GroundStationManagerTests(unittest.TestCase):
         # uptime_s is normalized to uptime_ms by the Wi-Fi source adapter.
         self.assertEqual(set(), keys - set(MEASUREMENT_FIELDS) - {"uptime_s"})
 
+    def test_gps_loss_and_recovery_preserve_separate_altitude_sources(self):
+        first = {**self.row(1, 120.0), "latitude": 37.1,
+                 "longitude": -121.9, "gps_status": "live",
+                 "gps_fix_age_ms": 100, "gps_altitude_m": 900.0,
+                 "gps_altitude_valid": True}
+        self.manager.ingest("wifi", first)
+        snapshot = self.manager.snapshot()
+        self.assertEqual(120.0, snapshot["altitude_m"])
+        self.assertEqual(900.0, snapshot["gps_altitude_m"])
+        self.assertNotIn("combined_altitude_m", snapshot)
+        self.clock.advance(1)
+        lost = {**first, "sequence": 2, "uptime_ms": 200,
+                "altitude_m": 130.0, "gps_status": "stale",
+                "gps_fix_age_ms": 5000, "gps_altitude_valid": False}
+        self.manager.ingest("wifi", lost)
+        snapshot = self.manager.snapshot()
+        self.assertEqual("stale", snapshot["field_meta"]["gps_altitude_m"]["freshness"])
+        self.assertEqual(130.0, snapshot["altitude_m"])
+        self.assertEqual([37.1, -121.9], snapshot["last_position"])
+        self.clock.advance(1)
+        recovered = {**first, "sequence": 3, "uptime_ms": 300,
+                     "altitude_m": 140.0, "latitude": 37.2,
+                     "gps_altitude_m": 905.0}
+        self.manager.ingest("wifi", recovered)
+        snapshot = self.manager.snapshot()
+        self.assertEqual("live", snapshot["gps_status"])
+        self.assertEqual("live", snapshot["field_meta"]["gps_altitude_m"]["freshness"])
+        self.assertEqual([37.2, -121.9], snapshot["last_position"])
+        self.assertEqual(140.0, snapshot["altitude_m"])
+        self.assertEqual(905.0, snapshot["gps_altitude_m"])
+
     def test_bad_coordinates_are_not_saved(self):
         self.assertFalse(valid_coordinate(91, 0))
         row = self.row(1)

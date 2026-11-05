@@ -884,3 +884,9 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 - Compared the actual Feather `/api/status` string keys with the Ground Station accepted fields. Added remaining GPS UTC, barometer recovery, metadata, interrupted-file recovery, landing, and airplane-mode status fields. `uptime_s` remains intentionally normalized to `uptime_ms`.
 - Added Uno protocol and validated/rejected packet counters to the accepted telemetry fields. Bench/configuration messages remain separate from flight telemetry.
 - Added a contract test so future Feather status additions are flagged when the Ground Station would silently drop them. Full Python suite: 110 passed. No hardware receiver was connected.
+
+### Phase 2 software acceptance
+
+- Added a GPS loss/recovery test that preserves independent barometric and GPS altitude values despite large source disagreement. No fused altitude is asserted.
+- Verified 111 Python tests, RKT4 browser analysis, native calibration and coordinated recording failure tests, and both ESP32 V2 and Uno target compilations. See `V12_PHASE2_AUDIT.md` for a requirement-by-requirement account and hardware limits.
+- Phase 2 software scope is complete; physical hardware tests remain NOT TESTED. The next software phase is Mission Control.
