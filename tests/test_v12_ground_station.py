@@ -162,6 +162,8 @@ class PreflightHistoryTests(unittest.TestCase):
                 post.assert_called_with("/api/sdtest", base_url="http://192.168.4.1")
                 post.return_value = (202, {"accepted": True})
                 self.assertEqual("WARNING", ground_station.diagnostic_test("gps")[1]["status"])
+                self.assertIn("30 seconds", ground_station.diagnostic_test("imu_extended")[1]["message"])
+                post.assert_called_with("/api/hardware-test?sensor=imu_extended", base_url="http://192.168.4.1")
 
     def test_read_only_diagnostics_require_actual_current_session_evidence(self):
         manager = TelemetryManager(clock=Clock())
@@ -186,6 +188,9 @@ class PreflightHistoryTests(unittest.TestCase):
                                     "checkpoint_committed_records": 20, "checkpoint_failures": 1})
             self.assertEqual("WARNING", ground_station.diagnostic_test("timing")[1]["status"])
             self.assertEqual("WARNING", ground_station.diagnostic_test("checkpoint")[1]["status"])
+            manager.ingest("wifi", {"sequence": 4, "uptime_ms": 20000,
+                                    "battery_v": 3.9, "battery_sample_uptime_ms": 5000})
+            self.assertIn("battery_v", ground_station.diagnostic_test("timing")[1]["message"])
             post.assert_not_called()
 
     def test_battery_stability_needs_distinct_recent_samples(self):
@@ -219,6 +224,12 @@ class PreflightHistoryTests(unittest.TestCase):
 
 
 class GroundStationManagerTests(unittest.TestCase):
+    def test_wifi_uptime_prefers_precise_milliseconds_with_legacy_fallback(self):
+        self.assertEqual(1534, ground_station.normalize_wifi(
+            {"uptime_s": 1, "uptime_ms": 1534}, 7)["uptime_ms"])
+        self.assertEqual(1000, ground_station.normalize_wifi(
+            {"uptime_s": 1}, 7)["uptime_ms"])
+
     def setUp(self):
         self.clock = Clock()
         self.manager = TelemetryManager(clock=self.clock)
@@ -468,11 +479,18 @@ class GroundStationManagerTests(unittest.TestCase):
         with patch.object(ground_station, "MANAGER", self.manager), \
                 patch.object(ground_station, "available_ports", return_value=[]):
             self.manager.ingest("wifi", {**self.row(1), "sd_ok": True,
-                                         "barometer_ready": True, "imu_test_result": "PASS"})
+                                         "barometer_ready": True, "imu_test_result": "PASS",
+                                         "imu_test_samples": 1400,
+                                         "imu_test_duration_ms": 30000,
+                                         "imu_test_peak_deviation_g": 0.012})
             checks = {item["name"]: item for item in ground_station.preflight_report()["checks"]}
             self.assertEqual("PASS", checks["SD initialization"]["status"])
+            self.assertIn("1400 valid samples in a 30 s test", checks["LSM6DSO32"]["message"])
+            self.assertIsNone(checks["SD initialization"]["correction"])
             self.assertEqual("NOT TESTED", checks["SD write/read/cleanup"]["status"])
+            self.assertIn("temporary-file cleanup", checks["SD write/read/cleanup"]["correction"])
             self.assertEqual("NOT TESTED", checks["Uno USB port"]["status"])
+            self.assertIn("COM port", checks["Uno USB port"]["correction"])
             self.assertEqual("NOT TESTED", checks["LoRa packets"]["status"])
             with patch.object(ground_station, "available_ports", return_value=[
                     {"device": "COM4", "description": "USB Serial", "hwid": "generic"}]):

@@ -103,6 +103,7 @@ green_ion::airplane::Controller airplaneMode(config::AIRPLANE_MAX_RECORDING_MS);
 enum HardwareTestRequest : uint8_t {
   HARDWARE_TEST_NONE = 0,
   HARDWARE_TEST_IMU,
+  HARDWARE_TEST_IMU_EXTENDED,
   HARDWARE_TEST_GPS,
   HARDWARE_TEST_ALL,
 };
@@ -779,7 +780,7 @@ static const char *imuHardwareTestMessage() {
   if (result == green_ion::bench::RESULT_DEFERRED)
     return "Test stopped because flight recording became active";
   if (result == green_ion::bench::RESULT_INCONCLUSIVE)
-    return "Measurements are valid but the Feather moved; repeat while stationary";
+    return "Measurements are valid but motion or excess vibration was detected; repeat while stationary";
   if (result == green_ion::bench::RESULT_FAIL) {
     if (!state.imuOk) return "LSM6DSO32 not detected at 0x6A or 0x6B";
     if (!imuRange32gVerified) return "LSM6DSO32 range did not read back as +/-32 g";
@@ -816,7 +817,8 @@ static bool sensorReinitializationAllowed() {
 
 static void requestHardwareTest(HardwareTestRequest request) {
   if (!hardwareTestsAllowed()) {
-    if (request == HARDWARE_TEST_IMU || request == HARDWARE_TEST_ALL)
+    if (request == HARDWARE_TEST_IMU || request == HARDWARE_TEST_IMU_EXTENDED ||
+        request == HARDWARE_TEST_ALL)
       imuHardwareTest.defer();
     if (request == HARDWARE_TEST_GPS || request == HARDWARE_TEST_ALL)
       gpsHardwareTest.defer();
@@ -834,7 +836,8 @@ static void startRequestedHardwareTests(uint32_t nowMs) {
     return;
   }
 
-  if (request == HARDWARE_TEST_IMU || request == HARDWARE_TEST_ALL) {
+  if (request == HARDWARE_TEST_IMU || request == HARDWARE_TEST_IMU_EXTENDED ||
+      request == HARDWARE_TEST_ALL) {
     if (!state.imuOk && recorderMode == RECORDER_WATCHING)
       resetCalibration(nowMs);
     if (!state.imuOk && sensorReinitializationAllowed()) {
@@ -843,7 +846,12 @@ static void startRequestedHardwareTests(uint32_t nowMs) {
       state.imuDataValid = false;
       if (!state.imuOk) healthBits |= green_ion::HEALTH_IMU_INIT_ERROR;
     }
-    imuHardwareTest.begin(nowMs, state.imuOk, imuRange32gVerified);
+    if (request == HARDWARE_TEST_IMU_EXTENDED)
+      imuHardwareTest.begin(nowMs, state.imuOk, imuRange32gVerified,
+                            config::IMU_EXTENDED_TEST_DURATION_MS,
+                            config::IMU_EXTENDED_TEST_MINIMUM_SAMPLES);
+    else
+      imuHardwareTest.begin(nowMs, state.imuOk, imuRange32gVerified);
     imuHardwareTestReported = false;
   }
 
@@ -1711,6 +1719,7 @@ static void sendDashboardStatus() {
   body += "{\"recording\":";
   body += state.recording ? "true" : "false";
   body += ",\"uptime_s\":" + String(millis() / 1000UL);
+  body += ",\"uptime_ms\":" + String(millis());
   body += ",\"firmware_version\":\"V12-development\"";
   body += ",\"telemetry_protocol_version\":" + String(green_ion::kProtocolVersion);
   body += ",\"recording_format_version\":" + String(green_ion::rkt4::kVersion);
@@ -1766,6 +1775,9 @@ static void sendDashboardStatus() {
   body += ",\"imu_range_32g\":";
   body += imuRange32gVerified ? "true" : "false";
   body += ",\"imu_test_samples\":" + String(imuHardwareTest.validSamples());
+  body += ",\"imu_test_duration_ms\":" + String(imuHardwareTest.durationMs());
+  body += ",\"imu_test_peak_deviation_g\":" +
+          numberOrNull(imuHardwareTest.peakAccelerationDeviationG(), 3);
   body += ",\"imu_test_invalid\":" + String(imuHardwareTest.invalidSamples());
   body += ",\"imu_test_mean_g\":" + numberOrNull(imuHardwareTest.meanAccelerationG(), 3);
   body += ",\"imu_test_bias_x_dps\":" + numberOrNull(imuHardwareTest.gyroBiasXDps(), 3);
@@ -2095,6 +2107,7 @@ static void initializeDashboard() {
     HardwareTestRequest request = HARDWARE_TEST_NONE;
     const String sensor = dashboardServer.arg("sensor");
     if (sensor == "imu") request = HARDWARE_TEST_IMU;
+    else if (sensor == "imu_extended") request = HARDWARE_TEST_IMU_EXTENDED;
     else if (sensor == "gps") request = HARDWARE_TEST_GPS;
     else if (sensor == "all") request = HARDWARE_TEST_ALL;
     else {

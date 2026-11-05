@@ -22,12 +22,16 @@ class ImuTest {
 
   bool valid() const { return durationMs_ > 0 && minimumSamples_ > 0; }
 
-  void begin(uint32_t nowMs, bool detected, bool range32g) {
+  void begin(uint32_t nowMs, bool detected, bool range32g,
+             uint32_t durationOverrideMs = 0, uint16_t minimumOverride = 0) {
     reset();
     startedMs_ = nowMs;
+    activeDurationMs_ = durationOverrideMs ? durationOverrideMs : durationMs_;
+    activeMinimumSamples_ = minimumOverride ? minimumOverride : minimumSamples_;
     detected_ = detected;
     range32g_ = range32g;
-    result_ = detected && range32g && valid() ? RESULT_RUNNING : RESULT_FAIL;
+    result_ = detected && range32g && valid() && activeDurationMs_ <= 60000u &&
+              activeMinimumSamples_ > 0 ? RESULT_RUNNING : RESULT_FAIL;
   }
 
   void defer() { reset(); result_ = RESULT_DEFERRED; }
@@ -40,6 +44,9 @@ class ImuTest {
         isfinite(gyroYDps) && isfinite(gyroZDps) && isfinite(temperatureC)) {
       ++validSamples_;
       sumAccelerationG_ += accelerationG;
+      const float deviation = fabsf(accelerationG - 1.0f);
+      if (deviation > peakAccelerationDeviationG_)
+        peakAccelerationDeviationG_ = deviation;
       sumGyroXDps_ += gyroXDps;
       sumGyroYDps_ += gyroYDps;
       sumGyroZDps_ += gyroZDps;
@@ -50,7 +57,7 @@ class ImuTest {
     } else {
       ++invalidSamples_;
     }
-    if (static_cast<int32_t>(nowMs - (startedMs_ + durationMs_)) < 0) return;
+    if (static_cast<int32_t>(nowMs - (startedMs_ + activeDurationMs_)) < 0) return;
     finish();
   }
 
@@ -66,6 +73,8 @@ class ImuTest {
   float gyroBiasZDps() const { return mean(sumGyroZDps_); }
   float meanTemperatureC() const { return mean(sumTemperatureC_); }
   float peakGyroDps() const { return peakGyroDps_; }
+  float peakAccelerationDeviationG() const { return peakAccelerationDeviationG_; }
+  uint32_t durationMs() const { return activeDurationMs_; }
 
  private:
   float mean(double sum) const {
@@ -73,12 +82,13 @@ class ImuTest {
   }
 
   void finish() {
-    if (validSamples_ < minimumSamples_) {
+    if (validSamples_ < activeMinimumSamples_) {
       result_ = RESULT_FAIL;
       return;
     }
     const float g = meanAccelerationG();
     const bool stationary = g >= 0.85f && g <= 1.15f &&
+                            peakAccelerationDeviationG_ <= 0.25f &&
                             fabsf(gyroBiasXDps()) <= 3.0f &&
                             fabsf(gyroBiasYDps()) <= 3.0f &&
                             fabsf(gyroBiasZDps()) <= 3.0f &&
@@ -97,10 +107,15 @@ class ImuTest {
     sumGyroXDps_ = sumGyroYDps_ = sumGyroZDps_ = 0;
     sumTemperatureC_ = 0;
     peakGyroDps_ = 0;
+    peakAccelerationDeviationG_ = 0;
+    activeDurationMs_ = durationMs_;
+    activeMinimumSamples_ = minimumSamples_;
   }
 
   uint32_t durationMs_;
   uint16_t minimumSamples_;
+  uint32_t activeDurationMs_;
+  uint16_t activeMinimumSamples_;
   Result result_;
   uint32_t startedMs_;
   bool detected_;
@@ -113,6 +128,7 @@ class ImuTest {
   double sumGyroZDps_;
   double sumTemperatureC_;
   float peakGyroDps_;
+  float peakAccelerationDeviationG_;
 };
 
 class GpsTest {

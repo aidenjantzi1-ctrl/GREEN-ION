@@ -231,8 +231,36 @@ def preflight_report(actions: dict | None = None) -> dict:
     wifi = snapshot["sources"]["wifi"]
     radio = snapshot["sources"]["radio"]
     checks = []
+    corrections = {
+        "Feather Wi-Fi": "Reconnect Windows to Feather Wi-Fi and verify the configured Feather address in Settings.",
+        "Feather API": "Check Feather power and open its /api/status address from the laptop.",
+        "Telemetry source freshness": "Reconnect a telemetry link; inspect source errors in Diagnostics.",
+        "Feather firmware version": "Flash the matching V12 Feather firmware, then reconnect and verify its reported version.",
+        "RKT4 recording format": "Use V12 recorder firmware that reports RKT4 v2 before relying on Analysis imports.",
+        "Recorder sample rate": "Check the Feather configuration and firmware build; expected rate is 50 Hz.",
+        "Uno USB port": "Connect the Uno by USB and select its COM port in Settings; USB detection does not prove radio reception.",
+        "Uno firmware version": "Connect the Uno over USB and verify its V12 boot-status version.",
+        "Uno receiver protocol": "Install a matching v2 receiver sketch and inspect its USB boot status.",
+        "Ground LoRa module": "Inspect the Uno RFM95W wiring, power and antenna; then restart the receiver.",
+        "LoRa packets": "With both radios and antennas connected, confirm actual packets in Diagnostics. Wi-Fi-only operation remains available.",
+        "Telemetry protocol": "Use matching V12 Feather and Uno protocol v2 firmware.",
+        "Feather LoRa module": "Check Feather RFM95W wiring and antenna; Wi-Fi-only operation remains available.",
+        "SD initialization": "Power down before reseating the SD card; inspect its wiring and format, then rerun Preflight.",
+        "SD write/read/cleanup": "Inspect SD wiring, free space and the reported temporary-file cleanup result; retain all flight files.",
+        "BMP388": "Inspect the BMP388 connection and power, then retry with the Feather stationary.",
+        "Stationary barometer baseline": "Keep the Feather motionless, prepare the recorder, and retry calibration if pressure noise remains high.",
+        "Autonomous recorder watcher": "Check SD and barometer results, then prepare the recorder and confirm WATCHING mode.",
+        "LSM6DSO32": "Keep the Feather still, run the IMU test, and check its cable, 32 g range and gyro bias result.",
+        "PA1010D communication": "Run the GPS test; inspect its cable and NMEA counts. Move outdoors only to test satellite fix.",
+        "Stationary sensor test request": "Keep the Feather motionless and rerun Full Preflight after the recorder is idle.",
+        "GPS fix": "Move outdoors under open sky and wait for a fresh fix; GPS communication is checked separately.",
+        "Battery": "Charge or replace the LiPo and recheck its voltage before recording.",
+        "Stationary battery stability": "Collect five distinct live samples over two stationary seconds; inspect power wiring if voltage varies.",
+        "Ground persistence": "Check Ground Station data-directory write access and available laptop disk space.",
+    }
     def add(name: str, status: str, message: str) -> None:
-        checks.append({"name": name, "status": status, "message": message})
+        checks.append({"name": name, "status": status, "message": message,
+                       "correction": corrections.get(name) if status != "PASS" else None})
     def live(name: str) -> bool:
         meta = snapshot.get("field_meta", {}).get(name, {})
         return (snapshot.get("active_source") != "simulation" and
@@ -334,13 +362,25 @@ def preflight_report(actions: dict | None = None) -> dict:
         if mode == 1 and calibration_ready and live("sd_ok") and snapshot.get("sd_ok") is True else
         "Recorder is not yet confirmed ready to watch; check calibration, SD and mode in Mission Control.")
     imu_result = snapshot.get("imu_test_result") if live("imu_test_result") else None
+    imu_message = (snapshot.get("imu_test_message") if live("imu_test_message") else
+                   "Run the stationary IMU hardware test in Preflight.")
+    if live("imu_test_samples") and live("imu_test_duration_ms"):
+        imu_message += (f" {snapshot['imu_test_samples']} valid samples in a "
+                        f"{snapshot['imu_test_duration_ms'] / 1000:.0f} s test.")
+    if live("imu_test_peak_deviation_g"):
+        imu_message += f" Peak acceleration deviation: {snapshot['imu_test_peak_deviation_g']:.3f} g."
     add("LSM6DSO32", imu_result if imu_result in ("PASS", "WARNING", "FAIL") else
         "WARNING" if imu_result else "NOT TESTED",
-        snapshot.get("imu_test_message") if live("imu_test_message") else "Run the stationary IMU hardware test in Preflight.")
+        imu_message)
     gps_result = snapshot.get("gps_test_result") if live("gps_test_result") else None
+    gps_message = (snapshot.get("gps_test_message") if live("gps_test_message") else
+                   "Run the GPS communication test; a satellite fix is separate.")
+    if live("gps_test_nmea") and live("gps_test_parsed"):
+        gps_message += (f" {snapshot['gps_test_nmea']} NMEA sentences received; "
+                        f"{snapshot['gps_test_parsed']} parsed.")
     add("PA1010D communication", gps_result if gps_result in ("PASS", "WARNING", "FAIL") else
         "WARNING" if gps_result else "NOT TESTED",
-        snapshot.get("gps_test_message") if live("gps_test_message") else "Run the GPS communication test; a satellite fix is separate.")
+        gps_message)
     sensor_action = (actions or {}).get("sensor_test")
     add("Stationary sensor test request", "WARNING" if sensor_action and sensor_action.get("http_status") == 202 else
         "FAIL" if sensor_action else "NOT TESTED",
@@ -441,13 +481,15 @@ def diagnostic_test(kind: str) -> tuple[int, dict]:
     observed = {"bmp": "BMP388", "lipo": "Battery", "wifi": "Feather API",
                 "lora": "Ground LoRa module", "usb": "Uno USB port",
                 "packets": "LoRa packets", "recorder": "Autonomous recorder watcher",
-                "firmware": "Feather firmware version"}
+                "firmware": "Feather firmware version",
+                "imu_result": "LSM6DSO32", "gps_result": "PA1010D communication"}
     if kind in observed:
         check = next(item for item in preflight_report()["checks"] if item["name"] == observed[kind])
         return 200, {"test": kind, **check, "hardware_test_started": False}
     if kind in ("parser", "checkpoint", "timing", "reconnect"):
         return 200, {"test": kind, **read_only_diagnostic(kind), "hardware_test_started": False}
     paths = {"imu": "/api/hardware-test?sensor=imu",
+             "imu_extended": "/api/hardware-test?sensor=imu_extended",
              "gps": "/api/hardware-test?sensor=gps", "sd": "/api/sdtest"}
     if kind not in paths:
         return 400, {"test": kind, "status": "NOT TESTED", "message": "Unknown diagnostic test."}
@@ -470,7 +512,9 @@ def diagnostic_test(kind: str) -> tuple[int, dict]:
             message = result.get("message") or result.get("error") or "SD self-test did not return a result."
         else:
             status = "WARNING" if code == 202 and result.get("accepted") is True else "FAIL"
-            message = ("Sensor test started; keep the rocket stationary and inspect the updated result in Preflight."
+            message = ("Sensor test started; keep the rocket stationary for 30 seconds, then check the latest IMU result."
+                       if status == "WARNING" and kind == "imu_extended" else
+                       "Sensor test started; check the latest sensor result after it finishes."
                        if status == "WARNING" else result.get("error") or "Sensor test was not accepted.")
         return code, {"test": kind, "status": status, "message": message,
                       "hardware_test_started": code == 202 or kind == "sd" and code in (200, 500)}
@@ -527,8 +571,20 @@ def read_only_diagnostic(kind: str) -> dict:
         if len(set(uptimes)) < 3:
             return {"status": "NOT TESTED", "message": "Need three distinct accepted hardware packet uptimes to assess ordering."}
         regressions = sum(later < earlier for earlier, later in zip(uptimes, uptimes[1:]))
-        return {"status": "WARNING" if regressions else "PASS",
-                "message": f"{len(uptimes)} accepted packet uptimes; {regressions} backwards steps. "
+        invalid_stamps = []
+        if snapshot.get("active_source") == "wifi" and isinstance(snapshot.get("uptime_ms"), int):
+            current_uptime = snapshot["uptime_ms"]
+            for field in ("pressure_pa", "acceleration_g", "battery_v"):
+                meta = snapshot.get("field_meta", {}).get(field, {})
+                stamp = meta.get("sample_uptime_ms")
+                if (meta.get("freshness") == "live" and meta.get("sample_time_basis") == "sensor_sample" and
+                        isinstance(stamp, int) and (stamp > current_uptime + 1000 or
+                        current_uptime - stamp > 5000)):
+                    invalid_stamps.append(field)
+        return {"status": "WARNING" if regressions or invalid_stamps else "PASS",
+                "message": f"{len(uptimes)} accepted packet uptimes; {regressions} backwards steps; "
+                f"{len(invalid_stamps)} inconsistent or old sensor stamps"
+                + (f" ({', '.join(invalid_stamps)})" if invalid_stamps else "") + ". "
                 "Delivery reordering, reboot, or counter wrap may explain a step; GPS UTC synchronization is not verified."}
     raise ValueError("unknown read-only diagnostic")
 
@@ -871,7 +927,8 @@ def normalize_wifi(row: dict, sequence: int) -> dict:
     return {
         **row,
         "sequence": sequence,
-        "uptime_ms": int(row.get("uptime_s", 0)) * 1000,
+        "uptime_ms": int(row["uptime_ms"]) if "uptime_ms" in row else
+                     int(row.get("uptime_s", 0)) * 1000,
         "speed_mps": row.get("gps_speed_mps"),
         "gps_speed_mps": row.get("gps_speed_mps"),
         "gps_status": row.get("gps_status", "missing"),

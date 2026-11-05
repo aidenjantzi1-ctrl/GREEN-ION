@@ -928,3 +928,9 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Added Uno USB, actual radio packets, recorder watcher, firmware, parser counters, checkpoint counters, packet uptime order, and observed source-return controls. Each reports its evidence limit, keeps simulation from earning hardware PASS, and records a read-only result in the existing diagnostic history.
 - Verification: 124 Python tests passed, including absent, passing, and warning diagnostics; Node syntax and RKT4 analysis passed. A 390-pixel Chromium smoke found all 15 controls without horizontal overflow. Physical hardware remains NOT TESTED.
+
+### Phase 4 stationary IMU and corrective guidance (2026-11-05)
+
+- Added a 30-second stationary IMU test with a 600-valid-sample minimum. The five-second and extended tests now reject motion spikes that average acceleration would hide. The firmware reports peak acceleration deviation and active test duration.
+- Added latest-result buttons for IMU and GPS, per-check corrective steps in Preflight and extra measured test details. Direct Feather millisecond uptime now takes precedence over the legacy whole-second conversion; the timing diagnostic checks sensor-stamp plausibility.
+- Verification: 125 Python tests, native bench test, Node syntax, RKT4 analysis, ESP32 V2 compile, and 390-pixel Chromium smoke of all 18 Diagnostics controls and corrective display passed. Physical sensors remain NOT TESTED.
