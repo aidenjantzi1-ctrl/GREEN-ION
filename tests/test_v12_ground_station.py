@@ -83,11 +83,14 @@ class GroundStationManagerTests(unittest.TestCase):
             self.assertEqual("test", snapshot["session_id"])
             self.assertEqual(2, snapshot["snapshot"]["sequence"])
 
-    def test_ground_station_ui_has_five_workflow_destinations_and_no_cdn(self):
+    def test_ground_station_ui_has_six_workflow_destinations_and_no_cdn(self):
         html = (ROOT / "Ground_Station" / "index.html").read_text(encoding="utf-8")
-        for destination in ("Mission Control", "Recovery", "Flights", "Diagnostics", "Settings"):
+        for destination in ("Preflight", "Mission Control", "Recovery", "Analysis", "Diagnostics", "Settings"):
             self.assertIn(destination, html)
-        self.assertEqual(5, html.count("data-view="))
+        self.assertEqual(6, html.count("data-view="))
+        self.assertIn('id="preflight"', html)
+        self.assertIn('id="analysis"', html)
+        self.assertIn("const finite=v=>v!==null", html)
         self.assertNotIn("https://cdn", html)
         self.assertNotIn("SIMULATED DATA — NOT HARDWARE", html)
 

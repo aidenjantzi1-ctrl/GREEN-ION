@@ -815,3 +815,11 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 - Local evidence: 83 Python/source tests passed; both dashboard scripts passed syntax validation; `git diff --check` passed. The local Feather compiler again hung without diagnostics, so target compilation is pending CI.
 - Physical RF silence, aircraft use, battery endurance, GPS, SD interruption, and recovery remain **NOT TESTED**. Follow airline and crew instructions.
 
+
+## 2026-11-04 — Six-destination Ground Station checkpoint
+
+- Started the new eight-phase plan on `codex/green-ion-v12` after inspecting current code and remote commits.
+- Split connected preflight checks into a dedicated Preflight page and renamed Flights to Analysis while retaining the flight library and exports.
+- Corrected browser numeric formatting so absent readings do not appear as measured zero.
+- Updated the Ground Station workflow documentation and tests; 95 Python tests passed, Node syntax check passed, and `git diff --check` passed.
+- Hardware operation and actual cloud automation execution are not established by these software checks. See `V12_IMPLEMENTATION_PROGRESS.md` for the current checkpoint.
