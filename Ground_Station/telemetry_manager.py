@@ -355,8 +355,10 @@ class TelemetryManager:
                 }
             point = {
                 key: clean.get(key) for key in
-                ("received_utc", "source", "uptime_ms", "altitude_m", "acceleration_g",
-                 "vertical_speed_mps", "latitude", "longitude", "gps_status")
+                ("received_utc", "source", "sequence", "uptime_ms", "altitude_m",
+                 "gps_altitude_m", "vertical_speed_mps", "acceleration_g",
+                 "battery_v", "pressure_pa", "latitude", "longitude",
+                 "gps_status", "gps_fix_age_ms")
             }
             self.history.append(point)
             if len(self.history) > 1200:

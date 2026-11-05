@@ -97,6 +97,18 @@ class GroundStationManagerTests(unittest.TestCase):
         self.assertEqual("stale", snapshot["gps_status"])
         self.assertEqual("stale", snapshot["field_meta"]["latitude"]["freshness"])
 
+    def test_recent_history_retains_fields_needed_to_restore_mission_trail(self):
+        row = {**self.row(7), "gps_status": "live", "gps_fix_age_ms": 0,
+               "latitude": 37.1, "longitude": -121.9, "gps_altitude_m": 125.0,
+               "battery_v": 3.9, "pressure_pa": 101000}
+        self.manager.ingest("wifi", row)
+        point = self.manager.recent_history()[-1]
+        self.assertEqual(("wifi", 7, 125.0, 3.9, 101000),
+                         (point["source"], point["sequence"], point["gps_altitude_m"],
+                          point["battery_v"], point["pressure_pa"]))
+        self.assertEqual((37.1, -121.9, 0),
+                         (point["latitude"], point["longitude"], point["gps_fix_age_ms"]))
+
     def test_field_contract_distinguishes_missing_zero_and_source_fallback(self):
         self.manager.ingest("wifi", {**self.row(1, 0.0), "pressure_pa": 101325})
         snapshot = self.manager.snapshot()
