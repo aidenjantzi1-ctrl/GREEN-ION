@@ -1,6 +1,6 @@
 # GREEN ION V12 Ground Station
 
-The Ground Station is the offline Windows application that remains on the laptop. It combines Feather Wi-Fi telemetry and Arduino Uno LoRa telemetry into one session, keeps the dashboard available when either connection disappears, and writes every accepted raw event incrementally. It is a recorder and recovery aid only; it never controls ignition, staging, arming, or deployment.
+The Ground Station is the offline Windows application that remains on the laptop. It combines Feather Wi-Fi telemetry and Arduino Uno LoRa telemetry into one session, keeps the dashboard available when either connection disappears, and writes every accepted normalized event incrementally. It is a recorder and recovery aid only; it never controls ignition, staging, arming, or deployment.
 
 ## First-time Windows setup
 

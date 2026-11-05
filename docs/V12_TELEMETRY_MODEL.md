@@ -7,7 +7,7 @@
 - `valid` means a value is present and has the expected basic type. A numeric zero is valid. Missing or nonfinite numbers are invalid. Latitude and longitude require a valid coordinate pair. A valid historical value can still be stale.
 - `freshness` is `live`, `stale`, or `missing`. GPS position, altitude, and satellite fields are stale unless the GPS fix is current and the selected link is live. The separate `last_position` and its age/source/time retain the last valid fix after disconnect.
 - `origin` distinguishes sensor/hardware-reported values (`measured`) from firmware or Ground Station computations (`calculated`). The classification does not imply calibration accuracy.
-- The underlying RKT4 v2 and GIS1 files are unaffected. Raw session JSONL retains the accepted source packet, while this metadata describes the current merged view.
+- The underlying RKT4 v2 and GIS1 files are unaffected. Append-only session JSONL stores normalized accepted fields, while this metadata describes the current merged view.
 
 | Field | Type | Unit | Origin |
 | --- | --- | --- | --- |
