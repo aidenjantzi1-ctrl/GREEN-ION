@@ -917,3 +917,9 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 - Added a GPS loss/recovery test that preserves independent barometric and GPS altitude values despite large source disagreement. No fused altitude is asserted.
 - Verified 111 Python tests, RKT4 browser analysis, native calibration and coordinated recording failure tests, and both ESP32 V2 and Uno target compilations. See `V12_PHASE2_AUDIT.md` for a requirement-by-requirement account and hardware limits.
 - Phase 2 software scope is complete; physical hardware tests remain NOT TESTED. The next software phase is Mission Control.
+
+### Phase 4 motor-free bench recorder workflow (2026-11-05)
+
+- Fetched the latest development branch and reviewed the previous progress checkpoint and recent commits. Added a dedicated `TESTnnn.BIN` RKT4 recording path, separate bench metadata, a two-minute maximum, and file-slot checks that preserve orphan companion files.
+- Added guarded Ground Station start/stop routes and a Preflight guide for physically disconnecting Feather Wi-Fi. Bench status becomes unverified when current Feather Wi-Fi evidence is unavailable. Analysis can import the downloaded raw TEST BIN with the existing RKT4 integrity checks.
+- Verification: 123 Python tests, Node syntax, RKT4 browser analysis, native metadata test, ESP32 V2 compile, and a 390-pixel Chromium start/simulated-loss/reconnect/stop smoke passed. No actual hardware was attached; physical Wi-Fi disconnect survival, SD continuity and power-loss behavior remain NOT TESTED.

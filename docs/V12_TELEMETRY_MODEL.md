@@ -17,6 +17,8 @@
 | `recording_format_version` | integer | version | measured |
 | `flight_state` | integer | — | calculated |
 | `recording` | boolean | — | measured |
+| `bench_recording` | boolean | — | measured |
+| `bench_max_ms` | integer | ms | measured |
 | `altitude_m` | number | m | calculated |
 | `pressure_pa` | number | Pa | measured |
 | `vertical_speed_mps` | number | m/s | calculated |

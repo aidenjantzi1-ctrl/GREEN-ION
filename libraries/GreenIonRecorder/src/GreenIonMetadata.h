@@ -42,7 +42,8 @@ inline bool validLogFilename(const char *name) {
   if (name[0] == '/') ++name;
   if (strlen(name) != 11) return false;
   const bool knownPrefix = memcmp(name, "V12D", 4) == 0 ||
-                           memcmp(name, "AIRP", 4) == 0;
+                           memcmp(name, "AIRP", 4) == 0 ||
+                           memcmp(name, "TEST", 4) == 0;
   if (!knownPrefix ||
       memcmp(name + 7, ".BIN", 4) != 0) return false;
   return name[4] >= '0' && name[4] <= '9' &&
@@ -62,7 +63,8 @@ inline EncodeResult encodeFlightStart(char *out, size_t capacity,
     return METADATA_INVALID_VALUES;
   const char *leaf = metadata.logFilename[0] == '/' ? metadata.logFilename + 1
                                                     : metadata.logFilename;
-  const char *mode = memcmp(leaf, "AIRP", 4) == 0 ? "airplane" : "rocket";
+  const char *mode = memcmp(leaf, "AIRP", 4) == 0 ? "airplane" :
+                     memcmp(leaf, "TEST", 4) == 0 ? "bench_test" : "rocket";
   const int needed = snprintf(
       out, capacity,
       "GREEN-ION-METADATA-1\n"
@@ -102,6 +104,7 @@ inline EncodeResult encodeFlightComplete(char *out, size_t capacity,
   const char *leaf = metadata.logFilename[0] == '/' ? metadata.logFilename + 1
                                                     : metadata.logFilename;
   const bool airplane = memcmp(leaf, "AIRP", 4) == 0;
+  const bool bench = memcmp(leaf, "TEST", 4) == 0;
   const int needed = snprintf(
       out, capacity,
       "GREEN-ION-COMPLETION-1\n"
@@ -116,13 +119,13 @@ inline EncodeResult encodeFlightComplete(char *out, size_t capacity,
       "peak_altitude_m=%.2f\n"
       "recording_mode=%s\n"
       "altitude_semantics=%s\n",
-      airplane ? "airplane_stop_or_limit" : "automatic_landing",
+      airplane ? "airplane_stop_or_limit" : bench ? "manual_stop_or_limit" : "automatic_landing",
       leaf, static_cast<unsigned long>(metadata.durationMs),
       static_cast<unsigned long>(metadata.fileBytes),
       static_cast<unsigned long>(metadata.recordCount),
       static_cast<unsigned long>(metadata.missedSamplePeriods),
       static_cast<unsigned int>(metadata.endBatteryMv),
-      static_cast<double>(metadata.peakAltitudeM), airplane ? "airplane" : "rocket",
+      static_cast<double>(metadata.peakAltitudeM), airplane ? "airplane" : bench ? "bench_test" : "rocket",
       airplane ? "cabin_pressure_equivalent_change" : "barometric_relative");
   if (needed < 0 || static_cast<size_t>(needed) >= capacity)
     return METADATA_BUFFER_TOO_SMALL;

@@ -102,6 +102,29 @@ class RecorderStopTests(unittest.TestCase):
             stop.assert_not_called()
             self.assertEqual(400, reply.call_args.args[2])
 
+    def test_bench_recording_requires_live_ready_feather_and_test_file(self):
+        ready = {"active_source": "wifi", "sources": {"wifi": {"status": "live"}},
+                 "field_meta": {key: {"freshness": "live"} for key in
+                                ("firmware_version", "recording", "recorder_mode", "sd_ok", "battery_v")},
+                 "firmware_version": "V12-development", "recording": False,
+                 "recorder_mode": 1, "sd_ok": True, "battery_v": 3.9}
+        current = {"firmware_version": "V12-development", "recording": False,
+                   "recorder_mode": 1, "sd_ok": True, "battery_v": 3.9}
+        with patch.object(ground_station.MANAGER, "snapshot", return_value=ready), \
+                patch.object(ground_station, "feather_status", return_value=("http://192.168.4.1", current)), \
+                patch.object(ground_station, "feather_post", return_value=(202, {"success": True,
+                    "file": "/TEST000.BIN"})) as post:
+            self.assertEqual(400, ground_station.start_bench_recording("START")[0])
+            self.assertEqual(202, ground_station.start_bench_recording("START BENCH TEST")[0])
+            post.assert_called_once_with("/api/bench/start", base_url="http://192.168.4.1")
+            ready["battery_v"] = 3.4
+            self.assertEqual(409, ground_station.start_bench_recording("START BENCH TEST")[0])
+            post.assert_called_once()
+        with patch.object(ground_station, "stop_recorder", return_value=(200, {"success": True})) as stop:
+            self.assertEqual(400, ground_station.stop_bench_recording("STOP BENCH TEST", "/V12D001.BIN")[0])
+            self.assertEqual(200, ground_station.stop_bench_recording("STOP BENCH TEST", "/TEST001.BIN")[0])
+            stop.assert_called_once_with("STOP AND SAVE", "/TEST001.BIN")
+
 
 class PreflightHistoryTests(unittest.TestCase):
     def test_saved_report_is_exportable_and_incomplete_run_times_out(self):
@@ -527,7 +550,7 @@ class GroundStationManagerTests(unittest.TestCase):
         html = (ROOT / "Ground_Station" / "index.html").read_text(encoding="utf-8")
         for destination in ("Preflight", "Mission Control", "Recovery", "Analysis", "Diagnostics", "Settings"):
             self.assertIn(destination, html)
-        self.assertEqual(6, html.count("data-view="))
+        self.assertEqual(6, len(re.findall(r'<button\b[^>]*\bdata-view=', html)))
         self.assertIn('id="preflight"', html)
         self.assertIn('id="analysis"', html)
         self.assertIn("const finite=v=>v!==null", html)

@@ -26,7 +26,8 @@ BATTERY_CURVE = ((3.30, 0), (3.60, 10), (3.70, 25), (3.80, 45),
                  (3.90, 65), (4.00, 80), (4.10, 95), (4.20, 100))
 MEASUREMENT_FIELDS = (
     "uptime_ms", "firmware_version", "telemetry_protocol_version",
-    "recording_format_version", "flight_state", "recording", "altitude_m", "pressure_pa",
+    "recording_format_version", "flight_state", "recording", "bench_recording",
+    "bench_max_ms", "altitude_m", "pressure_pa",
     "vertical_speed_mps", "speed_mps", "gps_speed_mps",
     "relative_altitude_m", "temperature_c", "acceleration_g", "acceleration_x_g",
     "acceleration_y_g", "acceleration_z_g", "rotation_x_dps",
@@ -73,6 +74,8 @@ FIELD_SPECS = {
     "recording_format_version": ("integer", "version", "measured"),
     "flight_state": ("integer", None, "calculated"),
     "recording": ("boolean", None, "measured"),
+    "bench_recording": ("boolean", None, "measured"),
+    "bench_max_ms": ("integer", "ms", "measured"),
     "altitude_m": ("number", "m", "calculated"),
     "pressure_pa": ("number", "Pa", "measured"),
     "vertical_speed_mps": ("number", "m/s", "calculated"),

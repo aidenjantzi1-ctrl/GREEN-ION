@@ -75,6 +75,15 @@ int main() {
   assert(encodeFlightComplete(output, sizeof(output), airplaneComplete, written) == METADATA_VALID);
   assert(strstr(output, "finish_reason=airplane_stop_or_limit") != nullptr);
   assert(strstr(output, "altitude_semantics=cabin_pressure_equivalent_change") != nullptr);
+  FlightStart benchStart = start;
+  benchStart.logFilename = "/TEST007.BIN";
+  assert(encodeFlightStart(output, sizeof(output), benchStart, written) == METADATA_VALID);
+  assert(strstr(output, "recording_mode=bench_test") != nullptr);
+  FlightComplete benchComplete = complete;
+  benchComplete.logFilename = "/TEST007.BIN";
+  assert(encodeFlightComplete(output, sizeof(output), benchComplete, written) == METADATA_VALID);
+  assert(strstr(output, "finish_reason=manual_stop_or_limit") != nullptr);
+  assert(strstr(output, "recording_mode=bench_test") != nullptr);
   FlightComplete torn = complete;
   torn.fileBytes += 1;
   assert(encodeFlightComplete(output, sizeof(output), torn, written) ==

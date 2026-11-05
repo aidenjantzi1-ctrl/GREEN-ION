@@ -14,6 +14,7 @@ from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 import json
 import math
 from pathlib import Path
+import re
 import threading
 import time
 import uuid
@@ -151,6 +152,45 @@ def stop_recorder(confirmation: str, filename: str) -> tuple[int, dict]:
         return feather_post("/api/stop", base_url=base)
     except (OSError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
         return 502, {"success": False, "error": f"Feather stop/save request failed: {error}"}
+
+
+BENCH_FILE = re.compile(r"^/TEST[0-9]{3}\.BIN$")
+
+
+def bench_battery_ready(value: object) -> bool:
+    return (isinstance(value, (int, float)) and not isinstance(value, bool) and
+            math.isfinite(value) and 3.5 <= value <= 4.25)
+
+
+def start_bench_recording(confirmation: str) -> tuple[int, dict]:
+    if confirmation != "START BENCH TEST":
+        return 400, {"success": False, "error": "Type START BENCH TEST to confirm a motor-free bench recording."}
+    snapshot = MANAGER.snapshot()
+    fields = snapshot.get("field_meta", {})
+    required = ("firmware_version", "recording", "recorder_mode", "sd_ok", "battery_v")
+    if (snapshot.get("active_source") != "wifi" or
+            snapshot.get("sources", {}).get("wifi", {}).get("status") != "live" or
+            any(fields.get(name, {}).get("freshness") != "live" for name in required) or
+            not str(snapshot.get("firmware_version", "")).startswith("V12") or
+            snapshot.get("recording") is not False or snapshot.get("recorder_mode") != 1 or
+            snapshot.get("sd_ok") is not True or not bench_battery_ready(snapshot.get("battery_v"))):
+        return 409, {"success": False, "error": "Live calibrated V12 Feather, idle recorder, ready SD and battery at least 3.5 V are required."}
+    try:
+        base, current = feather_status()
+        if (not isinstance(current, dict) or
+                not str(current.get("firmware_version", "")).startswith("V12") or
+                current.get("recording") is not False or current.get("recorder_mode") != 1 or
+                current.get("sd_ok") is not True or not bench_battery_ready(current.get("battery_v"))):
+            return 409, {"success": False, "error": "Feather readiness changed; bench recording was not started."}
+        return feather_post("/api/bench/start", base_url=base)
+    except (OSError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
+        return 502, {"success": False, "error": f"Could not start Feather bench recording: {error}"}
+
+
+def stop_bench_recording(confirmation: str, filename: str) -> tuple[int, dict]:
+    if confirmation != "STOP BENCH TEST" or not isinstance(filename, str) or not BENCH_FILE.fullmatch(filename):
+        return 400, {"success": False, "error": "A current TESTnnn.BIN file and STOP BENCH TEST confirmation are required."}
+    return stop_recorder("STOP AND SAVE", filename)
 
 
 def battery_stability(points: list[dict], source: str | None,
@@ -573,6 +613,23 @@ class Handler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:
+        if self.path in ("/api/bench/start", "/api/bench/stop"):
+            try:
+                if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
+                    raise ValueError("A JSON bench confirmation is required.")
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > 512:
+                    raise ValueError("Invalid bench confirmation length.")
+                payload = json.loads(self.rfile.read(length))
+                if not isinstance(payload, dict):
+                    raise ValueError("Invalid bench confirmation payload.")
+                status, result = (start_bench_recording(payload.get("confirm"))
+                                  if self.path == "/api/bench/start" else
+                                  stop_bench_recording(payload.get("confirm"), payload.get("file")))
+                json_response(self, result, status)
+            except (ValueError, json.JSONDecodeError) as error:
+                json_response(self, {"success": False, "error": str(error)}, 400)
+            return
         if self.path == "/api/diagnostics/test":
             try:
                 if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":

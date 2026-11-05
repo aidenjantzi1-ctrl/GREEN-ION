@@ -44,6 +44,7 @@ static const uint32_t RADIO_REINITIALIZE_DELAY_MS = 10000;
 static const uint8_t RADIO_SEND_FAILURE_THRESHOLD = 3;
 static const uint32_t LOG_FLUSH_INTERVAL_MS = 500;
 static const uint32_t CHECKPOINT_INTERVAL_MS = 5000;
+static const uint32_t BENCH_RECORDING_MAX_MS = 120000;
 static const uint32_t GPS_CURRENT_MAX_AGE_MS = 3000;
 static const uint32_t IMU_TEST_DURATION_MS = 5000;
 static const uint16_t IMU_TEST_MINIMUM_SAMPLES = 100;

@@ -1340,6 +1340,7 @@ static bool finalizeRecording(uint32_t nowMs) {
     return false;
   }
   const bool wasAirplane = logFilename.startsWith("/AIRP");
+  const bool wasBench = logFilename.startsWith("/TEST");
   const uint64_t size = static_cast<uint64_t>(logFile.size());
   logFile.close();
   if (sensorLogCore.active() && !sensorLogCore.stop()) ++sensorLogFailures;
@@ -1364,7 +1365,7 @@ static bool finalizeRecording(uint32_t nowMs) {
   landingWatcher.cancel();
   if (wasAirplane) airplaneMode.stop();
   recorderMode = RECORDER_COMPLETE;
-  flightState = green_ion::STATE_LANDED;
+  flightState = wasBench ? green_ion::STATE_IDLE : green_ion::STATE_LANDED;
   return true;
 }
 
@@ -1372,15 +1373,31 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs,
                        const char *prefix = "V12D") {
   if (!state.sdOk || logFile) return static_cast<bool>(logFile);
   digitalWrite(config::PIN_LORA_CS, HIGH);
+  const String previousLogFilename = logFilename;
+  logFilename = "";
   for (uint16_t sequence = 0; sequence < 1000; ++sequence) {
     char candidate[14];
     snprintf(candidate, sizeof(candidate), "/%s%03u.BIN", prefix, sequence);
-    if (!SD.exists(candidate)) {
+    bool available = !SD.exists(candidate);
+    if (available) {
+      for (const char *suffix : {".TXT", ".SEN", ".JRA", ".JRB"}) {
+        String related = candidate;
+        related.replace(".BIN", suffix);
+        if (SD.exists(related)) {
+          available = false;
+          break;
+        }
+      }
+    }
+    if (available) {
       logFilename = candidate;
       break;
     }
   }
-  if (!logFilename.length()) return false;
+  if (!logFilename.length()) {
+    logFilename = previousLogFilename;
+    return false;
+  }
   checkpointFilenameA = logFilename;
   checkpointFilenameA.replace(".BIN", ".JRA");
   checkpointFilenameB = logFilename;
@@ -1649,8 +1666,11 @@ static void appendLog(uint32_t nowUs, uint32_t nowMs, bool valid) {
       recorderMode = RECORDER_FAULT;
     }
   }
-  if (recorderMode == RECORDER_RECORDING &&
+  if (recorderMode == RECORDER_RECORDING && !logFilename.startsWith("/TEST") &&
       landingWatcher.update({nowMs, watcherAltitudeM, watcherSpeedMps, valid}))
+    finalizeRecording(nowMs);
+  if (recorderMode == RECORDER_RECORDING && logFilename.startsWith("/TEST") &&
+      nowMs - recordingStartedMs >= config::BENCH_RECORDING_MAX_MS)
     finalizeRecording(nowMs);
   state.recording = recorderCore.recording();
   if (recorderCore.status() == green_ion::recorder::CORE_RECORD_WRITE_FAILED) {
@@ -1695,6 +1715,9 @@ static void sendDashboardStatus() {
   body += ",\"telemetry_protocol_version\":" + String(green_ion::kProtocolVersion);
   body += ",\"recording_format_version\":" + String(green_ion::rkt4::kVersion);
   body += ",\"flight_state\":" + String(static_cast<uint8_t>(flightState));
+  body += ",\"bench_recording\":";
+  body += (state.recording && logFilename.startsWith("/TEST")) ? "true" : "false";
+  body += ",\"bench_max_ms\":" + String(config::BENCH_RECORDING_MAX_MS);
   body += ",\"sd_ok\":";
   body += state.sdOk ? "true" : "false";
   body += ",\"imu_ok\":";
@@ -1831,7 +1854,7 @@ static void sendDashboardStatus() {
 
 static bool dashboardFlightFilename(const String &name, const char *suffix) {
   if (name.length() != 11 ||
-      (!name.startsWith("V12D") && !name.startsWith("AIRP")) ||
+      (!name.startsWith("V12D") && !name.startsWith("AIRP") && !name.startsWith("TEST")) ||
       !name.endsWith(suffix))
     return false;
   for (uint8_t index = 4; index < 7; ++index)
@@ -2004,6 +2027,36 @@ static void initializeDashboard() {
     resetCalibration(millis());
     dashboardServer.send(202, "application/json",
                          "{\"success\":true,\"message\":\"Stationary pressure calibration restarted\"}");
+  });
+  dashboardServer.on("/api/bench/start", HTTP_POST, []() {
+    if (state.recording || recorderMode != RECORDER_WATCHING || !state.sdOk ||
+        !isfinite(calibrationBaselinePa) || !isfinite(calibrationNoiseM) ||
+        state.batteryMv < config::AIRPLANE_MINIMUM_BATTERY_MV ||
+        airplaneMode.state() != green_ion::airplane::AIRPLANE_DISABLED) {
+      dashboardServer.send(409, "application/json",
+                           "{\"success\":false,\"message\":\"Bench recording requires an idle calibrated watcher, SD and battery above 3.5 V\"}");
+      return;
+    }
+    const uint32_t nowMs = millis();
+    if (!landingWatcher.begin(nowMs, {
+          config::SENSOR_RATE_HZ, 0.0f, calibrationNoiseM})) {
+      dashboardServer.send(500, "application/json",
+                           "{\"success\":false,\"message\":\"Bench landing monitor could not start\"}");
+      return;
+    }
+    if (!openRawLog(nowMs, micros(), "TEST")) {
+      landingWatcher.cancel();
+      dashboardServer.send(500, "application/json",
+                           "{\"success\":false,\"message\":\"Bench RKT4 file could not start; existing files were preserved\"}");
+      return;
+    }
+    flightWatcher.cancel();
+    recorderMode = RECORDER_RECORDING;
+    flightState = green_ion::STATE_IDLE;
+    dashboardServer.send(202, "application/json",
+        "{\"success\":true,\"file\":\"" + logFilename + "\",\"max_ms\":" +
+        String(config::BENCH_RECORDING_MAX_MS) +
+        ",\"message\":\"Bench RKT4 recording started; auto-finalizes within two minutes\"}");
   });
   dashboardServer.on("/api/stop", HTTP_POST, []() {
     if (!state.recording || recorderMode != RECORDER_RECORDING) {
