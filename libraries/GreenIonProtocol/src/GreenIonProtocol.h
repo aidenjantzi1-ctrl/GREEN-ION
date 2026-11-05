@@ -31,6 +31,7 @@ enum HealthBits : uint16_t {
   HEALTH_RADIO_INIT_ERROR = 1u << 4,
   HEALTH_IMU_READ_ERROR = 1u << 5,
   HEALTH_RADIO_SEND_ERROR = 1u << 6,
+  HEALTH_BARO_READ_ERROR = 1u << 7,
 };
 
 enum FlightState : uint8_t {

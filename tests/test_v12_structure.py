@@ -22,6 +22,7 @@ class V12StructureTests(unittest.TestCase):
             "libraries/GreenIonRecorder/src/GreenIonSensorLog.h",
             "libraries/GreenIonRecorder/src/GreenIonSensorLogCore.h",
             "libraries/GreenIonRecorder/src/GreenIonSensorRecovery.h",
+            "libraries/GreenIonRecorder/src/GreenIonSensorHealth.h",
             "libraries/GreenIonProtocol/src/GreenIonTelemetryQueue.h",
             "libraries/GreenIonProtocol/src/GreenIonRadioRecovery.h",
             "tests/cpp/test_v12_recorder_core.cpp",
@@ -248,6 +249,22 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("sensor_log::decodeRecord", recovery)
         self.assertNotIn("SD.remove(sensorPath)", firmware)
         self.assertNotIn("sensor.truncate", firmware)
+
+    def test_barometer_recovery_is_bounded_and_deferred_while_active(self):
+        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        config = (ROOT / "Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
+        health = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonSensorHealth.h").read_text(encoding="utf-8")
+        self.assertIn("BAROMETER_READ_FAILURE_THRESHOLD = 3", config)
+        self.assertIn("BAROMETER_REINITIALIZE_DELAY_MS = 5000", config)
+        self.assertIn("SensorHealth barometerHealth", firmware)
+        self.assertIn("serviceBarometerRecovery(nowMs)", firmware)
+        self.assertIn("recorderMode == RECORDER_WATCHING", firmware)
+        self.assertIn("recorderMode == RECORDER_RECORDING", firmware)
+        self.assertIn("HEALTH_BARO_READ_ERROR", firmware)
+        self.assertIn('body += ",\\\"barometer_runtime_losses\\\":"', firmware)
+        self.assertLess(firmware.index("serviceSensorLog(nowMs, micros())"),
+                        firmware.index("serviceBarometerRecovery(nowMs)"))
+        self.assertIn("static_cast<int32_t>(nowMs - nextRetryMs_)", health)
 
     def test_gic2_checkpoints_only_describe_flushed_sensor_bytes(self):
         firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")

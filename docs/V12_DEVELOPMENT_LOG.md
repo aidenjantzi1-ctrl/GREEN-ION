@@ -693,3 +693,25 @@ Extract deterministic sensor and storage interfaces needed to inject barometer i
 
 - GitHub Actions run `41853631801`: PASS for 72 committed Python tests, all native C++ suites including coordinated absent-sensor, GPS-loss, companion write/flush, and primary SD write/flush failures, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `411212a`.
 
+## 2026-11-04 — Session 28: bounded barometer loss and recovery
+
+### Implemented
+
+- Added a fixed-memory, hardware-independent sensor health policy with configurable consecutive-read threshold, rollover-safe retry timing, initialization/runtime-loss counters, retry failure accounting, and recovery accounting.
+- The BMP388 path now clears invalid pressure, temperature, and altitude immediately instead of leaving dashboard or telemetry consumers with stale numeric values. Three consecutive invalid reads mark the barometer unavailable and latch a distinct runtime-read health bit.
+- Automatic BMP388 reinitialization uses a five-second backoff and is prohibited while the recorder is watching for launch or actively recording. This prevents I2C initialization work from entering recorder-critical timing; retries remain available during calibration, fault, and completed states.
+- A successful recovery restarts pressure calibration so pre-loss and post-recovery baselines cannot be mixed. Serial and dashboard status expose loss, retry, initialization-failure, and recovery evidence.
+- Added native policy coverage for initialization loss, retry failure/success, transient failure reset, sustained runtime loss, recorder-critical deferral, timestamp rollover, and invalid configuration. The CI workflow now builds and executes this suite.
+
+### Evidence
+
+- Full local Python/source regression suite: PASS, 78 tests, using the installed Python runtime directly.
+- `git diff --check`: PASS before documentation updates.
+- Network fetch: PASS; the local branch was synchronized with its remote before editing.
+- A local native C++ compiler, usable WSL checkout, Arduino CLI, and target board toolchains are unavailable. Native policy execution, Adafruit Feather ESP32 V2 compilation, and Arduino Uno R3 compilation are **PENDING CI**.
+- No BMP388, I2C disconnect, SD card, shared-SPI load, power loss, or flight hardware was exercised. All physical behavior remains **NOT TESTED**.
+
+### Next task
+
+Add a deterministic storage/recovery transaction boundary that can inject checkpoint/report creation and boot-recovery failures through the firmware decision path while preserving the primary RKT4 evidence, then extend sensor health boundaries to IMU and GPS.
+

@@ -90,6 +90,11 @@ jobs:
           /tmp/test-v12-sensor-recovery
           g++ -std=c++17 -Wall -Wextra -Werror \
             -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_sensor_health.cpp \
+            -o /tmp/test-v12-sensor-health
+          /tmp/test-v12-sensor-health
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
             tests/cpp/test_v12_recording_failures.cpp \
             -o /tmp/test-v12-recording-failures
           /tmp/test-v12-recording-failures

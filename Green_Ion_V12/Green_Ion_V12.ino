@@ -32,6 +32,7 @@
 #include <GreenIonSensorLog.h>
 #include <GreenIonSensorLogCore.h>
 #include <GreenIonSensorRecovery.h>
+#include <GreenIonSensorHealth.h>
 
 #include "Config.h"
 #include "SensorState.h"
@@ -86,6 +87,9 @@ green_ion::flight::LandingWatcher landingWatcher;
 green_ion::TelemetryQueue<config::TELEMETRY_QUEUE_CAPACITY> telemetryQueue;
 green_ion::RadioRecovery radioRecovery(config::RADIO_REINITIALIZE_DELAY_MS,
                                        config::RADIO_SEND_FAILURE_THRESHOLD);
+green_ion::SensorHealth barometerHealth(
+    config::BAROMETER_REINITIALIZE_DELAY_MS,
+    config::BAROMETER_READ_FAILURE_THRESHOLD);
 
 enum RecorderMode : uint8_t {
   RECORDER_CALIBRATING = 0,
@@ -192,15 +196,20 @@ static void initializeI2c() {
   Wire.setClock(400000);
 }
 
-static void initializeSensors() {
-  state.barometerOk = barometer.begin_I2C(0x77) || barometer.begin_I2C(0x76);
-  if (state.barometerOk) {
+static bool configureBarometerHardware() {
+  const bool initialized = barometer.begin_I2C(0x77) || barometer.begin_I2C(0x76);
+  if (initialized) {
     barometer.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
     barometer.setPressureOversampling(BMP3_OVERSAMPLING_4X);
     barometer.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
-  } else {
-    healthBits |= green_ion::HEALTH_BARO_INIT_ERROR;
   }
+  return initialized;
+}
+
+static void initializeSensors() {
+  state.barometerOk = configureBarometerHardware();
+  barometerHealth.begin(millis(), state.barometerOk);
+  if (!state.barometerOk) healthBits |= green_ion::HEALTH_BARO_INIT_ERROR;
 
   state.imuOk = imu.begin_I2C(0x6A, &Wire) || imu.begin_I2C(0x6B, &Wire);
   if (state.imuOk) {
@@ -526,7 +535,7 @@ static void initializeRadio() {
   radioRecovery.begin(millis(), configureRadioHardware());
 }
 
-static bool readSensors() {
+static bool readSensors(uint32_t nowMs) {
   bool barometerReadingValid = false;
   if (state.barometerOk && barometer.performReading()) {
     state.pressurePa = barometer.pressure;
@@ -534,6 +543,15 @@ static bool readSensors() {
     state.altitudeM = barometer.readAltitude(1013.25f);
     barometerReadingValid = isfinite(state.pressurePa) && isfinite(state.temperatureC) &&
                             state.pressurePa > 30000.0f && state.pressurePa < 120000.0f;
+  }
+  if (state.barometerOk && !barometerReadingValid) {
+    healthBits |= green_ion::HEALTH_BARO_READ_ERROR;
+    state.pressurePa = state.temperatureC = state.altitudeM = NAN;
+  }
+  if (state.barometerOk && barometerHealth.noteRead(nowMs, barometerReadingValid)) {
+    state.barometerOk = false;
+    Serial.printf("BENCH BARO status=RUNTIME_LOST losses=%lu retry_deferred_while_active=1\n",
+                  static_cast<unsigned long>(barometerHealth.runtimeLosses()));
   }
 
   if (state.imuOk) {
@@ -733,6 +751,21 @@ static void resetCalibration(uint32_t nowMs) {
   calibrationBaselinePa = NAN;
   calibrationNoiseM = NAN;
   recorderMode = RECORDER_CALIBRATING;
+}
+
+static void serviceBarometerRecovery(uint32_t nowMs) {
+  const bool recorderCritical = recorderMode == RECORDER_WATCHING ||
+                                recorderMode == RECORDER_RECORDING;
+  if (!barometerHealth.shouldAttempt(nowMs, recorderCritical)) return;
+  const bool initialized = configureBarometerHardware();
+  barometerHealth.noteInitialize(nowMs, initialized);
+  state.barometerOk = initialized;
+  if (!initialized) healthBits |= green_ion::HEALTH_BARO_INIT_ERROR;
+  Serial.printf("BENCH BARO status=%s recoveries=%lu init_failures=%lu\n",
+                initialized ? "RECOVERED" : "RETRY_FAILED",
+                static_cast<unsigned long>(barometerHealth.recoveries()),
+                static_cast<unsigned long>(barometerHealth.initFailures()));
+  if (initialized) resetCalibration(millis());
 }
 
 static void serviceRadioRecovery(uint32_t nowMs) {
@@ -1203,6 +1236,11 @@ static void sendDashboardStatus() {
   body += ",\"gps_status\":\"" + String(gpsStatus) + "\",\"satellites\":";
   body += String(state.satellites);
   body += ",\"health\":" + String(healthBits);
+  body += ",\"barometer_ready\":";
+  body += state.barometerOk ? "true" : "false";
+  body += ",\"barometer_runtime_losses\":" + String(barometerHealth.runtimeLosses());
+  body += ",\"barometer_recoveries\":" + String(barometerHealth.recoveries());
+  body += ",\"barometer_init_failures\":" + String(barometerHealth.initFailures());
   body += ",\"prebuffer_records\":" + String(recorderCore.bufferedRecords());
   body += ",\"recorder_status\":" + String(static_cast<uint8_t>(recorderCore.status()));
   body += ",\"recorder_mode\":" + String(static_cast<uint8_t>(recorderMode));
@@ -1336,7 +1374,7 @@ void loop() {
   const uint32_t nowUs = micros();
 
   if (sampleClock.due(nowUs)) {
-    const bool barometerReadingValid = readSensors();
+    const bool barometerReadingValid = readSensors(nowMs);
     appendLog(nowUs, nowMs, barometerReadingValid);
   }
   serviceGps(nowMs);
@@ -1360,6 +1398,7 @@ void loop() {
   // BIN flush/checkpoint path has completed.
   serviceSensorLog(nowMs, micros());
 
+  serviceBarometerRecovery(nowMs);
   serviceRadioRecovery(nowMs);
   queueTelemetry(nowMs);
   serviceTelemetry(nowMs, micros());

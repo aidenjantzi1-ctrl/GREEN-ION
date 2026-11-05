@@ -38,6 +38,8 @@
 - [x] Integrate automatic landing finalization with BIN stop/flush, completion metadata, and recovery-journal cleanup ordered last.
 - [x] Complete the V11 recorder-core port: autonomous flight watcher, prebuffer, checkpoints, recovery, calibration, metadata, and rate control.
 - [ ] Add deterministic module interfaces and mocks for barometer, IMU, GPS, storage, radio, battery, and time.
+  - [x] Add a portable barometer health/retry policy with initialization failure, transient-read reset, sustained runtime-loss, rollover, backoff, and recorder-critical deferral tests.
+  - [ ] Extend deterministic health/recovery boundaries to IMU, GPS, storage, battery, and time.
 - [x] Add a coordinated recorder failure harness for missing optional sensors, mid-run GPS loss, secondary failure isolation, and fatal primary SD write/flush loss.
 - [ ] Add failure-injection integration tests for init loss, mid-run GPS/radio loss, SD write failure, and recovery.
 - [ ] Expand the ground station with sequence-gap statistics, session metadata, explicit download, and replay.

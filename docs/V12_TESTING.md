@@ -34,7 +34,8 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Add a fixed-format metadata golden vector plus filename, value, and buffer-bound rejection tests.
 - [x] Add native landing-watcher tests for stationary false positives, descent, adaptive stability, invalid samples, gaps, anchor movement, and timestamp rollover.
 - [x] Integrate landing finalization with recorder stop success/failure and completion-metadata golden/error tests.
-- [ ] Add deterministic barometer initialization/runtime-loss and firmware storage-adapter failure harnesses.
+- [x] Add native barometer health-policy tests for initialization loss, transient read failure, sustained runtime loss, retry failure, recovery, rollover, invalid configuration, and recorder-critical deferral; add source checks for firmware ordering and stale-value clearing.
+- [ ] Add firmware storage-adapter failure and boot recovery/checkpoint/report transaction harnesses.
 - [ ] Port the remaining V11 autonomous flight watcher, recovery checkpoints, dashboard, control lease, and OTA paths with regression tests.
 
 ## Hardware-only tests — NOT TESTED
