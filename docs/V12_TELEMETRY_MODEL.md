@@ -66,6 +66,11 @@
 | `sd_used_bytes` | integer | bytes | measured |
 | `sd_free_bytes` | integer | bytes | calculated |
 | `sd_capacity_age_ms` | integer | ms | calculated |
+| `barometer_sample_uptime_ms` | integer | ms | measured |
+| `imu_sample_uptime_ms` | integer | ms | measured |
+| `battery_sample_uptime_ms` | integer | ms | measured |
+| `gps_fix_uptime_ms` | integer | ms | measured |
+| `gps_altitude_uptime_ms` | integer | ms | measured |
 | `sensor_log_file` | string | — | measured |
 | `sensor_log_failures` | integer | count | measured |
 | `sensor_log_pending` | integer | count | measured |
@@ -109,3 +114,7 @@ The PA1010D parser uses Adafruit GPS `altitude`, which that library documents as
 Feather Wi-Fi reports recorder filenames, mode/status numeric codes, prebuffer count, checkpoint generation/failures, sensor-log queue/failures/drops, missed sample periods, and recovery state. These fields are absent from fixed LoRa v2 telemetry; the Ground Station marks them unavailable during radio-only reception rather than retaining old Wi-Fi values as current. `recovery_pending` is a 0/1 numeric flag in the current Feather JSON. SD capacity is available only from the separate `/api/files` endpoint when recording is idle; it is not sampled in the live status loop.
 
 `sd_total_bytes`, `sd_used_bytes`, and `sd_free_bytes` are cached values measured at SD initialization and refreshed only by an idle `/api/files` request. Their `field_meta.freshness` becomes `stale` during recording or when the capacity reading is older than 10 seconds. `sd_capacity_age_ms` reports the age; `sd_capacity_known=false` yields null capacity values. `checkpoint_committed_bytes` and `checkpoint_committed_records` advance only after a successfully written recovery checkpoint. They are committed checkpoint evidence, not the current file size or all samples collected. `sample_rate_hz` is the configured rate, not a guarantee that no sample deadlines were missed.
+
+## Sensor sample timing
+
+Each `field_meta` entry also includes `sample_uptime_ms` and `sample_time_basis`. Feather Wi-Fi status supplies the last valid barometer, IMU, battery, GPS fix, and GGA altitude sample times in milliseconds since Feather boot. The Ground Station associates those times with the related sensor values. They are distinct from `received_utc`, which is laptop packet receipt time. Missing sensor samples have no sample time. LoRa v2 has only packet `uptime_ms`, so `sample_time_basis=packet_uptime` means an approximate upper bound for when the reading was packaged, not the exact sensor read time. Device uptime can wrap; cross-device absolute time alignment must not be inferred from these fields alone.

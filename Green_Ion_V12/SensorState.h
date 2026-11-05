@@ -31,6 +31,9 @@ struct SensorState {
   bool gpsAltitudeValid = false;
   uint32_t lastGpsFixMs = 0;
   uint32_t lastGpsAltitudeMs = 0;
+  uint32_t lastBarometerSampleMs = 0;
+  uint32_t lastImuSampleMs = 0;
+  uint32_t lastBatterySampleMs = 0;
   uint32_t lastGpsSentenceMs = 0;
   uint32_t imuReadFailures = 0;
   uint8_t imuConsecutiveReadFailures = 0;

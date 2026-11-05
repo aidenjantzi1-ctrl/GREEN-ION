@@ -606,6 +606,7 @@ static bool readSensors(uint32_t nowMs) {
     state.altitudeM = barometer.readAltitude(1013.25f);
     barometerReadingValid = isfinite(state.pressurePa) && isfinite(state.temperatureC) &&
                             state.pressurePa > 30000.0f && state.pressurePa < 120000.0f;
+    if (barometerReadingValid) state.lastBarometerSampleMs = nowMs;
   }
   if (state.barometerOk && !barometerReadingValid) {
     healthBits |= green_ion::HEALTH_BARO_READ_ERROR;
@@ -628,6 +629,7 @@ static bool readSensors(uint32_t nowMs) {
                          isfinite(gyro.gyro.x) && isfinite(gyro.gyro.y) &&
                          isfinite(gyro.gyro.z);
     if (state.imuDataValid) {
+      state.lastImuSampleMs = nowMs;
       state.accelX = accel.acceleration.x;
       state.accelY = accel.acceleration.y;
       state.accelZ = accel.acceleration.z;
@@ -661,6 +663,7 @@ static bool readSensors(uint32_t nowMs) {
                           state.imuTemperatureC);
 
   state.batteryMv = static_cast<uint16_t>(analogReadMilliVolts(config::PIN_BATTERY) * 2u);
+  state.lastBatterySampleMs = nowMs;
   return barometerReadingValid;
 }
 
@@ -1752,6 +1755,15 @@ static void sendDashboardStatus() {
   body += ",\"recorder_mode\":" + String(static_cast<uint8_t>(recorderMode));
   body += ",\"calibration_baseline_pa\":" + numberOrNull(calibrationBaselinePa, 1);
   body += ",\"calibration_noise_m\":" + numberOrNull(calibrationNoiseM, 3);
+  body += ",\"barometer_sample_uptime_ms\":";
+  body += isfinite(state.pressurePa) ? String(state.lastBarometerSampleMs) : String("null");
+  body += ",\"imu_sample_uptime_ms\":";
+  body += state.imuDataValid ? String(state.lastImuSampleMs) : String("null");
+  body += ",\"battery_sample_uptime_ms\":" + String(state.lastBatterySampleMs);
+  body += ",\"gps_fix_uptime_ms\":";
+  body += state.gpsHasPosition ? String(state.lastGpsFixMs) : String("null");
+  body += ",\"gps_altitude_uptime_ms\":";
+  body += isfinite(state.gpsAltitudeM) ? String(state.lastGpsAltitudeMs) : String("null");
   body += ",\"relative_altitude_m\":" + numberOrNull(watcherAltitudeM, 2);
   body += ",\"vertical_speed_mps\":" + numberOrNull(watcherSpeedMps, 2);
   body += ",\"checkpoint_generation\":" + String(checkpointGeneration);

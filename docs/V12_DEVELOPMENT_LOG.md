@@ -863,3 +863,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 - Added SD total/used/free capacity cached at initialization and refreshed only when an idle file listing is requested. Live status includes the reading age and marks capacity unavailable if the SD is not ready.
 - Exposed the configured sample rate and record/byte counts from the last successfully written checkpoint. No SD capacity scan was added to the recorder loop; uncommitted current file size is deliberately not inferred.
 - Laptop Diagnostics labels capacity stale during recording or when the cache is older than 10 seconds. Full Python suite: 106 passed, including missing-SD and link-loss cache tests; changed Feather target compiled with ESP32 core 2.0.17. Hardware SD behavior remains NOT TESTED.
+
+### Sensor uptime provenance
+
+- Feather Wi-Fi status now includes last valid barometer, IMU, battery, GPS fix, and GGA altitude uptime timestamps. The laptop's per-field metadata reports those times separately from packet receive time. LoRa-only values use packet uptime with an explicit approximate basis.
+- Full Python suite: 108 tests passed, including distinct Wi-Fi sensor times and radio packet-time fallback. Feather target compiled with ESP32 core 2.0.17. No physical timing or GPS accuracy test was performed.

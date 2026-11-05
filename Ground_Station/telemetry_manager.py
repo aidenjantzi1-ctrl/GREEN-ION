@@ -40,6 +40,9 @@ MEASUREMENT_FIELDS = (
     "checkpoint_committed_bytes", "checkpoint_committed_records", "sample_rate_hz",
     "sd_capacity_known", "sd_total_bytes", "sd_used_bytes", "sd_free_bytes",
     "sd_capacity_age_ms",
+    "barometer_sample_uptime_ms", "imu_sample_uptime_ms",
+    "battery_sample_uptime_ms", "gps_fix_uptime_ms",
+    "gps_altitude_uptime_ms",
     "sensor_log_file", "sensor_log_failures", "sensor_log_pending",
     "sensor_log_dropped", "finalization_failures", "missed_sample_periods",
     "recovery_pending", "recovery_status", "recovered_logs",
@@ -109,6 +112,11 @@ FIELD_SPECS = {
     "sd_used_bytes": ("integer", "bytes", "measured"),
     "sd_free_bytes": ("integer", "bytes", "calculated"),
     "sd_capacity_age_ms": ("integer", "ms", "calculated"),
+    "barometer_sample_uptime_ms": ("integer", "ms", "measured"),
+    "imu_sample_uptime_ms": ("integer", "ms", "measured"),
+    "battery_sample_uptime_ms": ("integer", "ms", "measured"),
+    "gps_fix_uptime_ms": ("integer", "ms", "measured"),
+    "gps_altitude_uptime_ms": ("integer", "ms", "measured"),
     "sensor_log_file": ("string", None, "measured"),
     "sensor_log_failures": ("integer", "count", "measured"),
     "sensor_log_pending": ("integer", "count", "measured"),
@@ -136,6 +144,19 @@ FIELD_SPECS = {
     "hardware_tests_allowed": ("boolean", None, "calculated"),
 }
 assert set(FIELD_SPECS) == set(MEASUREMENT_FIELDS)
+
+SAMPLE_TIME_FIELDS = {
+    "barometer_sample_uptime_ms": ("pressure_pa", "temperature_c", "altitude_m",
+                                   "relative_altitude_m", "vertical_speed_mps"),
+    "imu_sample_uptime_ms": ("acceleration_g", "acceleration_x_g", "acceleration_y_g",
+                             "acceleration_z_g", "rotation_x_dps", "rotation_y_dps",
+                             "rotation_z_dps", "imu_temperature_c"),
+    "battery_sample_uptime_ms": ("battery_v",),
+    "gps_fix_uptime_ms": ("latitude", "longitude", "gps_speed_mps", "gps_course_deg"),
+    "gps_altitude_uptime_ms": ("gps_altitude_m",),
+}
+FIELD_SAMPLE_TIME = {field: clock_field for clock_field, fields in SAMPLE_TIME_FIELDS.items()
+                     for field in fields}
 
 
 def battery_estimate_percent(voltage: object) -> int | None:
@@ -403,16 +424,33 @@ class TelemetryManager:
                     age > SD_CAPACITY_FRESH_MS
                 ):
                     freshness = "stale"
+            sample_uptime_ms = None
+            sample_time_basis = None
+            if valid and name in FIELD_SAMPLE_TIME:
+                if selected == "wifi":
+                    stamp = combined.get(FIELD_SAMPLE_TIME[name])
+                    if isinstance(stamp, int) and not isinstance(stamp, bool) and stamp >= 0:
+                        sample_uptime_ms = stamp
+                        sample_time_basis = "sensor_sample"
+                elif selected in ("radio", "simulation"):
+                    stamp = combined.get("uptime_ms")
+                    if isinstance(stamp, int) and not isinstance(stamp, bool) and stamp >= 0:
+                        sample_uptime_ms = stamp
+                        sample_time_basis = "packet_uptime"
             fields[name] = {
                 "type": kind, "unit": unit, "origin": origin,
                 "source": selected if valid else None,
                 "received_utc": received_utc if valid else None,
+                "sample_uptime_ms": sample_uptime_ms,
+                "sample_time_basis": sample_time_basis,
                 "valid": valid, "freshness": freshness,
             }
         fields["battery_estimate_pct"] = {
             "type": "integer", "unit": "%", "origin": "calculated",
             "source": selected if battery_pct is not None else None,
             "received_utc": received_utc if battery_pct is not None else None,
+            "sample_uptime_ms": fields["battery_v"]["sample_uptime_ms"] if battery_pct is not None else None,
+            "sample_time_basis": fields["battery_v"]["sample_time_basis"] if battery_pct is not None else None,
             "valid": battery_pct is not None,
             "freshness": combined["link_status"] if battery_pct is not None else "missing",
         }
@@ -420,6 +458,8 @@ class TelemetryManager:
             "type": "string", "unit": None, "origin": "calculated",
             "source": selected if battery_pct is not None else None,
             "received_utc": received_utc if battery_pct is not None else None,
+            "sample_uptime_ms": fields["battery_v"]["sample_uptime_ms"] if battery_pct is not None else None,
+            "sample_time_basis": fields["battery_v"]["sample_time_basis"] if battery_pct is not None else None,
             "valid": battery_pct is not None,
             "freshness": combined["link_status"] if battery_pct is not None else "missing",
         }

@@ -204,6 +204,33 @@ class GroundStationManagerTests(unittest.TestCase):
         snapshot = self.manager.snapshot()
         self.assertEqual("stale", snapshot["field_meta"]["sd_free_bytes"]["freshness"])
 
+    def test_sensor_sample_times_are_distinct_from_packet_receive_time(self):
+        row = {**self.row(1), "pressure_pa": 101325, "acceleration_g": 1.0,
+               "battery_v": 4.0, "gps_status": "live", "latitude": 37.1,
+               "longitude": -121.9, "gps_fix_age_ms": 100,
+               "gps_altitude_m": 150.0,
+               "barometer_sample_uptime_ms": 91,
+               "imu_sample_uptime_ms": 92,
+               "battery_sample_uptime_ms": 93,
+               "gps_fix_uptime_ms": 80,
+               "gps_altitude_uptime_ms": 79}
+        self.manager.ingest("wifi", row)
+        fields = self.manager.snapshot()["field_meta"]
+        self.assertEqual(91, fields["pressure_pa"]["sample_uptime_ms"])
+        self.assertEqual(92, fields["acceleration_g"]["sample_uptime_ms"])
+        self.assertEqual(93, fields["battery_v"]["sample_uptime_ms"])
+        self.assertEqual(80, fields["latitude"]["sample_uptime_ms"])
+        self.assertEqual(79, fields["gps_altitude_m"]["sample_uptime_ms"])
+        self.assertEqual("sensor_sample", fields["gps_altitude_m"]["sample_time_basis"])
+        self.assertIsNotNone(fields["pressure_pa"]["received_utc"])
+
+    def test_radio_sample_time_is_packet_uptime_approximation(self):
+        self.manager.ingest("radio", {**self.row(1), "flags": 1 << 4,
+                                      "pressure_pa": 101325})
+        meta = self.manager.snapshot()["field_meta"]["pressure_pa"]
+        self.assertEqual(100, meta["sample_uptime_ms"])
+        self.assertEqual("packet_uptime", meta["sample_time_basis"])
+
     def test_bad_coordinates_are_not_saved(self):
         self.assertFalse(valid_coordinate(91, 0))
         row = self.row(1)
