@@ -183,17 +183,30 @@ def preflight_report(actions: dict | None = None) -> dict:
         f"Reported sample rate: {sample_rate} Hz; current V12 configuration expects 50 Hz."
         if sample_rate is not None else "Current sample rate is unavailable.")
     ports = available_ports()
+    receiver = snapshot.get("receiver_status") or {}
     identified_uno = [port for port in ports if
                       "arduino" in (port["description"] + port["hwid"]).lower() or
                       "uno" in port["description"].lower()]
-    add("Uno USB port", "PASS" if radio["status"] == "live" or len(identified_uno) == 1 else
+    add("Uno USB port", "PASS" if receiver or radio["status"] == "live" or len(identified_uno) == 1 else
         "WARNING" if ports else "NOT TESTED",
         "Validated Uno telemetry confirms an active USB connection." if radio["status"] == "live" else
+        "Uno boot status was received over USB; LoRa packet reception is separate." if receiver else
         f"{len(ports)} serial port(s) detected; select and confirm the Uno COM port in Settings."
         if ports else "Connect the Arduino Uno by USB; the LoRa module can still be disconnected.")
-    add("Uno receiver protocol", "PASS" if radio["status"] == "live" else "NOT TESTED",
-        "Validated receiver telemetry reached the laptop." if radio["status"] == "live"
-        else "No validated Uno telemetry. USB detection alone does not verify the receiver protocol.")
+    receiver_version = receiver.get("firmware_version")
+    add("Uno firmware version", "PASS" if isinstance(receiver_version, str) and receiver_version.startswith("V12") else
+        "WARNING" if receiver_version is not None else "NOT TESTED",
+        f"Uno reports {receiver_version}." if receiver_version is not None else "No Uno boot-status version received.")
+    add("Uno receiver protocol", "PASS" if receiver.get("protocol") == 2 or radio["status"] == "live" else
+        "WARNING" if receiver else "NOT TESTED",
+        f"Uno boot status reports protocol v{receiver.get('protocol')}; expected v2."
+        if receiver else "No validated Uno boot status or telemetry; USB detection alone is insufficient.")
+    add("Ground LoRa module", "PASS" if receiver.get("ok") is True else
+        "FAIL" if receiver.get("ok") is False else "NOT TESTED",
+        "Uno reports its LoRa module initialized; packet reception is checked separately."
+        if receiver.get("ok") is True else
+        f"Uno reported {receiver.get('error', 'radio initialization failure')}; check module wiring and antenna."
+        if receiver else "No Uno radio initialization result received over USB.")
     add("LoRa packets", "PASS" if radio["status"] == "live" else "NOT TESTED",
         "Validated radio packets received." if radio["status"] == "live"
         else "Connect both LoRa modules and antennas, then verify actual packets; USB alone is insufficient.")
@@ -503,12 +516,18 @@ def serial_source() -> None:
                         except ValueError as error:
                             MANAGER.note_parse_error("radio", str(error))
                     elif kind == "receiver_status":
-                        MANAGER.note_connection("radio", None if row.get("ok") else row.get("error", "receiver error"))
+                        try:
+                            MANAGER.note_receiver_status(row)
+                            MANAGER.note_connection("radio", None if row["ok"] else row.get("error", "receiver error"))
+                        except ValueError as error:
+                            MANAGER.note_parse_error("radio", str(error))
                     elif kind == "receiver_error":
                         MANAGER.note_parse_error("radio", f"receiver rejected packet code {row.get('code')}")
         except (OSError, serial.SerialException) as error:
             MANAGER.note_connection("radio", f"{port}: {error}")
             STOP.wait(2.0)
+        finally:
+            MANAGER.clear_receiver_status()
 
 
 def normalize_wifi(row: dict, sequence: int) -> dict:

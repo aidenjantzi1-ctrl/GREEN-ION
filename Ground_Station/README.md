@@ -26,7 +26,7 @@ No internet, phone, cloud account, Bluetooth, or hotspot is needed. The server c
 - **Mission Control**: live primary measurements, separate GPS/barometric altitude, last-known GPS coordinates and an offline track restored after page refresh, optional online street map with accepted trail, link health, expandable telemetry fields with source/freshness/sample times, selectable time-window graphs, real recorder state, and guarded Prepare Recorder and manual Stop/Save actions. Stop/Save finalizes an active file and requires typed and second confirmations; use it only when the recording must end.
 - **Recovery**: last valid position, fix age, LoRa age, RSSI, and offline relative track.
 - **Analysis**: append-only ground telemetry sessions, validated manual BIN import, Feather SD downloads, checksum deduplication, CSV/JSON exports and printable reports. Original RKT4 files are retained byte-for-byte.
-- **Diagnostics**: source errors, duplicates, sequence gaps, rejected out-of-order packets, and parse errors.
+- **Diagnostics**: source errors, duplicates, sequence gaps, rejected out-of-order packets, parse errors, and separate Uno boot/protocol, ground LoRa initialization, and actual packet evidence.
 - **Settings**: Uno COM port and Feather address. Unsupported configuration is not presented as functional.
 
 This grouping avoids separate History, Analysis, Reports, Map, Receiver and Connection pages while retaining one clear location for each workflow.

@@ -372,6 +372,20 @@ class GroundStationManagerTests(unittest.TestCase):
             checks = {item["name"]: item for item in ground_station.preflight_report(actions)["checks"]}
             self.assertEqual("PASS", checks["SD write/read/cleanup"]["status"])
 
+    def test_uno_boot_status_does_not_claim_lora_packets(self):
+        self.manager.note_receiver_status({"type": "receiver_status", "ok": False,
+                                           "firmware_version": "V12-development",
+                                           "protocol": 2, "error": "radio_init"})
+        with patch.object(ground_station, "MANAGER", self.manager), \
+                patch.object(ground_station, "available_ports", return_value=[]):
+            checks = {item["name"]: item for item in ground_station.preflight_report()["checks"]}
+            self.assertEqual("PASS", checks["Uno USB port"]["status"])
+            self.assertEqual("PASS", checks["Uno receiver protocol"]["status"])
+            self.assertEqual("FAIL", checks["Ground LoRa module"]["status"])
+            self.assertEqual("NOT TESTED", checks["LoRa packets"]["status"])
+        self.manager.clear_receiver_status()
+        self.assertIsNone(self.manager.snapshot()["receiver_status"])
+
     def test_feather_status_fields_are_accepted_by_ground_station(self):
         firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
         status = firmware.split("static void sendDashboardStatus()")[1].split("static bool dashboardFlightFilename")[0]

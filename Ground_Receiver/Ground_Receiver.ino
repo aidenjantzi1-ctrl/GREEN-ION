@@ -114,14 +114,18 @@ void setup() {
   delay(10);
 
   if (!radio.init() || !radio.setFrequency(green_ion::radio_config::kFrequencyMhz)) {
-    Serial.println(F("{\"type\":\"receiver_status\",\"ok\":false,\"error\":\"radio_init\"}"));
+    Serial.print(F("{\"type\":\"receiver_status\",\"ok\":false,\"firmware_version\":\"V12-development\",\"protocol\":"));
+    Serial.print(green_ion::kProtocolVersion);
+    Serial.println(F(",\"error\":\"radio_init\"}"));
     return;
   }
   radio.setTxPower(green_ion::radio_config::kTxPowerDbm, false);
   radio.setSpreadingFactor(green_ion::radio_config::kSpreadingFactor);
   radio.setSignalBandwidth(green_ion::radio_config::kSignalBandwidthHz);
   radio.setCodingRate4(green_ion::radio_config::kCodingRateDenominator);
-  Serial.print(F("{\"type\":\"receiver_status\",\"ok\":true,\"frequency_mhz\":"));
+  Serial.print(F("{\"type\":\"receiver_status\",\"ok\":true,\"firmware_version\":\"V12-development\",\"protocol\":"));
+  Serial.print(green_ion::kProtocolVersion);
+  Serial.print(F(",\"frequency_mhz\":"));
   Serial.print(green_ion::radio_config::kFrequencyMhz, 1);
   Serial.print(F(",\"bandwidth_hz\":"));
   Serial.print(green_ion::radio_config::kSignalBandwidthHz);

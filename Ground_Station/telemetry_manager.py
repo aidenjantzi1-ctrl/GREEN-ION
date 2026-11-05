@@ -276,6 +276,8 @@ class TelemetryManager:
         self.clock = clock
         self.sources = {name: SourceState() for name in ("wifi", "radio", "simulation")}
         self.last_position: dict | None = None
+        self.receiver_status: dict | None = None
+        self.receiver_connected = False
         self.history: list[dict] = []
         self.lock = threading.RLock()
         self.started_utc = utc_now()
@@ -283,6 +285,22 @@ class TelemetryManager:
     def note_connection(self, source: str, error: str | None) -> None:
         with self.lock:
             self.sources.setdefault(source, SourceState()).connection_error = error
+
+    def note_receiver_status(self, row: dict) -> None:
+        """Keep Uno boot evidence separate from actual LoRa telemetry packets."""
+        if not isinstance(row, dict) or not isinstance(row.get("ok"), bool):
+            raise ValueError("invalid Uno receiver status")
+        keys = ("ok", "firmware_version", "protocol", "error", "frequency_mhz",
+                "bandwidth_hz", "spreading_factor", "coding_rate", "tx_power_dbm")
+        with self.lock:
+            self.receiver_status = {key: row[key] for key in keys if key in row}
+            self.receiver_status["received_utc"] = utc_now()
+            self.receiver_connected = True
+
+    def clear_receiver_status(self) -> None:
+        with self.lock:
+            self.receiver_status = None
+            self.receiver_connected = False
 
     def note_parse_error(self, source: str, message: str) -> None:
         with self.lock:
@@ -407,6 +425,7 @@ class TelemetryManager:
         combined["link_status"] = source_info[selected]["status"] if selected else "missing"
         combined["packet_age_ms"] = source_info[selected]["age_ms"] if selected else None
         combined["sources"] = source_info
+        combined["receiver_status"] = dict(self.receiver_status) if self.receiver_connected and self.receiver_status else None
         combined["started_utc"] = self.started_utc
         if self.writer:
             combined["session_id"] = self.writer.session_id
