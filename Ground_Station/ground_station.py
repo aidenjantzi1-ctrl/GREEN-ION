@@ -353,6 +353,45 @@ def refresh_preflight_run() -> dict:
     return save_preflight_run(refreshed, run_id)
 
 
+def diagnostic_test(kind: str) -> tuple[int, dict]:
+    """Run only supported Feather tests; classify other checks as read-only."""
+    observed = {"bmp": "BMP388", "lipo": "Battery", "wifi": "Feather API",
+                "lora": "Ground LoRa module"}
+    if kind in observed:
+        check = next(item for item in preflight_report()["checks"] if item["name"] == observed[kind])
+        return 200, {"test": kind, **check, "hardware_test_started": False}
+    paths = {"imu": "/api/hardware-test?sensor=imu",
+             "gps": "/api/hardware-test?sensor=gps", "sd": "/api/sdtest"}
+    if kind not in paths:
+        return 400, {"test": kind, "status": "NOT TESTED", "message": "Unknown diagnostic test."}
+    snapshot = MANAGER.snapshot()
+    if (snapshot.get("recording") or snapshot.get("active_source") != "wifi" or
+            snapshot.get("sources", {}).get("wifi", {}).get("status") != "live"):
+        return 409, {"test": kind, "status": "NOT TESTED",
+                     "message": "A live idle V12 Feather Wi-Fi connection is required; no test was started."}
+    try:
+        base, current = feather_status()
+        if (not isinstance(current, dict) or
+                not str(current.get("firmware_version", "")).startswith("V12") or
+                current.get("recording") is True or
+                current.get("recorder_mode") not in (0, 1, 3, 4)):
+            return 409, {"test": kind, "status": "NOT TESTED",
+                         "message": "Current V12 Feather identity and idle recorder state are required; no test was started."}
+        code, result = feather_post(paths[kind], base_url=base)
+        if kind == "sd":
+            status = "PASS" if code == 200 and result.get("success") is True else "FAIL"
+            message = result.get("message") or result.get("error") or "SD self-test did not return a result."
+        else:
+            status = "WARNING" if code == 202 and result.get("accepted") is True else "FAIL"
+            message = ("Sensor test started; keep the rocket stationary and inspect the updated result in Preflight."
+                       if status == "WARNING" else result.get("error") or "Sensor test was not accepted.")
+        return code, {"test": kind, "status": status, "message": message,
+                      "hardware_test_started": code == 202 or kind == "sd" and code in (200, 500)}
+    except (OSError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
+        return 502, {"test": kind, "status": "NOT TESTED",
+                     "message": f"Could not contact the Feather: {error}", "hardware_test_started": False}
+
+
 def available_ports() -> list[dict]:
     try:
         from serial.tools import list_ports  # type: ignore
@@ -460,6 +499,21 @@ class Handler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:
+        if self.path == "/api/diagnostics/test":
+            try:
+                if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
+                    raise ValueError("A JSON test request is required.")
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > 256:
+                    raise ValueError("Invalid diagnostic request length.")
+                payload = json.loads(self.rfile.read(length))
+                if not isinstance(payload, dict) or not isinstance(payload.get("test"), str):
+                    raise ValueError("Invalid diagnostic test request.")
+                status, result = diagnostic_test(payload["test"])
+                json_response(self, result, status)
+            except (ValueError, json.JSONDecodeError) as error:
+                json_response(self, {"status": "NOT TESTED", "error": str(error)}, 400)
+            return
         if self.path == "/api/recorder/prepare":
             status, result = prepare_recorder()
             json_response(self, result, status)

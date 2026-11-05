@@ -121,6 +121,25 @@ class PreflightHistoryTests(unittest.TestCase):
             raw = (Path(temporary) / f"preflight-{report['run_id']}.json").read_bytes()
             self.assertEqual("COMPLETE", json.loads(raw)["run_status"])
 
+    def test_individual_diagnostics_distinguish_read_only_and_hardware_tests(self):
+        manager = TelemetryManager(clock=Clock())
+        with patch.object(ground_station, "MANAGER", manager), \
+                patch.object(ground_station, "available_ports", return_value=[]), \
+                patch.object(ground_station, "feather_post") as post:
+            self.assertEqual("NOT TESTED", ground_station.diagnostic_test("lora")[1]["status"])
+            self.assertEqual(409, ground_station.diagnostic_test("sd")[0])
+            post.assert_not_called()
+            manager.ingest("wifi", {"sequence": 1, "uptime_ms": 100,
+                                     "recording": False, "recorder_mode": 1})
+            with patch.object(ground_station, "feather_status", return_value=(
+                    "http://192.168.4.1", {"firmware_version": "V12-development",
+                                         "recording": False, "recorder_mode": 1})):
+                post.return_value = (200, {"success": True, "message": "readback passed"})
+                self.assertEqual("PASS", ground_station.diagnostic_test("sd")[1]["status"])
+                post.assert_called_with("/api/sdtest", base_url="http://192.168.4.1")
+                post.return_value = (202, {"accepted": True})
+                self.assertEqual("WARNING", ground_station.diagnostic_test("gps")[1]["status"])
+
 
 class GroundStationManagerTests(unittest.TestCase):
     def setUp(self):
