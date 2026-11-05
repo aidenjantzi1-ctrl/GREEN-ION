@@ -1,6 +1,6 @@
 # GREEN ION V12 implementation progress
 
-Updated 2026-11-04 Pacific. Development branch: `codex/green-ion-v12`. Starting remote commit: `d0ec3a1d84c0c0288bd2c4f9e6ca43b896613459`.
+Updated 2026-11-04 Pacific. Development branch: `codex/green-ion-v12`. Starting remote commit: `d0ec3a1d84c0c0288bd2c4f9e6ca43b896613459`. Phase 1 checkpoint commit: `63119eb` (pushed to the development branch).
 
 ## Current phase
 
@@ -11,12 +11,12 @@ Phase 1 is in progress. The laptop Ground Station now has the requested six dest
 | Capability | Status | Evidence |
 | --- | --- | --- |
 | GitHub read | AVAILABLE | GitHub connector read the development branch commits; Git fetch obtained the branch. |
-| GitHub write/push | NOT VERIFIED | The local `gh` token failed authentication; a Git push has not yet succeeded in this session. |
+| GitHub write/push | AVAILABLE | Git push of checkpoint `63119eb` to `codex/green-ion-v12` succeeded. The local `gh` CLI token failed, but Git remote transport worked. |
 | Python 3 and test runner | AVAILABLE | Python 3.12.14; 95 `unittest` tests passed in this session. |
 | Node.js syntax check | AVAILABLE | Node 24.22.1 checked the extracted Ground Station script. |
 | Arduino CLI and both target compilers | NOT VERIFIED | No target compilation was performed in this session. Historical CI results are in the development log. |
 | Browser and hardware tests | NOT VERIFIED | No browser device or physical rocket hardware was exercised. |
-| Recurring cloud automation | PARTIAL | A single enabled exact-time automation was created for 1:30 AM Pacific on 2026-11-05 and every two hours thereafter. Its recorded environment selection is `inherited`; the cloud execution location and overlap behavior require evidence from the first run. |
+| Recurring cloud automation | PARTIAL | A single enabled exact-time automation was created for 1:30 AM Pacific on 2026-11-05 and every two hours thereafter. Its recorded environment selection is `inherited` and resolves to the GREEN-ION managed cloud environment. Actual execution and nonoverlap behavior require evidence from the first run. |
 | Current Codex usage | NOT VERIFIED | No usage meter was available in the inspected tools. |
 
 ## Existing implementation verified in code
