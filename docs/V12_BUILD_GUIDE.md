@@ -1,6 +1,6 @@
 # GREEN ION V12 build guide
 
-V12 is an isolated development tree. `Green_Ion_V11/` remains the working flight baseline and must not be overwritten while V12 is incomplete.
+V12 is the current root-level development firmware on `main`. The complete V11 release candidate is preserved under `Past_Versions/Green_Ion_V11/` for rollback and format comparison. Neither version is flight-ready without measured hardware validation.
 
 ## Arduino IDE setup
 

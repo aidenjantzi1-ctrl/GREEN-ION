@@ -2,7 +2,7 @@
 
 ## Phase 1 — foundation
 
-- [x] Preserve V11 in place and create isolated V12 directories.
+- [x] Preserve V11 under `Past_Versions/Green_Ion_V11` and keep V12 in its root-level project directories.
 - [x] Centralize preliminary pins and runtime constants.
 - [x] Create shared telemetry protocol and host tests.
 - [x] Create initial ESP32 integration sketch, Uno receiver, simulated local ground station, and required documents.

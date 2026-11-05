@@ -5,8 +5,8 @@ import struct
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-INO = (ROOT / "Green_Ion_V11/Green_Ion_V11.ino").read_text(encoding="utf-8")
-DASH = (ROOT / "Green_Ion_V11/Dashboard.h").read_text(encoding="utf-8")
+INO = (ROOT / "Past_Versions/Green_Ion_V11/Green_Ion_V11.ino").read_text(encoding="utf-8")
+DASH = (ROOT / "Past_Versions/Green_Ion_V11/Dashboard.h").read_text(encoding="utf-8")
 
 
 def inspect_rkt4(data):

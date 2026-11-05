@@ -36,7 +36,7 @@ class V12Rkt4Tests(unittest.TestCase):
         self.assertIn("kRecordBytes = 16", header)
 
     def test_v11_source_remains_the_format_authority(self):
-        v11 = (ROOT / "Green_Ion_V11" / "Green_Ion_V11.ino").read_text(encoding="utf-8")
+        v11 = (ROOT / "Past_Versions" / "Green_Ion_V11" / "Green_Ion_V11.ino").read_text(encoding="utf-8")
         self.assertIn('memcpy(hdr, "RKT4", 4)', v11)
         self.assertIn("w16(hdr + 4, 2)", v11)
         self.assertIn("w16(hdr + 6, 32)", v11)

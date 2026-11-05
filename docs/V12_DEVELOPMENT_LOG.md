@@ -745,3 +745,20 @@ Upload the CI-compiled V12 build to the Feather, run Test IMU while motionless, 
 
 - GitHub Actions run `41953454159`: PASS for all 79 Python regressions, all native C++ suites including the new IMU/GPS classifier cases, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development binary upload on commit `67df1d8`.
 
+## 2026-11-04 — Session 30: promote V12 to main and archive V11
+
+### Implemented
+
+- Merged the complete V12 development history with the newer documentation cleanup already on `main`.
+- Made `Green_Ion_V12/`, `Ground_Receiver/`, `Ground_Station/`, and both shared libraries visible as the current root-level projects. The repository README now links the Feather firmware and Arduino Uno receiver directly.
+- Moved the complete committed V11 source, dashboard, phone-update instructions, and matching binary to `Past_Versions/Green_Ion_V11/` without changing their contents.
+- Updated V11 regression tests and its archival compile workflow to use the preserved path. Updated version/build/roadmap documentation so V12 is current while remaining explicitly hardware-validation-in-progress.
+
+### Evidence
+
+- Clean promotion-worktree Python regression suite: PASS, 74 committed tests.
+- Offline browser RKT4 JavaScript tests and syntax checks: PASS.
+- `git diff --check`: PASS before this log update.
+- The earlier V12 branch CI compiled both the Adafruit Feather ESP32 V2 and Arduino Uno R3 successfully. Fresh `main` target compilation is pending the promotion push.
+- No new physical hardware test was performed during repository promotion.
+

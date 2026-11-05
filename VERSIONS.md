@@ -131,6 +131,9 @@ V9.2 and all earlier versions are preserved under `Past_Versions`. V10 is the st
 - The full feature-by-feature change history is in [CHANGELOG.md](./CHANGELOG.md).
 # Current candidate
 
-- **V11 Release Candidate — Hardware Validation Pending**: `Green_Ion_V11/`
+- **V12 Development Firmware — Hardware Validation In Progress**: `Green_Ion_V12/`
+- **V12 Arduino Uno receiver**: `Ground_Receiver/`
+- **V12 Windows ground station**: `Ground_Station/`
+- **V11 Release Candidate — archived for rollback**: `Past_Versions/Green_Ion_V11/`
 - **V10 preserved release**: `Past_Versions/Green_Ion_V10/`
 
