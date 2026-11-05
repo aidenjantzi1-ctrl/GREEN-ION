@@ -1,5 +1,14 @@
 # GREEN ION V12 development log
 
+## 2026-11-05 — Managed cloud run: Phase 2 acceptance and Phase 3 Mission Control start
+
+- Finished Phase 2 software telemetry acceptance for the supported Wi-Fi and LoRa packet fields; documented unsupported hardware checks as NOT TESTED. Kept GPS MSL altitude and barometric altitude separate.
+- Added Mission Control GPS altitude quality, last-known coordinates, offline relative trajectory, opt-in online street map, and eight expandable groups covering all normalized telemetry fields with field metadata.
+- Prevented repeat polling from inventing graph samples; a lost link inserts one missing-data gap. Default source counters show zeros before a link appears.
+- Focused Chromium checks at 1280 and 390 pixels confirmed GPS display, eight detail groups, graph de-duplication/stale gap, no JavaScript errors and no horizontal overflow. Python regression suite: 111 passed after this UI change; Ground Station JavaScript syntax and RKT4 browser analysis tests also passed. Hardware behavior remains NOT TESTED.
+- Next: labeled selectable time-window graphs, then inspect firmware-supported recorder controls.
+
+
 ## 2026-11-04 — Session 34: validated laptop flight library
 
 - Added manual RKT4 BIN import and Feather SD downloads to the local Flights workflow. Transfers are bounded, byte-count checked, header/layout validated, and stored without rewriting the original recording.

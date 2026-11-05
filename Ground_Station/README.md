@@ -23,7 +23,7 @@ No internet, phone, cloud account, Bluetooth, or hotspot is needed. The server c
 ## Final navigation
 
 - **Preflight**: connected hardware readiness checks and results.
-- **Mission Control**: the live-flight screen with primary measurements and link health.
+- **Mission Control**: live primary measurements, separate GPS/barometric altitude, last-known GPS coordinates and offline track, optional online street map, link health, and expandable telemetry fields with source/freshness/sample times.
 - **Recovery**: last valid position, fix age, LoRa age, RSSI, and offline relative track.
 - **Analysis**: append-only ground telemetry sessions, validated manual BIN import, Feather SD downloads, checksum deduplication, CSV/JSON exports and printable reports. Original RKT4 files are retained byte-for-byte.
 - **Diagnostics**: source errors, duplicates, sequence gaps, rejected out-of-order packets, and parse errors.
