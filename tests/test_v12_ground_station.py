@@ -155,6 +155,20 @@ class PreflightHistoryTests(unittest.TestCase):
         points[-1]["battery_v"] = 4.2
         self.assertEqual("WARNING", ground_station.battery_stability(points, "wifi", now)[0])
 
+    def test_diagnostic_history_appends_and_preserves_test_origin(self):
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.object(ground_station, "DIAGNOSTIC_LOG", Path(temporary) / "diagnostics.jsonl"):
+            ground_station.record_diagnostic_result({"test": "lora", "status": "NOT TESTED",
+                                                     "message": "No receiver status",
+                                                     "hardware_test_started": False})
+            ground_station.record_diagnostic_result({"test": "sd", "status": "PASS",
+                                                     "message": "readback verified",
+                                                     "hardware_test_started": True})
+            recent = ground_station.recent_diagnostics()
+            self.assertEqual(["sd", "lora"], [item["test"] for item in recent])
+            self.assertEqual([True, False], [item["hardware_test_started"] for item in recent])
+            self.assertEqual(2, len((Path(temporary) / "diagnostics.jsonl").read_text().splitlines()))
+
 
 class GroundStationManagerTests(unittest.TestCase):
     def setUp(self):

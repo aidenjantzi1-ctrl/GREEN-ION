@@ -8,6 +8,7 @@ Simulation is available only through the explicit ``--sample`` option.
 from __future__ import annotations
 
 import argparse
+from collections import deque
 from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 import json
@@ -34,6 +35,8 @@ CONFIG_LOCK = threading.Lock()
 FLIGHTS = FlightLibrary(DATA_DIR / "flights")
 PREFLIGHT_DIR = DATA_DIR / "preflight"
 PREFLIGHT_LOCK = threading.Lock()
+DIAGNOSTIC_LOG = DATA_DIR / "diagnostic-history.jsonl"
+DIAGNOSTIC_LOCK = threading.Lock()
 
 
 class LimitedReader:
@@ -432,6 +435,30 @@ def diagnostic_test(kind: str) -> tuple[int, dict]:
                      "message": f"Could not contact the Feather: {error}", "hardware_test_started": False}
 
 
+def record_diagnostic_result(result: dict) -> None:
+    entry = {"recorded_utc": datetime.now(timezone.utc).isoformat(),
+             "test": result.get("test"), "status": result.get("status"),
+             "message": result.get("message"),
+             "hardware_test_started": result.get("hardware_test_started", False)}
+    with DIAGNOSTIC_LOCK, DIAGNOSTIC_LOG.open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write(json.dumps(entry, allow_nan=False, separators=(",", ":")) + "\n")
+        handle.flush()
+
+
+def recent_diagnostics(limit: int = 50) -> list[dict]:
+    if not DIAGNOSTIC_LOG.is_file():
+        return []
+    with DIAGNOSTIC_LOCK, DIAGNOSTIC_LOG.open(encoding="utf-8") as handle:
+        lines = deque(handle, maxlen=limit)
+    results = []
+    for line in reversed(lines):
+        try:
+            results.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return results
+
+
 def available_ports() -> list[dict]:
     try:
         from serial.tools import list_ports  # type: ignore
@@ -462,6 +489,13 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if path == "/api/preflight/history":
             json_response(self, {"reports": preflight_runs()})
+            return
+        if path == "/api/diagnostics/history":
+            json_response(self, {"results": recent_diagnostics()})
+            return
+        if path == "/api/diagnostics/export":
+            bytes_response(self, DIAGNOSTIC_LOG.read_bytes() if DIAGNOSTIC_LOG.is_file() else b"",
+                           "application/x-ndjson", "green-ion-diagnostics.jsonl")
             return
         if path == "/api/preflight/export":
             raw_id = parse_qs(parsed.query).get("id", [""])[0]
@@ -550,6 +584,10 @@ class Handler(SimpleHTTPRequestHandler):
                 if not isinstance(payload, dict) or not isinstance(payload.get("test"), str):
                     raise ValueError("Invalid diagnostic test request.")
                 status, result = diagnostic_test(payload["test"])
+                try:
+                    record_diagnostic_result(result)
+                except OSError as error:
+                    result["history_error"] = f"Diagnostic result could not be saved: {error}"
                 json_response(self, result, status)
             except (ValueError, json.JSONDecodeError) as error:
                 json_response(self, {"status": "NOT TESTED", "error": str(error)}, 400)
