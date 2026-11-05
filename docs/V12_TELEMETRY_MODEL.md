@@ -51,10 +51,22 @@
 | `flags` | integer | bitmask | measured |
 | `log_file` | string | — | measured |
 | `barometer_ready` | boolean | — | measured |
-| `recorder_status` | string | — | measured |
-| `recorder_mode` | string | — | measured |
+| `recorder_status` | integer | code | measured |
+| `recorder_mode` | integer | code | measured |
 | `calibration_baseline_pa` | number | Pa | calculated |
 | `calibration_noise_m` | number | m | calculated |
+| `prebuffer_records` | integer | count | measured |
+| `checkpoint_generation` | integer | count | measured |
+| `checkpoint_failures` | integer | count | measured |
+| `sensor_log_file` | string | — | measured |
+| `sensor_log_failures` | integer | count | measured |
+| `sensor_log_pending` | integer | count | measured |
+| `sensor_log_dropped` | integer | count | measured |
+| `finalization_failures` | integer | count | measured |
+| `missed_sample_periods` | integer | count | measured |
+| `recovery_pending` | integer | flag | measured |
+| `recovery_status` | string | — | measured |
+| `recovered_logs` | integer | count | measured |
 | `imu_test_result` | string | — | calculated |
 | `imu_test_message` | string | — | calculated |
 | `imu_range_32g` | boolean | — | measured |
@@ -85,3 +97,5 @@ Fields not transmitted by a source are absent from that source packet and have `
 The Uno bridge's fixed-width v2 JSON includes a `flags` bitmask. The Ground Station reads bits 2–6 as SD ready, IMU ready, barometer ready, radio ready, and recording. If the barometer or IMU ready bit is clear, their zero-filled fixed packet fields become `null` in the merged status view. A genuine zero with the ready bit set remains valid. The original RKT4 and GIS1 flight recordings are untouched. LoRa has no separate vertical-speed field, barometer temperature, or calibrated relative altitude; these remain unavailable during radio-only reception.
 
 The PA1010D parser uses Adafruit GPS `altitude`, which that library documents as meters above mean sea level (MSL). Firmware marks `gps_altitude_valid` only when a parsed GGA sentence reports a positive fix quality and a finite altitude, and the altitude observation is still recent. RMC may supply a position and course before a valid GGA altitude arrives. `gps_fix_quality` is the GGA quality code (0 means invalid; 1 means GPS; 2 means DGPS). `gps_course_deg` is the RMC course clockwise from true north. The Feather also reports whether NMEA messages are arriving and the parsed/received sentence counts. Fixed LoRa v2 packets do not carry separate altitude quality, fix quality, course, or NMEA communication fields, so those fields are unknown in radio-only reception. Firmware compilation does not verify actual PA1010D behavior.
+
+Feather Wi-Fi reports recorder filenames, mode/status numeric codes, prebuffer count, checkpoint generation/failures, sensor-log queue/failures/drops, missed sample periods, and recovery state. These fields are absent from fixed LoRa v2 telemetry; the Ground Station marks them unavailable during radio-only reception rather than retaining old Wi-Fi values as current. `recovery_pending` is a 0/1 numeric flag in the current Feather JSON. SD capacity is available only from the separate `/api/files` endpoint when recording is idle; it is not sampled in the live status loop.

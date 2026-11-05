@@ -851,3 +851,9 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 - Added explicit GGA altitude validity and fix quality, RMC course, and GPS communication counts to Feather Wi-Fi status. The laptop now keeps altitude quality separate from position-fix freshness and displays the MSL datum.
 - Baseline and changed Feather sketch both compiled with Arduino CLI 1.5.1 and installed ESP32 core 2.0.17. The compiler emitted library overload warnings but exited successfully. Python regression suite: 103 tests passed; RKT4 browser analysis passed.
 - Hardware GPS accuracy, fix acquisition, course, and altitude validity remain NOT TESTED. Phase 2 remains incomplete.
+
+### Recorder diagnostics follow-up
+
+- Accepted existing Feather status fields for the active RKT4 and sensor filenames, recorder mode, checkpoint failures, sensor-log drops, missed periods, and recovery status into the unified Ground Station model. Diagnostics displays their actual values and shows unavailable values for radio-only packets.
+- Added a source-switch test proving Wi-Fi-only recorder details are not silently retained as current LoRa data. Full Python suite: 104 passed; JavaScript syntax, RKT4 browser analysis, and a focused recorder Diagnostics browser check passed.
+- Live SD free-space and active file/sample counts are still missing. `/api/files` already reports used/total capacity only while idle, preserving recorder priority.

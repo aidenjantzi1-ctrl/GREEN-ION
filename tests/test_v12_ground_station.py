@@ -157,6 +157,21 @@ class GroundStationManagerTests(unittest.TestCase):
         self.assertEqual(0, snapshot["gps_fix_quality"])
         self.assertEqual(12, snapshot["gps_nmea_sentences"])
 
+    def test_recorder_diagnostics_are_present_only_when_reported(self):
+        self.manager.ingest("wifi", {**self.row(1), "log_file": "V12D001.BIN",
+                                     "recorder_mode": 2, "checkpoint_failures": 0,
+                                     "sensor_log_dropped": 3, "recovery_pending": 0})
+        snapshot = self.manager.snapshot()
+        self.assertEqual("V12D001.BIN", snapshot["log_file"])
+        self.assertTrue(snapshot["field_meta"]["checkpoint_failures"]["valid"])
+        self.assertTrue(snapshot["field_meta"]["recovery_pending"]["valid"])
+        self.clock.advance(3)
+        self.manager.ingest("radio", {**self.row(2), "flags": 1 << 4})
+        snapshot = self.manager.snapshot()
+        self.assertEqual("radio", snapshot["active_source"])
+        self.assertFalse(snapshot["field_meta"]["checkpoint_failures"]["valid"])
+        self.assertFalse(snapshot["field_meta"]["log_file"]["valid"])
+
     def test_bad_coordinates_are_not_saved(self):
         self.assertFalse(valid_coordinate(91, 0))
         row = self.row(1)
