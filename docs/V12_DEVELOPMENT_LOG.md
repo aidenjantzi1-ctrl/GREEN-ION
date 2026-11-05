@@ -8,7 +8,9 @@
 - Focused Chromium checks at 1280 and 390 pixels confirmed GPS display, eight detail groups, graph de-duplication/stale gap, no JavaScript errors and no horizontal overflow. A focused graph smoke confirmed six series, time-window controls, hover reading, and exclusion of stale GPS altitude. Python regression suite: 111 passed after this UI change; Ground Station JavaScript syntax and RKT4 browser analysis tests also passed. Hardware behavior remains NOT TESTED.
 - Added a guarded Prepare Recorder route and UI backed by the V12 Feather calibration endpoint; showed automatic launch-watcher mode and last file. Firmware resets flight phase to idle on stationary recalibration after a completed flight. The cloud ESP32 compile passed with core 2.0.17; 113 Python tests passed at the latest checkpoint. No physical hardware was exercised.
 - Restored the recent accepted GPS trail and graph after a page refresh; excluded old fixes and inserted long reception gaps. A Chromium smoke confirmed two valid points, two gaps and no duplicate current point.
-- Next: design a guarded Stop/Save flow and show the trail on the online map.
+- Replaced the single-position online map embed with opt-in OpenStreetMap tiles, accepted trail, current/last-known marker and attribution. Browser checks at 1280/390 pixels showed the trail without page errors or overflow; forced imagery failure kept the offline track available.
+- A subsequent scheduled prompt arrived during this run. The session is checkpointing and exiting to avoid concurrent development; scheduler-side nonoverlap is unverified.
+- Next: design a guarded Stop/Save flow and run stationary/link-loss acceptance checks.
 
 
 ## 2026-11-04 — Session 34: validated laptop flight library
