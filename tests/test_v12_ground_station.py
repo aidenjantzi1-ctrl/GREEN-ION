@@ -25,6 +25,33 @@ class Clock:
         self.value += seconds
 
 
+class RecorderPrepareTests(unittest.TestCase):
+    def test_only_stationary_live_feather_status_can_restart_calibration(self):
+        ready = {"active_source": "wifi", "sources": {"wifi": {"status": "live"}},
+                 "field_meta": {"recorder_mode": {"freshness": "live"}},
+                 "recorder_mode": 1, "recording": False, "flight_state": 1}
+        with patch.object(ground_station.MANAGER, "snapshot", return_value=ready), \
+                patch.object(ground_station, "feather_post", return_value=(202, {"success": True})) as post:
+            self.assertEqual((202, {"success": True}), ground_station.prepare_recorder())
+            post.assert_called_once_with("/api/calibrate")
+            ready.update({"recorder_mode": 3, "flight_state": 6})
+            self.assertEqual(202, ground_station.prepare_recorder()[0])
+            post.assert_called_with("/api/calibrate")
+            ready.update({"recorder_mode": 1, "flight_state": 1})
+            for change in ({"active_source": "simulation"}, {"recording": True},
+                           {"flight_state": 3}, {"recorder_mode": None},
+                           {"field_meta": {"recorder_mode": {"freshness": "stale"}}}):
+                post.reset_mock()
+                ready.update(change)
+                status, result = ground_station.prepare_recorder()
+                self.assertEqual(409, status)
+                self.assertFalse(result["success"])
+                post.assert_not_called()
+                ready.update({"active_source": "wifi", "recording": False,
+                              "flight_state": 1, "recorder_mode": 1,
+                              "field_meta": {"recorder_mode": {"freshness": "live"}}})
+
+
 class GroundStationManagerTests(unittest.TestCase):
     def setUp(self):
         self.clock = Clock()

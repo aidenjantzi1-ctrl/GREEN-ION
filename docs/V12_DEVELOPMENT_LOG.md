@@ -6,7 +6,8 @@
 - Added Mission Control GPS altitude quality, last-known coordinates, offline relative trajectory, opt-in online street map, and eight expandable groups covering all normalized telemetry fields with field metadata.
 - Prevented repeat polling from inventing graph samples; a lost link inserts one missing-data gap. Default source counters show zeros before a link appears. Added six selectable graph series, received-time windows, units/ranges and hover readings; source-limited or stale fields remain gaps.
 - Focused Chromium checks at 1280 and 390 pixels confirmed GPS display, eight detail groups, graph de-duplication/stale gap, no JavaScript errors and no horizontal overflow. A focused graph smoke confirmed six series, time-window controls, hover reading, and exclusion of stale GPS altitude. Python regression suite: 111 passed after this UI change; Ground Station JavaScript syntax and RKT4 browser analysis tests also passed. Hardware behavior remains NOT TESTED.
-- Next: inspect firmware-supported recorder/calibration controls, add safeguards, and improve the online map trail.
+- Added a guarded Prepare Recorder route and UI backed by the V12 Feather calibration endpoint; showed automatic launch-watcher mode and last file. Firmware resets flight phase to idle on stationary recalibration after a completed flight. The cloud ESP32 compile passed with core 2.0.17; 112 Python tests passed. No physical hardware was exercised.
+- Next: design a guarded Stop/Save flow and improve the map trail.
 
 
 ## 2026-11-04 — Session 34: validated laptop flight library

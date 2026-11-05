@@ -84,6 +84,27 @@ def feather_post(path: str, timeout: float = 4.0) -> tuple[int, dict]:
         raise
 
 
+def prepare_recorder() -> tuple[int, dict]:
+    """Restart stationary calibration only with current V12 Feather evidence."""
+    snapshot = MANAGER.snapshot()
+    mode = snapshot.get("recorder_mode")
+    mode_meta = snapshot.get("field_meta", {}).get("recorder_mode", {})
+    if (snapshot.get("active_source") != "wifi" or
+            snapshot.get("sources", {}).get("wifi", {}).get("status") != "live" or
+            mode_meta.get("freshness") != "live"):
+        return 409, {"success": False, "error": "A live V12 Feather Wi-Fi recorder status is required."}
+    stationary_phase = snapshot.get("flight_state") in (0, 1)
+    completed_flight = mode == 3 and snapshot.get("flight_state") == 6
+    if snapshot.get("recording") or mode == 2 or not (stationary_phase or completed_flight):
+        return 409, {"success": False, "error": "Cannot restart calibration during a flight or recording."}
+    if mode not in (0, 1, 3, 4):
+        return 409, {"success": False, "error": "Recorder mode is unknown; calibration was not changed."}
+    try:
+        return feather_post("/api/calibrate")
+    except (OSError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
+        return 502, {"success": False, "error": f"Feather calibration request failed: {error}"}
+
+
 def preflight_report() -> dict:
     snapshot = MANAGER.snapshot()
     wifi = snapshot["sources"]["wifi"]
@@ -217,6 +238,10 @@ class Handler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:
+        if self.path == "/api/recorder/prepare":
+            status, result = prepare_recorder()
+            json_response(self, result, status)
+            return
         if self.path == "/api/import-bin":
             try:
                 length = int(self.headers.get("Content-Length", "0"))
