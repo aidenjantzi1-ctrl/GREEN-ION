@@ -940,3 +940,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 - Fetched and reviewed remote `94291eb` with a clean checkout. Added explicit GPS UTC validity based on recent NMEA time and RMC date, plus a laptop UTC time-of-day comparison that labels date and clock limits.
 - Fixed boot recovery to scan `TESTnnn` journals alongside V12D and AIRP; shared artifact filename validation with metadata and dashboard download rules. Added a read-only recovery-scan check that does not pass when SD was unavailable or the scan never completed.
 - Verification: 127 Python tests, native metadata and checkpoint/recovery tests, RKT4 browser analysis, Node syntax, ESP32 V2 compile and mobile Chromium smoke with 20 Diagnostics controls passed. No physical GPS, SD interruption or radio test was performed.
+
+### Phase 4 bench-file validation (2026-11-05)
+
+- Added a Preflight action that downloads the exact finalized TEST BIN with live Feather-state rechecks, validates it through the existing RKT4 importer, retains the SD original and laptop raw copy, and saves summary/checksum evidence in exportable Diagnostics history.
+- Verification: 128 Python tests, Node syntax, RKT4 browser analysis and mobile Chromium start/simulated-loss/reconnect/stop/verify smoke passed. A file-level PASS explicitly does not establish a physical disconnect; no physical file was tested.

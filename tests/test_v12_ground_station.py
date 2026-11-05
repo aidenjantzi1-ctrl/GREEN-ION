@@ -125,6 +125,49 @@ class RecorderStopTests(unittest.TestCase):
             self.assertEqual(200, ground_station.stop_bench_recording("STOP BENCH TEST", "/TEST001.BIN")[0])
             stop.assert_called_once_with("STOP AND SAVE", "/TEST001.BIN")
 
+    def test_bench_verify_requires_completed_exact_file_and_preserves_raw_import(self):
+        ready = {"active_source": "wifi", "sources": {"wifi": {"status": "live"}},
+                 "field_meta": {name: {"freshness": "live"} for name in
+                                ("firmware_version", "recording", "log_file")},
+                 "firmware_version": "V12-development", "recording": False,
+                 "log_file": "/TEST001.BIN"}
+        current = {"firmware_version": "V12-development", "recording": False,
+                   "log_file": "/TEST001.BIN"}
+        response = BytesIO(b"RKT4")
+        response.headers = {"X-Green-Ion-Bytes": "48"}
+        summary = {"records": 40, "duration_s": 8.0, "timestamp_gaps": 0,
+                   "invalid_records": 0, "trailing_bytes": 0, "warnings": []}
+        with patch.object(ground_station.MANAGER, "snapshot", return_value=ready), \
+                patch.object(ground_station, "feather_status", return_value=("http://192.168.4.1", current)), \
+                patch.object(ground_station, "urlopen", return_value=response) as download, \
+                patch.object(ground_station.FLIGHTS, "import_stream", return_value={
+                    "summary": summary, "sha256": "a" * 64}) as imported:
+            self.assertEqual(400, ground_station.verify_bench_recording("/V12D001.BIN")[0])
+            self.assertEqual(409, ground_station.verify_bench_recording("/TEST002.BIN")[0])
+            download.assert_not_called()
+            status, result = ground_station.verify_bench_recording("/TEST001.BIN")
+            self.assertEqual(200, status)
+            self.assertEqual("PASS", result["status"])
+            self.assertIn("physical Wi-Fi disconnect is not proven", result["message"])
+            imported.assert_called_once()
+            self.assertEqual("TEST001.BIN", imported.call_args.args[0])
+            self.assertEqual(48, imported.call_args.kwargs["expected_bytes"])
+            ready["recording"] = True
+            self.assertEqual(409, ground_station.verify_bench_recording("/TEST001.BIN")[0])
+            self.assertEqual(1, download.call_count)
+            ready["recording"] = False
+        damaged = BytesIO(b"broken")
+        damaged.headers = {"Content-Length": "6"}
+        with patch.object(ground_station.MANAGER, "snapshot", return_value=ready), \
+                patch.object(ground_station, "feather_status", return_value=("http://192.168.4.1", current)), \
+                patch.object(ground_station, "urlopen", return_value=damaged), \
+                patch.object(ground_station.FLIGHTS, "import_stream",
+                             side_effect=ground_station.FlightImportError("bad header")):
+            code, result = ground_station.verify_bench_recording("/TEST001.BIN")
+            self.assertEqual(422, code)
+            self.assertEqual("FAIL", result["status"])
+            self.assertIn("Keep the original SD file", result["message"])
+
 
 class PreflightHistoryTests(unittest.TestCase):
     def test_saved_report_is_exportable_and_incomplete_run_times_out(self):
@@ -217,10 +260,15 @@ class PreflightHistoryTests(unittest.TestCase):
             ground_station.record_diagnostic_result({"test": "sd", "status": "PASS",
                                                      "message": "readback verified",
                                                      "hardware_test_started": True})
+            ground_station.record_diagnostic_result({"test": "bench_file_integrity", "status": "PASS",
+                                                     "message": "RKT4 file validated", "file": "/TEST001.BIN",
+                                                     "sha256": "a" * 64, "summary": {"timestamp_gaps": 0}})
             recent = ground_station.recent_diagnostics()
-            self.assertEqual(["sd", "lora"], [item["test"] for item in recent])
-            self.assertEqual([True, False], [item["hardware_test_started"] for item in recent])
-            self.assertEqual(2, len((Path(temporary) / "diagnostics.jsonl").read_text().splitlines()))
+            self.assertEqual(["bench_file_integrity", "sd", "lora"], [item["test"] for item in recent])
+            self.assertEqual([False, True, False], [item["hardware_test_started"] for item in recent])
+            self.assertEqual("/TEST001.BIN", recent[0]["file"])
+            self.assertEqual(0, recent[0]["summary"]["timestamp_gaps"])
+            self.assertEqual(3, len((Path(temporary) / "diagnostics.jsonl").read_text().splitlines()))
 
 
 class GroundStationManagerTests(unittest.TestCase):

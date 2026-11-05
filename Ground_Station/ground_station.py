@@ -193,6 +193,53 @@ def stop_bench_recording(confirmation: str, filename: str) -> tuple[int, dict]:
     return stop_recorder("STOP AND SAVE", filename)
 
 
+def verify_bench_recording(filename: str) -> tuple[int, dict]:
+    """Import a completed TEST BIN without modifying the Feather's SD card."""
+    if not isinstance(filename, str) or not BENCH_FILE.fullmatch(filename):
+        return 400, {"test": "bench_file_integrity", "status": "NOT TESTED",
+                     "message": "Select an exact TESTnnn.BIN file from current Feather status."}
+    snapshot = MANAGER.snapshot()
+    fields = snapshot.get("field_meta", {})
+    if (snapshot.get("active_source") != "wifi" or
+            snapshot.get("sources", {}).get("wifi", {}).get("status") != "live" or
+            any(fields.get(name, {}).get("freshness") != "live" for name in
+                ("firmware_version", "recording", "log_file")) or
+            not str(snapshot.get("firmware_version", "")).startswith("V12") or
+            snapshot.get("recording") is not False or snapshot.get("log_file") != filename):
+        return 409, {"test": "bench_file_integrity", "status": "NOT TESTED",
+                     "message": "Current idle V12 Feather Wi-Fi status must identify the exact TEST file."}
+    try:
+        base, current = feather_status()
+        if (not isinstance(current, dict) or
+                not str(current.get("firmware_version", "")).startswith("V12") or
+                current.get("recording") is not False or current.get("log_file") != filename):
+            return 409, {"test": "bench_file_integrity", "status": "NOT TESTED",
+                         "message": "Feather file or recorder state changed; no download was started."}
+        url = base + "/api/download?name=" + quote(filename.lstrip("/"))
+        with urlopen(Request(url, headers={"Accept": "application/octet-stream"}), timeout=20.0) as response:
+            expected_header = response.headers.get("X-Green-Ion-Bytes") or response.headers.get("Content-Length")
+            expected = int(expected_header) if expected_header else None
+            flight = FLIGHTS.import_stream(filename.lstrip("/"), response, expected_bytes=expected)
+        summary = flight["summary"]
+        status = ("PASS" if summary["records"] > 0 and summary["duration_s"] >= 5 and
+                  not summary["warnings"] else "WARNING")
+        message = (f"{filename}: {summary['records']} RKT4 records over {summary['duration_s']:.2f} s; "
+                   f"{summary['timestamp_gaps']} timestamp gaps; {summary['invalid_records']} invalid sensor records; "
+                   f"{summary['trailing_bytes']} trailing bytes; "
+                   f"warnings: {', '.join(summary['warnings']) if summary['warnings'] else 'none'}; "
+                   f"SHA-256 {flight['sha256']}. "
+                   "This validates the downloaded file only; a physical Wi-Fi disconnect is not proven.")
+        return 200, {"test": "bench_file_integrity", "status": status, "message": message,
+                     "file": filename, "sha256": flight["sha256"], "summary": summary,
+                     "hardware_test_started": False}
+    except FlightImportError as error:
+        return 422, {"test": "bench_file_integrity", "status": "FAIL", "file": filename,
+                     "message": f"RKT4 validation failed for {filename}: {error}. Keep the original SD file."}
+    except (OSError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
+        return 502, {"test": "bench_file_integrity", "status": "NOT TESTED", "file": filename,
+                     "message": f"Could not download {filename}: {error}. Keep the original SD file."}
+
+
 def battery_stability(points: list[dict], source: str | None,
                       now: datetime | None = None) -> tuple[str, str]:
     """Classify a short stationary voltage window using distinct sensor samples."""
@@ -640,6 +687,9 @@ def record_diagnostic_result(result: dict) -> None:
              "test": result.get("test"), "status": result.get("status"),
              "message": result.get("message"),
              "hardware_test_started": result.get("hardware_test_started", False)}
+    for key in ("file", "sha256", "summary"):
+        if key in result:
+            entry[key] = result[key]
     with DIAGNOSTIC_LOCK, DIAGNOSTIC_LOG.open("a", encoding="utf-8", newline="\n") as handle:
         handle.write(json.dumps(entry, allow_nan=False, separators=(",", ":")) + "\n")
         handle.flush()
@@ -773,19 +823,26 @@ class Handler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:
-        if self.path in ("/api/bench/start", "/api/bench/stop"):
+        if self.path in ("/api/bench/start", "/api/bench/stop", "/api/bench/verify"):
             try:
                 if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
-                    raise ValueError("A JSON bench confirmation is required.")
+                    raise ValueError("A JSON bench request is required.")
                 length = int(self.headers.get("Content-Length", "0"))
                 if length <= 0 or length > 512:
-                    raise ValueError("Invalid bench confirmation length.")
+                    raise ValueError("Invalid bench request length.")
                 payload = json.loads(self.rfile.read(length))
                 if not isinstance(payload, dict):
-                    raise ValueError("Invalid bench confirmation payload.")
+                    raise ValueError("Invalid bench request payload.")
                 status, result = (start_bench_recording(payload.get("confirm"))
                                   if self.path == "/api/bench/start" else
-                                  stop_bench_recording(payload.get("confirm"), payload.get("file")))
+                                  stop_bench_recording(payload.get("confirm"), payload.get("file"))
+                                  if self.path == "/api/bench/stop" else
+                                  verify_bench_recording(payload.get("file")))
+                if self.path == "/api/bench/verify" and result.get("file"):
+                    try:
+                        record_diagnostic_result(result)
+                    except OSError as error:
+                        result["history_error"] = f"Verification result could not be saved: {error}"
                 json_response(self, result, status)
             except (ValueError, json.JSONDecodeError) as error:
                 json_response(self, {"success": False, "error": str(error)}, 400)
