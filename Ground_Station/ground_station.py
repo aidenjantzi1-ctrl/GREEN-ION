@@ -15,6 +15,7 @@ import math
 from pathlib import Path
 import threading
 import time
+import uuid
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 from urllib.parse import parse_qs, quote, urlparse
@@ -31,6 +32,8 @@ STOP = threading.Event()
 CONFIG = {"serial_port": "auto", "feather_url": "http://192.168.4.1"}
 CONFIG_LOCK = threading.Lock()
 FLIGHTS = FlightLibrary(DATA_DIR / "flights")
+PREFLIGHT_DIR = DATA_DIR / "preflight"
+PREFLIGHT_LOCK = threading.Lock()
 
 
 class LimitedReader:
@@ -290,6 +293,66 @@ def preflight_report(actions: dict | None = None) -> dict:
     return {"overall": overall, "checks": checks, "generated_utc": datetime.now(timezone.utc).isoformat()}
 
 
+def save_preflight_run(report: dict, run_id: str | None = None) -> dict:
+    """Atomically save a derived preflight report without touching flight files."""
+    run_id = run_id or uuid.uuid4().hex
+    report = {**report, "run_id": run_id}
+    with PREFLIGHT_LOCK:
+        PREFLIGHT_DIR.mkdir(parents=True, exist_ok=True)
+        path = PREFLIGHT_DIR / f"preflight-{run_id}.json"
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(report, allow_nan=False, indent=2), encoding="utf-8")
+        temporary.replace(path)
+    return report
+
+
+def preflight_runs(limit: int = 30) -> list[dict]:
+    if not PREFLIGHT_DIR.is_dir():
+        return []
+    paths = sorted(PREFLIGHT_DIR.glob("preflight-*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    reports = []
+    for path in paths[:limit]:
+        try:
+            report = json.loads(path.read_text(encoding="utf-8"))
+            reports.append({key: report.get(key) for key in
+                            ("run_id", "created_utc", "run_status", "overall", "progress")})
+        except (OSError, json.JSONDecodeError):
+            continue
+    return reports
+
+
+def refresh_preflight_run() -> dict:
+    runs = preflight_runs(1)
+    if not runs:
+        return {**preflight_report(), "run_status": "NOT RUN", "progress": "Run Full Preflight to begin."}
+    run_id = runs[0]["run_id"]
+    path = PREFLIGHT_DIR / f"preflight-{run_id}.json"
+    report = json.loads(path.read_text(encoding="utf-8"))
+    if report.get("run_status") != "RUNNING":
+        return report
+    refreshed = preflight_report(report.get("actions"))
+    snapshot = MANAGER.snapshot()
+    def new_terminal_result(name: str) -> bool:
+        meta = snapshot.get("field_meta", {}).get(name, {})
+        received = meta.get("received_utc")
+        return (meta.get("freshness") == "live" and isinstance(received, str) and
+                received > report["created_utc"] and
+                snapshot.get(name) in ("PASS", "FAIL", "INCONCLUSIVE"))
+    sensor_done = all(
+        new_terminal_result(name) for name in ("imu_test_result", "gps_test_result")
+    )
+    started = datetime.fromisoformat(report["created_utc"])
+    timed_out = (datetime.now(timezone.utc) - started).total_seconds() >= 45
+    complete = sensor_done or timed_out
+    refreshed.update(run_id=run_id, created_utc=report["created_utc"],
+                     actions=report.get("actions"),
+                     run_status="COMPLETE" if complete else "RUNNING",
+                     progress="Sensor results received; review each check." if sensor_done else
+                     "Sensor results were not confirmed within 45 seconds; review NOT TESTED checks."
+                     if timed_out else "SD test finished; waiting for stationary IMU/GPS results.")
+    return save_preflight_run(refreshed, run_id)
+
+
 def available_ports() -> list[dict]:
     try:
         from serial.tools import list_ports  # type: ignore
@@ -317,6 +380,21 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if path == "/api/history":
             json_response(self, {"points": MANAGER.recent_history()})
+            return
+        if path == "/api/preflight/history":
+            json_response(self, {"reports": preflight_runs()})
+            return
+        if path == "/api/preflight/export":
+            raw_id = parse_qs(parsed.query).get("id", [""])[0]
+            try:
+                run_id = uuid.UUID(hex=raw_id).hex
+                if run_id != raw_id:
+                    raise ValueError("noncanonical preflight ID")
+                path_on_disk = PREFLIGHT_DIR / f"preflight-{run_id}.json"
+                bytes_response(self, path_on_disk.read_bytes(), "application/json",
+                               f"preflight-{run_id}.json")
+            except (ValueError, OSError):
+                json_response(self, {"error": "preflight report not found"}, 404)
             return
         if path == "/api/ports":
             with CONFIG_LOCK:
@@ -429,6 +507,7 @@ class Handler(SimpleHTTPRequestHandler):
                 json_response(self, {"success": False, "error": f"Feather download failed: {error}"}, 502)
             return
         if self.path == "/api/preflight":
+            started_utc = datetime.now(timezone.utc).isoformat()
             try:
                 if MANAGER.snapshot().get("recording"):
                     json_response(self, {"success": False, "error": "Preflight tests are disabled while the recorder is active."}, 409)
@@ -440,14 +519,25 @@ class Handler(SimpleHTTPRequestHandler):
                     "sensor_test": {"http_status": test_status, **test_result},
                 }
                 report = preflight_report(actions)
-                report["actions"] = actions
-                report["message"] = "Sensor tests started. Keep the unit stationary; GPS fix may require an outdoor view. Refresh the report after the test interval."
+                report.update(actions=actions, created_utc=started_utc,
+                              run_status="RUNNING" if test_status == 202 else "COMPLETE",
+                              progress="SD test finished; waiting for stationary IMU/GPS results."
+                              if test_status == 202 else "Sensor test request failed; inspect each check.")
+                report["message"] = ("Sensor tests started. Keep the unit stationary; GPS fix may require an outdoor view."
+                                     if test_status == 202 else
+                                     "Sensor tests were not accepted; inspect the individual results and Feather response.")
+                report = save_preflight_run(report)
                 json_response(self, {"success": True, "report": report}, 202)
             except (OSError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
-                json_response(self, {"success": False, "error": f"Preflight could not contact the Feather: {error}", "report": preflight_report()}, 502)
+                report = preflight_report()
+                report.update(created_utc=started_utc, run_status="COMPLETE",
+                              progress="Feather contact failed; no hardware test completed.",
+                              message=f"Preflight could not contact the Feather: {error}")
+                report = save_preflight_run(report)
+                json_response(self, {"success": False, "error": report["message"], "report": report}, 502)
             return
         if self.path == "/api/preflight/report":
-            json_response(self, {"success": True, "report": preflight_report()})
+            json_response(self, {"success": True, "report": refresh_preflight_run()})
             return
         if self.path != "/api/config":
             json_response(self, {"error": "not found"}, 404)

@@ -103,6 +103,25 @@ class RecorderStopTests(unittest.TestCase):
             self.assertEqual(400, reply.call_args.args[2])
 
 
+class PreflightHistoryTests(unittest.TestCase):
+    def test_saved_report_is_exportable_and_incomplete_run_times_out(self):
+        from datetime import datetime, timedelta, timezone
+
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.object(ground_station, "PREFLIGHT_DIR", Path(temporary)), \
+                patch.object(ground_station, "available_ports", return_value=[]):
+            created = (datetime.now(timezone.utc) - timedelta(seconds=46)).isoformat()
+            report = ground_station.save_preflight_run({
+                "created_utc": created, "run_status": "RUNNING", "overall": "WARNING",
+                "progress": "waiting", "actions": {"sensor_test": {"http_status": 202}}})
+            self.assertEqual(report["run_id"], ground_station.preflight_runs()[0]["run_id"])
+            finished = ground_station.refresh_preflight_run()
+            self.assertEqual("COMPLETE", finished["run_status"])
+            self.assertIn("not confirmed", finished["progress"])
+            raw = (Path(temporary) / f"preflight-{report['run_id']}.json").read_bytes()
+            self.assertEqual("COMPLETE", json.loads(raw)["run_status"])
+
+
 class GroundStationManagerTests(unittest.TestCase):
     def setUp(self):
         self.clock = Clock()
