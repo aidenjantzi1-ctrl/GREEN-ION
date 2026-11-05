@@ -291,13 +291,8 @@ static void initializeStorage() {
 }
 
 static bool isV12JournalName(const String &name, const char *suffix) {
-  if (name.length() != 11 ||
-      (!name.startsWith("V12D") && !name.startsWith("AIRP")) ||
-      !name.endsWith(suffix))
-    return false;
-  for (uint8_t i = 4; i < 7; ++i)
-    if (name[i] < '0' || name[i] > '9') return false;
-  return true;
+  return !name.startsWith("/") &&
+         green_ion::metadata::validArtifactFilename(name.c_str(), suffix);
 }
 
 static size_t readCheckpointFile(const String &path,
@@ -524,11 +519,11 @@ static void recoverInterruptedLogs() {
     recoveryStatus = "SD unavailable; recovery not scanned";
     return;
   }
-  // Two bits per possible V12D000..V12D999 and AIRP000..AIRP999 log.
+  // Two bits per possible log in each V12D, AIRP, and TEST family.
   // Discovery completes before
   // any journal is removed, avoiding mutation while the FAT directory is open.
-  uint8_t journalSlots[250] = {};
-  uint8_t airplaneJournalSlots[250] = {};
+  uint8_t journalSlots[3][250] = {};
+  const char *prefixes[3] = {"V12D", "AIRP", "TEST"};
   File root = SD.open("/");
   if (!root) {
     ++recoveryPending;
@@ -546,16 +541,17 @@ static void recoverInterruptedLogs() {
     if (sequence >= 0) {
       const uint16_t bit = static_cast<uint16_t>(sequence) * 2u +
                            (leaf.endsWith(".JRB") ? 1u : 0u);
-      uint8_t *slots = leaf.startsWith("AIRP") ? airplaneJournalSlots : journalSlots;
+      uint8_t *slots = journalSlots[leaf.startsWith("AIRP") ? 1 :
+                                    leaf.startsWith("TEST") ? 2 : 0];
       slots[bit / 8] |= static_cast<uint8_t>(1u << (bit % 8));
     }
     entry = root.openNextFile();
   }
   root.close();
 
-  for (uint8_t family = 0; family < 2; ++family) {
-    uint8_t *slots = family ? airplaneJournalSlots : journalSlots;
-    const char *prefix = family ? "AIRP" : "V12D";
+  for (uint8_t family = 0; family < 3; ++family) {
+    uint8_t *slots = journalSlots[family];
+    const char *prefix = prefixes[family];
     for (uint16_t sequence = 0; sequence < 1000; ++sequence) {
       const uint16_t bitA = sequence * 2u;
       const bool haveA = slots[bitA / 8] & (1u << (bitA % 8));
@@ -717,6 +713,16 @@ static uint32_t gpsAgeMs(uint32_t nowMs) {
 static bool gpsPositionCurrent(uint32_t nowMs) {
   return state.gpsHasPosition && state.gpsFixCurrent &&
          gpsAgeMs(nowMs) <= config::GPS_CURRENT_MAX_AGE_MS;
+}
+
+static bool gpsUtcCurrent() {
+  // A GGA time alone does not establish a date. Require recent parsed time
+  // and RMC date before treating the displayed UTC clock as current.
+  return state.gpsOk && state.gpsParsedSentences > 0 &&
+         isfinite(gps.secondsSinceTime()) && gps.secondsSinceTime() <= 3.0f &&
+         isfinite(gps.secondsSinceDate()) && gps.secondsSinceDate() <= 10.0f &&
+         gps.hour <= 23 && gps.minute <= 59 && gps.seconds <= 60 &&
+         gps.month >= 1 && gps.month <= 12 && gps.day >= 1 && gps.day <= 31;
 }
 
 static void resetCalibration(uint32_t nowMs);
@@ -1768,6 +1774,8 @@ static void sendDashboardStatus() {
   body += ",\"gps_utc_hour\":" + String(state.gpsHour);
   body += ",\"gps_utc_minute\":" + String(state.gpsMinute);
   body += ",\"gps_utc_second\":" + String(state.gpsSecond);
+  body += ",\"gps_utc_valid\":";
+  body += gpsUtcCurrent() ? "true" : "false";
   body += ",\"hardware_tests_allowed\":";
   body += hardwareTestsAllowed() ? "true" : "false";
   body += ",\"imu_test_result\":\"" + String(hardwareTestResultName(imuHardwareTest.result())) + "\"";
@@ -1865,13 +1873,8 @@ static void sendDashboardStatus() {
 }
 
 static bool dashboardFlightFilename(const String &name, const char *suffix) {
-  if (name.length() != 11 ||
-      (!name.startsWith("V12D") && !name.startsWith("AIRP") && !name.startsWith("TEST")) ||
-      !name.endsWith(suffix))
-    return false;
-  for (uint8_t index = 4; index < 7; ++index)
-    if (!isDigit(name[index])) return false;
-  return true;
+  return !name.startsWith("/") &&
+         green_ion::metadata::validArtifactFilename(name.c_str(), suffix);
 }
 
 static void sendDashboardFiles() {

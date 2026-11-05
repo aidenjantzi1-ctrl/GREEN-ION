@@ -10,7 +10,7 @@ This is a **physical hardware procedure**, not a completed test. The cloud build
 
 ## Run and record evidence
 
-1. In **Preflight**, select **Start bench recording** and complete both confirmations. Record the returned `TESTnnn.BIN` filename and start time. The Feather records RKT4 v2 data to SD independently of the laptop and automatically stops within two minutes. The test file has separate `bench_test` start and completion metadata.
+1. In **Preflight**, select **Start bench recording** and complete both confirmations. Record the returned `TESTnnn.BIN` filename and start time. The Feather records RKT4 v2 data to SD independently of the laptop and automatically stops within two minutes. The test file has separate `bench_test` start and completion metadata. If power is unexpectedly lost, boot recovery scans TEST journals as well as rocket/airplane journals; keep the BIN, journals and RCV report for inspection. This behavior is code and compile evidence until physically tested.
 2. Confirm that the live status reports `bench_recording=true`, the exact file, and increasing written records. Wait several seconds so the file contains samples.
 3. Physically disconnect the Windows laptop from Feather Wi-Fi for 10–20 seconds. Note disconnect and reconnect times. The page must label the recorder state **unverified** during the loss; it cannot prove continued recording while disconnected.
 4. Reconnect to Feather Wi-Fi. Confirm the file name and current recorder state. If the two-minute limit has not elapsed, select **Stop/Save test** with its confirmations. If it has elapsed, verify the recorder reports complete. Never use the normal flight Stop/Save control for this procedure.

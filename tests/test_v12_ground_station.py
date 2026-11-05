@@ -475,6 +475,59 @@ class GroundStationManagerTests(unittest.TestCase):
         self.manager.ingest("wifi", {**self.row(3), "battery_v": 3.49})
         self.assertEqual("FAIL", battery_check()["status"])
 
+    def test_gps_utc_requires_live_valid_time_and_flags_clock_disagreement(self):
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        row = {"sequence": 1, "uptime_ms": 100, "gps_utc_valid": True,
+               "gps_utc_hour": now.hour, "gps_utc_minute": now.minute,
+               "gps_utc_second": now.second, "gps_nmea_sentences": 4}
+        with patch.object(ground_station, "MANAGER", self.manager), \
+                patch.object(ground_station, "available_ports", return_value=[]):
+            self.manager.ingest("wifi", row)
+            check = next(item for item in ground_station.preflight_report()["checks"]
+                         if item["name"] == "GPS UTC time")
+            self.assertEqual("PASS", check["status"])
+            self.assertIn("GPS date and laptop date are not compared", check["message"])
+            self.manager.ingest("wifi", {**row, "sequence": 2,
+                                          "gps_utc_minute": (now.minute + 10) % 60})
+            check = next(item for item in ground_station.preflight_report()["checks"]
+                         if item["name"] == "GPS UTC time")
+            self.assertEqual("WARNING", check["status"])
+            self.manager.ingest("wifi", {**row, "sequence": 3, "gps_utc_valid": False})
+            check = next(item for item in ground_station.preflight_report()["checks"]
+                         if item["name"] == "GPS UTC time")
+            self.assertEqual("WARNING", check["status"])
+            self.assertIn("recent valid date", check["message"])
+        simulated = TelemetryManager(clock=Clock())
+        simulated.ingest("simulation", row)
+        with patch.object(ground_station, "MANAGER", simulated), \
+                patch.object(ground_station, "available_ports", return_value=[]):
+            check = next(item for item in ground_station.preflight_report()["checks"]
+                         if item["name"] == "GPS UTC time")
+            self.assertEqual("NOT TESTED", check["status"])
+
+    def test_recovery_scan_does_not_pass_when_sd_was_unavailable(self):
+        def check():
+            with patch.object(ground_station, "MANAGER", self.manager), \
+                    patch.object(ground_station, "available_ports", return_value=[]):
+                return next(item for item in ground_station.preflight_report()["checks"]
+                            if item["name"] == "Interrupted-file recovery scan")
+
+        self.manager.ingest("wifi", {"sequence": 1, "uptime_ms": 100,
+                                     "recovery_status": "SD unavailable; recovery not scanned",
+                                     "recovery_pending": 0, "recovered_logs": 0})
+        self.assertEqual("NOT TESTED", check()["status"])
+        self.manager.ingest("wifi", {"sequence": 2, "uptime_ms": 200,
+                                     "recovery_status": "1 recovery item(s) pending inspection",
+                                     "recovery_pending": 1, "recovered_logs": 0})
+        self.assertEqual("WARNING", check()["status"])
+        self.assertIn("preserve the SD card", check()["correction"])
+        self.manager.ingest("wifi", {"sequence": 3, "uptime_ms": 300,
+                                     "recovery_status": "No interrupted logs detected",
+                                     "recovery_pending": 0, "recovered_logs": 0})
+        self.assertEqual("PASS", check()["status"])
+
     def test_preflight_requires_fresh_sensor_evidence_and_separate_sd_readback(self):
         with patch.object(ground_station, "MANAGER", self.manager), \
                 patch.object(ground_station, "available_ports", return_value=[]):

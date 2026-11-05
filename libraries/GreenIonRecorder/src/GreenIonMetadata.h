@@ -37,18 +37,21 @@ struct FlightComplete {
   float peakAltitudeM;
 };
 
-inline bool validLogFilename(const char *name) {
-  if (!name) return false;
+inline bool validArtifactFilename(const char *name, const char *suffix) {
+  if (!name || !suffix || strlen(suffix) != 4) return false;
   if (name[0] == '/') ++name;
   if (strlen(name) != 11) return false;
   const bool knownPrefix = memcmp(name, "V12D", 4) == 0 ||
                            memcmp(name, "AIRP", 4) == 0 ||
                            memcmp(name, "TEST", 4) == 0;
-  if (!knownPrefix ||
-      memcmp(name + 7, ".BIN", 4) != 0) return false;
+  if (!knownPrefix || memcmp(name + 7, suffix, 4) != 0) return false;
   return name[4] >= '0' && name[4] <= '9' &&
          name[5] >= '0' && name[5] <= '9' &&
          name[6] >= '0' && name[6] <= '9';
+}
+
+inline bool validLogFilename(const char *name) {
+  return validArtifactFilename(name, ".BIN");
 }
 
 inline EncodeResult encodeFlightStart(char *out, size_t capacity,

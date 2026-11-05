@@ -934,3 +934,9 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 - Added a 30-second stationary IMU test with a 600-valid-sample minimum. The five-second and extended tests now reject motion spikes that average acceleration would hide. The firmware reports peak acceleration deviation and active test duration.
 - Added latest-result buttons for IMU and GPS, per-check corrective steps in Preflight and extra measured test details. Direct Feather millisecond uptime now takes precedence over the legacy whole-second conversion; the timing diagnostic checks sensor-stamp plausibility.
 - Verification: 125 Python tests, native bench test, Node syntax, RKT4 analysis, ESP32 V2 compile, and 390-pixel Chromium smoke of all 18 Diagnostics controls and corrective display passed. Physical sensors remain NOT TESTED.
+
+### Phase 4 UTC and recovery-scan follow-up (2026-11-05)
+
+- Fetched and reviewed remote `94291eb` with a clean checkout. Added explicit GPS UTC validity based on recent NMEA time and RMC date, plus a laptop UTC time-of-day comparison that labels date and clock limits.
+- Fixed boot recovery to scan `TESTnnn` journals alongside V12D and AIRP; shared artifact filename validation with metadata and dashboard download rules. Added a read-only recovery-scan check that does not pass when SD was unavailable or the scan never completed.
+- Verification: 127 Python tests, native metadata and checkpoint/recovery tests, RKT4 browser analysis, Node syntax, ESP32 V2 compile and mobile Chromium smoke with 20 Diagnostics controls passed. No physical GPS, SD interruption or radio test was performed.

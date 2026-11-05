@@ -254,9 +254,11 @@ def preflight_report(actions: dict | None = None) -> dict:
         "PA1010D communication": "Run the GPS test; inspect its cable and NMEA counts. Move outdoors only to test satellite fix.",
         "Stationary sensor test request": "Keep the Feather motionless and rerun Full Preflight after the recorder is idle.",
         "GPS fix": "Move outdoors under open sky and wait for a fresh fix; GPS communication is checked separately.",
+        "GPS UTC time": "Wait for recent RMC date and NMEA time; check GPS reception and the laptop clock if they disagree.",
         "Battery": "Charge or replace the LiPo and recheck its voltage before recording.",
         "Stationary battery stability": "Collect five distinct live samples over two stationary seconds; inspect power wiring if voltage varies.",
         "Ground persistence": "Check Ground Station data-directory write access and available laptop disk space.",
+        "Interrupted-file recovery scan": "If recovery items are pending, preserve the SD card and inspect BIN, journal and RCV files before another recording.",
     }
     def add(name: str, status: str, message: str) -> None:
         checks.append({"name": name, "status": status, "message": message,
@@ -391,6 +393,32 @@ def preflight_report(actions: dict | None = None) -> dict:
     fix_live = snapshot.get("gps_status") == "live" and live("latitude") and live("longitude")
     add("GPS fix", "PASS" if fix_live else "WARNING" if snapshot.get("gps_status") == "stale" else "NOT TESTED",
         "Current valid GPS position." if fix_live else "A current outdoor GPS fix is unavailable; GPS communication can still pass independently.")
+    utc_fields = ("gps_utc_valid", "gps_utc_hour", "gps_utc_minute", "gps_utc_second")
+    utc_available = all(live(name) for name in utc_fields)
+    utc_valid = utc_available and snapshot.get("gps_utc_valid") is True
+    utc_status = "NOT TESTED"
+    utc_message = "Recent GPS date and time have not been verified from live Feather Wi-Fi."
+    if utc_valid:
+        hour, minute, second = (snapshot[name] for name in utc_fields[1:])
+        if all(isinstance(value, int) and not isinstance(value, bool) for value in
+               (hour, minute, second)) and 0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 60:
+            gps_seconds = hour * 3600 + minute * 60 + second
+            now = datetime.now(timezone.utc)
+            laptop_seconds = now.hour * 3600 + now.minute * 60 + now.second
+            gap = abs(gps_seconds - laptop_seconds)
+            gap = min(gap, 86400 - gap)
+            utc_status = "PASS" if gap <= 120 else "WARNING"
+            utc_message = (f"GPS {hour:02d}:{minute:02d}:{second:02d} UTC versus laptop UTC time of day: "
+                           f"{gap} s apart. GPS date and laptop date are not compared.")
+        else:
+            utc_status = "WARNING"
+            utc_message = "Feather marked GPS UTC current but its clock components are invalid."
+    elif (live("gps_utc_valid") and
+          isinstance(snapshot.get("gps_nmea_sentences"), int) and
+          snapshot["gps_nmea_sentences"] > 0):
+        utc_status = "WARNING"
+        utc_message = "GPS is sending NMEA, but a recent valid date and time are unavailable."
+    add("GPS UTC time", utc_status, utc_message)
     battery = snapshot.get("battery_v")
     battery_live = live("battery_v")
     battery_valid = snapshot.get("battery_measurement_valid") is True
@@ -412,6 +440,22 @@ def preflight_report(actions: dict | None = None) -> dict:
     persistence_ok = MANAGER.writer is not None and MANAGER.writer.directory.is_dir()
     add("Ground persistence", "PASS" if persistence_ok else "FAIL",
         "Append-only session directory is available." if persistence_ok else "Session directory is unavailable.")
+    recovery_fresh = all(live(name) for name in
+                         ("recovery_status", "recovery_pending", "recovered_logs"))
+    pending = snapshot.get("recovery_pending") if recovery_fresh else None
+    recovered = snapshot.get("recovered_logs") if recovery_fresh else None
+    recovery_text = snapshot.get("recovery_status") if recovery_fresh else ""
+    scan_done = (recovery_fresh and isinstance(pending, int) and
+                 isinstance(recovered, int) and pending >= 0 and recovered >= 0 and
+                 isinstance(recovery_text, str) and
+                 (recovery_text == "No interrupted logs detected" or
+                  "interrupted log(s) reported" in recovery_text or
+                  "recovery item(s) pending inspection" in recovery_text))
+    add("Interrupted-file recovery scan", "WARNING" if scan_done and pending else
+        "PASS" if scan_done else "NOT TESTED",
+        f"Feather boot scan reported {recovered} interrupted log(s) and {pending} pending item(s). "
+        "Inspect original BIN and RCV evidence; this does not prove power-loss survival."
+        if scan_done else "No current Feather boot-recovery scan result is available.")
     overall = "FAIL" if any(item["status"] == "FAIL" for item in checks) else "WARNING" if any(item["status"] in ("WARNING", "NOT TESTED", "INCONCLUSIVE", "RUNNING") for item in checks) else "PASS"
     return {"overall": overall, "checks": checks, "generated_utc": datetime.now(timezone.utc).isoformat()}
 
@@ -482,7 +526,9 @@ def diagnostic_test(kind: str) -> tuple[int, dict]:
                 "lora": "Ground LoRa module", "usb": "Uno USB port",
                 "packets": "LoRa packets", "recorder": "Autonomous recorder watcher",
                 "firmware": "Feather firmware version",
-                "imu_result": "LSM6DSO32", "gps_result": "PA1010D communication"}
+                "imu_result": "LSM6DSO32", "gps_result": "PA1010D communication",
+                "gps_utc": "GPS UTC time",
+                "recovery": "Interrupted-file recovery scan"}
     if kind in observed:
         check = next(item for item in preflight_report()["checks"] if item["name"] == observed[kind])
         return 200, {"test": kind, **check, "hardware_test_started": False}

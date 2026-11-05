@@ -45,7 +45,7 @@ class AirplaneModeContracts(unittest.TestCase):
         self.assertIn("recorderCore.flush()", FIRMWARE)
         self.assertIn("saveCheckpoint(nowMs)", FIRMWARE)
         self.assertIn("recoverInterruptedLog", FIRMWARE)
-        self.assertIn("airplaneJournalSlots", FIRMWARE)
+        self.assertIn('const char *prefixes[3] = {"V12D", "AIRP", "TEST"}', FIRMWARE)
 
 
 if __name__ == "__main__":

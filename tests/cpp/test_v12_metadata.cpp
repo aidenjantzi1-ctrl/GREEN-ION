@@ -2,12 +2,24 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <initializer_list>
 
 #include "GreenIonMetadata.h"
 
 using namespace green_ion::metadata;
 
 int main() {
+  for (const char *prefix : {"V12D", "AIRP", "TEST"}) {
+    char name[12];
+    snprintf(name, sizeof(name), "%s007.JRA", prefix);
+    assert(validArtifactFilename(name, ".JRA"));
+    assert(!validArtifactFilename(name, ".JRB"));
+    assert(!validArtifactFilename(name, ".BIN"));
+  }
+  assert(validArtifactFilename("/TEST007.JRB", ".JRB"));
+  assert(!validArtifactFilename("TEST00X.JRA", ".JRA"));
+  assert(!validArtifactFilename("OTHER007.JRA", ".JRA"));
+  assert(!validArtifactFilename("TEST007.JRA/", ".JRA"));
   const FlightStart start = {
     "/V12D007.BIN", 50, 101325.0f, 0.125f, 4010, 150,
   };

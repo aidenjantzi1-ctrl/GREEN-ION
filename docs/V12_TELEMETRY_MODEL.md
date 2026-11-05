@@ -81,6 +81,7 @@
 | `gps_utc_hour` | integer | hour | measured |
 | `gps_utc_minute` | integer | minute | measured |
 | `gps_utc_second` | integer | second | measured |
+| `gps_utc_valid` | boolean | — | calculated |
 | `barometer_init_failures` | integer | count | measured |
 | `barometer_recoveries` | integer | count | measured |
 | `barometer_runtime_losses` | integer | count | measured |
@@ -150,7 +151,7 @@ Feather Wi-Fi reports recorder filenames, mode/status numeric codes, prebuffer c
 
 ## Sensor sample timing
 
-Each `field_meta` entry also includes `sample_uptime_ms` and `sample_time_basis`. Feather Wi-Fi status supplies millisecond `uptime_ms` and the last valid barometer, IMU, battery, GPS fix, and GGA altitude sample times in milliseconds since Feather boot. Older firmware supplies only whole-second `uptime_s`; the laptop converts that to milliseconds as a compatibility fallback. The Ground Station associates those times with the related sensor values. They are distinct from `received_utc`, which is laptop packet receipt time. Missing sensor samples have no sample time. LoRa v2 has only packet `uptime_ms`, so `sample_time_basis=packet_uptime` means an approximate upper bound for when the reading was packaged, not the exact sensor read time. Device uptime can wrap; cross-device absolute time alignment must not be inferred from these fields alone.
+Each `field_meta` entry also includes `sample_uptime_ms` and `sample_time_basis`. Feather Wi-Fi status supplies millisecond `uptime_ms` and the last valid barometer, IMU, battery, GPS fix, and GGA altitude sample times in milliseconds since Feather boot. Older firmware supplies only whole-second `uptime_s`; the laptop converts that to milliseconds as a compatibility fallback. The Ground Station associates those times with the related sensor values. They are distinct from `received_utc`, which is laptop packet receipt time. Missing sensor samples have no sample time. LoRa v2 has only packet `uptime_ms`, so `sample_time_basis=packet_uptime` means an approximate upper bound for when the reading was packaged, not the exact sensor read time. Device uptime can wrap; cross-device absolute time alignment must not be inferred from these fields alone. `gps_utc_valid` is true only when the Feather has a recent parsed NMEA time and RMC date with plausible clock components. Preflight compares GPS and laptop UTC time of day within two minutes; it does not compare calendar dates or prove the laptop clock is correct.
 
 `recorder_written_records` counts records accepted by the primary SD write path, including the prebuffer drained at recording start. `recorder_written_bytes` is the RKT4 header size plus record size times that count. These figures can include bytes that have not survived a flush or power loss. They are not a replacement for `checkpoint_committed_records` and `checkpoint_committed_bytes`. A failed or partial write is not added to the written record count. No extra SD read is performed to calculate these values.
 
