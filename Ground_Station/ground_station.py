@@ -851,6 +851,13 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/flights":
             json_response(self, {"flights": FLIGHTS.list()})
             return
+        if path == "/api/flights/compare":
+            try:
+                ids = parse_qs(parsed.query).get("ids", [""])[0].split(",")
+                json_response(self, FLIGHTS.compare(ids))
+            except (OSError, FlightImportError, json.JSONDecodeError) as error:
+                json_response(self, {"error": str(error)}, 400)
+            return
         if path == "/api/feather/files":
             try:
                 with CONFIG_LOCK:

@@ -25,6 +25,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path=='/': data,ctype=html,'text/html'
         elif self.path.startswith('/api/status'): data,ctype=json.dumps(state).encode(),'application/json'
         elif self.path=='/api/ports': data,ctype=json.dumps({'ports':[],'config':{'serial_port':'auto','feather_url':'http://192.168.4.1'}}).encode(),'application/json'
+        elif self.path.startswith('/api/flights/compare?'): data,ctype=json.dumps({'gps_note':'Last current GPS fix is not a confirmed landing position.','flights':[{'label':'Recovery test','rocket_profile':'Estes So Long','flight_date':'2026-11-05','peak_barometric_altitude_m_estimated':10,'duration_s':.08,'peak_vertical_speed_mps_estimated':12,'peak_imu_magnitude_g':1.2,'battery_start_v':4.1,'battery_end_v':3.9,'last_current_gps_fix':[37.1,-121.9],'sensor_status':'valid','rkt4_warnings':[],'sensor_sequence_gaps':0,'sha256':'a'*64},{'label':'Second flight','rocket_profile':None,'flight_date':None,'peak_barometric_altitude_m_estimated':8,'duration_s':.08,'peak_vertical_speed_mps_estimated':None,'peak_imu_magnitude_g':None,'battery_start_v':4,'battery_end_v':3.8,'last_current_gps_fix':None,'sensor_status':'missing','rkt4_warnings':['Torn tail'],'sensor_sequence_gaps':0,'sha256':'b'*64}]}).encode(),'application/json'
         elif self.path=='/api/flights': data,ctype=json.dumps({'flights':[{'id':'a'*64,'original_name':'V12D007.BIN','sha256':'a'*64,'summary':{'records':3,'duration_s':.08,'peak_altitude_m_estimated':1.0,'bytes':80,'warnings':[]},**flight_details,**({'sensor':flight_sensor['value']} if flight_sensor['value'] else {})}]}).encode(),'application/json'
         elif self.path.startswith('/api/flight/') and self.path.endswith('/timeline'): data,ctype=json.dumps(timeline).encode(),'application/json'
         elif self.path=='/api/sessions': data,ctype=b'{"sessions":[]}','application/json'
@@ -180,6 +181,16 @@ with sync_playwright() as p:
     page.select_option('#analysisSpeed','16')
     page.click('#analysisPlay')
     page.wait_for_function('document.querySelector("#analysisPlay").textContent==="Play replay"')
+    page.fill('#flightSearch','')
+    page.select_option('#flightSourceFilter','all')
+    page.select_option('#flightSensorFilter','all')
+    page.evaluate("allFlights.push({...allFlights[0],id:'b'.repeat(64),original_name:'AIRP008.BIN',sha256:'b'.repeat(64),label:'Second flight',sensor:null});renderFlightLibrary()")
+    page.locator('[data-compare-select]').nth(0).check()
+    page.locator('[data-compare-select]').nth(1).check()
+    assert page.locator('#compareFlights').is_enabled()
+    page.click('#compareFlights')
+    page.wait_for_function('document.querySelector("#flightComparison").textContent.includes("Second flight")')
+    assert 'not a confirmed landing' in page.locator('#flightComparison').inner_text()
     assert not errors,errors
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     print('Recovery browser smoke passed: bench source return, location, map, units, offline fallback, mobile width')

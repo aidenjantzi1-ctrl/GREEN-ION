@@ -1,6 +1,6 @@
 # GREEN ION V12 implementation progress
 
-Updated 2026-11-05 1:30 PM Pacific (Phase 6 Analysis underway). Development branch: `codex/green-ion-v12`. This run fetched remote `94291ebd56d360d47d23f05ce36d5f3d0b884833`, matching a clean worktree, reviewed the prior checkpoint, and pushed `8242888`, `656fb0a`, `96e7a99`, `7d36f11`, `115363d`, `ba39a46` and `4d0503b` before the current changes. Phase 1 checkpoint commit: `63119eb`.
+Updated 2026-11-05 1:33 PM Pacific (Phase 6 Analysis underway). Development branch: `codex/green-ion-v12`. This run fetched remote `94291ebd56d360d47d23f05ce36d5f3d0b884833`, matching a clean worktree, reviewed the prior checkpoint, and pushed `8242888`, `656fb0a`, `96e7a99`, `7d36f11`, `115363d`, `ba39a46`, `4d0503b` and `58b120f` before the current changes. Phase 1 checkpoint commit: `63119eb`.
 
 ## Current phase
 
@@ -48,6 +48,8 @@ Phase 6 library usability increment: new imports record source and import UTC se
 
 Phase 6 graph/replay increment: the server now streams RKT4 records into a bounded elapsed-time timeline, retains the actual altitude peak and final sample, calculates pressure-derived neighbor velocity only across valid samples, and attaches only GIS1 rows within half a sample period. Missing or stale GPS is explicit. The Analysis page offers 14 series, a recorded-time play/pause/scrub cursor, estimated trajectory position relative to apogee, and a current-fix GPS trail; it never feeds live telemetry. The printable HTML report includes an estimated altitude SVG and available peak velocity/IMU magnitude, escaping user labels and stating that PDF is a browser print action. Raw BIN and SEN SHA-256 are checked on access; a damaged BIN cannot be silently reused during duplicate import. Current verification: 141 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium smoke of SEN attach, library filters, detail saves and recorded replay passed. Actual hardware flight files remain NOT TESTED.
 
+Phase 6 comparison increment: two to four distinct imported onboard flights can be compared for estimated barometric peak, duration, peak ascent speed, peak IMU magnitude, battery start/end, last current GPS fix, sensor status, sequence gaps, RKT4 warnings, user label and rocket profile. Missing data stays unavailable; the last GPS fix is explicitly not a confirmed landing location. Analysis preserves selection across filtering and renders an escaped comparison table in a horizontally contained panel. Verification: 142 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium smoke including two-flight comparison passed. No physical flight was compared. A new continuation prompt arrived while this run was active; this run is checkpointing and exiting to avoid overlap.
+
 ## Existing implementation verified in code
 
 - Feather firmware, Uno receiver, shared protocol, and recorder components are present.
@@ -65,4 +67,4 @@ Phase 6 graph/replay increment: the server now streams RKT4 records into a bound
 
 ## Next exact task
 
-Continue Phase 6 with flight comparisons, JSONL import, backup/restore and protected deletion. Review graph gap handling and synchronization with actual `.BIN`/`.SEN` pairs during the local hardware session. Audit timestamp alignment against actual firmware files during the local hardware session. Preserve raw bytes, checksums, V11 library behavior and existing exports. Physical Recovery and Phase 4 hardware outcomes remain NOT TESTED. Codex usage balance and reset time are unavailable from exposed tools; no reset interval is assumed. Scheduler-side nonoverlap remains unverified.
+Continue Phase 6 with JSONL import, backup/restore and protected deletion. Review graph gap handling and synchronization with actual `.BIN`/`.SEN` pairs during the local hardware session. Audit timestamp alignment against actual firmware files during the local hardware session. Preserve raw bytes, checksums, V11 library behavior and existing exports. Physical Recovery and Phase 4 hardware outcomes remain NOT TESTED. Codex usage balance and reset time are unavailable from exposed tools; no reset interval is assumed. Scheduler-side nonoverlap remains unverified.

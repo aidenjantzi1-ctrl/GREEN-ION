@@ -983,3 +983,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 - Analysis has series selection, recorded-time replay play/pause/scrub, cursor readings and a current-fix GPS trail. Printable HTML includes estimated barometric altitude SVG, integrity warnings and browser Print / Save PDF wording. User labels are HTML-escaped.
 - Invalid RKT4 baseline and nonfinite sample values now fail or report invalid cleanly. Raw flight and sensor SHA-256 are verified when read; a changed raw BIN cannot be silently reused as a duplicate.
 - Verification: 141 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium smoke including replay passed. Hardware file timing and sensor accuracy remain NOT TESTED.
+
+### Phase 6 flight comparison checkpoint (2026-11-05)
+
+- Added two-to-four distinct onboard flight comparison with estimated barometric peak, duration, peak ascent speed, IMU magnitude, battery, final current GPS fix and integrity/sensor availability. The final fix is never called a confirmed landing coordinate.
+- Added an escaped, mobile-contained Analysis comparison table with persistent flight selection across filtering. Verification: 142 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium comparison smoke passed. No physical files were compared. A new continuation prompt arrived while this run was active, so this run checkpoints and exits without overlap.

@@ -218,6 +218,25 @@ class FlightLibraryTests(unittest.TestCase):
         self.assertIsNone(timeline["peak_vertical_speed_mps_estimated"])
         self.assertIn(b"Unavailable", self.library.report_html(imported["id"]))
 
+    def test_comparison_uses_recorded_evidence_and_unknowns(self):
+        first_raw = fixture()
+        first = self.library.import_stream("V12D007.BIN", io.BytesIO(first_raw))
+        second = self.library.import_stream("V12D008.BIN", io.BytesIO(fixture(b"partial")))
+        self.library.update_details(first["id"], "Green Eggs", "Estes Green Eggs", "2026-11-05")
+        self.library.import_sensor_stream(first["id"], "V12D007.SEN", io.BytesIO(sensor_fixture(first_raw)))
+        compared = self.library.compare([first["id"], second["id"]])
+        self.assertEqual("onboard_recordings", compared["source"])
+        self.assertEqual("Green Eggs", compared["flights"][0]["label"])
+        self.assertEqual("Estes Green Eggs", compared["flights"][0]["rocket_profile"])
+        self.assertEqual("valid", compared["flights"][0]["sensor_status"])
+        self.assertIsNone(compared["flights"][0]["last_current_gps_fix"])
+        self.assertIsNone(compared["flights"][1]["rocket_profile"])
+        self.assertEqual("missing", compared["flights"][1]["sensor_status"])
+        self.assertTrue(compared["flights"][1]["rkt4_warnings"])
+        self.assertIn("not a confirmed landing", compared["gps_note"])
+        with self.assertRaisesRegex(FlightImportError, "distinct"):
+            self.library.compare([first["id"], first["id"]])
+
 
 if __name__ == "__main__":
     unittest.main()

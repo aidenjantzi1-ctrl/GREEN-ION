@@ -448,6 +448,43 @@ class FlightLibrary:
             "points": points,
         }
 
+    def compare(self, identifiers: list[str]) -> dict:
+        if not isinstance(identifiers, list) or not 2 <= len(identifiers) <= 4 or len(set(identifiers)) != len(identifiers):
+            raise FlightImportError("compare two to four distinct flights")
+        flights = []
+        for identifier in identifiers:
+            metadata, _raw = self.get(identifier)
+            timeline = self.analysis_timeline(identifier)
+            last_current_fix = None
+            if metadata.get("sensor"):
+                sensor, path = self.get_sensor(identifier)
+                _header, rows, _inspection = parse_sensor_log(path.read_bytes(),
+                                                              sensor["header"]["flight_sequence"])
+                for row in rows:
+                    if row["gps_current"]:
+                        last_current_fix = [row["latitude_e7"] / 1e7, row["longitude_e7"] / 1e7]
+            summary = metadata["summary"]
+            flights.append({
+                "id": identifier, "label": metadata.get("label") or metadata["original_name"],
+                "original_name": metadata["original_name"],
+                "rocket_profile": metadata.get("rocket_profile") or None,
+                "flight_date": metadata.get("flight_date"),
+                "peak_barometric_altitude_m_estimated": summary["peak_altitude_m_estimated"],
+                "duration_s": summary["duration_s"],
+                "peak_vertical_speed_mps_estimated": timeline["peak_vertical_speed_mps_estimated"],
+                "peak_imu_magnitude_g": timeline["peak_acceleration_g"],
+                "battery_start_v": summary["start_battery_v"],
+                "battery_end_v": summary["end_battery_v"],
+                "last_current_gps_fix": last_current_fix,
+                "sensor_status": timeline["sensor_status"],
+                "rkt4_warnings": list(summary["warnings"]),
+                "sensor_sequence_gaps": timeline["sensor_sequence_gaps"],
+                "sha256": metadata["sha256"],
+            })
+        return {"analysis_version": 2, "source": "onboard_recordings",
+                "gps_note": "Last current GPS fix is not a confirmed landing position.",
+                "flights": flights}
+
     def json_export(self, identifier: str) -> bytes:
         metadata, raw = self.get(identifier)
         payload = {**metadata, "records": list(iter_records(raw))}
