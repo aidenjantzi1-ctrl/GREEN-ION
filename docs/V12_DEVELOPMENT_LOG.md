@@ -762,3 +762,8 @@ Upload the CI-compiled V12 build to the Feather, run Test IMU while motionless, 
 - The earlier V12 branch CI compiled both the Adafruit Feather ESP32 V2 and Arduino Uno R3 successfully. Fresh `main` target compilation is pending the promotion push.
 - No new physical hardware test was performed during repository promotion.
 
+### CI follow-up
+
+- Main run `41954436825`: PASS for the committed Python/native C++ suites, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and V12 development artifacts on promotion commit `8abcf16`.
+- Archived V11 run `41954436877`: PASS for the V11 dashboard/browser/regression checks, Adafruit Feather ESP32 V2 compilation from `Past_Versions/Green_Ion_V11`, and rollback artifact upload on promotion commit `8abcf16`.
+
