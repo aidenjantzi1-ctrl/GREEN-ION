@@ -831,3 +831,15 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 - Corrected GPS freshness after link loss or an old/invalid fix, retained only current validated positions, and suppressed the LoRa fixed-width zero GPS altitude placeholder when no position exists.
 - Added the Phase 1 V11/V12 audit and telemetry model documents. Full Python regression suite: 98 tests passed. RKT4 browser analysis suite and `git diff --check` passed; missing-value browser rendering passed.
 - The local Arduino CLI starts, but no firmware target compile or physical hardware test was performed in this pass.
+
+## 2026-11-04 — Phase 2 partial telemetry semantics
+
+- Confirmed Feather Wi-Fi status includes barometer temperature, calibrated relative altitude, vertical speed, GPS altitude and GPS ground speed. The LoRa fixed packet carries GPS ground speed under legacy `speed_mps`, without vertical speed.
+- Corrected the laptop merge and display so GPS ground speed is distinct from barometric vertical speed. The main altitude is now labeled as the BMP388 estimate against a fixed 1013.25 hPa reference; calibrated relative altitude appears separately. Acceleration is labeled sensor-frame magnitude.
+- Added a coarse one-cell LiPo percentage estimate and low/critical display warnings with explicit voltage bounds and load-sag limitations. This is a software estimate and has no flight-control effect.
+- Added tests for radio ground-speed semantics, missing GPS placeholders, and battery boundaries. Phase 2 remains incomplete; no physical sensor test was run.
+
+### Additional Phase 2 validity check
+
+- The fixed LoRa packet clamps invalid BMP388 and IMU readings to zero while carrying sensor-ready flags. The Ground Station now decodes those flags and presents unavailable barometer/IMU values as `null`; measured zero remains valid when ready.
+- Full Python regression suite: 102 tests passed. Node syntax check, RKT4 browser analysis suite, and a mobile-width browser rendering check for vertical versus GPS speed, zero altitude, and battery estimate passed.

@@ -7,7 +7,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "Ground_Station"))
 
-from telemetry_manager import SessionWriter, TelemetryManager, is_newer_sequence, valid_coordinate
+from telemetry_manager import SessionWriter, TelemetryManager, battery_estimate_percent, is_newer_sequence, valid_coordinate
 
 
 class Clock:
@@ -91,10 +91,56 @@ class GroundStationManagerTests(unittest.TestCase):
         self.assertIsNone(snapshot["last_position"])
 
     def test_fixed_width_radio_zero_is_not_a_gps_altitude_without_position(self):
-        self.manager.ingest("radio", {**self.row(1), "gps_altitude_m": 0.0})
+        self.manager.ingest("radio", {**self.row(1), "gps_altitude_m": 0.0, "speed_mps": 0.0})
         snapshot = self.manager.snapshot()
         self.assertIsNone(snapshot["gps_altitude_m"])
         self.assertFalse(snapshot["field_meta"]["gps_altitude_m"]["valid"])
+        self.assertIsNone(snapshot["gps_speed_mps"])
+
+    def test_radio_ground_speed_does_not_become_vertical_speed(self):
+        row = self.row(1)
+        row.update(latitude=37.1, longitude=-121.9, gps_status="live",
+                   gps_fix_age_ms=100, speed_mps=12.5, gps_altitude_m=152.0)
+        self.manager.ingest("radio", row)
+        snapshot = self.manager.snapshot()
+        self.assertEqual(12.5, snapshot["gps_speed_mps"])
+        self.assertEqual("radio", snapshot["field_meta"]["gps_speed_mps"]["source"])
+        self.assertNotIn("vertical_speed_mps", snapshot)
+
+    def test_battery_estimate_boundaries_and_missing_value(self):
+        self.assertIsNone(battery_estimate_percent(None))
+        self.assertIsNone(battery_estimate_percent(4.4))
+        self.assertEqual(0, battery_estimate_percent(3.3))
+        self.assertEqual(100, battery_estimate_percent(4.2))
+        self.manager.ingest("wifi", {**self.row(1), "battery_v": 3.49})
+        snapshot = self.manager.snapshot()
+        self.assertEqual("critical", snapshot["battery_warning"])
+        self.assertTrue(snapshot["field_meta"]["battery_estimate_pct"]["valid"])
+        self.clock.advance(3)
+        self.assertEqual("stale", self.manager.snapshot()["field_meta"]["battery_estimate_pct"]["freshness"])
+
+    def test_radio_sensor_failure_flags_hide_zero_placeholders(self):
+        row = {**self.row(1), "flags": 0, "pressure_pa": 0,
+               "acceleration_g": 0.0, "rotation_x_dps": 0.0}
+        self.manager.ingest("radio", row)
+        snapshot = self.manager.snapshot()
+        for name in ("pressure_pa", "altitude_m", "acceleration_g", "rotation_x_dps"):
+            self.assertIsNone(snapshot[name])
+            self.assertFalse(snapshot["field_meta"][name]["valid"])
+        self.assertFalse(snapshot["barometer_ready"])
+        self.assertFalse(snapshot["imu_ok"])
+        self.assertFalse(snapshot["sd_ok"])
+        self.assertFalse(snapshot["recording"])
+
+    def test_radio_valid_zero_readings_remain_valid(self):
+        flags = (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5)
+        self.manager.ingest("radio", {**self.row(1, 0), "flags": flags,
+                                      "pressure_pa": 101325, "acceleration_g": 0.0})
+        snapshot = self.manager.snapshot()
+        self.assertEqual(0, snapshot["altitude_m"])
+        self.assertEqual(0.0, snapshot["acceleration_g"])
+        self.assertTrue(snapshot["field_meta"]["altitude_m"]["valid"])
+        self.assertTrue(snapshot["field_meta"]["acceleration_g"]["valid"])
 
     def test_bad_coordinates_are_not_saved(self):
         self.assertFalse(valid_coordinate(91, 0))

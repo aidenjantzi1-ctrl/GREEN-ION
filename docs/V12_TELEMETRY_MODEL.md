@@ -17,7 +17,10 @@
 | `altitude_m` | number | m | calculated |
 | `pressure_pa` | number | Pa | measured |
 | `vertical_speed_mps` | number | m/s | calculated |
-| `speed_mps` | number | m/s | calculated |
+| `speed_mps` | number | m/s | measured |
+| `gps_speed_mps` | number | m/s | measured |
+| `relative_altitude_m` | number | m | calculated |
+| `temperature_c` | number | C | measured |
 | `acceleration_g` | number | g | measured |
 | `acceleration_x_g` | number | g | measured |
 | `acceleration_y_g` | number | g | measured |
@@ -64,3 +67,13 @@
 | `hardware_tests_allowed` | boolean | — | calculated |
 
 Fields not transmitted by a source are absent from that source packet and have `valid=false` in the merged view if no selected-source value exists. The Ground Station never fills an unavailable sensor measurement with zero. LoRa and Wi-Fi fields share the same units and names where present. Simulation must remain explicitly labeled and is not hardware evidence.
+
+`altitude_m` is the BMP388 pressure estimate against a fixed 1013.25 hPa reference; it is not launch-relative or verified absolute elevation. `relative_altitude_m` is the calibrated pressure-derived height above the launch baseline when available. `gps_altitude_m` is a separate GPS-reported altitude. `vertical_speed_mps` is the barometric flight estimate; `gps_speed_mps` is horizontal GPS ground speed. Legacy LoRa `speed_mps` means GPS ground speed and is not used as vertical speed. Acceleration magnitude is in the sensor frame and is not vertical acceleration. No combined altitude is asserted.
+
+## Ground Station battery estimate
+
+`battery_estimate_pct` and `battery_warning` are calculated only when a numeric one-cell LiPo voltage is between 3.0 and 4.25 V. Outside that range or when missing, the estimate is `null` and the warning is `unavailable`. The approximate rested-voltage curve is 3.30 V = 0%, 3.60 V = 10%, 3.70 V = 25%, 3.80 V = 45%, 3.90 V = 65%, 4.00 V = 80%, 4.10 V = 95%, and 4.20 V = 100%, with linear interpolation between points. Under 3.30 V the display estimate remains 0%. `critical` is below 3.50 V and `low` is below 3.65 V. These are display warnings, not flight-control thresholds. Chemistry, temperature, age, load, and voltage sag can make the estimate substantially wrong. A measured capacity or fuel gauge is not installed. The estimate inherits the source packet's freshness and receive time.
+
+## Fixed LoRa packet validity
+
+The Uno bridge's fixed-width v2 JSON includes a `flags` bitmask. The Ground Station reads bits 2–6 as SD ready, IMU ready, barometer ready, radio ready, and recording. If the barometer or IMU ready bit is clear, their zero-filled fixed packet fields become `null` in the merged status view. A genuine zero with the ready bit set remains valid. The original RKT4 and GIS1 flight recordings are untouched. LoRa has no separate vertical-speed field, barometer temperature, or calibrated relative altitude; these remain unavailable during radio-only reception.

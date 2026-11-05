@@ -333,7 +333,8 @@ def normalize_wifi(row: dict, sequence: int) -> dict:
         **row,
         "sequence": sequence,
         "uptime_ms": int(row.get("uptime_s", 0)) * 1000,
-        "speed_mps": row.get("vertical_speed_mps"),
+        "speed_mps": row.get("gps_speed_mps"),
+        "gps_speed_mps": row.get("gps_speed_mps"),
         "gps_status": row.get("gps_status", "missing"),
     }
 

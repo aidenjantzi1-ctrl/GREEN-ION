@@ -14,9 +14,19 @@ import uuid
 
 LIVE_AFTER_SECONDS = {"wifi": 2.5, "radio": 5.0, "simulation": 2.5}
 GPS_MAX_AGE_MS = 3000
+RADIO_FLAG_SD_OK = 1 << 2
+RADIO_FLAG_IMU_OK = 1 << 3
+RADIO_FLAG_BARO_OK = 1 << 4
+RADIO_FLAG_RADIO_OK = 1 << 5
+RADIO_FLAG_RECORDING = 1 << 6
+# Approximate rested 1-cell LiPo voltage curve. Loaded flight voltage can sag;
+# this is only a coarse display estimate, not a capacity measurement.
+BATTERY_CURVE = ((3.30, 0), (3.60, 10), (3.70, 25), (3.80, 45),
+                 (3.90, 65), (4.00, 80), (4.10, 95), (4.20, 100))
 MEASUREMENT_FIELDS = (
     "uptime_ms", "flight_state", "recording", "altitude_m", "pressure_pa",
-    "vertical_speed_mps", "speed_mps", "acceleration_g", "acceleration_x_g",
+    "vertical_speed_mps", "speed_mps", "gps_speed_mps",
+    "relative_altitude_m", "temperature_c", "acceleration_g", "acceleration_x_g",
     "acceleration_y_g", "acceleration_z_g", "rotation_x_dps",
     "rotation_y_dps", "rotation_z_dps", "imu_temperature_c", "battery_v",
     "satellites", "gps_fix_age_ms", "gps_status", "latitude", "longitude",
@@ -40,7 +50,10 @@ FIELD_SPECS = {
     "altitude_m": ("number", "m", "calculated"),
     "pressure_pa": ("number", "Pa", "measured"),
     "vertical_speed_mps": ("number", "m/s", "calculated"),
-    "speed_mps": ("number", "m/s", "calculated"),
+    "speed_mps": ("number", "m/s", "measured"),
+    "gps_speed_mps": ("number", "m/s", "measured"),
+    "relative_altitude_m": ("number", "m", "calculated"),
+    "temperature_c": ("number", "C", "measured"),
     "acceleration_g": ("number", "g", "measured"),
     "acceleration_x_g": ("number", "g", "measured"),
     "acceleration_y_g": ("number", "g", "measured"),
@@ -87,6 +100,19 @@ FIELD_SPECS = {
     "hardware_tests_allowed": ("boolean", None, "calculated"),
 }
 assert set(FIELD_SPECS) == set(MEASUREMENT_FIELDS)
+
+
+def battery_estimate_percent(voltage: object) -> int | None:
+    if isinstance(voltage, bool) or not isinstance(voltage, (int, float)):
+        return None
+    if not math.isfinite(voltage) or not 3.0 <= voltage <= 4.25:
+        return None
+    if voltage <= BATTERY_CURVE[0][0]:
+        return 0
+    for (low_v, low_pct), (high_v, high_pct) in zip(BATTERY_CURVE, BATTERY_CURVE[1:]):
+        if voltage <= high_v:
+            return round(low_pct + (voltage - low_v) * (high_pct - low_pct) / (high_v - low_v))
+    return 100
 
 
 def utc_now() -> str:
@@ -174,6 +200,22 @@ class TelemetryManager:
             raise ValueError("telemetry row must be an object")
         now = self.clock()
         clean = {key: value for key, value in row.items() if key in MEASUREMENT_FIELDS or key == "sequence"}
+        if source == "radio" and isinstance(clean.get("flags"), int) and not isinstance(clean["flags"], bool):
+            flags = clean["flags"]
+            if 0 <= flags <= 0xFFFF:
+                clean["sd_ok"] = bool(flags & RADIO_FLAG_SD_OK)
+                clean["imu_ok"] = bool(flags & RADIO_FLAG_IMU_OK)
+                clean["barometer_ready"] = bool(flags & RADIO_FLAG_BARO_OK)
+                clean["radio_ok"] = bool(flags & RADIO_FLAG_RADIO_OK)
+                clean["recording"] = bool(flags & RADIO_FLAG_RECORDING)
+                if not clean["barometer_ready"]:
+                    for field_name in ("pressure_pa", "altitude_m"):
+                        clean[field_name] = None
+                if not clean["imu_ok"]:
+                    for field_name in ("acceleration_g", "acceleration_x_g", "acceleration_y_g",
+                                       "acceleration_z_g", "rotation_x_dps", "rotation_y_dps",
+                                       "rotation_z_dps"):
+                        clean[field_name] = None
         sequence = clean.get("sequence")
         uptime = clean.get("uptime_ms")
         with self.lock:
@@ -256,6 +298,10 @@ class TelemetryManager:
                     selected = name
                     break
         combined = dict(self.sources[selected].latest) if selected else {}
+        # The fixed LoRa packet calls GPS ground speed `speed_mps`. Preserve
+        # that legacy field, but expose a separate unambiguous view for UI use.
+        if selected == "radio" and "gps_speed_mps" not in combined:
+            combined["gps_speed_mps"] = combined.get("speed_mps")
         combined["active_source"] = selected
         combined["link_status"] = source_info[selected]["status"] if selected else "missing"
         combined["packet_age_ms"] = source_info[selected]["age_ms"] if selected else None
@@ -284,6 +330,15 @@ class TelemetryManager:
         # placeholder as a measured altitude in the merged view.
         if combined.get("gps_status") == "missing":
             combined["gps_altitude_m"] = None
+            combined["gps_speed_mps"] = None
+        battery_pct = battery_estimate_percent(combined.get("battery_v"))
+        combined["battery_estimate_pct"] = battery_pct
+        battery_v = combined.get("battery_v")
+        combined["battery_warning"] = (
+            "unavailable" if battery_pct is None else
+            "critical" if battery_v < 3.5 else
+            "low" if battery_v < 3.65 else "normal"
+        )
         gps_fresh = combined.get("gps_status") == "live"
         coordinate_valid = valid_coordinate(combined.get("latitude"), combined.get("longitude"))
         received_utc = combined.get("received_utc")
@@ -301,7 +356,7 @@ class TelemetryManager:
             if name in ("latitude", "longitude"):
                 valid = coordinate_valid
             freshness = "missing" if not valid else combined["link_status"]
-            if valid and name in ("latitude", "longitude", "gps_altitude_m", "satellites") and not gps_fresh:
+            if valid and name in ("latitude", "longitude", "gps_altitude_m", "gps_speed_mps", "satellites") and not gps_fresh:
                 freshness = "stale"
             fields[name] = {
                 "type": kind, "unit": unit, "origin": origin,
@@ -309,6 +364,20 @@ class TelemetryManager:
                 "received_utc": received_utc if valid else None,
                 "valid": valid, "freshness": freshness,
             }
+        fields["battery_estimate_pct"] = {
+            "type": "integer", "unit": "%", "origin": "calculated",
+            "source": selected if battery_pct is not None else None,
+            "received_utc": received_utc if battery_pct is not None else None,
+            "valid": battery_pct is not None,
+            "freshness": combined["link_status"] if battery_pct is not None else "missing",
+        }
+        fields["battery_warning"] = {
+            "type": "string", "unit": None, "origin": "calculated",
+            "source": selected if battery_pct is not None else None,
+            "received_utc": received_utc if battery_pct is not None else None,
+            "valid": battery_pct is not None,
+            "freshness": combined["link_status"] if battery_pct is not None else "missing",
+        }
         combined["field_meta"] = fields
         return combined
 
