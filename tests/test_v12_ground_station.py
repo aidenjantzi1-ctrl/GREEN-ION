@@ -140,6 +140,21 @@ class PreflightHistoryTests(unittest.TestCase):
                 post.return_value = (202, {"accepted": True})
                 self.assertEqual("WARNING", ground_station.diagnostic_test("gps")[1]["status"])
 
+    def test_battery_stability_needs_distinct_recent_samples(self):
+        from datetime import datetime, timedelta, timezone
+
+        now = datetime.now(timezone.utc)
+        points = [{"source": "wifi", "battery_sample_uptime_ms": i * 500,
+                   "battery_v": 4.0 + i * 0.005,
+                   "received_utc": (now - timedelta(seconds=4 - i)).isoformat()}
+                  for i in range(5)]
+        self.assertEqual("PASS", ground_station.battery_stability(points, "wifi", now)[0])
+        self.assertEqual("NOT TESTED", ground_station.battery_stability(points, "simulation", now)[0])
+        duplicates = [{**point, "battery_sample_uptime_ms": 100} for point in points]
+        self.assertEqual("NOT TESTED", ground_station.battery_stability(duplicates, "wifi", now)[0])
+        points[-1]["battery_v"] = 4.2
+        self.assertEqual("WARNING", ground_station.battery_stability(points, "wifi", now)[0])
+
 
 class GroundStationManagerTests(unittest.TestCase):
     def setUp(self):
@@ -423,6 +438,19 @@ class GroundStationManagerTests(unittest.TestCase):
             self.assertEqual("NOT TESTED", checks["LoRa packets"]["status"])
         self.manager.clear_receiver_status()
         self.assertIsNone(self.manager.snapshot()["receiver_status"])
+
+    def test_simulation_does_not_pass_hardware_preflight(self):
+        self.manager.ingest("simulation", {"sequence": 1, "uptime_ms": 100,
+                                           "battery_v": 4.0, "gps_status": "live",
+                                           "gps_fix_age_ms": 0, "latitude": 37.0,
+                                           "longitude": -122.0, "sd_ok": True,
+                                           "barometer_ready": True})
+        with patch.object(ground_station, "MANAGER", self.manager), \
+                patch.object(ground_station, "available_ports", return_value=[]):
+            checks = {item["name"]: item for item in ground_station.preflight_report()["checks"]}
+        for name in ("Battery", "GPS fix", "SD initialization", "BMP388"):
+            self.assertNotEqual("PASS", checks[name]["status"])
+        self.assertEqual("WARNING", checks["Telemetry source freshness"]["status"])
 
     def test_feather_status_fields_are_accepted_by_ground_station(self):
         firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")

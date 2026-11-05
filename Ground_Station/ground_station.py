@@ -150,6 +150,39 @@ def stop_recorder(confirmation: str, filename: str) -> tuple[int, dict]:
         return 502, {"success": False, "error": f"Feather stop/save request failed: {error}"}
 
 
+def battery_stability(points: list[dict], source: str | None,
+                      now: datetime | None = None) -> tuple[str, str]:
+    """Classify a short stationary voltage window using distinct sensor samples."""
+    if source not in ("wifi", "radio"):
+        return "NOT TESTED", "Live hardware battery samples are unavailable."
+    now = now or datetime.now(timezone.utc)
+    samples: dict[int, tuple[datetime, float]] = {}
+    for point in points:
+        if point.get("source") != source:
+            continue
+        stamp = point.get("battery_sample_uptime_ms") if source == "wifi" else point.get("uptime_ms")
+        voltage = point.get("battery_v")
+        if (not isinstance(stamp, int) or isinstance(stamp, bool) or
+                not isinstance(voltage, (int, float)) or isinstance(voltage, bool) or
+                not math.isfinite(voltage) or not 3.0 <= voltage <= 4.25):
+            continue
+        try:
+            received = datetime.fromisoformat(point["received_utc"])
+            age = (now - received).total_seconds()
+        except (KeyError, TypeError, ValueError):
+            continue
+        if 0 <= age <= 20:
+            samples[stamp] = (received, float(voltage))
+    ordered = sorted(samples.values())
+    if len(ordered) < 5 or (ordered[-1][0] - ordered[0][0]).total_seconds() < 2:
+        return "NOT TESTED", "Collect at least five distinct live battery samples over two stationary seconds."
+    values = [value for _, value in ordered]
+    spread = max(values) - min(values)
+    message = (f"{len(values)} distinct samples over {(ordered[-1][0]-ordered[0][0]).total_seconds():.1f} s; "
+               f"voltage range {spread:.3f} V. This is not a battery endurance test.")
+    return ("PASS" if spread <= 0.08 else "WARNING"), message
+
+
 def preflight_report(actions: dict | None = None) -> dict:
     snapshot = MANAGER.snapshot()
     wifi = snapshot["sources"]["wifi"]
@@ -159,7 +192,8 @@ def preflight_report(actions: dict | None = None) -> dict:
         checks.append({"name": name, "status": status, "message": message})
     def live(name: str) -> bool:
         meta = snapshot.get("field_meta", {}).get(name, {})
-        return meta.get("valid") is True and meta.get("freshness") == "live"
+        return (snapshot.get("active_source") != "simulation" and
+                meta.get("valid") is True and meta.get("freshness") == "live")
     add("Feather Wi-Fi", "PASS" if wifi["status"] == "live" else "FAIL",
         "Live Feather status is available." if wifi["status"] == "live" else (wifi["error"] or "No live Feather status."))
     add("Feather API", "PASS" if wifi["status"] == "live" else "NOT TESTED",
@@ -167,9 +201,11 @@ def preflight_report(actions: dict | None = None) -> dict:
         "Connect Windows to Feather Wi-Fi and confirm the status endpoint responds.")
     add("Ground Station server", "PASS", "This report was served by the local Ground Station.")
     add("Ground Station version", "PASS", f"Local Ground Station {GROUND_STATION_VERSION}.")
-    add("Telemetry source freshness", "PASS" if snapshot["link_status"] == "live" else
+    add("Telemetry source freshness", "WARNING" if snapshot.get("active_source") == "simulation" else
+        "PASS" if snapshot["link_status"] == "live" else
         "WARNING" if snapshot["link_status"] == "stale" else "NOT TESTED",
-        f"Selected source: {snapshot.get('active_source') or 'none'}; link is {snapshot['link_status']}.")
+        f"Selected source: {snapshot.get('active_source') or 'none'}; link is {snapshot['link_status']}."
+        + (" Simulation is software evidence only." if snapshot.get("active_source") == "simulation" else ""))
     version = snapshot.get("firmware_version") if live("firmware_version") else None
     add("Feather firmware version", "PASS" if isinstance(version, str) and version.startswith("V12") else
         "WARNING" if version is not None else "NOT TESTED",
@@ -286,6 +322,10 @@ def preflight_report(actions: dict | None = None) -> dict:
         "Battery reading is unavailable or stale." if not battery_live or battery is None else
         f"Reported battery: {battery_text}; outside plausible one-cell LiPo range."
         if not battery_valid else f"Reported battery: {battery_text}; one reading does not verify charge endurance or voltage stability.")
+    stability_status, stability_message = battery_stability(
+        MANAGER.recent_history(200), snapshot.get("active_source")) if battery_live else (
+            "NOT TESTED", "A live hardware battery stream is required for a stability window.")
+    add("Stationary battery stability", stability_status, stability_message)
     persistence_ok = MANAGER.writer is not None and MANAGER.writer.directory.is_dir()
     add("Ground persistence", "PASS" if persistence_ok else "FAIL",
         "Append-only session directory is available." if persistence_ok else "Session directory is unavailable.")
