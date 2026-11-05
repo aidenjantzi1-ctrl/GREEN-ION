@@ -1,5 +1,13 @@
 # GREEN ION V12 development log
 
+## 2026-11-04 — Session 34: validated laptop flight library
+
+- Added manual RKT4 BIN import and Feather SD downloads to the local Flights workflow. Transfers are bounded, byte-count checked, header/layout validated, and stored without rewriting the original recording.
+- Added SHA-256 flight identifiers and duplicate detection, preserving a single raw original plus analysis metadata rather than overwriting recordings.
+- Added local RKT4 integrity summaries, pressure-derived peak estimates, duration/battery/gap information, CSV and JSON exports, original BIN download, and printable browser reports that can be saved as PDF.
+- Added focused tests for valid imports, byte-for-byte preservation, deduplication, truncated tails, incomplete transfers, corrupt headers, unsafe filenames and each export format.
+- Physical Feather Wi-Fi download reliability and large real-flight files remain bench-test items; automated fixtures are not hardware evidence.
+
 ## 2026-11-04 — Session 33: unified offline laptop Ground Station
 
 - Replaced the simulation-first, single-source green page with a V11-blue, five-destination laptop application: Mission Control, Recovery, Flights, Diagnostics and Settings.

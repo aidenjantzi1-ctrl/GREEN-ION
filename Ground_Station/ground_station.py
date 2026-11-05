@@ -17,8 +17,10 @@ import threading
 import time
 from urllib.error import URLError
 from urllib.request import Request, urlopen
+from urllib.parse import parse_qs, quote, urlparse
 import webbrowser
 
+from flight_library import FlightImportError, FlightLibrary
 from telemetry_manager import SessionWriter, TelemetryManager
 
 ROOT = Path(__file__).resolve().parent
@@ -27,6 +29,21 @@ MANAGER = TelemetryManager(SessionWriter(DATA_DIR))
 STOP = threading.Event()
 CONFIG = {"serial_port": "auto", "feather_url": "http://192.168.4.1"}
 CONFIG_LOCK = threading.Lock()
+FLIGHTS = FlightLibrary(DATA_DIR / "flights")
+
+
+class LimitedReader:
+    def __init__(self, source, remaining: int) -> None:
+        self.source = source
+        self.remaining = remaining
+
+    def read(self, size: int = -1) -> bytes:
+        if self.remaining <= 0:
+            return b""
+        amount = self.remaining if size < 0 else min(size, self.remaining)
+        data = self.source.read(amount)
+        self.remaining -= len(data)
+        return data
 
 
 def json_response(handler: SimpleHTTPRequestHandler, payload: object, status: int = 200) -> None:
@@ -37,6 +54,64 @@ def json_response(handler: SimpleHTTPRequestHandler, payload: object, status: in
     handler.send_header("Content-Length", str(len(body)))
     handler.end_headers()
     handler.wfile.write(body)
+
+
+def bytes_response(handler: SimpleHTTPRequestHandler, body: bytes, content_type: str,
+                   filename: str | None = None) -> None:
+    handler.send_response(200)
+    handler.send_header("Content-Type", content_type)
+    handler.send_header("Cache-Control", "no-store")
+    if filename:
+        handler.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def feather_post(path: str, timeout: float = 4.0) -> tuple[int, dict]:
+    with CONFIG_LOCK:
+        base = CONFIG["feather_url"]
+    request = Request(base + path, data=b"", method="POST", headers={"Accept": "application/json"})
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            return response.status, json.loads(response.read(65536))
+    except URLError as error:
+        if getattr(error, "code", None) is not None:
+            try:
+                return error.code, json.loads(error.read(65536))
+            except (AttributeError, json.JSONDecodeError):
+                pass
+        raise
+
+
+def preflight_report() -> dict:
+    snapshot = MANAGER.snapshot()
+    wifi = snapshot["sources"]["wifi"]
+    radio = snapshot["sources"]["radio"]
+    checks = []
+    def add(name: str, status: str, message: str) -> None:
+        checks.append({"name": name, "status": status, "message": message})
+    add("Feather Wi-Fi", "PASS" if wifi["status"] == "live" else "FAIL",
+        "Live Feather status is available." if wifi["status"] == "live" else (wifi["error"] or "No live Feather status."))
+    add("Uno USB and LoRa", "PASS" if radio["status"] == "live" else "NOT TESTED",
+        "A validated LoRa telemetry packet reached the laptop." if radio["status"] == "live" else (radio["error"] or "No validated radio packet received."))
+    add("SD recorder", "PASS" if snapshot.get("sd_ok") is True else "FAIL" if snapshot.get("sd_ok") is False else "NOT TESTED",
+        "Feather reports the SD recorder ready." if snapshot.get("sd_ok") is True else "No ready SD result is available.")
+    add("BMP388", "PASS" if snapshot.get("barometer_ready") is True else "FAIL" if snapshot.get("barometer_ready") is False else "NOT TESTED",
+        "Barometer runtime status is ready." if snapshot.get("barometer_ready") is True else "No ready barometer status is available.")
+    add("LSM6DSO32", snapshot.get("imu_test_result", "NOT TESTED"), snapshot.get("imu_test_message", "Run the IMU hardware test."))
+    gps_result = snapshot.get("gps_test_result", "NOT TESTED")
+    add("PA1010D communication", gps_result, snapshot.get("gps_test_message", "Run the GPS hardware test."))
+    add("GPS fix", "PASS" if snapshot.get("gps_status") == "live" else "WARNING" if snapshot.get("gps_status") == "stale" else "NOT TESTED",
+        "Current valid GPS position." if snapshot.get("gps_status") == "live" else "A current outdoor GPS fix is not available; communication can still pass independently.")
+    battery = snapshot.get("battery_v")
+    add("Battery", "PASS" if isinstance(battery, (int, float)) and battery >= 3.5 else "WARNING" if battery is not None else "NOT TESTED",
+        f"Reported battery: {battery:.3f} V" if isinstance(battery, (int, float)) else "Battery voltage unavailable.")
+    persistence_ok = MANAGER.writer is not None and MANAGER.writer.directory.is_dir()
+    add("Ground persistence", "PASS" if persistence_ok else "FAIL",
+        "Append-only session directory is available." if persistence_ok else "Session directory is unavailable.")
+    overall = "FAIL" if any(item["status"] == "FAIL" for item in checks) else "WARNING" if any(item["status"] in ("WARNING", "NOT TESTED", "INCONCLUSIVE", "RUNNING") for item in checks) else "PASS"
+    return {"overall": overall, "checks": checks, "generated_utc": datetime.now(timezone.utc).isoformat()}
 
 
 def available_ports() -> list[dict]:
@@ -59,7 +134,8 @@ class Handler(SimpleHTTPRequestHandler):
         return str(candidate)
 
     def do_GET(self) -> None:
-        path = self.path.split("?", 1)[0]
+        parsed = urlparse(self.path)
+        path = parsed.path
         if path in ("/api/telemetry", "/api/status"):
             json_response(self, MANAGER.snapshot())
             return
@@ -77,6 +153,40 @@ class Handler(SimpleHTTPRequestHandler):
                 sessions.append({"name": item.name, "bytes": item.stat().st_size,
                                  "modified": datetime.fromtimestamp(item.stat().st_mtime, timezone.utc).isoformat()})
             json_response(self, {"sessions": sessions})
+            return
+        if path == "/api/flights":
+            json_response(self, {"flights": FLIGHTS.list()})
+            return
+        if path == "/api/feather/files":
+            try:
+                with CONFIG_LOCK:
+                    base = CONFIG["feather_url"]
+                with urlopen(Request(base + "/api/files", headers={"Accept": "application/json"}), timeout=2.0) as response:
+                    payload = json.loads(response.read(131072))
+                json_response(self, payload)
+            except (OSError, URLError, TimeoutError, json.JSONDecodeError) as error:
+                json_response(self, {"success": False, "error": f"Feather file list unavailable: {error}"}, 502)
+            return
+        if path.startswith("/api/flight/"):
+            parts = path.strip("/").split("/")
+            if len(parts) != 4:
+                json_response(self, {"error": "invalid flight request"}, 400)
+                return
+            _, _, identifier, export = parts
+            try:
+                metadata, raw = FLIGHTS.get(identifier)
+                if export == "raw":
+                    bytes_response(self, raw.read_bytes(), "application/octet-stream", metadata["original_name"])
+                elif export == "csv":
+                    bytes_response(self, FLIGHTS.csv_export(identifier), "text/csv", metadata["original_name"].replace(".BIN", ".csv"))
+                elif export == "json":
+                    bytes_response(self, FLIGHTS.json_export(identifier), "application/json", metadata["original_name"].replace(".BIN", ".json"))
+                elif export == "report":
+                    bytes_response(self, FLIGHTS.report_html(identifier), "text/html")
+                else:
+                    json_response(self, {"error": "unknown export"}, 404)
+            except (OSError, FlightImportError, json.JSONDecodeError) as error:
+                json_response(self, {"error": str(error)}, 404)
             return
         if path.startswith("/api/session/"):
             name = path.rsplit("/", 1)[-1]
@@ -96,6 +206,53 @@ class Handler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:
+        if self.path == "/api/import-bin":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > 256 * 1024 * 1024:
+                    raise FlightImportError("BIN upload must be between 1 byte and 256 MB")
+                filename = self.headers.get("X-Green-Ion-Filename", "")
+                result = FLIGHTS.import_stream(filename, LimitedReader(self.rfile, length), expected_bytes=length)
+                json_response(self, {"success": True, "flight": result}, 200)
+            except (OSError, ValueError, FlightImportError) as error:
+                json_response(self, {"success": False, "error": str(error)}, 400)
+            return
+        if self.path == "/api/feather/download":
+            try:
+                length = min(int(self.headers.get("Content-Length", "0")), 4096)
+                payload = json.loads(self.rfile.read(length))
+                filename = str(payload.get("name", ""))
+                with CONFIG_LOCK:
+                    base = CONFIG["feather_url"]
+                url = base + "/api/download?name=" + quote(filename)
+                with urlopen(Request(url, headers={"Accept": "application/octet-stream"}), timeout=20.0) as response:
+                    expected_header = response.headers.get("X-Green-Ion-Bytes") or response.headers.get("Content-Length")
+                    expected = int(expected_header) if expected_header else None
+                    result = FLIGHTS.import_stream(filename, response, expected_bytes=expected)
+                json_response(self, {"success": True, "flight": result})
+            except (OSError, URLError, TimeoutError, ValueError, json.JSONDecodeError, FlightImportError) as error:
+                json_response(self, {"success": False, "error": f"Feather download failed: {error}"}, 502)
+            return
+        if self.path == "/api/preflight":
+            try:
+                if MANAGER.snapshot().get("recording"):
+                    json_response(self, {"success": False, "error": "Preflight tests are disabled while the recorder is active."}, 409)
+                    return
+                sd_status, sd_result = feather_post("/api/sdtest")
+                test_status, test_result = feather_post("/api/hardware-test?sensor=all")
+                report = preflight_report()
+                report["actions"] = {
+                    "sd_test": {"http_status": sd_status, **sd_result},
+                    "sensor_test": {"http_status": test_status, **test_result},
+                }
+                report["message"] = "Sensor tests started. Keep the unit stationary; GPS fix may require an outdoor view. Refresh the report after the test interval."
+                json_response(self, {"success": True, "report": report}, 202)
+            except (OSError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as error:
+                json_response(self, {"success": False, "error": f"Preflight could not contact the Feather: {error}", "report": preflight_report()}, 502)
+            return
+        if self.path == "/api/preflight/report":
+            json_response(self, {"success": True, "report": preflight_report()})
+            return
         if self.path != "/api/config":
             json_response(self, {"error": "not found"}, 404)
             return

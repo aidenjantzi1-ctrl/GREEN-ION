@@ -24,7 +24,7 @@ No internet, phone, cloud account, Bluetooth, or hotspot is needed. The server c
 
 - **Mission Control**: the single preflight/live-flight screen with primary measurements and link health.
 - **Recovery**: last valid position, fix age, LoRa age, RSSI, and offline relative track.
-- **Flights**: append-only ground telemetry sessions and raw JSONL downloads. Original RKT4/GIS1 files remain on the Feather SD card.
+- **Flights**: append-only ground telemetry sessions, validated manual BIN import, Feather SD downloads, checksum deduplication, CSV/JSON exports and printable reports. Original RKT4 files are retained byte-for-byte.
 - **Diagnostics**: source errors, duplicates, sequence gaps, rejected out-of-order packets, and parse errors.
 - **Settings**: Uno COM port and Feather address. Unsupported configuration is not presented as functional.
 
@@ -60,6 +60,8 @@ py -3 sensor_log.py V12D007.SEN --rkt4 V12D007.BIN --csv V12D007-sensors.csv
 ```
 
 The exporter validates the GIS1 header, matching RKT4 header CRC, record CRCs, sequence gaps and torn tails. Originals remain unchanged.
+
+The **Flights** screen can also import an RKT4 BIN directly or download one from the Feather after recovery. A download is accepted only after its byte count and RKT4 v2 header/layout validate. SHA-256 identifies duplicates, and the original BIN is stored unchanged. CSV, JSON and printable HTML/PDF reports are derived copies with an explicit analysis-version and pressure-estimate disclaimer.
 
 ## Verification boundary
 

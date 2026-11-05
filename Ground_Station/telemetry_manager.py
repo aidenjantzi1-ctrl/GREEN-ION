@@ -21,7 +21,13 @@ MEASUREMENT_FIELDS = (
     "rotation_y_dps", "rotation_z_dps", "imu_temperature_c", "battery_v",
     "satellites", "gps_fix_age_ms", "gps_status", "latitude", "longitude",
     "gps_altitude_m", "health", "sd_ok", "imu_ok", "gps_ok", "radio_ok",
-    "rssi_dbm", "flags", "log_file",
+    "rssi_dbm", "flags", "log_file", "barometer_ready", "recorder_status",
+    "recorder_mode", "calibration_baseline_pa", "calibration_noise_m",
+    "imu_test_result", "imu_test_message", "imu_range_32g", "imu_test_samples",
+    "imu_test_invalid", "imu_test_mean_g", "imu_test_bias_x_dps",
+    "imu_test_bias_y_dps", "imu_test_bias_z_dps", "imu_test_temperature_c",
+    "gps_test_result", "gps_test_message", "gps_test_communication",
+    "gps_test_nmea", "gps_test_parsed", "hardware_tests_allowed",
 )
 
 
