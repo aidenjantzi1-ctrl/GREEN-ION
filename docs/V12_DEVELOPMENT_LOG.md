@@ -715,3 +715,7 @@ Extract deterministic sensor and storage interfaces needed to inject barometer i
 
 Add a deterministic storage/recovery transaction boundary that can inject checkpoint/report creation and boot-recovery failures through the firmware decision path while preserving the primary RKT4 evidence, then extend sensor health boundaries to IMU and GPS.
 
+### CI follow-up
+
+- GitHub Actions run `41951788923`: PASS for all 78 Python regression tests, all native C++ suites including the new barometer initialization/runtime-loss, backoff, recovery, deferral, and rollover policy cases, Adafruit Feather ESP32 V2 compilation, Arduino Uno R3 compilation, and development artifact upload on commit `8ebddc9`.
+
