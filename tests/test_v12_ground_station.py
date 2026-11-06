@@ -853,6 +853,20 @@ class GroundStationManagerTests(unittest.TestCase):
         self.assertEqual("stale", snapshot["field_meta"]["gps_altitude_m"]["freshness"])
         self.assertEqual([37.1, -121.9], snapshot["last_position"])
 
+    def test_last_position_age_includes_firmware_fix_age_across_restart(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manager = TelemetryManager(SessionWriter(root, "previous"), clock=self.clock)
+            manager.ingest("wifi", {"sequence": 1, "uptime_ms": 100,
+                                    "gps_status": "live", "gps_fix_age_ms": 1200,
+                                    "latitude": 37.1, "longitude": -121.9})
+            self.assertEqual(1200, manager.snapshot()["last_position_age_ms"])
+            self.clock.advance(2)
+            self.assertEqual(3200, manager.snapshot()["last_position_age_ms"])
+            restarted = TelemetryManager(SessionWriter(root, "new"), clock=self.clock)
+            self.assertGreaterEqual(restarted.snapshot()["last_position_age_ms"], 1200)
+            self.assertEqual("missing", restarted.snapshot()["link_status"])
+
     def test_recent_history_retains_fields_needed_to_restore_mission_trail(self):
         row = {**self.row(7), "gps_status": "live", "gps_fix_age_ms": 0,
                "gps_fix_uptime_ms": 700,

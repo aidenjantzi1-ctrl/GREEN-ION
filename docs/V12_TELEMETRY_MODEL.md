@@ -7,6 +7,7 @@
 - `/api/status` adds `gps_fix_current_age_ms`, calculated as the reported fix age plus time since the selected packet was received. It is a display value; `gps_fix_age_ms` in the raw JSONL remains the reported value. GPS becomes stale when the calculated age exceeds three seconds, even while a radio link remains live.
 - `valid` means a value is present and has the expected basic type. A numeric zero is valid. Missing or nonfinite numbers are invalid. Latitude and longitude require a valid coordinate pair. A valid historical value can still be stale.
 - `freshness` is `live`, `stale`, or `missing`. GPS position, altitude, and satellite fields are stale unless the GPS fix is current and the selected link is live. The separate `last_position` and its age/source/time retain the last valid fix after disconnect. `last_position_phase`, `last_position_fix_quality`, and `last_position_satellites` describe that saved fix, not a later packet or a confirmed landing point.
+- `last_position_age_ms` includes the GPS fix age reported at packet receipt plus elapsed laptop time, including after a restart. `last_position_utc` remains the laptop receive time; it is not a GPS timestamp.
 - `origin` distinguishes sensor/hardware-reported values (`measured`) from firmware or Ground Station computations (`calculated`). The classification does not imply calibration accuracy.
 - The underlying RKT4 v2 and GIS1 files are unaffected. Append-only session JSONL stores normalized accepted fields, while this metadata describes the current merged view.
 

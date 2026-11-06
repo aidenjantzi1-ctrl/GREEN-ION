@@ -383,6 +383,7 @@ class TelemetryManager:
             self.last_position = {
                 "latitude": float(position[0]), "longitude": float(position[1]),
                 "received_monotonic": self.clock() - max(0.0, age_s),
+                "fix_age_at_receive_ms": row["gps_fix_age_ms"],
                 "received_utc": received_utc, "source": source,
                 "session_id": fix_session_id,
                 "flight_state": optional_count(row.get("flight_state"), 7),
@@ -503,6 +504,7 @@ class TelemetryManager:
                     "latitude": float(clean["latitude"]),
                     "longitude": float(clean["longitude"]),
                     "received_monotonic": now,
+                    "fix_age_at_receive_ms": fix_age,
                     "received_utc": clean["received_utc"],
                     "source": source,
                     "session_id": self.writer.session_id if self.writer else None,
@@ -568,7 +570,9 @@ class TelemetryManager:
             combined["last_position_source"] = self.last_position["source"]
             combined["last_position_session_id"] = self.last_position.get("session_id")
             combined["last_position_utc"] = self.last_position["received_utc"]
-            combined["last_position_age_ms"] = round((now - self.last_position["received_monotonic"]) * 1000)
+            combined["last_position_age_ms"] = round(
+                max(0, now - self.last_position["received_monotonic"]) * 1000
+                + self.last_position["fix_age_at_receive_ms"])
             combined["last_position_phase"] = self.last_position["flight_state"]
             combined["last_position_fix_quality"] = self.last_position["fix_quality"]
             combined["last_position_satellites"] = self.last_position["satellites"]
