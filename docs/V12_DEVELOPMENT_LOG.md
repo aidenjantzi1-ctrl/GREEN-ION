@@ -1096,3 +1096,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Reviewed report and comparison paths: both use bounded timeline points. Changed Diagnostics JSONL export to stream the growing history file from disk, retaining the empty-history download.
 - Verification: 186 Python tests passed, including a 5,000-entry export fixture. Physical Windows diagnostics remain NOT TESTED.
+
+### Post-Phase 8 malformed history handling (2026-11-06)
+
+- Fetched the development branch at `7039572`. Preflight list now skips invalid JSON shapes, mismatched IDs and disappearing files without hiding older valid reports; Diagnostics history ignores non-object JSONL entries.
+- Verification: 187 Python tests passed. No physical hardware was used.

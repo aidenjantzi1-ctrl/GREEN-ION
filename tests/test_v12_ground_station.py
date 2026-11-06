@@ -338,6 +338,23 @@ class RecorderStopTests(unittest.TestCase):
 
 
 class PreflightHistoryTests(unittest.TestCase):
+    def test_malformed_local_history_entries_do_not_break_diagnostics(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            preflight = root / "preflight"
+            preflight.mkdir()
+            valid = ground_station.save_preflight_run
+            with patch.object(ground_station, "PREFLIGHT_DIR", preflight), \
+                    patch.object(ground_station, "DIAGNOSTIC_LOG", root / "diagnostic-history.jsonl"):
+                saved = valid({"created_utc": "2026-11-06T00:00:00Z", "run_status": "COMPLETE"})
+                (preflight / "preflight-bad.json").write_text("[]", encoding="utf-8")
+                (preflight / "preflight-wrong.json").write_text(
+                    json.dumps({"run_id": "other", "created_utc": "now", "run_status": "COMPLETE"}),
+                    encoding="utf-8")
+                self.assertEqual([saved["run_id"]], [item["run_id"] for item in ground_station.preflight_runs(1)])
+                ground_station.DIAGNOSTIC_LOG.write_text('[]\n{"status":"PASS"}\nnot-json\n', encoding="utf-8")
+                self.assertEqual([{"status": "PASS"}], ground_station.recent_diagnostics())
+
     def test_saved_report_is_exportable_and_incomplete_run_times_out(self):
         from datetime import datetime, timedelta, timezone
 

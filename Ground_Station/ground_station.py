@@ -654,15 +654,28 @@ def save_preflight_run(report: dict, run_id: str | None = None) -> dict:
 def preflight_runs(limit: int = 30) -> list[dict]:
     if not PREFLIGHT_DIR.is_dir():
         return []
-    paths = sorted(PREFLIGHT_DIR.glob("preflight-*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    paths = []
+    for path in PREFLIGHT_DIR.glob("preflight-*.json"):
+        try:
+            if not path.is_symlink():
+                paths.append((path.stat().st_mtime, path))
+        except OSError:
+            continue
     reports = []
-    for path in paths[:limit]:
+    for _mtime, path in sorted(paths, reverse=True):
         try:
             report = json.loads(path.read_text(encoding="utf-8"))
+            if (not isinstance(report, dict) or
+                    report.get("run_id") != path.stem.removeprefix("preflight-") or
+                    not isinstance(report.get("created_utc"), str) or
+                    not isinstance(report.get("run_status"), str)):
+                continue
             reports.append({key: report.get(key) for key in
                             ("run_id", "created_utc", "run_status", "overall", "progress")})
         except (OSError, json.JSONDecodeError):
             continue
+        if len(reports) >= limit:
+            break
     return reports
 
 
@@ -836,7 +849,9 @@ def recent_diagnostics(limit: int = 50) -> list[dict]:
     results = []
     for line in reversed(lines):
         try:
-            results.append(json.loads(line))
+            item = json.loads(line)
+            if isinstance(item, dict):
+                results.append(item)
         except json.JSONDecodeError:
             continue
     return results
