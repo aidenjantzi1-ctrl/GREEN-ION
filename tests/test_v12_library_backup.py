@@ -123,6 +123,25 @@ class LibraryBackupTests(unittest.TestCase):
         self.assertEqual(b"legacy session format preserved\n",
                          (target / "session-legacy-v11.jsonl").read_bytes())
 
+    def test_backup_rejects_incomplete_imported_session_trash(self):
+        name = self.session["name"]
+        self.sessions.trash_session(name)
+        metadata = self.source / "session_trash" / name / f"{self.session['sha256']}.json"
+        metadata.unlink()
+        with self.assertRaisesRegex(BackupError, "metadata missing"):
+            create_backup(self.source, self.archive)
+        self.assertTrue((self.source / "session_trash" / name / name).is_file())
+
+    def test_backup_rejects_imported_session_inspection_mismatch(self):
+        metadata_path = self.source / "session_imports" / f"{self.session['sha256']}.json"
+        metadata = json.loads(metadata_path.read_text())
+        metadata["inspection"]["records"] += 1
+        metadata_path.write_text(json.dumps(metadata))
+        with self.assertRaisesRegex(BackupError, "inspection mismatch"):
+            create_backup(self.source, self.archive)
+        self.assertEqual(session_bytes(),
+                         (self.source / self.session["name"]).read_bytes())
+
 
 if __name__ == "__main__":
     unittest.main()

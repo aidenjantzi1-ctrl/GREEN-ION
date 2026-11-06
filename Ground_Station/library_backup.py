@@ -197,8 +197,9 @@ def _validate_staged_library(stage: Path, manifest: dict) -> None:
                 if (metadata.get("sha256") != path.stem or metadata.get("id") != path.stem or
                         metadata.get("name") != f"session-import-{path.stem}.jsonl"):
                     raise BackupError(f"session metadata identity mismatch: {name}")
-                sessions.imported_file(metadata["name"])
-                inspect_session(stage / metadata["name"])
+                imported = sessions.imported_file(metadata["name"])
+                if metadata.get("bytes") != imported.stat().st_size or metadata.get("inspection") != inspect_session(imported):
+                    raise BackupError(f"session metadata/inspection mismatch: {name}")
             except (OSError, ValueError, KeyError, TypeError) as error:
                 raise BackupError(f"imported session invalid: {name}: {error}") from error
         elif name.startswith("session_trash/"):
@@ -212,6 +213,8 @@ def _validate_staged_library(stage: Path, manifest: dict) -> None:
             if match and parts[2].endswith(".jsonl") and file_digest(path)[1] != match.group(1):
                 raise BackupError(f"trashed imported session checksum mismatch: {name}")
             if match and parts[2].endswith(".jsonl"):
+                if not (path.parent / f"{match.group(1)}.json").is_file():
+                    raise BackupError(f"trashed imported session metadata missing: {name}")
                 try:
                     inspect_session(path)
                 except (OSError, ValueError) as error:

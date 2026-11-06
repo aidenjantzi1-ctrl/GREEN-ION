@@ -166,6 +166,16 @@ class FlightLibraryTests(unittest.TestCase):
             self.library.restore_trash(imported["id"])
         self.assertEqual([], self.library.list())
 
+    def test_corrupt_flight_metadata_is_not_exposed_as_a_valid_library_row(self):
+        raw = fixture()
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        metadata_path = self.library.meta / f"{imported['id']}.json"
+        metadata_path.write_text(json.dumps({"id": imported["id"], "raw_file": "other.bin"}))
+        self.assertEqual([], self.library.list())
+        with self.assertRaisesRegex(FlightImportError, "metadata no longer matches"):
+            self.library.get(imported["id"])
+        self.assertEqual(raw, (self.library.raw / f"{imported['id']}.bin").read_bytes())
+
     def test_corrupt_header_and_unsafe_filename_are_rejected(self):
         with self.assertRaisesRegex(FlightImportError, "magic"):
             self.library.import_stream("bad.BIN", io.BytesIO(b"x" * 64))

@@ -213,15 +213,30 @@ class FlightLibrary:
 
     def list(self) -> list[dict]:
         result = []
-        for path in sorted(self.meta.glob("*.json"), key=lambda item: item.stat().st_mtime, reverse=True):
+        for path in sorted(self.meta.glob("*.json"), key=lambda item: item.lstat().st_mtime, reverse=True):
             try:
-                result.append(json.loads(path.read_text(encoding="utf-8")))
+                if path.is_symlink():
+                    continue
+                item = json.loads(path.read_text(encoding="utf-8"))
+                if (not isinstance(item, dict) or item.get("id") != path.stem or
+                        item.get("sha256") != path.stem or item.get("raw_file") != f"{path.stem}.bin" or
+                        not isinstance(item.get("summary"), dict)):
+                    continue
+                result.append(item)
             except (OSError, json.JSONDecodeError):
                 continue
         return result
 
     def get(self, identifier: str) -> tuple[dict, Path]:
-        metadata = json.loads(self._metadata_path(identifier).read_text(encoding="utf-8"))
+        metadata_path = self._metadata_path(identifier)
+        if metadata_path.is_symlink():
+            raise FlightImportError("stored flight metadata is a symlink")
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        if (not isinstance(metadata, dict) or metadata.get("id") != identifier or
+                metadata.get("sha256") != identifier or metadata.get("raw_file") != f"{identifier}.bin" or
+                not isinstance(metadata.get("original_name"), str) or
+                not isinstance(metadata.get("summary"), dict)):
+            raise FlightImportError("stored flight metadata no longer matches its raw recording")
         raw = (self.raw / metadata["raw_file"]).resolve()
         if raw.parent != self.raw.resolve() or not raw.is_file():
             raise FlightImportError("raw flight file is unavailable")

@@ -1037,3 +1037,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Ran all 166 Python tests, 17 native V12 C++ binaries with warnings as errors, Node RKT4 checks and the 390-pixel Recovery/Companion browser smokes. All passed. Arduino CLI is unavailable in the current inherited environment, so no target board build was repeated; GitHub Actions result for this commit was not confirmed.
 - Reconciled build/Windows instructions and pin/power guidance with firmware, created an all-NOT-TESTED physical validation record, launch-day data checklist and V12 completion report. Software bench readiness does not establish rocket flight readiness.
+
+### Post-Phase 8 library integrity follow-up (2026-11-05)
+
+- Rejected tampered imported-session duplicate metadata, incomplete imported-session Trash backups and backup metadata/inspection mismatches. Corrupt or symlinked flight metadata is no longer shown as a valid row or loaded for analysis; original raw bytes remain untouched.
+- Verification: 170 Python tests passed. This follow-up changed Python integrity paths only; prior native and browser evidence remains applicable.

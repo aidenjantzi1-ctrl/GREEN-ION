@@ -246,6 +246,10 @@ class SessionLibrary:
                     temporary.replace(destination)
                 if metadata_path.exists():
                     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                    if (not isinstance(metadata, dict) or metadata.get("id") != identifier or
+                            metadata.get("sha256") != identifier or metadata.get("name") != destination.name or
+                            metadata.get("bytes") != received or metadata.get("inspection") != inspection):
+                        raise SessionImportError("stored imported session metadata no longer matches its raw events")
                 else:
                     metadata = {"id": identifier, "name": destination.name,
                                 "original_name": filename, "sha256": identifier,
@@ -284,9 +288,12 @@ class SessionLibrary:
             if match:
                 try:
                     metadata = json.loads(self._metadata_path(match.group(1)).read_text(encoding="utf-8"))
+                    if not self._valid_import_metadata(self._metadata_path(match.group(1)),
+                                                       path.name, match.group(1)):
+                        raise ValueError("imported session metadata identity changed")
                     item.update(source_kind="imported_jsonl", original_name=metadata["original_name"],
                                 sha256=metadata["sha256"], inspection=metadata["inspection"])
-                except (OSError, KeyError, json.JSONDecodeError):
+                except (OSError, KeyError, ValueError, TypeError):
                     item["source_kind"] = "imported_metadata_missing"
             result.append(item)
         return result

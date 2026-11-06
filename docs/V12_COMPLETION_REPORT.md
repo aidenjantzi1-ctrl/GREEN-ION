@@ -1,6 +1,6 @@
 # GREEN ION V12 completion and readiness report
 
-Audit date: 2026-11-05 Pacific. Development branch: `codex/green-ion-v12`. Audited pushed code head before this documentation update: `c56d176`. Run `git rev-parse HEAD` on the branch for the latest documentation commit. No merge to `main` occurred.
+Audit date: 2026-11-05 Pacific. Development branch: `codex/green-ion-v12`. Audited pushed code head before the Phase 8 documentation update: `c56d176`; Phase 8 documentation checkpoint: `7a36415`. Run `git rev-parse HEAD` on the branch for the latest documentation commit. No merge to `main` occurred.
 
 ## Implemented software
 
@@ -19,7 +19,7 @@ All phases have cloud-verifiable software paths. Phase 6 Feather SD deletion is 
 
 ## Verification at this checkpoint
 
-- Python: `python3 -m unittest discover -s tests -q` — **166 passed** on Python 3.12 in this cloud run.
+- Python: `python3 -m unittest discover -s tests -q` — **170 passed** on Python 3.12 after the library-integrity follow-up.
 - Native recorder/protocol: all **17** `tests/cpp/test_v12_*.cpp` programs compiled with `g++ -std=c++17 -Wall -Wextra -Werror` and executed successfully in this run, including RKT4, sensor log, calibration, watcher, landing, recovery, radio and coordinated failure paths.
 - JavaScript: `node tests/js/test_rkt4.mjs` passed; extracted Ground Station script passed `node --check`.
 - Chromium: `tests/browser/recovery_smoke.py` passed at 390 pixels for Recovery, Analysis, satellite request/failure fallback, recorder bench flow, backup and Trash; `tests/browser/companion_smoke.py` passed over local HTTPS for pairing gate, protected API, cross-origin denial, mobile layout and logout. These are fixture/synthetic checks, not real rocket or iPhone tests.
@@ -36,5 +36,7 @@ All phases have cloud-verifiable software paths. Phase 6 Feather SD deletion is 
 ## Readiness and next actions
 
 **Software integration is ready for controlled bench validation; flight readiness is NOT ESTABLISHED.** Do not infer a physical PASS from CI, simulation or the browser smokes. The next concrete work is to run the hardware checklist with the actual Feather sensors, LiPo, SD and GPS; physically disconnect/reconnect Wi-Fi during a disposable `TESTnnn.BIN` recording; validate power-loss recovery and actual BIN/SEN timing; connect the Uno/RFM95W safely with antennas and measure packets/range; then pair a trusted iPhone over the selected LAN and test Safari GPS and cellular imagery. Record PASS/WARNING/FAIL/NOT TESTED for each item and repair any failures before a field readiness decision.
+
+Post-report integrity follow-up: imported-session and flight-metadata corruption checks were tightened without changing raw originals; backup creation now rejects incomplete imported-session Trash. The 170-test Python suite passed.
 
 Current known limitations: no verified target firmware build in this cloud run; no physical SD, sensor, battery, LoRa or Windows/iPhone outcome; no onboard SD delete endpoint; mobile satellite tile and cellular delivery depend on external service/network; trusted certificate installation on iPhone must be checked. Codex usage balance and reset timing were not exposed by available tools, so no reset schedule was inferred.

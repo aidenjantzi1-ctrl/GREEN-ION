@@ -105,6 +105,18 @@ class SessionLibraryTests(unittest.TestCase):
             self.library.restore_trash(name)
         self.assertFalse((self.library.root / name).exists())
 
+    def test_changed_import_metadata_cannot_be_reused_as_a_valid_duplicate(self):
+        raw = event(1)
+        imported = self.library.import_stream("original.jsonl", io.BytesIO(raw))
+        metadata_path = self.library.metadata / f"{imported['sha256']}.json"
+        metadata = json.loads(metadata_path.read_text())
+        metadata["inspection"]["records"] = 999
+        metadata_path.write_text(json.dumps(metadata))
+        with self.assertRaisesRegex(SessionImportError, "metadata no longer matches"):
+            self.library.import_stream("copy.jsonl", io.BytesIO(raw))
+        self.assertEqual("imported_jsonl", self.library.list()[0]["source_kind"])
+        self.assertEqual(raw, self.library.imported_file(imported["name"]).read_bytes())
+
 
 if __name__ == "__main__":
     unittest.main()
