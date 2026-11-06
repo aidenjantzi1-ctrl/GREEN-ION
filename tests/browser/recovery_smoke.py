@@ -249,6 +249,9 @@ with sync_playwright() as p:
     page.wait_for_function("document.querySelector('#recoveryMapStatus').textContent.includes('SIMULATION — NOT HARDWARE')")
     assert page.locator('#recoveryMapOverlay [data-marker=simulation]').count()==1
     assert page.locator('#recoveryMapOverlay [data-marker=rocket]').count()==0
+    state.update(gps_fix_current_age_ms=3500, gps_status='stale', gps_altitude_valid=True)
+    page.wait_for_function("document.querySelector('#fixAge').textContent.includes('3.5 s')")
+    assert page.locator('#gpsAltitudeValidity').inner_text()=='NOT CURRENT'
     assert not errors,errors
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     print('Recovery browser smoke passed: bench source return, location, map, units, offline fallback, mobile width')

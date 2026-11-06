@@ -838,6 +838,21 @@ class GroundStationManagerTests(unittest.TestCase):
                                       "gps_status": "missing", "latitude": None, "longitude": None})
         self.assertEqual(5, self.manager.snapshot()["last_position_phase"])
 
+    def test_gps_fix_expires_before_radio_link_when_fix_and_packet_ages_add_up(self):
+        row = self.row(1)
+        row.update(latitude=37.1, longitude=-121.9, gps_status="live",
+                   gps_fix_age_ms=1000, gps_altitude_m=151.0)
+        self.manager.ingest("radio", row)
+        self.assertEqual(1000, self.manager.snapshot()["gps_fix_current_age_ms"])
+        self.clock.advance(2.5)
+        snapshot = self.manager.snapshot()
+        self.assertEqual("live", snapshot["link_status"])
+        self.assertEqual(1000, snapshot["gps_fix_age_ms"])
+        self.assertEqual(3500, snapshot["gps_fix_current_age_ms"])
+        self.assertEqual("stale", snapshot["gps_status"])
+        self.assertEqual("stale", snapshot["field_meta"]["gps_altitude_m"]["freshness"])
+        self.assertEqual([37.1, -121.9], snapshot["last_position"])
+
     def test_recent_history_retains_fields_needed_to_restore_mission_trail(self):
         row = {**self.row(7), "gps_status": "live", "gps_fix_age_ms": 0,
                "gps_fix_uptime_ms": 700,

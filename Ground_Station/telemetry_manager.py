@@ -580,10 +580,15 @@ class TelemetryManager:
             combined["last_position_fix_quality"] = None
             combined["last_position_satellites"] = None
         fix_age = combined.get("gps_fix_age_ms")
+        effective_fix_age = (fix_age + max(0, combined["packet_age_ms"] or 0)
+                             if isinstance(fix_age, (int, float)) and not isinstance(fix_age, bool)
+                             and math.isfinite(fix_age) else None)
+        combined["gps_fix_current_age_ms"] = (round(effective_fix_age)
+                                               if effective_fix_age is not None else None)
         if combined.get("gps_status") == "live" and (
             combined["link_status"] != "live" or
-            not isinstance(fix_age, (int, float)) or isinstance(fix_age, bool) or
-            not math.isfinite(fix_age) or fix_age < 0 or fix_age > GPS_MAX_AGE_MS or
+            effective_fix_age is None or effective_fix_age < 0 or
+            effective_fix_age > GPS_MAX_AGE_MS or
             not valid_coordinate(combined.get("latitude"), combined.get("longitude"))
         ):
             combined["gps_status"] = "stale"
