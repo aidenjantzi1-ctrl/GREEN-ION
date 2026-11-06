@@ -360,6 +360,7 @@ class TelemetryManager:
                     row = event["data"]
                     fix_age = row.get("gps_fix_age_ms")
                     if (event.get("source") in ("wifi", "radio", "simulation") and
+                            (source == "simulation" or event.get("source") != "simulation") and
                             row.get("gps_status") == "live" and
                             type(fix_age) in (int, float) and abs(fix_age) <= 3000 and
                             math.isfinite(fix_age) and fix_age >= 0 and
@@ -496,7 +497,10 @@ class TelemetryManager:
             fix_age = clean.get("gps_fix_age_ms")
             current_fix = (isinstance(fix_age, (int, float)) and not isinstance(fix_age, bool)
                            and math.isfinite(fix_age) and 0 <= fix_age <= GPS_MAX_AGE_MS)
-            if valid_coordinate(clean.get("latitude"), clean.get("longitude")) and gps_status == "live" and current_fix:
+            if (valid_coordinate(clean.get("latitude"), clean.get("longitude")) and
+                    gps_status == "live" and current_fix and
+                    (source != "simulation" or self.last_position is None or
+                     self.last_position["source"] == "simulation")):
                 phase = clean.get("flight_state")
                 quality = clean.get("gps_fix_quality")
                 satellites = clean.get("satellites")

@@ -686,6 +686,36 @@ class GroundStationManagerTests(unittest.TestCase):
         self.assertEqual("radio", snapshot["active_source"])
         self.assertEqual(13, snapshot["altitude_m"])
 
+    def test_new_radio_fix_can_outpace_selected_live_wifi_fix(self):
+        self.manager.ingest("wifi", {**self.row(1), "gps_status": "live",
+                                     "gps_fix_age_ms": 100, "latitude": 37.1,
+                                     "longitude": -121.9})
+        self.manager.ingest("radio", {**self.row(1), "gps_status": "live",
+                                      "gps_fix_age_ms": 100, "latitude": 37.2,
+                                      "longitude": -121.8})
+        snapshot = self.manager.snapshot()
+        self.assertEqual("wifi", snapshot["active_source"])
+        self.assertEqual("live", snapshot["gps_status"])
+        self.assertEqual([37.2, -121.8], snapshot["last_position"])
+        self.assertEqual("radio", snapshot["last_position_source"])
+        self.assertEqual((37.1, -121.9), (snapshot["latitude"], snapshot["longitude"]))
+
+    def test_simulation_cannot_replace_real_recovery_fix_even_after_restart(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manager = TelemetryManager(SessionWriter(root, "mixed"), clock=self.clock)
+            manager.ingest("wifi", {**self.row(1), "gps_status": "live",
+                                    "gps_fix_age_ms": 100, "latitude": 37.1,
+                                    "longitude": -121.9})
+            manager.ingest("simulation", {**self.row(1), "gps_status": "live",
+                                          "gps_fix_age_ms": 100, "latitude": 38.0,
+                                          "longitude": -122.0})
+            self.assertEqual([37.1, -121.9], manager.snapshot()["last_position"])
+            self.assertEqual("wifi", manager.snapshot()["last_position_source"])
+            restarted = TelemetryManager(SessionWriter(root, "restart"), clock=self.clock)
+            self.assertEqual([37.1, -121.9], restarted.snapshot()["last_position"])
+            self.assertEqual("wifi", restarted.snapshot()["last_position_source"])
+
     def test_duplicate_and_out_of_order_packets_are_rejected(self):
         self.assertTrue(self.manager.ingest("radio", self.row(10)))
         self.assertFalse(self.manager.ingest("radio", self.row(10)))

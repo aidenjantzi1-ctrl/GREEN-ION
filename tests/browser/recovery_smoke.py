@@ -242,7 +242,9 @@ with sync_playwright() as p:
     assert requests[-1][0]=='/api/flight/'+'a'*64+'/restore'
     prior_track=page.evaluate('track.length')
     state.update(last_position=[37.2,-121.8], latitude=37.2, longitude=-121.8,
-                 last_position_source='simulation', gps_status='live', link_status='live')
+                 last_position_source='simulation', active_source='simulation',
+                 gps_status='live', gps_altitude_m=145, gps_altitude_valid=True,
+                 recording=True, recorder_mode=2, link_status='live')
     page.click('nav button[data-view=recovery]')
     page.wait_for_function("document.querySelector('#positionDetail').textContent.includes('SIMULATION — NOT HARDWARE')")
     assert 'do not use for rocket recovery' in page.locator('#positionConfidence').inner_text()
@@ -252,9 +254,14 @@ with sync_playwright() as p:
     assert page.locator('#recoveryMapOverlay [data-marker=simulation]').count()==1
     assert page.locator('#recoveryMapOverlay [data-marker=rocket]').count()==0
     assert page.evaluate('track.length')==prior_track
+    assert 'SIMULATION — NOT HARDWARE' in page.locator('#gpsBadge').inner_text()
+    assert page.locator('#gpsStatus').inner_text()=='SIMULATION — NOT HARDWARE'
+    assert page.locator('#recordingBadge').inner_text()=='SIMULATION — NOT HARDWARE'
+    assert page.locator('#missionRecorderMode').inner_text()=='SIMULATION'
+    assert 'not hardware' in page.locator('#missionGpsQuality').inner_text()
     state.update(gps_fix_current_age_ms=3500, gps_status='stale', gps_altitude_valid=True)
     page.wait_for_function("document.querySelector('#fixAge').textContent.includes('3.5 s')")
-    assert page.locator('#gpsAltitudeValidity').inner_text()=='NOT CURRENT'
+    assert page.locator('#gpsAltitudeValidity').inner_text()=='SIMULATION'
     page.evaluate("""async () => {
       const priorFetch=window.fetch, now=Date.now();
       const points=[
@@ -271,6 +278,19 @@ with sync_playwright() as p:
     assert page.evaluate('history.slice(-3,-1).map(p=>p.gps_altitude_m)')==[None,None]
     assert 'SIMULATION — NOT HARDWARE' in page.locator('#graphLegend').inner_text()
     assert page.evaluate('track.at(-1)')==[37.11,-121.91]
+    prior_track=page.evaluate('track.length')
+    state.update(active_source='wifi', last_position_source='radio',
+                 last_position=[37.11,-121.91], last_position_utc='2026-11-06T15:00:01Z',
+                 received_utc='2026-11-06T15:00:00Z', latitude=37.1, longitude=-121.9,
+                 last_position_age_ms=1000, gps_fix_current_age_ms=100, gps_status='live')
+    page.click('nav button[data-view=mission]')
+    page.wait_for_function("document.querySelector('#missionPositionAge').textContent.includes('Last known')")
+    assert page.evaluate('track.length')==prior_track
+    state.update(last_position_source='wifi', last_position=[37.13,-121.93],
+                 last_position_utc='2026-11-06T15:00:02Z',
+                 received_utc='2026-11-06T15:00:02Z', latitude=37.13, longitude=-121.93)
+    page.wait_for_function("document.querySelector('#missionPositionAge').textContent.includes('Current')")
+    assert page.evaluate('track.at(-1)')==[37.13,-121.93]
     assert not errors,errors
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     print('Recovery browser smoke passed: bench source return, location, map, units, offline fallback, mobile width')
