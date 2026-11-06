@@ -4,7 +4,7 @@
 
 GREEN ION V12 records pressure and synchronized full-resolution IMU/GPS data to microSD, provides a local phone dashboard, and can send selected CRC-protected telemetry to an Arduino Uno ground receiver. It is strictly a recorder and recovery aid: it never controls ignition, staging, arming, pyrotechnics, or deployment.
 
-V12 host tests and target compilation pass. Physical sensor, SD/power-loss, shared-SPI, radio-range, recovery, and flight testing are still required before use in a rocket.
+V12 host tests pass, and an earlier cloud checkpoint recorded a Feather target compile. The current managed environment lacks Arduino CLI, so target compilation was not repeated here. Physical sensor, SD/power-loss, shared-SPI, radio-range, recovery, and flight testing are still required before use in a rocket.
 
 ## Current projects
 
@@ -62,6 +62,10 @@ GitHub Actions compiles both the Feather V2 recorder and Arduino Uno receiver an
 
 - [GitHub Actions](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions)
 - [`docs/V12_TESTING.md`](docs/V12_TESTING.md)
+- [`docs/V12_BUILD_GUIDE.md`](docs/V12_BUILD_GUIDE.md) — firmware and Windows Ground Station installation.
+- [`docs/V12_IPHONE_COMPANION.md`](docs/V12_IPHONE_COMPANION.md) — private LAN HTTPS phone setup and checks.
+- [`docs/V12_HARDWARE_VALIDATION.md`](docs/V12_HARDWARE_VALIDATION.md) — physical test record; every item is currently NOT TESTED here.
+- [`docs/V12_LAUNCH_DAY.md`](docs/V12_LAUNCH_DAY.md) — data and recovery checklist after validation.
 - [`docs/V12_AIRPLANE_TEST.md`](docs/V12_AIRPLANE_TEST.md) — temporary offline airplane sensor test.
 - [`docs/V12_DEVELOPMENT_LOG.md`](docs/V12_DEVELOPMENT_LOG.md)
 - [`VERSIONS.md`](VERSIONS.md)

@@ -1032,3 +1032,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Added connected/unreachable Companion badge and pairing redirect on expired sessions. Recovery can request Esri World Imagery satellite tiles or OpenStreetMap street tiles with attribution; offline coordinates and relative track survive imagery failures.
 - Audited the software path in `V12_PHASE7_AUDIT.md`. The 390-pixel Recovery and local HTTPS Companion Chromium smokes passed. iPhone Safari certificate trust, GPS permission, cellular and physical link behavior remain NOT TESTED.
+
+### Phase 8 integration and hardware handover (2026-11-05)
+
+- Ran all 166 Python tests, 17 native V12 C++ binaries with warnings as errors, Node RKT4 checks and the 390-pixel Recovery/Companion browser smokes. All passed. Arduino CLI is unavailable in the current inherited environment, so no target board build was repeated; GitHub Actions result for this commit was not confirmed.
+- Reconciled build/Windows instructions and pin/power guidance with firmware, created an all-NOT-TESTED physical validation record, launch-day data checklist and V12 completion report. Software bench readiness does not establish rocket flight readiness.
