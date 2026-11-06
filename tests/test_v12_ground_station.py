@@ -64,6 +64,18 @@ class FileResponseTests(unittest.TestCase):
             self.assertEqual(original, bytes(handler.wfile.body))
             self.assertTrue(path.read_bytes().endswith(b"new event\n"))
 
+    def test_feather_sd_transfer_requires_advertised_positive_length(self):
+        class Response:
+            def __init__(self, headers):
+                self.headers = headers
+
+        self.assertEqual(48, ground_station.feather_download_bytes(Response({"Content-Length": "48"})))
+        self.assertEqual(48, ground_station.feather_download_bytes(Response({"X-Green-Ion-Bytes": "48"})))
+        for headers in ({}, {"Content-Length": "0"}, {"Content-Length": "unknown"},
+                        {"X-Green-Ion-Bytes": "48", "Content-Length": "47"}):
+            with self.subTest(headers=headers), self.assertRaisesRegex(ValueError, "file length"):
+                ground_station.feather_download_bytes(Response(headers))
+
 
 class RecorderPrepareTests(unittest.TestCase):
     def test_only_stationary_live_feather_status_can_restart_calibration(self):

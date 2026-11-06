@@ -119,6 +119,21 @@ def stream_response(handler: SimpleHTTPRequestHandler, chunks, content_type: str
         handler.wfile.write(chunk)
 
 
+def feather_download_bytes(response) -> int:
+    """Require an advertised size before accepting an SD transfer as complete."""
+    headers = [response.headers.get(name) for name in ("X-Green-Ion-Bytes", "Content-Length")]
+    advertised = [value for value in headers if value is not None]
+    if not advertised:
+        raise FlightImportError("Feather download did not advertise a file length")
+    try:
+        sizes = [int(value) for value in advertised]
+    except ValueError as error:
+        raise FlightImportError("Feather download advertised an invalid file length") from error
+    if any(size <= 0 for size in sizes) or len(set(sizes)) != 1:
+        raise FlightImportError("Feather download advertised an invalid file length")
+    return sizes[0]
+
+
 def feather_post(path: str, timeout: float = 4.0, base_url: str | None = None) -> tuple[int, dict]:
     with CONFIG_LOCK:
         base = base_url or CONFIG["feather_url"]
@@ -271,8 +286,7 @@ def verify_bench_recording(filename: str) -> tuple[int, dict]:
                          "message": "Feather file or recorder state changed; no download was started."}
         url = base + "/api/download?name=" + quote(filename.lstrip("/"))
         with urlopen(Request(url, headers={"Accept": "application/octet-stream"}), timeout=20.0) as response:
-            expected_header = response.headers.get("X-Green-Ion-Bytes") or response.headers.get("Content-Length")
-            expected = int(expected_header) if expected_header else None
+            expected = feather_download_bytes(response)
             flight = FLIGHTS.import_stream(filename.lstrip("/"), response, expected_bytes=expected,
                                            source_kind="bench_verification")
         summary = flight["summary"]
@@ -1179,8 +1193,7 @@ class Handler(SimpleHTTPRequestHandler):
                     base = CONFIG["feather_url"]
                 url = base + "/api/download?name=" + quote(filename)
                 with urlopen(Request(url, headers={"Accept": "application/octet-stream"}), timeout=20.0) as response:
-                    expected_header = response.headers.get("X-Green-Ion-Bytes") or response.headers.get("Content-Length")
-                    expected = int(expected_header) if expected_header else None
+                    expected = feather_download_bytes(response)
                     result = FLIGHTS.import_stream(filename, response, expected_bytes=expected,
                                                    source_kind="feather_sd")
                 json_response(self, {"success": True, "flight": result})
@@ -1197,8 +1210,7 @@ class Handler(SimpleHTTPRequestHandler):
                     base = CONFIG["feather_url"]
                 url = base + "/api/sensor?name=" + quote(filename)
                 with urlopen(Request(url, headers={"Accept": "application/octet-stream"}), timeout=20.0) as response:
-                    expected_header = response.headers.get("X-Green-Ion-Bytes") or response.headers.get("Content-Length")
-                    expected = int(expected_header) if expected_header else None
+                    expected = feather_download_bytes(response)
                     result = FLIGHTS.import_sensor_stream(metadata["id"], filename, response,
                                                           expected_bytes=expected)
                 json_response(self, {"success": True, "sensor": result})

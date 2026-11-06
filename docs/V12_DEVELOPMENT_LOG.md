@@ -1071,3 +1071,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Confirmed backup rejects an active JSONL append detected during ZIP creation. Changed file downloads to send at most the size observed at file open, so an append during an active-session download cannot exceed Content-Length.
 - Verification: 179 Python tests and authenticated HTTPS Companion Chromium smoke passed, including simulated append during backup and download plus fixture BIN/CSV/JSON transfers. No physical laptop telemetry was used.
+
+### Post-Phase 8 interrupted Feather transfer (2026-11-05)
+
+- Require a positive, consistent advertised length for bench verification and laptop BIN/SEN imports from Feather Wi-Fi. Existing expected-byte checks reject early EOF before the raw recording is published.
+- Verification: 180 Python tests passed, including absent, malformed and contradictory length headers. Physical Feather Wi-Fi transfer remains NOT TESTED.
