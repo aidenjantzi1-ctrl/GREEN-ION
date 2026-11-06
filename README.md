@@ -4,7 +4,7 @@
 
 GREEN ION V12 records pressure and synchronized full-resolution IMU/GPS data to microSD, provides a local phone dashboard, and can send selected CRC-protected telemetry to an Arduino Uno ground receiver. It is strictly a recorder and recovery aid: it never controls ignition, staging, arming, pyrotechnics, or deployment.
 
-V12 host tests pass, and an earlier cloud checkpoint recorded a Feather target compile. The current managed environment lacks Arduino CLI, so target compilation was not repeated here. Physical sensor, SD/power-loss, shared-SPI, radio-range, recovery, and flight testing are still required before use in a rocket.
+V12 host tests and fresh Feather ESP32 V2 and Uno target builds pass in the managed cloud environment. Physical sensor, SD/power-loss, shared-SPI, radio-range, recovery, and flight testing are still required before use in a rocket.
 
 ## Current projects
 

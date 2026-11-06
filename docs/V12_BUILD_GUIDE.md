@@ -4,7 +4,7 @@ V12 development is on `codex/green-ion-v12`; do not merge or flash from an unrel
 
 ## Arduino IDE setup
 
-Install Arduino IDE 2 from Arduino, then install these board packages and libraries through Boards Manager and Library Manager. The last recorded cloud compile used Arduino CLI 1.5.1, ESP32 core 2.0.17 and AVR core 1.8.7. Arduino CLI is absent in the current cloud environment, so this run did not repeat the board builds. Confirm installed library versions locally before reporting a hardware result.
+Install Arduino IDE 2 from Arduino, then install these board packages and libraries through Boards Manager and Library Manager. The 2026-11-05 Pacific cloud compile used Arduino CLI 1.5.1, ESP32 core 2.0.17 and AVR core 1.8.7. Installed libraries were Adafruit BMP3XX 2.1.6, Adafruit BusIO 1.17.4, Adafruit GPS 1.9.0, Adafruit LSM6DS 4.7.4, Adafruit Unified Sensor 1.1.15 and RadioHead 1.121. Confirm installed library versions locally before reporting a hardware result.
 
 - ESP32 board package; select **Adafruit Feather ESP32 V2** for `Green_Ion_V12`.
 - Adafruit BMP3XX Library
@@ -18,7 +18,7 @@ Add `libraries/GreenIonProtocol` and `libraries/GreenIonRecorder` to the Arduino
 - `Green_Ion_V12/Green_Ion_V12.ino` for `esp32:esp32:adafruit_feather_esp32_v2`.
 - `Ground_Receiver/Ground_Receiver.ino` for `arduino:avr:uno`.
 
-In Arduino IDE, connect the Feather with a data USB cable, select its COM port and **Adafruit Feather ESP32 V2**, open `Green_Ion_V12/Green_Ion_V12.ino`, then select **Sketch > Verify/Compile** and **Upload**. Open Serial Monitor at 115200 baud to inspect sensor, SD and radio startup status. For the receiver, select **Arduino Uno**, open `Ground_Receiver/Ground_Receiver.ino`, verify/upload, and inspect its 115200 baud JSON boot status. The Uno's RFM95W hardware is currently not connected, so expect radio hardware results to remain NOT TESTED. If a port is missing, try a known data cable and check Windows Device Manager; if a library is missing, install the named library and restart Arduino IDE. Never count a successful compile as a sensor or radio test. CI is configured to perform both compilations on matching changes; the current run could not independently verify its result.
+In Arduino IDE, connect the Feather with a data USB cable, select its COM port and **Adafruit Feather ESP32 V2**, open `Green_Ion_V12/Green_Ion_V12.ino`, then select **Sketch > Verify/Compile** and **Upload**. Open Serial Monitor at 115200 baud to inspect sensor, SD and radio startup status. For the receiver, select **Arduino Uno**, open `Ground_Receiver/Ground_Receiver.ino`, verify/upload, and inspect its 115200 baud JSON boot status. The Uno's RFM95W hardware is currently not connected, so expect radio hardware results to remain NOT TESTED. If a port is missing, try a known data cable and check Windows Device Manager; if a library is missing, install the named library and restart Arduino IDE. Never count a successful compile as a sensor or radio test. Both targets compiled successfully in the current cloud run; CI is also configured to compile on matching changes. Compilation is not a hardware test.
 
 ## Ground station
 

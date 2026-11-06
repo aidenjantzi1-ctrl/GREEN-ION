@@ -1046,3 +1046,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 ### Companion outage/expiry regression and credential scope (2026-11-05)
 
 - Local HTTPS Chromium smoke now checks phone status through simulated laptop outage/reconnect and automatic pairing redirect after two-hour session expiry. Documented that Companion pairing protects the laptop server, not the separate Feather development AP credential. No physical phone or network was exercised.
+
+### Phase 8 fresh target builds (2026-11-05)
+
+- Fetched GitHub branch `codex/green-ion-v12` at `6b049fe` with a clean worktree. Installed Arduino CLI 1.5.1 in `/tmp`, reused ESP32 2.0.17/AVR 1.8.7 packages and vendor libraries, and compiled the Feather ESP32 V2 (1,220,837 flash / 69,928 RAM bytes) and Uno R3 (14,370 flash / 712 RAM bytes). Both exited 0. Discovery-tool warnings did not block compilation.
+- Re-ran 170 Python tests, 17 native C++ programs, Node RKT4/script syntax and both mobile browser smokes; all passed. This is software evidence only. Hardware, Windows and iPhone remain NOT TESTED.
