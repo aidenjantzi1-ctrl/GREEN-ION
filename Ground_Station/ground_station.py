@@ -648,8 +648,11 @@ def save_preflight_run(report: dict, run_id: str | None = None) -> dict:
         PREFLIGHT_DIR.mkdir(parents=True, exist_ok=True)
         path = PREFLIGHT_DIR / f"preflight-{run_id}.json"
         temporary = path.with_suffix(".tmp")
-        temporary.write_text(json.dumps(report, allow_nan=False, indent=2), encoding="utf-8")
-        temporary.replace(path)
+        try:
+            temporary.write_text(json.dumps(report, allow_nan=False, indent=2), encoding="utf-8")
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
     return report
 
 
@@ -868,11 +871,19 @@ def record_diagnostic_result(result: dict) -> None:
     for key in ("file", "sha256", "summary"):
         if key in result:
             entry[key] = result[key]
+    payload = (json.dumps(entry, allow_nan=False, separators=(",", ":")) + "\n").encode()
     with DIAGNOSTIC_LOCK:
         if DIAGNOSTIC_LOG.is_symlink():
             raise OSError("diagnostic history is a symlink")
-        with DIAGNOSTIC_LOG.open("a", encoding="utf-8", newline="\n") as handle:
-            handle.write(json.dumps(entry, allow_nan=False, separators=(",", ":")) + "\n")
+        separate_torn_line = False
+        if DIAGNOSTIC_LOG.is_file() and DIAGNOSTIC_LOG.stat().st_size:
+            with DIAGNOSTIC_LOG.open("rb") as existing:
+                existing.seek(-1, os.SEEK_END)
+                separate_torn_line = existing.read(1) != b"\n"
+        with DIAGNOSTIC_LOG.open("ab") as handle:
+            if separate_torn_line:
+                handle.write(b"\n")
+            handle.write(payload)
             handle.flush()
 
 

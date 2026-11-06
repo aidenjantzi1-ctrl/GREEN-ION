@@ -1116,3 +1116,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Read JSONL history with a 128 KiB line cap, skipping huge or unterminated entries while retaining the latest valid results. Raw history export still streams original bytes.
 - Verification: 191 Python tests passed, including a 200 KB damaged line and torn final entry. No physical Windows history was used.
+
+### Post-Phase 8 Preflight and Diagnostics write recovery (2026-11-06)
+
+- Failed Preflight saves remove partial `.tmp` files while retaining the prior report. Diagnostic appends separate a torn final JSONL line before writing the next result.
+- Verification: 193 Python tests passed, including simulated disk failure and torn-line recovery. No physical disk failure was tested.

@@ -389,6 +389,37 @@ class PreflightHistoryTests(unittest.TestCase):
             self.assertEqual(["newer", "older"],
                              [entry["test"] for entry in ground_station.recent_diagnostics(2)])
 
+    def test_diagnostic_append_separates_a_torn_last_line(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(ground_station, "DIAGNOSTIC_LOG", Path(directory) / "history.jsonl"):
+            ground_station.DIAGNOSTIC_LOG.write_bytes(b'{"status":"torn"')
+            ground_station.record_diagnostic_result({"test": "sd", "status": "PASS"})
+            self.assertEqual(b'{"status":"torn"\n',
+                             ground_station.DIAGNOSTIC_LOG.read_bytes().splitlines(keepends=True)[0])
+            self.assertEqual("PASS", ground_station.recent_diagnostics()[0]["status"])
+
+    def test_failed_preflight_save_removes_partial_temp_and_keeps_prior_report(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(ground_station, "PREFLIGHT_DIR", Path(directory)):
+            run_id = "c" * 32
+            prior = ground_station.save_preflight_run({"created_utc": "2026-11-06T00:00:00+00:00",
+                                                        "run_status": "COMPLETE"}, run_id)
+            path = Path(directory) / f"preflight-{run_id}.json"
+            original = path.read_bytes()
+            original_write = Path.write_text
+
+            def fail_after_partial_write(target, content, *args, **kwargs):
+                if target.suffix == ".tmp":
+                    original_write(target, content[:10], *args, **kwargs)
+                    raise OSError("disk full")
+                return original_write(target, content, *args, **kwargs)
+
+            with patch.object(Path, "write_text", side_effect=fail_after_partial_write, autospec=True):
+                with self.assertRaisesRegex(OSError, "disk full"):
+                    ground_station.save_preflight_run({**prior, "run_status": "RUNNING"}, run_id)
+            self.assertEqual(original, path.read_bytes())
+            self.assertFalse(path.with_suffix(".tmp").exists())
+
     def test_preflight_refresh_ignores_bad_date_and_removed_report(self):
         with tempfile.TemporaryDirectory() as directory, \
                 patch.object(ground_station, "PREFLIGHT_DIR", Path(directory)):
