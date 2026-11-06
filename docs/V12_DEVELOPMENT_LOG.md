@@ -1076,3 +1076,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Require a positive, consistent advertised length for bench verification and laptop BIN/SEN imports from Feather Wi-Fi. Existing expected-byte checks reject early EOF before the raw recording is published.
 - Verification: 180 Python tests passed, including absent, malformed and contradictory length headers. Physical Feather Wi-Fi transfer remains NOT TESTED.
+
+### Post-Phase 8 client disconnect cleanup (2026-11-05)
+
+- Simulated a client disconnect during ZIP download after archive creation and confirmed the existing `finally` block removes the temporary archive. No product code change was needed.
+- Verification: 181 Python tests passed. Physical Windows network disconnect remains NOT TESTED.

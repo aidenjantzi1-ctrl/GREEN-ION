@@ -76,6 +76,37 @@ class FileResponseTests(unittest.TestCase):
             with self.subTest(headers=headers), self.assertRaisesRegex(ValueError, "file length"):
                 ground_station.feather_download_bytes(Response(headers))
 
+    def test_aborted_backup_download_removes_temporary_zip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            class Output:
+                def write(self, _chunk):
+                    raise BrokenPipeError("client disconnected")
+
+            class Request:
+                path = "/api/library/backup"
+                server = None
+                wfile = Output()
+
+                def send_response(self, _status):
+                    pass
+
+                def send_header(self, _name, _value):
+                    pass
+
+                def end_headers(self):
+                    pass
+
+            def create_fixture_backup(_root, destination):
+                destination.write_bytes(b"x" * 70000)
+
+            with patch.object(ground_station, "DATA_DIR", root), \
+                    patch.object(ground_station, "create_backup", side_effect=create_fixture_backup):
+                with self.assertRaises(BrokenPipeError):
+                    ground_station.Handler.do_GET(Request())
+            self.assertEqual([], list(root.glob("backup-*.part")))
+
 
 class RecorderPrepareTests(unittest.TestCase):
     def test_only_stationary_live_feather_status_can_restart_calibration(self):
