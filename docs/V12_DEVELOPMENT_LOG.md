@@ -1003,3 +1003,7 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Added a versioned ZIP backup for laptop BIN/SEN originals, flight metadata and JSONL sessions. Creation verifies stable source files and member hashes. Restore validates manifest identity, checksums, safe paths, size/file-count limits and stored flight/session content before adding files; conflicts never overwrite existing data. Feather SD-only recordings and the active restart snapshot are outside this ZIP.
 - Analysis offers a backup download and confirmed restore upload. Verification: 152 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium restore smoke passed. Fixtures covered round trip, idempotence, manifest tamper, path traversal and file conflict. No physical SD or real user archive was exercised.
+
+### Phase 6 legacy session backup compatibility (2026-11-05)
+
+- Backup/restore now preserves older laptop session JSONL bytes even if their event schema predates V12, while manifest hashes still verify every byte. V12 imported sessions remain schema-validated. The 152-test suite passed.

@@ -40,6 +40,7 @@ class LibraryBackupTests(unittest.TestCase):
         self.session = self.sessions.import_stream("field.jsonl", io.BytesIO(session_bytes()))
         writer = SessionWriter(self.source, "live-test")
         writer.append("radio", {"sequence": 2})
+        (self.source / "session-legacy-v11.jsonl").write_bytes(b"legacy session format preserved\n")
         self.archive = self.base / "backup.zip"
 
     def tearDown(self):
@@ -55,6 +56,8 @@ class LibraryBackupTests(unittest.TestCase):
         self.assertEqual(flight_bytes(), FlightLibrary(target / "flights").get(self.flight["id"])[1].read_bytes())
         self.assertEqual(session_bytes(), SessionLibrary(target).imported_file(self.session["name"]).read_bytes())
         self.assertTrue((target / "session-live-test.jsonl").is_file())
+        self.assertEqual(b"legacy session format preserved\n",
+                         (target / "session-legacy-v11.jsonl").read_bytes())
         repeated = restore_backup(target, io.BytesIO(self.archive.read_bytes()))
         self.assertEqual(0, repeated["files_added"])
 

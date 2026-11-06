@@ -188,13 +188,9 @@ def _validate_staged_library(stage: Path, manifest: dict) -> None:
                         metadata.get("name") != f"session-import-{path.stem}.jsonl"):
                     raise BackupError(f"session metadata identity mismatch: {name}")
                 sessions.imported_file(metadata["name"])
+                inspect_session(stage / metadata["name"])
             except (OSError, ValueError, KeyError, TypeError) as error:
                 raise BackupError(f"imported session invalid: {name}: {error}") from error
-        elif name.startswith("session-"):
-            try:
-                inspect_session(path)
-            except (OSError, ValueError) as error:
-                raise BackupError(f"session JSONL invalid: {name}: {error}") from error
 
 
 def restore_backup(root: Path, source: BinaryIO, expected_bytes: int | None = None) -> dict:

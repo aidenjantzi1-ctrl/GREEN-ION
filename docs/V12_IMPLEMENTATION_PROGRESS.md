@@ -56,6 +56,8 @@ Phase 6 JSONL session increment: the Ground Station now validates bounded (32 Mi
 
 Phase 6 backup/restore increment: Analysis offers a versioned ZIP of laptop flight raw BIN/SEN files, flight metadata and JSONL telemetry sessions. Creation checks source stability and archived member hashes. Restore bounds ZIP size and file count, rejects unsafe paths, symlinks, duplicate members, checksum/manifest mismatches, invalid flight or session content, and conflicts with existing files before adding anything. It adds verified files without overwriting originals. It does not include files still only on Feather SD or the active restart snapshot. Verification: 152 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium smoke of ZIP restore UI passed. Tests covered a successful round trip, idempotent second restore, manifest tampering, path traversal and existing-file collision. Tests used fixtures; no physical SD or real backup restore was performed.
 
+Backup compatibility follow-up: older laptop `session-*.jsonl` files are preserved byte for byte even if their internal event schema predates V12; manifest SHA-256 still validates restored bytes. V12 imported JSONL retains strict schema validation. The updated backup round-trip test passed within the 152-test Python suite.
+
 ## Existing implementation verified in code
 
 - Feather firmware, Uno receiver, shared protocol, and recorder components are present.
