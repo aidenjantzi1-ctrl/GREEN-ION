@@ -1,5 +1,7 @@
 import io
+import hashlib
 import json
+import os
 from pathlib import Path
 import struct
 import sys
@@ -141,6 +143,51 @@ class LibraryBackupTests(unittest.TestCase):
             create_backup(self.source, self.archive)
         self.assertEqual(session_bytes(),
                          (self.source / self.session["name"]).read_bytes())
+
+    def test_restore_rejects_checksum_consistent_but_invalid_flight_metadata_atomically(self):
+        create_backup(self.source, self.archive)
+        with zipfile.ZipFile(self.archive) as source_zip:
+            members = {name: source_zip.read(name) for name in source_zip.namelist()}
+        metadata_name = f"flights/metadata/{self.flight['id']}.json"
+        metadata = json.loads(members[metadata_name])
+        metadata["summary"]["duration_s"] = float("nan")
+        members[metadata_name] = json.dumps(metadata).encode()
+        manifest = json.loads(members["manifest.json"])
+        entry = next(item for item in manifest["entries"] if item["path"] == metadata_name)
+        entry["bytes"] = len(members[metadata_name])
+        entry["sha256"] = hashlib.sha256(members[metadata_name]).hexdigest()
+        members["manifest.json"] = json.dumps(manifest).encode()
+        damaged = self.base / "invalid-flight.zip"
+        with zipfile.ZipFile(damaged, "w") as output:
+            for name, payload in members.items():
+                output.writestr(name, payload)
+        target = self.base / "invalid-flight-restore"
+        with self.assertRaisesRegex(BackupError, "flight metadata/recording invalid"):
+            restore_backup(target, io.BytesIO(damaged.read_bytes()))
+        self.assertFalse((target / "flights" / "raw").exists())
+        self.assertFalse((target / "session-live-test.jsonl").exists())
+
+    @unittest.skipIf(os.name == "nt", "symlink creation may require Windows developer mode")
+    def test_restore_rejects_existing_symlink_parent_before_writing_any_member(self):
+        create_backup(self.source, self.archive)
+        target = self.base / "symlink-restore"
+        outside = self.base / "outside"
+        outside.mkdir()
+        target.mkdir()
+        (target / "flights").symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(BackupError, "symlink parent"):
+            restore_backup(target, io.BytesIO(self.archive.read_bytes()))
+        self.assertEqual([], list(outside.iterdir()))
+        self.assertFalse((target / "session-live-test.jsonl").exists())
+
+    @unittest.skipIf(os.name == "nt", "symlink creation may require Windows developer mode")
+    def test_backup_rejects_symlinked_flight_directory(self):
+        raw = self.source / "flights" / "raw"
+        outside = self.base / "outside-raw"
+        raw.rename(outside)
+        raw.symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(BackupError, "unsafe library file"):
+            create_backup(self.source, self.archive)
 
 
 if __name__ == "__main__":

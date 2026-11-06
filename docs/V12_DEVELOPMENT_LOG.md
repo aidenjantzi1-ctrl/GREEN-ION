@@ -1061,3 +1061,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Reject damaged RKT4 summaries, nonfinite numbers and malformed sensor inspection fields on library listing, verified access and duplicate import. Listing now checks raw presence/size while holding the library lock and skips metadata files removed during listing. Verified access checks both raw checksum and summary byte count. This prevents malformed local metadata from breaking Analysis without changing raw recordings.
 - Verification: 174 Python tests passed, including malformed summary/sensor and wrong-size cases. Prior browser and target-build evidence remains applicable; no physical recordings were tested.
+
+### Post-Phase 8 ZIP backup and restore integrity (2026-11-05)
+
+- Reject preexisting symlinked parent folders during backup and restore. A crafted ZIP with updated manifest checksums but invalid flight metadata fails staging validation before any file is published.
+- Verification: 177 Python tests passed, including ZIP semantic tamper, backup symlink and restore symlink regressions. Physical Windows backup and restore remain NOT TESTED.

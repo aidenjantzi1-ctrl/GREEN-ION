@@ -47,6 +47,15 @@ def file_digest(path: Path) -> tuple[int, str]:
     return size, digest.hexdigest()
 
 
+def _has_symlink_parent(root: Path, name: str) -> bool:
+    parent = root
+    for component in Path(name).parts[:-1]:
+        parent /= component
+        if parent.is_symlink():
+            return True
+    return False
+
+
 def files_for_backup(root: Path) -> list[tuple[str, Path]]:
     patterns = ("flights/raw/*.bin", "flights/raw/*.sen", "flights/metadata/*.json",
                 "flights/trash/*/raw/*.bin", "flights/trash/*/raw/*.sen",
@@ -57,7 +66,8 @@ def files_for_backup(root: Path) -> list[tuple[str, Path]]:
     for pattern in patterns:
         for path in root.glob(pattern):
             name = path.relative_to(root).as_posix()
-            if not SAFE_PATH.fullmatch(name) or path.is_symlink() or not path.is_file():
+            if (not SAFE_PATH.fullmatch(name) or _has_symlink_parent(root, name) or
+                    path.is_symlink() or not path.is_file()):
                 raise BackupError(f"unsafe library file: {name}")
             files.append((name, path))
     if len(files) > MAX_FILES:
@@ -242,8 +252,12 @@ def restore_backup(root: Path, source: BinaryIO, expected_bytes: int | None = No
         additions = []
         for entry in manifest["entries"]:
             destination = root / entry["path"]
+            if _has_symlink_parent(root, entry["path"]):
+                raise BackupError(f"library destination has a symlink parent: {entry['path']}")
+            if destination.is_symlink():
+                raise BackupError(f"existing library file conflicts with backup: {entry['path']}")
             if destination.exists():
-                if destination.is_symlink() or file_digest(destination) != (entry["bytes"], entry["sha256"]):
+                if file_digest(destination) != (entry["bytes"], entry["sha256"]):
                     raise BackupError(f"existing library file conflicts with backup: {entry['path']}")
             else:
                 additions.append((stage / entry["path"], destination))
