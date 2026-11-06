@@ -890,9 +890,11 @@ class Handler(SimpleHTTPRequestHandler):
                                    Path(sensor["original_name"]).stem +
                                    ("-valid-prefix.csv" if sensor["inspection"]["status"] != "valid" else ".csv"))
                 elif export == "csv":
-                    bytes_response(self, FLIGHTS.csv_export(identifier), "text/csv", metadata["original_name"].replace(".BIN", ".csv"))
+                    bytes_response(self, FLIGHTS.csv_export(identifier), "text/csv",
+                                   Path(metadata["original_name"]).stem + ".csv")
                 elif export == "json":
-                    bytes_response(self, FLIGHTS.json_export(identifier), "application/json", metadata["original_name"].replace(".BIN", ".json"))
+                    bytes_response(self, FLIGHTS.json_export(identifier), "application/json",
+                                   Path(metadata["original_name"]).stem + ".json")
                 elif export == "report":
                     bytes_response(self, FLIGHTS.report_html(identifier), "text/html")
                 else:

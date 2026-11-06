@@ -988,3 +988,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Added two-to-four distinct onboard flight comparison with estimated barometric peak, duration, peak ascent speed, IMU magnitude, battery, final current GPS fix and integrity/sensor availability. The final fix is never called a confirmed landing coordinate.
 - Added an escaped, mobile-contained Analysis comparison table with persistent flight selection across filtering. Verification: 142 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium comparison smoke passed. No physical files were compared. A new continuation prompt arrived while this run was active, so this run checkpoints and exits without overlap.
+
+### Phase 6 export filename repair (2026-11-05)
+
+- Fetched remote `637101c` and reviewed the prior Phase 6 comparison checkpoint. Fixed CSV and JSON download names for accepted lowercase `.bin` source filenames.
+- Verification: 143 Python tests, Node syntax and RKT4 browser analysis passed. Physical hardware remains NOT TESTED. Validated JSONL import is next.

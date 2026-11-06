@@ -816,5 +816,22 @@ class GroundStationManagerTests(unittest.TestCase):
         self.assertNotIn("SIMULATED DATA — NOT HARDWARE", html)
 
 
+class FlightExportFilenameTests(unittest.TestCase):
+    def test_lowercase_bin_name_gets_csv_and_json_extensions(self):
+        class Request:
+            path = "/api/flight/" + "a" * 64 + "/csv"
+
+        metadata = {"original_name": "v12d007.bin"}
+        with patch.object(ground_station.FLIGHTS, "get", return_value=(metadata, Path("unused"))), \
+                patch.object(ground_station.FLIGHTS, "csv_export", return_value=b"csv"), \
+                patch.object(ground_station.FLIGHTS, "json_export", return_value=b"{}"), \
+                patch.object(ground_station, "bytes_response") as response:
+            ground_station.Handler.do_GET(Request())
+            self.assertEqual("v12d007.csv", response.call_args.args[3])
+            Request.path = "/api/flight/" + "a" * 64 + "/json"
+            ground_station.Handler.do_GET(Request())
+            self.assertEqual("v12d007.json", response.call_args.args[3])
+
+
 if __name__ == "__main__":
     unittest.main()
