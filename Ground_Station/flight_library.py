@@ -708,7 +708,7 @@ class FlightLibrary:
                 "sha256": metadata["sha256"],
             })
         return {"analysis_version": 2, "source": "onboard_recordings",
-                "gps_note": "Last current GPS fix is not a confirmed landing position.",
+                "gps_note": "Last current GPS fix is not a confirmed landing position. GIS1 does not record independent GPS altitude validity, so its peak altitude quality is unverified.",
                 "flights": flights}
 
     def json_export(self, identifier: str) -> bytes:
@@ -798,7 +798,7 @@ class FlightLibrary:
 <tr><td>Duration</td><td>{summary['duration_s']:.2f} s</td></tr><tr><td>Sample rate</td><td>{summary['sample_rate_hz']} Hz</td></tr>
 <tr><td>Estimated peak altitude</td><td>{summary['peak_altitude_m_estimated']:.2f} m</td></tr>
 <tr><td>Estimated apogee time after recording began</td><td>{'Unavailable' if timeline['estimated_apogee_elapsed_s'] is None else f"{timeline['estimated_apogee_elapsed_s']:.2f} s"}</td></tr>
-<tr><td>Peak current GPS altitude</td><td>{'Unavailable' if timeline['peak_current_gps_altitude_m'] is None else f"{timeline['peak_current_gps_altitude_m']:.2f} m"}</td></tr>
+<tr><td>Peak GPS altitude (quality unverified)</td><td>{'Unavailable' if timeline['peak_current_gps_altitude_m'] is None else f"{timeline['peak_current_gps_altitude_m']:.2f} m"}</td></tr>
 <tr><td>Estimated peak vertical speed</td><td>{'Unavailable' if timeline['peak_vertical_speed_mps_estimated'] is None else f"{timeline['peak_vertical_speed_mps_estimated']:.2f} m/s"}</td></tr>
 <tr><td>Peak IMU acceleration magnitude</td><td>{peak_imu}</td></tr><tr><td>GIS1 companion</td><td>{sensor}</td></tr>
 <tr><td>Battery</td><td>{summary['start_battery_v']:.3f} V to {summary['end_battery_v']:.3f} V</td></tr></table>

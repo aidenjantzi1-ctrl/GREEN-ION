@@ -215,7 +215,7 @@ with sync_playwright() as p:
     page.click('#compareFlights')
     page.wait_for_function('document.querySelector("#flightComparison").textContent.includes("Second flight")')
     assert 'not a confirmed landing' in page.locator('#flightComparison').inner_text()
-    assert 'Peak current GPS altitude' in page.locator('#flightComparison').inner_text()
+    assert 'Peak GPS altitude (quality unverified)' in page.locator('#flightComparison').inner_text()
     raw_session=b'{"received_utc":"2026-11-06T03:30:00Z","source":"wifi","data":{}}\n'
     page.locator('#sessionFile').set_input_files({'name':'field-session.jsonl','mimeType':'application/x-ndjson','buffer':raw_session})
     page.click('#importSession')

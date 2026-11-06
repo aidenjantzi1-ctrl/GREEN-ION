@@ -11,7 +11,7 @@ Original Phase 8 audit: 2026-11-05 Pacific; latest software verification: 2026-1
 | 3. Mission Control | Live source-aware measurements, 12-series graph, maps, recorder status and guarded controls; stale/missing data remains explicit. |
 | 4. Preflight and Diagnostics | Hardware-evidence checks, stationary IMU/GPS tests, SD readback, recorder watcher checks, report history and motor-free bench workflow. See `V12_PHASE4_AUDIT.md` and `V12_HOME_BENCH_TEST.md`. |
 | 5. Recovery | Last valid coordinate with age/quality, phone/manual position, straight-line bearing/distance, offline trail, online street/satellite imagery and reconnection handoff. See `V12_PHASE5_AUDIT.md`. |
-| 6. Analysis | RKT4/SEN pairing, JSONL sessions, library details/filters, bounded graph and replay, comparisons, current GPS peak, apogee elapsed time, bounded raw/CSV/JSON downloads, print report, checksum verification, ZIP backup/restore and reversible laptop Trash. See `V12_PHASE6_AUDIT.md`. |
+| 6. Analysis | RKT4/SEN pairing, JSONL sessions, library details/filters, bounded graph and replay, comparisons, GPS peak with altitude quality unverified, apogee elapsed time, bounded raw/CSV/JSON downloads, print report, checksum verification, ZIP backup/restore and reversible laptop Trash. See `V12_PHASE6_AUDIT.md`. |
 | 7. iPhone Companion | Specific private LAN bind with HTTPS/password, expiring session, rate limit, same-origin POST guard, protected routes, phone-sized shared dashboard and mobile Recovery/Analysis. See `V12_PHASE7_AUDIT.md` and `V12_IPHONE_COMPANION.md`. |
 | 8. Integration and documentation | Software regression gate and native recorder tests pass; build, wiring, physical validation and launch-day instructions are linked below. Physical acceptance remains open. |
 

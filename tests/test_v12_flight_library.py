@@ -292,7 +292,7 @@ class FlightLibraryTests(unittest.TestCase):
         self.assertEqual(123.5, timeline["peak_current_gps_altitude_m"])
         self.assertEqual([37.1, -121.9], timeline["last_current_gps_fix"])
         self.assertIsNotNone(timeline["estimated_apogee_elapsed_s"])
-        self.assertIn(b"Peak current GPS altitude", self.library.report_html(imported["id"]))
+        self.assertIn(b"Peak GPS altitude (quality unverified)", self.library.report_html(imported["id"]))
 
     def test_large_timeline_is_bounded_and_retains_peak_and_final_sample(self):
         header = fixture()[:32]
