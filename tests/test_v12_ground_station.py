@@ -107,6 +107,36 @@ class FileResponseTests(unittest.TestCase):
                     ground_station.Handler.do_GET(Request())
             self.assertEqual([], list(root.glob("backup-*.part")))
 
+    def test_diagnostics_export_streams_existing_log_and_allows_empty_history(self):
+        class Request:
+            path = "/api/diagnostics/export"
+            server = None
+
+            def __init__(self):
+                self.wfile = BytesIO()
+                self.headers = {}
+
+            def send_response(self, status):
+                self.status = status
+
+            def send_header(self, name, value):
+                self.headers[name] = value
+
+            def end_headers(self):
+                pass
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "diagnostic-history.jsonl"
+            with patch.object(ground_station, "DIAGNOSTIC_LOG", path):
+                empty = Request()
+                ground_station.Handler.do_GET(empty)
+                self.assertEqual(b"", empty.wfile.getvalue())
+                path.write_bytes(b'{"status":"PASS"}\n' * 5000)
+                existing = Request()
+                ground_station.Handler.do_GET(existing)
+                self.assertEqual(path.read_bytes(), existing.wfile.getvalue())
+                self.assertEqual(str(path.stat().st_size), existing.headers["Content-Length"])
+
 
 class RecorderPrepareTests(unittest.TestCase):
     def test_only_stationary_live_feather_status_can_restart_calibration(self):

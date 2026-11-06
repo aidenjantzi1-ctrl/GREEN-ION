@@ -1091,3 +1091,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Analysis now scans GIS1 valid-prefix records and keeps compact timestamp/index keys for nearest-sample matching, avoiding a full decoded-row list and duplicate sorted pairs. It checks the current raw inspection against metadata and retains IMU/GPS peaks, out-of-order timestamp matching and missing-sample behavior.
 - Verification: 185 Python tests and 390-pixel Recovery Chromium smoke passed. Actual paired BIN/SEN files remain NOT TESTED.
+
+### Post-Phase 8 diagnostics export memory (2026-11-06)
+
+- Reviewed report and comparison paths: both use bounded timeline points. Changed Diagnostics JSONL export to stream the growing history file from disk, retaining the empty-history download.
+- Verification: 186 Python tests passed, including a 5,000-entry export fixture. Physical Windows diagnostics remain NOT TESTED.

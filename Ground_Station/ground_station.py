@@ -879,8 +879,10 @@ class Handler(SimpleHTTPRequestHandler):
             json_response(self, {"results": recent_diagnostics()})
             return
         if path == "/api/diagnostics/export":
-            bytes_response(self, DIAGNOSTIC_LOG.read_bytes() if DIAGNOSTIC_LOG.is_file() else b"",
-                           "application/x-ndjson", "green-ion-diagnostics.jsonl")
+            if DIAGNOSTIC_LOG.is_file():
+                file_response(self, DIAGNOSTIC_LOG, "application/x-ndjson", "green-ion-diagnostics.jsonl")
+            else:
+                bytes_response(self, b"", "application/x-ndjson", "green-ion-diagnostics.jsonl")
             return
         if path == "/api/preflight/export":
             raw_id = parse_qs(parsed.query).get("id", [""])[0]
