@@ -17,7 +17,9 @@ from pathlib import Path
 import re
 import threading
 import time
+import tempfile
 import uuid
+import zipfile
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 from urllib.parse import parse_qs, quote, urlparse
@@ -25,6 +27,7 @@ import webbrowser
 
 from flight_library import FlightImportError, FlightLibrary, MAX_SENSOR_BYTES
 from session_library import MAX_SESSION_BYTES, SessionImportError, SessionLibrary
+from library_backup import BackupError, MAX_ARCHIVE_BYTES, create_backup, restore_backup
 from sensor_log import SensorLogError
 from telemetry_manager import SessionWriter, TelemetryManager, valid_coordinate
 
@@ -846,6 +849,29 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/sessions":
             json_response(self, {"sessions": SESSIONS.list()})
             return
+        if path == "/api/library/backup":
+            with tempfile.NamedTemporaryFile(dir=DATA_DIR, prefix="backup-", suffix=".part",
+                                             delete=False) as output:
+                temporary = Path(output.name)
+            try:
+                create_backup(DATA_DIR, temporary)
+            except (OSError, BackupError, ValueError, KeyError, TypeError) as error:
+                temporary.unlink(missing_ok=True)
+                json_response(self, {"error": f"Library backup unavailable: {error}"}, 409)
+                return
+            try:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/zip")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Disposition", 'attachment; filename="green-ion-v12-library.zip"')
+                self.send_header("Content-Length", str(temporary.stat().st_size))
+                self.end_headers()
+                with temporary.open("rb") as handle:
+                    while chunk := handle.read(65536):
+                        self.wfile.write(chunk)
+            finally:
+                temporary.unlink(missing_ok=True)
+            return
         if path == "/api/flights":
             json_response(self, {"flights": FLIGHTS.list()})
             return
@@ -1025,6 +1051,16 @@ class Handler(SimpleHTTPRequestHandler):
                                                 LimitedReader(self.rfile, length), expected_bytes=length)
                 json_response(self, {"success": True, "session": result})
             except (OSError, ValueError, SessionImportError) as error:
+                json_response(self, {"success": False, "error": str(error)}, 400)
+            return
+        if self.path == "/api/library/restore":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > MAX_ARCHIVE_BYTES:
+                    raise BackupError("backup upload must be between 1 byte and 512 MiB")
+                result = restore_backup(DATA_DIR, LimitedReader(self.rfile, length), expected_bytes=length)
+                json_response(self, {"success": True, "restore": result})
+            except (OSError, ValueError, BackupError, zipfile.BadZipFile) as error:
                 json_response(self, {"success": False, "error": str(error)}, 400)
             return
         if self.path.startswith("/api/import-sen/"):

@@ -1,6 +1,6 @@
 # GREEN ION V12 implementation progress
 
-Updated 2026-11-05 7:36 PM Pacific (Phase 6 Analysis underway). Development branch: `codex/green-ion-v12`. This run fetched remote `91756f5`, matching a clean worktree, reviewed its export filename repair and the Phase 6 checkpoint, then added validated JSONL session import. Earlier phase evidence remains below and in the phase audits.
+Updated 2026-11-05 7:42 PM Pacific (Phase 6 Analysis underway). Development branch: `codex/green-ion-v12`. This run fetched remote `91756f5`, matching a clean worktree, reviewed its export filename repair and the Phase 6 checkpoint, then added validated JSONL session import and a laptop library backup/restore workflow. Earlier phase evidence remains below and in the phase audits.
 
 ## Current phase
 
@@ -54,6 +54,8 @@ Current Phase 6 follow-up: CSV and JSON export download names now use the import
 
 Phase 6 JSONL session increment: the Ground Station now validates bounded (32 MiB) JSONL imports against its existing `{received_utc, source, data}` event shape, requires timezone-aware timestamps and supported sources, rejects nonfinite JSON and incomplete transfers, tracks receive-time reversals and a missing final newline, keeps the original bytes with SHA-256 identity, and detects duplicates. Imported files are explicitly separate from live laptop sessions and onboard RKT4 recordings; imports never feed the live telemetry manager. Download rechecks the imported checksum. The Analysis UI shows source counts and checksum, with mobile rows stacked to prevent long names overflowing. Verification: 148 Python tests, Node syntax, RKT4 browser analysis and a 390-pixel Chromium smoke covering the import UI and no horizontal overflow passed. All browser and test inputs were fixtures; no physical session was imported.
 
+Phase 6 backup/restore increment: Analysis offers a versioned ZIP of laptop flight raw BIN/SEN files, flight metadata and JSONL telemetry sessions. Creation checks source stability and archived member hashes. Restore bounds ZIP size and file count, rejects unsafe paths, symlinks, duplicate members, checksum/manifest mismatches, invalid flight or session content, and conflicts with existing files before adding anything. It adds verified files without overwriting originals. It does not include files still only on Feather SD or the active restart snapshot. Verification: 152 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium smoke of ZIP restore UI passed. Tests covered a successful round trip, idempotent second restore, manifest tampering, path traversal and existing-file collision. Tests used fixtures; no physical SD or real backup restore was performed.
+
 ## Existing implementation verified in code
 
 - Feather firmware, Uno receiver, shared protocol, and recorder components are present.
@@ -71,4 +73,4 @@ Phase 6 JSONL session increment: the Ground Station now validates bounded (32 Mi
 
 ## Next exact task
 
-Continue Phase 6 with backup/restore integrity and protected deletion, distinguishing laptop library copies, laptop sessions and Feather SD files. Review graph gap handling and synchronization with actual `.BIN`/`.SEN` pairs during the local hardware session. Audit timestamp alignment against actual firmware files during the local hardware session. Preserve raw bytes, checksums, V11 library behavior and existing exports. Physical Recovery and Phase 4 hardware outcomes remain NOT TESTED. Codex usage balance and reset time are unavailable from exposed tools; no reset interval is assumed. Scheduler-side nonoverlap remains unverified.
+Continue Phase 6 with protected deletion of laptop library copies and laptop sessions, distinct from Feather SD data. The current Feather firmware has no user-facing delete API; do not imply SD deletion is supported or delete an active recording. Then audit remaining Phase 6 acceptance criteria and begin Phase 7. Review graph gap handling and synchronization with actual `.BIN`/`.SEN` pairs during the local hardware session. Audit timestamp alignment against actual firmware files during the local hardware session. Preserve raw bytes, checksums, V11 library behavior and existing exports. Physical Recovery and Phase 4 hardware outcomes remain NOT TESTED. Codex usage balance and reset time are unavailable from exposed tools; no reset interval is assumed. Scheduler-side nonoverlap remains unverified.

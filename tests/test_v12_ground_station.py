@@ -851,6 +851,22 @@ class FlightExportFilenameTests(unittest.TestCase):
             self.assertEqual(1, imported.call_count)
             self.assertEqual(400, response.call_args.args[2])
 
+    def test_backup_restore_route_rejects_oversize_before_touching_library(self):
+        class Request:
+            path = "/api/library/restore"
+            headers = {"Content-Length": "4"}
+            rfile = BytesIO(b"PK!!")
+
+        with patch.object(ground_station, "restore_backup", return_value={"files_added": 1}) as restore, \
+                patch.object(ground_station, "json_response") as response:
+            ground_station.Handler.do_POST(Request())
+            self.assertEqual(4, restore.call_args.kwargs["expected_bytes"])
+            self.assertTrue(response.call_args.args[1]["success"])
+            Request.headers["Content-Length"] = str(512 * 1024 * 1024 + 1)
+            ground_station.Handler.do_POST(Request())
+            self.assertEqual(1, restore.call_count)
+            self.assertEqual(400, response.call_args.args[2])
+
 
 if __name__ == "__main__":
     unittest.main()

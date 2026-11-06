@@ -30,9 +30,13 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path=='/api/flights': data,ctype=json.dumps({'flights':[{'id':'a'*64,'original_name':'V12D007.BIN','sha256':'a'*64,'summary':{'records':3,'duration_s':.08,'peak_altitude_m_estimated':1.0,'bytes':80,'warnings':[]},**flight_details,**({'sensor':flight_sensor['value']} if flight_sensor['value'] else {})}]}).encode(),'application/json'
         elif self.path.startswith('/api/flight/') and self.path.endswith('/timeline'): data,ctype=json.dumps(timeline).encode(),'application/json'
         elif self.path=='/api/sessions': data,ctype=json.dumps({'sessions':[imported_session['value']] if imported_session['value'] else []}).encode(),'application/json'
+        elif self.path=='/api/library/backup': data,ctype=b'PK-backup-fixture','application/zip'
         else: data,ctype=b'{}','application/json'
         self.send_response(200);self.send_header('Content-Type',ctype);self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data)
     def do_POST(self):
+        if self.path=='/api/library/restore':
+            body=self.rfile.read(int(self.headers.get('Content-Length',0)));requests.append((self.path,body))
+            data=json.dumps({'success':True,'restore':{'files_added':2,'files_already_present':3}}).encode();self.send_response(200);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data);return
         if self.path=='/api/import-session':
             body=self.rfile.read(int(self.headers.get('Content-Length',0)));requests.append((self.path,body,self.headers.get('X-Green-Ion-Filename')))
             inspection={'records':1,'source_counts':{'wifi':1,'radio':0,'simulation':0},'out_of_order_receive_times':0,'final_newline':True}
@@ -204,6 +208,11 @@ with sync_playwright() as p:
     assert requests[-1]==('/api/import-session',raw_session,'field-session.jsonl')
     assert 'Imported field-session.jsonl' in page.locator('#sessions').inner_text()
     assert page.locator('#sessions a').get_attribute('href').endswith('.jsonl')
+    assert page.locator('a[href="/api/library/backup"]').count()==1
+    page.locator('#backupFile').set_input_files({'name':'library.zip','mimeType':'application/zip','buffer':b'PK-backup-fixture'})
+    page.click('#restoreLibrary')
+    page.wait_for_function('document.querySelector("#restoreStatus").textContent.includes("2 files added")')
+    assert requests[-1]==('/api/library/restore',b'PK-backup-fixture')
     assert not errors,errors
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     print('Recovery browser smoke passed: bench source return, location, map, units, offline fallback, mobile width')
