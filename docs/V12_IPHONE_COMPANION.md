@@ -2,6 +2,8 @@
 
 The Windows laptop remains the Ground Station. The iPhone opens the laptop's six-page mobile layout over HTTPS; it does not connect to the rocket directly. The laptop polls Feather Wi-Fi and/or receives Uno USB LoRa telemetry. This software never controls ignition, staging or parachute deployment.
 
+Companion pairing protects the **laptop** server only. The Feather's separate access point uses the development credential in `Green_Ion_V12/Config.h`; that shared credential is visible in the repository and is not a substitute for private Companion pairing or a trusted network. Review and replace it for a real field setup without committing the replacement secret.
+
 ## Network arrangement
 
 The default Ground Station binds only to `127.0.0.1` and is available only on the laptop. For Companion access, bind to one specific private IPv4 address on the laptop. Wildcard and public binds are refused. Use a trusted HTTPS certificate and a password of at least 16 characters.

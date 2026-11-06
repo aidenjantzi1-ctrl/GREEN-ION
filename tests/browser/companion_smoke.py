@@ -12,7 +12,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "Ground_Station"))
-from companion_security import CompanionSecurity
+from companion_security import CompanionSecurity, SESSION_SECONDS
 from ground_station import Handler
 
 
@@ -24,7 +24,9 @@ with tempfile.TemporaryDirectory() as temporary:
                     "-subj", "/CN=127.0.0.1", "-addext", "subjectAltName=IP:127.0.0.1"],
                    check=True, capture_output=True)
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    server.companion_security = CompanionSecurity("temporary-local-smoke-password")
+    clock = {"now": 100.0}
+    server.companion_security = CompanionSecurity("temporary-local-smoke-password",
+                                                  clock=lambda: clock["now"])
     tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     tls.minimum_version = ssl.TLSVersion.TLSv1_2
     tls.load_cert_chain(str(cert), str(key))
@@ -64,15 +66,27 @@ with tempfile.TemporaryDirectory() as temporary:
             page.click("nav button[data-view=analysis]")
             assert page.locator("#flightLibrary").is_visible()
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            page.route("**/api/status", lambda route: route.abort())
+            page.wait_for_function("document.querySelector('#companionStatus').textContent.includes('LAPTOP UNREACHABLE')")
+            page.unroute("**/api/status")
+            page.wait_for_function("document.querySelector('#companionStatus').textContent.includes('PHONE CONNECTED')")
             assert context.request.get(base + "/ground_station.py").status == 404
             assert context.request.post(base + "/api/flight/nope/trash", data="{}",
                                         headers={"Origin": "https://unrelated.example"}).status == 403
             page.click("#companionLogout")
             page.wait_for_url(base + "/companion/login")
             assert context.request.get(base + "/api/flights").status == 401
+            paired = context.request.post(base + "/companion/login",
+                                          form={"password": "temporary-local-smoke-password"},
+                                          headers={"Origin": base}, max_redirects=0)
+            assert paired.status == 303
+            page.goto(base + "/")
+            page.wait_for_function("document.querySelector('#companionStatus').textContent.includes('PHONE CONNECTED')")
+            clock["now"] += SESSION_SECONDS + 1
+            page.wait_for_url(base + "/companion/login", timeout=5000)
             browser.close()
     finally:
         server.shutdown()
         server.server_close()
 
-print("Companion HTTPS browser smoke passed: pairing, protected API, cross-origin denial, logout, mobile width")
+print("Companion HTTPS browser smoke passed: pairing, protected API, cross-origin denial, outage/reconnect, logout, expiry, mobile width")

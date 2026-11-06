@@ -1042,3 +1042,7 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Rejected tampered imported-session duplicate metadata, incomplete imported-session Trash backups and backup metadata/inspection mismatches. Corrupt or symlinked flight metadata is no longer shown as a valid row or loaded for analysis; original raw bytes remain untouched.
 - Verification: 170 Python tests passed. This follow-up changed Python integrity paths only; prior native and browser evidence remains applicable.
+
+### Companion outage/expiry regression and credential scope (2026-11-05)
+
+- Local HTTPS Chromium smoke now checks phone status through simulated laptop outage/reconnect and automatic pairing redirect after two-hour session expiry. Documented that Companion pairing protects the laptop server, not the separate Feather development AP credential. No physical phone or network was exercised.
