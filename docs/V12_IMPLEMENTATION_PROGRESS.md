@@ -1,6 +1,6 @@
 # GREEN ION V12 implementation progress
 
-Updated 2026-11-06 5:35 AM Pacific (post-Phase 8 Mission Control graph source review). Development branch: `codex/green-ion-v12`. This run fetched GitHub and confirmed the development branch at `392add4` with a clean worktree. Earlier phase evidence remains below and in the phase audits.
+Updated 2026-11-06 5:35 AM Pacific (post-Phase 8 Mission Control graph source review). Development branch: `codex/green-ion-v12`. This run fetched GitHub, confirmed the development branch at `392add4` with a clean worktree, and pushed verified changes through `f015c93`. Earlier phase evidence remains below and in the phase audits.
 
 ## Current phase
 
@@ -17,7 +17,7 @@ Phase 3 now shows separate GPS altitude quality, current/last-known coordinates,
 | Capability | Status | Evidence |
 | --- | --- | --- |
 | GitHub read | AVAILABLE | GitHub connector read the development branch commits; Git fetch obtained the branch. |
-| GitHub write/push | AVAILABLE | Previous run pushed through `392add4`; this run fetched that exact GitHub tip and pushed the verified graph follow-up to `codex/green-ion-v12`. No merge to `main` occurred. |
+| GitHub write/push | AVAILABLE | Previous run pushed through `392add4`; this run fetched that exact GitHub tip and pushed graph and replay fixes through `f015c93` to `codex/green-ion-v12`. No merge to `main` occurred. |
 | Python 3 and test runner | AVAILABLE | Python 3.12.14; current run baseline: 206 `unittest` tests passed. Earlier native, Node and browser evidence is retained below and in the phase audits. |
 | Node.js syntax check | AVAILABLE | Node 24.22.1 checked the current Ground Station script; RKT4 browser analysis tests passed. |
 | Arduino CLI | VERIFIED IN PRIOR RUN | Arduino CLI 1.5.1 compiled Feather ESP32 V2 at 1,220,837 flash / 69,928 RAM bytes and Uno R3 at 14,370 flash / 712 RAM bytes using ESP32 2.0.17 and AVR 1.8.7. Both commands exited 0 in the earlier Phase 8 target-build run; this Python-only run did not recompile firmware. Vendor versions are in `V12_BUILD_GUIDE.md`. Compilation is not hardware evidence. |
@@ -124,7 +124,7 @@ Post-Phase 8 trail separation follow-up: live and restored simulation positions 
 
 Post-Phase 8 Mission Control graph follow-up: recent restored telemetry and newly captured graph points now retain their Wi-Fi, radio or simulation source. Graph lines break at a source change, the hover readout names the sample source, and the legend warns when simulation samples are present. This prevents a Wi-Fi-to-LoRa-to-simulation sequence from looking like one uninterrupted hardware source. Verification in this cloud run: 206 Python tests, inline Node syntax check, and the 390-pixel Chromium Recovery/Mission Control smoke with Wi-Fi, radio and simulation history points passed. The browser case is simulated; no real link transition or rocket hardware was tested.
 
-Post-Phase 8 replay freshness follow-up: recent-history responses now include the original `gps_altitude_valid` flag. Mission Control replay omits an explicitly invalid GPS altitude, and it rejects negative or over-three-second fix ages before plotting GPS altitude or adding a coordinate to the rocket trail. Radio history without an altitude-validity flag remains eligible only when its GPS fix age is current; this preserves the radio protocol boundary. Verification: 206 Python tests, inline Node syntax check, and the 390-pixel Chromium smoke passed with a negative-age Wi-Fi point, an altitude-invalid Wi-Fi point, valid Wi-Fi/LoRa points, and simulation. Physical hardware behavior remains NOT TESTED.
+Post-Phase 8 replay freshness follow-up: recent-history responses now include the original `gps_altitude_valid` flag. Mission Control replay omits an explicitly invalid GPS altitude, and it rejects negative or over-three-second fix ages before plotting GPS altitude or adding a coordinate to the rocket trail. Radio history without an altitude-validity flag remains eligible only when its GPS fix age is current; this preserves the radio protocol boundary. Verification: 206 Python tests, inline Node syntax check, and the 390-pixel Chromium smoke passed with a negative-age Wi-Fi point, an altitude-invalid Wi-Fi point, valid Wi-Fi/LoRa points, and simulation. The shared dashboard also passed the Companion HTTPS browser smoke for pairing, protected downloads, outage/reconnect, logout, expiration and mobile width. Physical hardware behavior remains NOT TESTED.
 
 ## Existing implementation verified in code
 
