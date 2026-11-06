@@ -1,6 +1,6 @@
 # GREEN ION V12 implementation progress
 
-Updated 2026-11-06 9:32 AM Pacific (post-Phase 8 GPS age review). Development branch: `codex/green-ion-v12`. This run began from clean local and GitHub tip `c43c959`; earlier Recovery fixes remain below. Earlier phase evidence remains below and in the phase audits.
+Updated 2026-11-06 9:32 AM Pacific (post-Phase 8 GPS age review). Development branch: `codex/green-ion-v12`. This run began from clean local and GitHub tip `c43c959`, then pushed the GPS freshness fix as `c3e6d39`; earlier Recovery fixes remain below. Earlier phase evidence remains below and in the phase audits.
 
 ## Current phase
 
@@ -17,7 +17,7 @@ Phase 3 now shows separate GPS altitude quality, current/last-known coordinates,
 | Capability | Status | Evidence |
 | --- | --- | --- |
 | GitHub read | AVAILABLE | GitHub connector read the development branch commits; Git fetch obtained the branch. |
-| GitHub write/push | AVAILABLE | Previous run pushed through `c43c959`; this run verified that GitHub tip and pushed the GPS freshness fix to `codex/green-ion-v12`. No merge to `main` occurred. |
+| GitHub write/push | AVAILABLE | Previous run pushed through `c43c959`; this run verified that GitHub tip and pushed the GPS freshness fix as `c3e6d39` to `codex/green-ion-v12`. No merge to `main` occurred. |
 | Python 3 and test runner | AVAILABLE | Python 3.12.14; current run: 208 `unittest` tests passed. Earlier native, Node and browser evidence is retained below and in the phase audits. |
 | Node.js syntax check | AVAILABLE | Node 24.22.1 checked the Ground Station script in the prior UI run; RKT4 browser analysis tests passed earlier. No Ground Station JavaScript changed in this firmware run. |
 | Arduino CLI | VERIFIED THIS RUN | Arduino CLI 1.5.1 compiled the changed Feather ESP32 V2 firmware in this run at 1,221,213 flash / 69,928 RAM bytes with ESP32 2.0.17; exit code 0 after adding build-only pyserial 3.5 under `/tmp`. The prior Phase 8 run compiled Uno R3 at 14,370 flash / 712 RAM bytes with AVR 1.8.7; Uno was unchanged and was not recompiled now. Vendor versions are in `V12_BUILD_GUIDE.md`. Compilation is not hardware evidence. |
