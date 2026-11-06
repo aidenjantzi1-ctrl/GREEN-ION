@@ -817,20 +817,61 @@ class GroundStationManagerTests(unittest.TestCase):
 
 
 class FlightExportFilenameTests(unittest.TestCase):
+    def test_download_helpers_stream_originals_and_close_derived_exports(self):
+        class Output(BytesIO):
+            largest_write = 0
+
+            def write(self, data):
+                self.largest_write = max(self.largest_write, len(data))
+                return super().write(data)
+
+        class Response:
+            def __init__(self):
+                self.headers = {}
+                self.wfile = Output()
+                self.close_connection = False
+
+            def send_response(self, status):
+                self.status = status
+
+            def send_header(self, key, value):
+                self.headers[key] = value
+
+            def end_headers(self):
+                pass
+
+        with tempfile.TemporaryDirectory() as directory:
+            original = Path(directory) / "original.bin"
+            original.write_bytes(b"x" * 150000)
+            response = Response()
+            ground_station.file_response(response, original, "application/octet-stream", "original.bin")
+            self.assertEqual(150000, int(response.headers["Content-Length"]))
+            self.assertLessEqual(response.wfile.largest_write, 65536)
+            self.assertEqual(original.read_bytes(), response.wfile.getvalue())
+        response = Response()
+        ground_station.stream_response(response, iter([b"first", b"second"]), "text/csv", "flight.csv")
+        self.assertEqual(b"firstsecond", response.wfile.getvalue())
+        self.assertEqual("close", response.headers["Connection"])
+        self.assertTrue(response.close_connection)
+        self.assertNotIn("Content-Length", response.headers)
+
     def test_lowercase_bin_name_gets_csv_and_json_extensions(self):
         class Request:
             path = "/api/flight/" + "a" * 64 + "/csv"
 
         metadata = {"original_name": "v12d007.bin"}
-        with patch.object(ground_station.FLIGHTS, "get", return_value=(metadata, Path("unused"))), \
-                patch.object(ground_station.FLIGHTS, "csv_export", return_value=b"csv"), \
-                patch.object(ground_station.FLIGHTS, "json_export", return_value=b"{}"), \
-                patch.object(ground_station, "bytes_response") as response:
+        with patch.object(ground_station.FLIGHTS, "get", return_value=(metadata, Path("unused"))) as get, \
+                patch.object(ground_station.FLIGHTS, "iter_csv_export", return_value=iter([b"csv"])) as csv_export, \
+                patch.object(ground_station.FLIGHTS, "iter_json_export", return_value=iter([b"{}"])) as json_export, \
+                patch.object(ground_station, "stream_response") as response:
             ground_station.Handler.do_GET(Request())
             self.assertEqual("v12d007.csv", response.call_args.args[3])
             Request.path = "/api/flight/" + "a" * 64 + "/json"
             ground_station.Handler.do_GET(Request())
             self.assertEqual("v12d007.json", response.call_args.args[3])
+            self.assertEqual(2, get.call_count)
+            self.assertEqual((metadata, Path("unused")), csv_export.call_args.kwargs["_verified"])
+            self.assertEqual((metadata, Path("unused")), json_export.call_args.kwargs["_verified"])
 
     def test_jsonl_import_route_rejects_oversize_before_reading(self):
         raw = b'{"received_utc":"2026-11-06T01:30:00Z","source":"wifi","data":{}}\n'

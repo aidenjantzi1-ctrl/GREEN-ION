@@ -11,7 +11,7 @@ Audit date: 2026-11-05 Pacific. Development branch: `codex/green-ion-v12`. Audit
 | 3. Mission Control | Live source-aware measurements, 12-series graph, maps, recorder status and guarded controls; stale/missing data remains explicit. |
 | 4. Preflight and Diagnostics | Hardware-evidence checks, stationary IMU/GPS tests, SD readback, recorder watcher checks, report history and motor-free bench workflow. See `V12_PHASE4_AUDIT.md` and `V12_HOME_BENCH_TEST.md`. |
 | 5. Recovery | Last valid coordinate with age/quality, phone/manual position, straight-line bearing/distance, offline trail, online street/satellite imagery and reconnection handoff. See `V12_PHASE5_AUDIT.md`. |
-| 6. Analysis | RKT4/SEN pairing, JSONL sessions, library details/filters, bounded graph and replay, comparisons, current GPS peak, apogee elapsed time, CSV/JSON/print report, checksum verification, ZIP backup/restore and reversible laptop Trash. See `V12_PHASE6_AUDIT.md`. |
+| 6. Analysis | RKT4/SEN pairing, JSONL sessions, library details/filters, bounded graph and replay, comparisons, current GPS peak, apogee elapsed time, bounded raw/CSV/JSON downloads, print report, checksum verification, ZIP backup/restore and reversible laptop Trash. See `V12_PHASE6_AUDIT.md`. |
 | 7. iPhone Companion | Specific private LAN bind with HTTPS/password, expiring session, rate limit, same-origin POST guard, protected routes, phone-sized shared dashboard and mobile Recovery/Analysis. See `V12_PHASE7_AUDIT.md` and `V12_IPHONE_COMPANION.md`. |
 | 8. Integration and documentation | Software regression gate and native recorder tests pass; build, wiring, physical validation and launch-day instructions are linked below. Physical acceptance remains open. |
 
@@ -19,7 +19,7 @@ All phases have cloud-verifiable software paths. Phase 6 Feather SD deletion is 
 
 ## Verification at this checkpoint
 
-- Python: `python3 -m unittest discover -s tests -q` — **170 passed** on Python 3.12 after the library-integrity follow-up.
+- Python: `python3 -m unittest discover -s tests -q` — **172 passed** on Python 3.12 after the library-integrity follow-up.
 - Native recorder/protocol: all **17** `tests/cpp/test_v12_*.cpp` programs compiled with `g++ -std=c++17 -Wall -Wextra -Werror` and executed successfully in this run, including RKT4, sensor log, calibration, watcher, landing, recovery, radio and coordinated failure paths.
 - JavaScript: `node tests/js/test_rkt4.mjs` passed; extracted Ground Station script passed `node --check`.
 - Chromium: `tests/browser/recovery_smoke.py` passed at 390 pixels for Recovery, Analysis, satellite request/failure fallback, recorder bench flow, backup and Trash; `tests/browser/companion_smoke.py` passed over local HTTPS for pairing gate, protected API, cross-origin denial, mobile layout and logout. These are fixture/synthetic checks, not real rocket or iPhone tests.

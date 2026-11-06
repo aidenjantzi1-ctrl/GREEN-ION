@@ -86,6 +86,34 @@ def bytes_response(handler: SimpleHTTPRequestHandler, body: bytes, content_type:
     handler.wfile.write(body)
 
 
+def file_response(handler: SimpleHTTPRequestHandler, path: Path, content_type: str,
+                  filename: str) -> None:
+    """Serve a verified original with bounded memory use."""
+    handler.send_response(200)
+    handler.send_header("Content-Type", content_type)
+    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+    handler.send_header("Content-Length", str(path.stat().st_size))
+    handler.end_headers()
+    with path.open("rb") as source:
+        while chunk := source.read(65536):
+            handler.wfile.write(chunk)
+
+
+def stream_response(handler: SimpleHTTPRequestHandler, chunks, content_type: str,
+                    filename: str) -> None:
+    """Stream a derived export to EOF without allocating its full size."""
+    handler.send_response(200)
+    handler.send_header("Content-Type", content_type)
+    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+    handler.send_header("Connection", "close")
+    handler.close_connection = True
+    handler.end_headers()
+    for chunk in chunks:
+        handler.wfile.write(chunk)
+
+
 def feather_post(path: str, timeout: float = 4.0, base_url: str | None = None) -> tuple[int, dict]:
     with CONFIG_LOCK:
         base = base_url or CONFIG["feather_url"]
@@ -917,21 +945,21 @@ class Handler(SimpleHTTPRequestHandler):
                     return
                 metadata, raw = FLIGHTS.get(identifier)
                 if export == "raw":
-                    bytes_response(self, raw.read_bytes(), "application/octet-stream", metadata["original_name"])
+                    file_response(self, raw, "application/octet-stream", metadata["original_name"])
                 elif export == "sensor-raw":
                     sensor, path = FLIGHTS.get_sensor(identifier)
-                    bytes_response(self, path.read_bytes(), "application/octet-stream", sensor["original_name"])
+                    file_response(self, path, "application/octet-stream", sensor["original_name"])
                 elif export == "sensor-csv":
                     sensor, _path = FLIGHTS.get_sensor(identifier)
                     bytes_response(self, FLIGHTS.sensor_csv_export(identifier), "text/csv",
                                    Path(sensor["original_name"]).stem +
                                    ("-valid-prefix.csv" if sensor["inspection"]["status"] != "valid" else ".csv"))
                 elif export == "csv":
-                    bytes_response(self, FLIGHTS.csv_export(identifier), "text/csv",
-                                   Path(metadata["original_name"]).stem + ".csv")
+                    stream_response(self, FLIGHTS.iter_csv_export(identifier, _verified=(metadata, raw)), "text/csv",
+                                    Path(metadata["original_name"]).stem + ".csv")
                 elif export == "json":
-                    bytes_response(self, FLIGHTS.json_export(identifier), "application/json",
-                                   Path(metadata["original_name"]).stem + ".json")
+                    stream_response(self, FLIGHTS.iter_json_export(identifier, _verified=(metadata, raw)), "application/json",
+                                    Path(metadata["original_name"]).stem + ".json")
                 elif export == "report":
                     bytes_response(self, FLIGHTS.report_html(identifier), "text/html")
                 else:

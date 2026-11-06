@@ -90,7 +90,7 @@ class FlightLibraryTests(unittest.TestCase):
         self.assertEqual(25, summary["sample_rate_hz"])
         self.assertGreater(summary["peak_altitude_m_estimated"], 0)
         self.assertIn(b"altitude_m_estimated", self.library.csv_export(imported["id"]))
-        self.assertIn(b'"analysis_version": 1', self.library.json_export(imported["id"]))
+        self.assertEqual(1, json.loads(self.library.json_export(imported["id"]))["summary"]["analysis_version"])
         self.assertIn(b"Print / Save PDF", self.library.report_html(imported["id"]))
         self.library.update_details(imported["id"], "Flight <A>", "Estes So Long", "2026-11-05")
         report = self.library.report_html(imported["id"])
@@ -264,6 +264,19 @@ class FlightLibraryTests(unittest.TestCase):
         self.assertEqual(1000, timeline["points"][-1]["index"])
         self.assertEqual(123, timeline["estimated_peak_index"])
         self.assertIn(123, [point["index"] for point in timeline["points"]])
+
+    def test_full_size_export_generators_keep_chunks_bounded_and_complete(self):
+        header = fixture()[:32]
+        records = b"".join(struct.pack("<IffHH", index * 40000, 101325 - index / 10,
+                                       20.0, 4000, 1) for index in range(3000))
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(header + records))
+        json_chunks = list(self.library.iter_json_export(imported["id"]))
+        csv_chunks = list(self.library.iter_csv_export(imported["id"]))
+        self.assertGreater(len(json_chunks), 2)
+        self.assertGreater(len(csv_chunks), 1)
+        self.assertLess(max(map(len, json_chunks + csv_chunks)), 70000)
+        self.assertEqual(3000, len(json.loads(b"".join(json_chunks))["records"]))
+        self.assertEqual(3001, len(b"".join(csv_chunks).splitlines()))
 
     def test_empty_or_invalid_flight_does_not_claim_a_peak_speed(self):
         imported = self.library.import_stream("V12D007.BIN", io.BytesIO(fixture()[:32]))

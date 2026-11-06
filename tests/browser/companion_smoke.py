@@ -1,8 +1,11 @@
 """Optional local HTTPS/Chromium smoke. Requires openssl, Playwright and Chromium."""
 
 from http.server import ThreadingHTTPServer
+import io
+import json
 from pathlib import Path
 import ssl
+import struct
 import subprocess
 import sys
 import tempfile
@@ -13,10 +16,19 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "Ground_Station"))
 from companion_security import CompanionSecurity, SESSION_SECONDS
+from flight_library import FlightLibrary
+import ground_station
 from ground_station import Handler
 
 
 with tempfile.TemporaryDirectory() as temporary:
+    flights_before = ground_station.FLIGHTS
+    ground_station.FLIGHTS = FlightLibrary(Path(temporary) / "flights")
+    header = bytearray(32)
+    header[:4] = b"RKT4"
+    struct.pack_into("<HHHHfH", header, 4, 2, 32, 16, 25, 101325.0, 4100)
+    raw_flight = bytes(header) + struct.pack("<IffHH", 40000, 100900.0, 20.0, 4000, 1)
+    flight = ground_station.FLIGHTS.import_stream("V12D007.BIN", io.BytesIO(raw_flight))
     key = Path(temporary) / "key.pem"
     cert = Path(temporary) / "cert.pem"
     subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
@@ -58,6 +70,10 @@ with tempfile.TemporaryDirectory() as temporary:
             assert page.locator("#companionLogout").is_visible()
             page.wait_for_function("document.querySelector('#companionStatus').textContent.includes('PHONE CONNECTED')")
             assert context.request.get(base + "/api/flights").status == 200
+            flight_root = base + "/api/flight/" + flight["id"]
+            assert context.request.get(flight_root + "/raw").body() == raw_flight
+            assert len(context.request.get(flight_root + "/csv").body().splitlines()) == 2
+            assert len(json.loads(context.request.get(flight_root + "/json").body())["records"]) == 1
             page.click("nav button[data-view=recovery]")
             page.fill("#manualLatitude", "37.1")
             page.fill("#manualLongitude", "-121.9")
@@ -88,5 +104,6 @@ with tempfile.TemporaryDirectory() as temporary:
     finally:
         server.shutdown()
         server.server_close()
+        ground_station.FLIGHTS = flights_before
 
-print("Companion HTTPS browser smoke passed: pairing, protected API, cross-origin denial, outage/reconnect, logout, expiry, mobile width")
+print("Companion HTTPS browser smoke passed: pairing, protected BIN/CSV/JSON downloads, cross-origin denial, outage/reconnect, logout, expiry, mobile width")

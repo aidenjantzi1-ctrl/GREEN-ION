@@ -1051,3 +1051,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Fetched GitHub branch `codex/green-ion-v12` at `6b049fe` with a clean worktree. Installed Arduino CLI 1.5.1 in `/tmp`, reused ESP32 2.0.17/AVR 1.8.7 packages and vendor libraries, and compiled the Feather ESP32 V2 (1,220,837 flash / 69,928 RAM bytes) and Uno R3 (14,370 flash / 712 RAM bytes). Both exited 0. Discovery-tool warnings did not block compilation.
 - Re-ran 170 Python tests, 17 native C++ programs, Node RKT4/script syntax and both mobile browser smokes; all passed. This is software evidence only. Hardware, Windows and iPhone remain NOT TESTED.
+
+### Post-Phase 8 bounded flight exports (2026-11-05)
+
+- Raw BIN/SEN HTTP downloads now stream verified files from disk in 64 KiB reads with exact lengths. Full BIN CSV/JSON exports stream bounded chunks, preserving schema and filenames while avoiding whole-export allocation.
+- Verification: 172 Python tests including 3,000-record chunk/output checks, Node RKT4 test, and an authenticated HTTPS Chromium smoke that downloaded fixture BIN/CSV/JSON through the real routes. Physical files remain NOT TESTED.

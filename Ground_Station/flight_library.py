@@ -596,18 +596,54 @@ class FlightLibrary:
                 "flights": flights}
 
     def json_export(self, identifier: str) -> bytes:
-        metadata, raw = self.get(identifier)
-        payload = {**metadata, "records": list(iter_records(raw))}
-        return json.dumps(payload, indent=2, allow_nan=False).encode()
+        return b"".join(self.iter_json_export(identifier))
+
+    def iter_json_export(self, identifier: str, *, _verified: tuple[dict, Path] | None = None):
+        """Yield a complete JSON report without retaining all RKT4 records."""
+        metadata, raw = _verified if _verified is not None else self.get(identifier)
+        prefix = json.dumps(metadata, allow_nan=False)
+
+        def chunks():
+            yield (prefix[:-1] + ',"records":[').encode()
+            buffer = io.StringIO()
+            first = True
+            for row in iter_records(raw):
+                if not first:
+                    buffer.write(",")
+                buffer.write(json.dumps(row, separators=(",", ":"), allow_nan=False))
+                first = False
+                if buffer.tell() >= 65536:
+                    yield buffer.getvalue().encode()
+                    buffer.seek(0)
+                    buffer.truncate(0)
+            if buffer.tell():
+                yield buffer.getvalue().encode()
+            yield b"]}"
+
+        return chunks()
 
     def csv_export(self, identifier: str) -> bytes:
-        _metadata, raw = self.get(identifier)
-        text = io.StringIO(newline="")
+        return b"".join(self.iter_csv_export(identifier))
+
+    def iter_csv_export(self, identifier: str, *, _verified: tuple[dict, Path] | None = None):
+        """Yield bounded CSV chunks for full-size recordings."""
+        _metadata, raw = _verified if _verified is not None else self.get(identifier)
         fields = ["index", "timestamp_us", "time_s", "pressure_pa", "temperature_c", "battery_v", "valid", "altitude_m_estimated"]
-        writer = csv.DictWriter(text, fieldnames=fields)
-        writer.writeheader()
-        writer.writerows(iter_records(raw))
-        return text.getvalue().encode()
+
+        def chunks():
+            text = io.StringIO(newline="")
+            writer = csv.DictWriter(text, fieldnames=fields)
+            writer.writeheader()
+            for row in iter_records(raw):
+                writer.writerow(row)
+                if text.tell() >= 65536:
+                    yield text.getvalue().encode()
+                    text.seek(0)
+                    text.truncate(0)
+            if text.tell():
+                yield text.getvalue().encode()
+
+        return chunks()
 
     def report_html(self, identifier: str) -> bytes:
         metadata, _raw = self.get(identifier)
