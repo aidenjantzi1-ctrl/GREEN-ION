@@ -41,7 +41,7 @@ This grouping avoids separate History, Analysis, Reports, Map, Receiver and Conn
 - Duplicates and out-of-order packets are rejected; sequence gaps are counted.
 - Valid GPS coordinates are retained separately from the selected source.
 - Stale coordinates are never labeled as a live fix.
-- Accepted events append to `data/session-*.jsonl`; `data/current-session.json` is an atomic restart snapshot. On Ground Station restart, a saved GPS position is restored as last-known context only when it matches the last valid GPS event in its original raw session. That session reference survives later restarts without new GPS fixes. Age uses the laptop wall clock. The link starts as missing until new packets arrive; the snapshot does not replay or certify live telemetry.
+- Accepted events append to `data/session-*.jsonl`; `data/current-session.json` is an atomic restart snapshot. On Ground Station restart, a saved GPS position is restored as last-known context only when it matches the last valid GPS event in its original raw session, including when that session is in laptop Trash. That session reference survives later restarts without new GPS fixes. Age uses the laptop wall clock. The link starts as missing until new packets arrive; the snapshot does not replay or certify live telemetry.
 - Connection changes never start, stop, or restart the Feather SD recorder.
 
 ## Explicit simulation

@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "Ground_Station"))
 
 from telemetry_manager import (MEASUREMENT_FIELDS, SessionWriter, TelemetryManager,
                                battery_estimate_percent, is_newer_sequence, valid_coordinate)
+from session_library import SessionLibrary
 import ground_station
 
 
@@ -758,6 +759,7 @@ class GroundStationManagerTests(unittest.TestCase):
             self.assertGreaterEqual(snapshot["last_position_age_ms"], 0)
             self.assertEqual("previous", snapshot["last_position_session_id"])
             restarted.ingest("radio", {"sequence": 1, "uptime_ms": 200, "gps_status": "missing"})
+            SessionLibrary(root).trash_session("session-previous.jsonl", active_name="session-new.jsonl")
             again = TelemetryManager(SessionWriter(root, "second-restart"), clock=self.clock)
             self.assertEqual([37.1, -121.9], again.snapshot()["last_position"])
             self.assertEqual("missing", again.snapshot()["link_status"])

@@ -330,6 +330,11 @@ class TelemetryManager:
                     not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", fix_session_id)):
                 return
             raw = self.writer.directory / f"session-{fix_session_id}.jsonl"
+            if not raw.is_file() and not raw.is_symlink():
+                trash_dir = self.writer.directory / "session_trash" / raw.name
+                if trash_dir.is_symlink():
+                    return
+                raw = trash_dir / raw.name
             if raw.is_symlink() or not raw.is_file():
                 return
             position = saved.get("last_position")
