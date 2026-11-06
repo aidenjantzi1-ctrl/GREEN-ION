@@ -1017,3 +1017,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Added typed and second-confirmed Trash for completed laptop JSONL sessions. The current writable session is refused server-side; imported sessions retain SHA-256 and metadata checks, and legacy sessions retain raw bytes. Trash entries are included in ZIP backup/restore.
 - Verification: 161 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium session Trash/restore smoke passed. All sessions were fixtures; physical telemetry was NOT TESTED.
+
+### Phase 6 reporting, graph window and acceptance audit (2026-11-05)
+
+- Added current-GPS peak altitude and estimated apogee elapsed time to the timeline, comparison and printable report. Analysis graph can show all recorded time or 30/10-second windows around the replay cursor, with a barometric apogee marker. No combined altitude or launch/landing event is invented.
+- `V12_PHASE6_AUDIT.md` distinguishes software evidence from open physical V11/V12 file, SD and Windows print checks. Verification: 162 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium smoke passed.

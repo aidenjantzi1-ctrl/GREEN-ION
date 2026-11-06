@@ -194,6 +194,8 @@ with sync_playwright() as p:
     assert '37.100000' in page.locator('#analysisReadout').inner_text()
     page.select_option('#analysisSeries','gps_altitude_m')
     assert '100.00' in page.locator('#analysisReadout').inner_text()
+    page.select_option('#analysisWindow','10')
+    assert page.locator('#analysisWindow').input_value()=='10'
     page.locator('#analysisScrub').fill('2')
     assert 'missing' in page.locator('#analysisReadout').inner_text()
     page.select_option('#analysisSpeed','16')
@@ -209,6 +211,7 @@ with sync_playwright() as p:
     page.click('#compareFlights')
     page.wait_for_function('document.querySelector("#flightComparison").textContent.includes("Second flight")')
     assert 'not a confirmed landing' in page.locator('#flightComparison').inner_text()
+    assert 'Peak current GPS altitude' in page.locator('#flightComparison').inner_text()
     raw_session=b'{"received_utc":"2026-11-06T03:30:00Z","source":"wifi","data":{}}\n'
     page.locator('#sessionFile').set_input_files({'name':'field-session.jsonl','mimeType':'application/x-ndjson','buffer':raw_session})
     page.click('#importSession')

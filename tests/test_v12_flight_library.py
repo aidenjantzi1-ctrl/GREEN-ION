@@ -27,15 +27,19 @@ def fixture(trailing=b""):
 
 
 def sensor_fixture(rkt4: bytes, *, start_us: int = 40000, rate: int = 25,
-                   header_crc: int | None = None, torn: bytes = b"") -> bytes:
+                   header_crc: int | None = None, torn: bytes = b"",
+                   gps_current: bool = False) -> bytes:
     header = bytearray(32)
     struct.pack_into("<4sHHHHH2xII4x", header, 0, b"GIS1", 1, 32, 68, rate, 7,
                      start_us, zlib.crc32(rkt4[:32]) & 0xFFFFFFFF if header_crc is None else header_crc)
     struct.pack_into("<I", header, 28, zlib.crc32(header[:28]) & 0xFFFFFFFF)
     record = bytearray(sensor_log.RECORD.pack(
         40000, 1, 1.0, 2.0, 3.0, 0.1, 0.2, 0.3,
-        0, 0, 0.0, 0.0, 0xFFFFFFFF, 0,
-        sensor_log.FLAG_IMU_VALID, 0, 12, 34, 56, 0,
+        371000000 if gps_current else 0, -1219000000 if gps_current else 0,
+        123.5 if gps_current else 0.0, 5.0 if gps_current else 0.0,
+        0 if gps_current else 0xFFFFFFFF, 40000 if gps_current else 0,
+        sensor_log.FLAG_IMU_VALID | sensor_log.FLAG_GPS_HAS_POSITION | sensor_log.FLAG_GPS_CURRENT if gps_current else sensor_log.FLAG_IMU_VALID,
+        7 if gps_current else 0, 12, 34, 56, 0,
     ))
     struct.pack_into("<I", record, 64, zlib.crc32(record[:64]) & 0xFFFFFFFF)
     return bytes(header) + bytes(record) + torn
@@ -227,6 +231,17 @@ class FlightLibraryTests(unittest.TestCase):
         json.dumps(timeline, allow_nan=False)
         with self.assertRaisesRegex(FlightImportError, "point limit"):
             self.library.analysis_timeline(imported["id"], 10)
+
+    def test_analysis_reports_current_gps_peak_and_elapsed_apogee(self):
+        raw = fixture()
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        self.library.import_sensor_stream(imported["id"], "V12D007.SEN",
+                                          io.BytesIO(sensor_fixture(raw, gps_current=True)))
+        timeline = self.library.analysis_timeline(imported["id"])
+        self.assertEqual(123.5, timeline["peak_current_gps_altitude_m"])
+        self.assertEqual([37.1, -121.9], timeline["last_current_gps_fix"])
+        self.assertIsNotNone(timeline["estimated_apogee_elapsed_s"])
+        self.assertIn(b"Peak current GPS altitude", self.library.report_html(imported["id"]))
 
     def test_large_timeline_is_bounded_and_retains_peak_and_final_sample(self):
         header = fixture()[:32]

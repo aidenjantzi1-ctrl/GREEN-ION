@@ -488,6 +488,8 @@ class FlightLibrary:
         sensor_status = "missing"
         sensor_gaps = 0
         peak_acceleration_g = None
+        peak_gps_altitude_m = None
+        last_current_gps_fix = None
         if metadata.get("sensor"):
             sensor, sensor_path = self.get_sensor(identifier)
             header, rows, inspection = parse_sensor_log(sensor_path.read_bytes(),
@@ -505,6 +507,10 @@ class FlightLibrary:
                 if row["imu_valid"]:
                     magnitude = math.sqrt(sum(axis * axis for axis in row["acceleration"])) / 9.80665
                     peak_acceleration_g = max(peak_acceleration_g or 0.0, magnitude)
+                if row["gps_current"]:
+                    last_current_gps_fix = [row["latitude_e7"] / 1e7, row["longitude_e7"] / 1e7]
+                    if row["gps_altitude_m"] is not None and math.isfinite(row["gps_altitude_m"]):
+                        peak_gps_altitude_m = max(peak_gps_altitude_m if peak_gps_altitude_m is not None else row["gps_altitude_m"], row["gps_altitude_m"])
             for point in points:
                 target = round(point["elapsed_s"] * 1_000_000)
                 index = bisect_left(stamps, target)
@@ -532,8 +538,11 @@ class FlightLibrary:
             "total_records": total, "displayed_records": len(points), "display_stride": stride,
             "sensor_status": sensor_status, "sensor_sequence_gaps": sensor_gaps,
             "estimated_peak_index": peak_point["index"] if peak_point else None,
+            "estimated_apogee_elapsed_s": peak_point["elapsed_s"] if peak_point else None,
             "peak_vertical_speed_mps_estimated": peak_velocity,
             "peak_acceleration_g": peak_acceleration_g,
+            "peak_current_gps_altitude_m": peak_gps_altitude_m,
+            "last_current_gps_fix": last_current_gps_fix,
             "warnings": metadata["summary"]["warnings"] +
                 ([f"GIS1 companion status: {sensor_status}; only its valid prefix is shown"]
                  if sensor_status not in ("missing", "valid") else []),
@@ -547,14 +556,6 @@ class FlightLibrary:
         for identifier in identifiers:
             metadata, _raw = self.get(identifier)
             timeline = self.analysis_timeline(identifier)
-            last_current_fix = None
-            if metadata.get("sensor"):
-                sensor, path = self.get_sensor(identifier)
-                _header, rows, _inspection = parse_sensor_log(path.read_bytes(),
-                                                              sensor["header"]["flight_sequence"])
-                for row in rows:
-                    if row["gps_current"]:
-                        last_current_fix = [row["latitude_e7"] / 1e7, row["longitude_e7"] / 1e7]
             summary = metadata["summary"]
             flights.append({
                 "id": identifier, "label": metadata.get("label") or metadata["original_name"],
@@ -562,12 +563,14 @@ class FlightLibrary:
                 "rocket_profile": metadata.get("rocket_profile") or None,
                 "flight_date": metadata.get("flight_date"),
                 "peak_barometric_altitude_m_estimated": summary["peak_altitude_m_estimated"],
+                "peak_current_gps_altitude_m": timeline["peak_current_gps_altitude_m"],
+                "estimated_apogee_elapsed_s": timeline["estimated_apogee_elapsed_s"],
                 "duration_s": summary["duration_s"],
                 "peak_vertical_speed_mps_estimated": timeline["peak_vertical_speed_mps_estimated"],
                 "peak_imu_magnitude_g": timeline["peak_acceleration_g"],
                 "battery_start_v": summary["start_battery_v"],
                 "battery_end_v": summary["end_battery_v"],
-                "last_current_gps_fix": last_current_fix,
+                "last_current_gps_fix": timeline["last_current_gps_fix"],
                 "sensor_status": timeline["sensor_status"],
                 "rkt4_warnings": list(summary["warnings"]),
                 "sensor_sequence_gaps": timeline["sensor_sequence_gaps"],
@@ -627,6 +630,8 @@ class FlightLibrary:
 <tr><td>Format</td><td>RKT4 v2</td></tr><tr><td>Records</td><td>{summary['records']}</td></tr>
 <tr><td>Duration</td><td>{summary['duration_s']:.2f} s</td></tr><tr><td>Sample rate</td><td>{summary['sample_rate_hz']} Hz</td></tr>
 <tr><td>Estimated peak altitude</td><td>{summary['peak_altitude_m_estimated']:.2f} m</td></tr>
+<tr><td>Estimated apogee time after recording began</td><td>{'Unavailable' if timeline['estimated_apogee_elapsed_s'] is None else f"{timeline['estimated_apogee_elapsed_s']:.2f} s"}</td></tr>
+<tr><td>Peak current GPS altitude</td><td>{'Unavailable' if timeline['peak_current_gps_altitude_m'] is None else f"{timeline['peak_current_gps_altitude_m']:.2f} m"}</td></tr>
 <tr><td>Estimated peak vertical speed</td><td>{'Unavailable' if timeline['peak_vertical_speed_mps_estimated'] is None else f"{timeline['peak_vertical_speed_mps_estimated']:.2f} m/s"}</td></tr>
 <tr><td>Peak IMU acceleration magnitude</td><td>{peak_imu}</td></tr><tr><td>GIS1 companion</td><td>{sensor}</td></tr>
 <tr><td>Battery</td><td>{summary['start_battery_v']:.3f} V to {summary['end_battery_v']:.3f} V</td></tr></table>
