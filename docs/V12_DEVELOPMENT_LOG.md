@@ -1126,3 +1126,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Preflight history, refresh and export reject reports whose `checks` cannot be rendered as a list of objects. Diagnostics history treats `hardware_test_started` as true only for JSON boolean true.
 - Verification: 194 Python tests passed. No physical hardware test was performed.
+
+### Post-Phase 8 Feather JSON boundary (2026-11-06)
+
+- Feather status, file-list, capacity, POST and Wi-Fi polling responses now require JSON objects without NaN/Infinity. RUNNING Preflight actions must have object-valued SD/capacity/sensor entries before refresh.
+- Verification: 195 Python tests passed. Physical Feather responses remain NOT TESTED.

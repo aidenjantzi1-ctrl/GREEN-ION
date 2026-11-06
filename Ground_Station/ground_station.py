@@ -136,18 +136,29 @@ def feather_download_bytes(response) -> int:
     return sizes[0]
 
 
+def feather_json_object(data: bytes) -> dict:
+    """Keep malformed Feather API JSON out of hardware-evidence checks."""
+    def reject_nonfinite(value: str):
+        raise ValueError(f"Feather response contains nonfinite {value}")
+
+    payload = json.loads(data, parse_constant=reject_nonfinite)
+    if not isinstance(payload, dict):
+        raise ValueError("Feather response was not a JSON object")
+    return payload
+
+
 def feather_post(path: str, timeout: float = 4.0, base_url: str | None = None) -> tuple[int, dict]:
     with CONFIG_LOCK:
         base = base_url or CONFIG["feather_url"]
     request = Request(base + path, data=b"", method="POST", headers={"Accept": "application/json"})
     try:
         with urlopen(request, timeout=timeout) as response:
-            return response.status, json.loads(response.read(65536))
+            return response.status, feather_json_object(response.read(65536))
     except URLError as error:
         if getattr(error, "code", None) is not None:
             try:
-                return error.code, json.loads(error.read(65536))
-            except (AttributeError, json.JSONDecodeError):
+                return error.code, feather_json_object(error.read(65536))
+            except (AttributeError, ValueError, json.JSONDecodeError):
                 pass
         raise
 
@@ -157,7 +168,7 @@ def feather_status() -> tuple[str, dict]:
         base = CONFIG["feather_url"]
     request = Request(base + "/api/status", headers={"Accept": "application/json"})
     with urlopen(request, timeout=1.5) as response:
-        return base, json.loads(response.read(65536))
+        return base, feather_json_object(response.read(65536))
 
 
 def feather_capacity() -> dict:
@@ -165,10 +176,7 @@ def feather_capacity() -> dict:
     with CONFIG_LOCK:
         base = CONFIG["feather_url"]
     with urlopen(Request(base + "/api/files", headers={"Accept": "application/json"}), timeout=3.0) as response:
-        payload = json.loads(response.read(131072))
-    if not isinstance(payload, dict):
-        raise ValueError("Feather capacity response was not an object")
-    return payload
+        return feather_json_object(response.read(131072))
 
 
 def prepare_recorder() -> tuple[int, dict]:
@@ -666,6 +674,13 @@ def read_preflight_file(path: Path) -> bytes:
     return data
 
 
+def preflight_actions_valid(report: dict) -> bool:
+    actions = report.get("actions")
+    return actions is None or (isinstance(actions, dict) and all(
+        name not in actions or isinstance(actions[name], dict)
+        for name in ("sd_capacity", "sd_test", "sensor_test")))
+
+
 def preflight_runs(limit: int = 30) -> list[dict]:
     if not PREFLIGHT_DIR.is_dir():
         return []
@@ -686,7 +701,8 @@ def preflight_runs(limit: int = 30) -> list[dict]:
                     not isinstance(report.get("created_utc"), str) or
                     not isinstance(report.get("run_status"), str) or
                     not isinstance(report.get("checks"), list) or
-                    any(not isinstance(check, dict) for check in report["checks"])):
+                    any(not isinstance(check, dict) for check in report["checks"]) or
+                    not preflight_actions_valid(report)):
                 continue
             started = datetime.fromisoformat(report["created_utc"])
             if started.tzinfo is None or (report["run_status"] == "RUNNING" and
@@ -717,7 +733,8 @@ def refresh_preflight_run() -> dict:
     if (not isinstance(report, dict) or report.get("run_id") != run_id or
             not isinstance(report.get("run_status"), str) or
             not isinstance(report.get("checks"), list) or
-            any(not isinstance(check, dict) for check in report["checks"])):
+            any(not isinstance(check, dict) for check in report["checks"]) or
+            not preflight_actions_valid(report)):
         return empty()
     try:
         started = datetime.fromisoformat(report["created_utc"])
@@ -1026,7 +1043,7 @@ class Handler(SimpleHTTPRequestHandler):
                 with CONFIG_LOCK:
                     base = CONFIG["feather_url"]
                 with urlopen(Request(base + "/api/files", headers={"Accept": "application/json"}), timeout=2.0) as response:
-                    payload = json.loads(response.read(131072))
+                    payload = feather_json_object(response.read(131072))
                 json_response(self, payload)
             except (OSError, URLError, TimeoutError, json.JSONDecodeError) as error:
                 json_response(self, {"success": False, "error": f"Feather file list unavailable: {error}"}, 502)
@@ -1435,7 +1452,7 @@ def wifi_source() -> None:
         try:
             request = Request(base + "/api/status", headers={"Accept": "application/json"})
             with urlopen(request, timeout=1.2) as response:
-                row = json.loads(response.read(65536))
+                row = feather_json_object(response.read(65536))
             MANAGER.ingest("wifi", normalize_wifi(row, sequence))
             sequence = (sequence + 1) & 0xFFFFFFFF
             STOP.wait(0.25)

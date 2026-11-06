@@ -77,6 +77,12 @@ class FileResponseTests(unittest.TestCase):
             with self.subTest(headers=headers), self.assertRaisesRegex(ValueError, "file length"):
                 ground_station.feather_download_bytes(Response(headers))
 
+    def test_feather_json_boundary_rejects_nonobjects_and_nonfinite_values(self):
+        self.assertEqual({"battery_v": 4.1}, ground_station.feather_json_object(b'{"battery_v":4.1}'))
+        for payload in (b"[]", b"null", b'{"battery_v":NaN}', b'{"battery_v":Infinity}'):
+            with self.subTest(payload=payload), self.assertRaises(ValueError):
+                ground_station.feather_json_object(payload)
+
     def test_aborted_backup_download_removes_temporary_zip(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -461,6 +467,11 @@ class PreflightHistoryTests(unittest.TestCase):
                 ground_station.Handler.do_GET(Request())
                 self.assertEqual(404, error.call_args.args[2])
                 download.assert_not_called()
+            damaged = {**bad, "checks": [], "run_status": "RUNNING",
+                       "actions": {"sd_test": "not an object"}}
+            (Path(directory) / f"preflight-{bad['run_id']}.json").write_text(json.dumps(damaged))
+            self.assertEqual([], ground_station.preflight_runs())
+            self.assertEqual("NOT RUN", ground_station.refresh_preflight_run()["run_status"])
 
     @unittest.skipIf(os.name == "nt", "symlink creation may require Windows developer mode")
     def test_preflight_history_and_export_reject_symlink_and_oversize_files(self):
