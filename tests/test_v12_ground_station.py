@@ -756,6 +756,11 @@ class GroundStationManagerTests(unittest.TestCase):
             self.assertEqual("missing", snapshot["link_status"])
             self.assertIsNone(snapshot["active_source"])
             self.assertGreaterEqual(snapshot["last_position_age_ms"], 0)
+            self.assertEqual("previous", snapshot["last_position_session_id"])
+            restarted.ingest("radio", {"sequence": 1, "uptime_ms": 200, "gps_status": "missing"})
+            again = TelemetryManager(SessionWriter(root, "second-restart"), clock=self.clock)
+            self.assertEqual([37.1, -121.9], again.snapshot()["last_position"])
+            self.assertEqual("missing", again.snapshot()["link_status"])
             saved = json.loads(old_writer.snapshot_path.read_text())
             saved["snapshot"]["last_position"] = [38.0, -121.9]
             old_writer.snapshot_path.write_text(json.dumps(saved))

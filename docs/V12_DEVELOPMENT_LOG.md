@@ -1149,5 +1149,5 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 ### Post-Phase 8 restart GPS context (2026-11-06)
 
-- Restore a bounded saved last GPS position only when it matches the last valid GPS event in the prior raw JSONL session, calculating its age from UTC and keeping Wi-Fi/LoRa link state missing until new packets arrive. Corrupt, oversized or tampered snapshots are ignored; simulated snapshot write failure leaves the older snapshot and raw JSONL intact.
+- Restore a bounded saved last GPS position only when it matches the last valid GPS event in its original raw JSONL session; retain that session reference through later restarts without a new fix. Age uses UTC and Wi-Fi/LoRa link state stays missing until new packets arrive. Corrupt, oversized or tampered snapshots are ignored; simulated snapshot write failure leaves the older snapshot and raw JSONL intact. A 100,001-line (10.7 MB) fixture restored in 0.22 seconds in this cloud environment.
 - Verification: 203 Python tests and 390-pixel Recovery Chromium smoke passed. Physical Windows restart and GPS remain NOT TESTED.

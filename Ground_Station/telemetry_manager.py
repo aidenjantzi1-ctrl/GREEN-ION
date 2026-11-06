@@ -324,10 +324,14 @@ class TelemetryManager:
             session_id = stored.get("session_id")
             if not isinstance(session_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", session_id):
                 return
-            raw = self.writer.directory / f"session-{session_id}.jsonl"
+            saved = stored["snapshot"]
+            fix_session_id = saved.get("last_position_session_id") or session_id
+            if (not isinstance(fix_session_id, str) or
+                    not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", fix_session_id)):
+                return
+            raw = self.writer.directory / f"session-{fix_session_id}.jsonl"
             if raw.is_symlink() or not raw.is_file():
                 return
-            saved = stored["snapshot"]
             position = saved.get("last_position")
             source = saved.get("last_position_source")
             received_utc = saved.get("last_position_utc")
@@ -375,6 +379,7 @@ class TelemetryManager:
                 "latitude": float(position[0]), "longitude": float(position[1]),
                 "received_monotonic": self.clock() - max(0.0, age_s),
                 "received_utc": received_utc, "source": source,
+                "session_id": fix_session_id,
                 "flight_state": optional_count(row.get("flight_state"), 7),
                 "fix_quality": optional_count(row.get("gps_fix_quality"), 255),
                 "satellites": optional_count(row.get("satellites"), 255),
@@ -495,6 +500,7 @@ class TelemetryManager:
                     "received_monotonic": now,
                     "received_utc": clean["received_utc"],
                     "source": source,
+                    "session_id": self.writer.session_id if self.writer else None,
                     "flight_state": phase if isinstance(phase, int) and not isinstance(phase, bool) and 0 <= phase <= 7 else None,
                     "fix_quality": quality if isinstance(quality, int) and not isinstance(quality, bool) and quality >= 0 else None,
                     "satellites": satellites if isinstance(satellites, int) and not isinstance(satellites, bool) and satellites >= 0 else None,
@@ -555,6 +561,7 @@ class TelemetryManager:
         if self.last_position:
             combined["last_position"] = [self.last_position["latitude"], self.last_position["longitude"]]
             combined["last_position_source"] = self.last_position["source"]
+            combined["last_position_session_id"] = self.last_position.get("session_id")
             combined["last_position_utc"] = self.last_position["received_utc"]
             combined["last_position_age_ms"] = round((now - self.last_position["received_monotonic"]) * 1000)
             combined["last_position_phase"] = self.last_position["flight_state"]
@@ -562,6 +569,7 @@ class TelemetryManager:
             combined["last_position_satellites"] = self.last_position["satellites"]
         else:
             combined["last_position"] = None
+            combined["last_position_session_id"] = None
             combined["last_position_age_ms"] = None
             combined["last_position_phase"] = None
             combined["last_position_fix_quality"] = None
