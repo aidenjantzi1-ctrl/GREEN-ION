@@ -1007,3 +1007,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 ### Phase 6 legacy session backup compatibility (2026-11-05)
 
 - Backup/restore now preserves older laptop session JSONL bytes even if their event schema predates V12, while manifest hashes still verify every byte. V12 imported sessions remain schema-validated. The 152-test suite passed.
+
+### Phase 6 reversible laptop flight Trash (2026-11-05)
+
+- Added typed, two-step UI confirmation and an active-recorder server guard for moving imported laptop flights to reversible local Trash. The original BIN/SEN and metadata are checksum-verified before the active library entry is removed. Restore rejects conflicting active files. Feather SD remains outside this operation.
+- Backup ZIP now includes Trash and validates its recording/metadata on restore. Verification: 156 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium Trash/restore smoke passed. All flight bytes were fixtures; no physical SD test occurred.

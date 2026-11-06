@@ -96,6 +96,17 @@ class LibraryBackupTests(unittest.TestCase):
         self.assertEqual(b"existing data", destination.read_bytes())
         self.assertFalse((target / "session-live-test.jsonl").exists())
 
+    def test_backup_includes_trashed_flight_and_restore_keeps_it_recoverable(self):
+        self.flights.trash_flight(self.flight["id"])
+        manifest = create_backup(self.source, self.archive)
+        self.assertTrue(any(item["path"].startswith("flights/trash/") for item in manifest["entries"]))
+        target = self.base / "restore-trash"
+        restore_backup(target, io.BytesIO(self.archive.read_bytes()))
+        restored_library = FlightLibrary(target / "flights")
+        self.assertEqual(1, len(restored_library.list_trash()))
+        restored_library.restore_trash(self.flight["id"])
+        self.assertEqual(flight_bytes(), restored_library.get(self.flight["id"])[1].read_bytes())
+
 
 if __name__ == "__main__":
     unittest.main()

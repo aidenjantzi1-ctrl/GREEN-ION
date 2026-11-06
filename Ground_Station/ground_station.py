@@ -875,6 +875,9 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/flights":
             json_response(self, {"flights": FLIGHTS.list()})
             return
+        if path == "/api/flights/trash":
+            json_response(self, {"flights": FLIGHTS.list_trash()})
+            return
         if path == "/api/flights/compare":
             try:
                 ids = parse_qs(parsed.query).get("ids", [""])[0].split(",")
@@ -1026,6 +1029,32 @@ class Handler(SimpleHTTPRequestHandler):
                 result = FLIGHTS.update_details(parts[2], payload.get("label", ""),
                                                 payload.get("rocket_profile", ""),
                                                 payload.get("flight_date"))
+                json_response(self, {"success": True, "flight": result})
+            except (OSError, ValueError, FlightImportError, json.JSONDecodeError) as error:
+                json_response(self, {"success": False, "error": str(error)}, 400)
+            return
+        if self.path.startswith("/api/flight/") and (self.path.endswith("/trash") or self.path.endswith("/restore")):
+            try:
+                parts = self.path.strip("/").split("/")
+                if len(parts) != 4:
+                    raise FlightImportError("invalid flight Trash request")
+                if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
+                    raise FlightImportError("a JSON confirmation is required")
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > 256:
+                    raise FlightImportError("invalid flight Trash request length")
+                payload = json.loads(self.rfile.read(length))
+                if not isinstance(payload, dict):
+                    raise FlightImportError("invalid flight Trash payload")
+                if parts[3] == "trash":
+                    if payload.get("confirm") != "TRASH LAPTOP COPY":
+                        raise FlightImportError("type TRASH LAPTOP COPY to move only the laptop copy")
+                    if MANAGER.snapshot().get("recording") is True:
+                        json_response(self, {"success": False, "error": "Cannot move a flight while the recorder reports active."}, 409)
+                        return
+                    result = FLIGHTS.trash_flight(parts[2])
+                else:
+                    result = FLIGHTS.restore_trash(parts[2])
                 json_response(self, {"success": True, "flight": result})
             except (OSError, ValueError, FlightImportError, json.JSONDecodeError) as error:
                 json_response(self, {"success": False, "error": str(error)}, 400)

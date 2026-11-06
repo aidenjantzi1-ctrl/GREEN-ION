@@ -13,9 +13,11 @@ import math
 import os
 from pathlib import Path
 import re
+import shutil
 import struct
 import tempfile
 import threading
+import uuid
 from typing import BinaryIO
 
 from sensor_log import SensorLogError, csv_row, parse_sensor_log, validate_rkt4_binding, CSV_FIELDS
@@ -251,6 +253,96 @@ class FlightLibrary:
                             flight_date=flight_date)
             self._save_metadata(identifier, metadata)
             return metadata
+
+    def trash_flight(self, identifier: str) -> dict:
+        """Hide a laptop copy only after a verified copy is safely in local Trash."""
+        with self._lock:
+            self._metadata_path(identifier)  # validate identifier
+            trash_root = self.root / "trash"
+            trash_root.mkdir(exist_ok=True)
+            destination = trash_root / identifier
+            if destination.exists():
+                raise FlightImportError("this flight already has a Trash copy; restore it first")
+            metadata, raw = self.get(identifier)
+            sensor_path = self.get_sensor(identifier)[1] if metadata.get("sensor") else None
+            stage = self.root / f".trash-stage-{uuid.uuid4().hex}"
+            try:
+                staged = FlightLibrary(stage)
+                shutil.copy2(raw, staged.raw / raw.name)
+                shutil.copy2(self._metadata_path(identifier), staged._metadata_path(identifier))
+                if sensor_path:
+                    shutil.copy2(sensor_path, staged.raw / sensor_path.name)
+                staged.get(identifier)
+                if sensor_path:
+                    staged.get_sensor(identifier)
+                stage.replace(destination)
+            except Exception:
+                shutil.rmtree(stage, ignore_errors=True)
+                raise
+            self._metadata_path(identifier).unlink()
+            raw.unlink()
+            if sensor_path:
+                shared = any((item.get("sensor") or {}).get("sha256") == metadata["sensor"]["sha256"]
+                             for item in self.list())
+                if not shared:
+                    sensor_path.unlink(missing_ok=True)
+            return {"id": identifier, "original_name": metadata["original_name"],
+                    "trash_location": f"flights/trash/{identifier}", "feather_sd_unchanged": True}
+
+    def list_trash(self) -> list[dict]:
+        result = []
+        for path in sorted((self.root / "trash").glob("*")):
+            if not re.fullmatch(r"[0-9a-f]{64}", path.name) or not path.is_dir() or path.is_symlink():
+                continue
+            try:
+                trashed = FlightLibrary(path)
+                metadata, _raw = trashed.get(path.name)
+                if metadata.get("sensor"):
+                    trashed.get_sensor(path.name)
+                result.append({"id": path.name, "original_name": metadata["original_name"],
+                               "label": metadata.get("label") or ""})
+            except (OSError, ValueError, KeyError, json.JSONDecodeError):
+                result.append({"id": path.name, "original_name": "Unreadable Trash entry",
+                               "label": "", "integrity": "invalid"})
+        return result
+
+    def restore_trash(self, identifier: str) -> dict:
+        with self._lock:
+            self._metadata_path(identifier)  # validate identifier before constructing a path
+            trash_path = self.root / "trash" / identifier
+            if not trash_path.is_dir() or trash_path.is_symlink():
+                raise FlightImportError("flight Trash entry is unavailable")
+            trashed = FlightLibrary(trash_path)
+            metadata, raw = trashed.get(identifier)
+            sensor_path = trashed.get_sensor(identifier)[1] if metadata.get("sensor") else None
+            if self._metadata_path(identifier).exists():
+                raise FlightImportError("active flight metadata already exists; Trash restore would conflict")
+            copies = [(raw, self.raw / raw.name)]
+            if sensor_path:
+                copies.append((sensor_path, self.raw / sensor_path.name))
+            copies.append((trashed._metadata_path(identifier), self._metadata_path(identifier)))
+            for source, target in copies:
+                if target.exists() and (target.is_symlink() or file_sha256(target) != file_sha256(source)):
+                    raise FlightImportError(f"active file conflicts with Trash restore: {target.name}")
+            created = []
+            try:
+                for source, target in copies:
+                    if target.exists():
+                        continue
+                    with source.open("rb") as input_file, target.open("xb") as output:
+                        created.append(target)
+                        shutil.copyfileobj(input_file, output, length=65536)
+                        output.flush()
+                        os.fsync(output.fileno())
+                self.get(identifier)
+                if sensor_path:
+                    self.get_sensor(identifier)
+            except Exception:
+                for target in created:
+                    target.unlink(missing_ok=True)
+                raise
+            shutil.rmtree(trash_path)
+            return {"id": identifier, "original_name": metadata["original_name"]}
 
     def import_sensor_stream(self, identifier: str, filename: str, source: BinaryIO,
                              expected_bytes: int | None = None) -> dict:

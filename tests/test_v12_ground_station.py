@@ -867,6 +867,32 @@ class FlightExportFilenameTests(unittest.TestCase):
             self.assertEqual(1, restore.call_count)
             self.assertEqual(400, response.call_args.args[2])
 
+    def test_flight_trash_route_requires_phrase_and_idle_recorder(self):
+        raw = b'{"confirm":"TRASH LAPTOP COPY"}'
+
+        class Request:
+            path = "/api/flight/" + "a" * 64 + "/trash"
+            headers = {"Content-Type": "application/json", "Content-Length": str(len(raw))}
+            rfile = BytesIO(raw)
+
+        with patch.object(ground_station.FLIGHTS, "trash_flight", return_value={"id": "a" * 64}) as moved, \
+                patch.object(ground_station.MANAGER, "snapshot", return_value={"recording": True}) as state, \
+                patch.object(ground_station, "json_response") as reply:
+            ground_station.Handler.do_POST(Request())
+            self.assertEqual(409, reply.call_args.args[2])
+            moved.assert_not_called()
+            state.return_value = {"recording": False}
+            Request.rfile = BytesIO(b'{}')
+            Request.headers["Content-Length"] = "2"
+            ground_station.Handler.do_POST(Request())
+            self.assertEqual(400, reply.call_args.args[2])
+            moved.assert_not_called()
+            Request.rfile = BytesIO(raw)
+            Request.headers["Content-Length"] = str(len(raw))
+            ground_station.Handler.do_POST(Request())
+            moved.assert_called_once_with("a" * 64)
+            self.assertTrue(reply.call_args.args[1]["success"])
+
 
 if __name__ == "__main__":
     unittest.main()

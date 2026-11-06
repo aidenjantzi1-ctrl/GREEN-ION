@@ -17,6 +17,7 @@ requests=[]
 flight_sensor={"value":None}
 imported_session={"value":None}
 flight_details={"label":"","rocket_profile":"","flight_date":None}
+flight_trashed={"value":False}
 timeline={'flight_id':'a'*64,'source':'onboard_rkt4','total_records':3,'displayed_records':3,'display_stride':1,'sensor_status':'valid','estimated_peak_index':1,'peak_vertical_speed_mps_estimated':12.0,'peak_acceleration_g':1.2,'warnings':[],
           'points':[{'index':0,'elapsed_s':0,'altitude_m_estimated':0,'vertical_speed_mps_estimated':None,'pressure_pa':101325,'temperature_c':20,'battery_v':4.1,'sensor':None},
                     {'index':1,'elapsed_s':.04,'altitude_m_estimated':10,'vertical_speed_mps_estimated':12,'pressure_pa':101000,'temperature_c':20,'battery_v':4.0,'sensor':{'gps_status':'live','latitude':37.1,'longitude':-121.9,'gps_altitude_m':100,'gps_speed_mps':5,'imu_valid':True,'acceleration_mps2':[1,2,3],'gyro_rad_s':[.1,.2,.3]}},
@@ -27,7 +28,8 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path.startswith('/api/status'): data,ctype=json.dumps(state).encode(),'application/json'
         elif self.path=='/api/ports': data,ctype=json.dumps({'ports':[],'config':{'serial_port':'auto','feather_url':'http://192.168.4.1'}}).encode(),'application/json'
         elif self.path.startswith('/api/flights/compare?'): data,ctype=json.dumps({'gps_note':'Last current GPS fix is not a confirmed landing position.','flights':[{'label':'Recovery test','rocket_profile':'Estes So Long','flight_date':'2026-11-05','peak_barometric_altitude_m_estimated':10,'duration_s':.08,'peak_vertical_speed_mps_estimated':12,'peak_imu_magnitude_g':1.2,'battery_start_v':4.1,'battery_end_v':3.9,'last_current_gps_fix':[37.1,-121.9],'sensor_status':'valid','rkt4_warnings':[],'sensor_sequence_gaps':0,'sha256':'a'*64},{'label':'Second flight','rocket_profile':None,'flight_date':None,'peak_barometric_altitude_m_estimated':8,'duration_s':.08,'peak_vertical_speed_mps_estimated':None,'peak_imu_magnitude_g':None,'battery_start_v':4,'battery_end_v':3.8,'last_current_gps_fix':None,'sensor_status':'missing','rkt4_warnings':['Torn tail'],'sensor_sequence_gaps':0,'sha256':'b'*64}]}).encode(),'application/json'
-        elif self.path=='/api/flights': data,ctype=json.dumps({'flights':[{'id':'a'*64,'original_name':'V12D007.BIN','sha256':'a'*64,'summary':{'records':3,'duration_s':.08,'peak_altitude_m_estimated':1.0,'bytes':80,'warnings':[]},**flight_details,**({'sensor':flight_sensor['value']} if flight_sensor['value'] else {})}]}).encode(),'application/json'
+        elif self.path=='/api/flights': data,ctype=json.dumps({'flights':[] if flight_trashed['value'] else [{'id':'a'*64,'original_name':'V12D007.BIN','sha256':'a'*64,'summary':{'records':3,'duration_s':.08,'peak_altitude_m_estimated':1.0,'bytes':80,'warnings':[]},**flight_details,**({'sensor':flight_sensor['value']} if flight_sensor['value'] else {})}]}).encode(),'application/json'
+        elif self.path=='/api/flights/trash': data,ctype=json.dumps({'flights':[{'id':'a'*64,'original_name':'V12D007.BIN',**flight_details}] if flight_trashed['value'] else []}).encode(),'application/json'
         elif self.path.startswith('/api/flight/') and self.path.endswith('/timeline'): data,ctype=json.dumps(timeline).encode(),'application/json'
         elif self.path=='/api/sessions': data,ctype=json.dumps({'sessions':[imported_session['value']] if imported_session['value'] else []}).encode(),'application/json'
         elif self.path=='/api/library/backup': data,ctype=b'PK-backup-fixture','application/zip'
@@ -47,6 +49,8 @@ class Handler(BaseHTTPRequestHandler):
             flight_sensor['value']={'original_name':'V12D007.SEN','sha256':'b'*64,'inspection':{'status':'valid','valid_prefix_records':1,'sequence_gaps':0}}
             data=json.dumps({'success':True,'sensor':flight_sensor['value']}).encode();self.send_response(200);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data);return
         body=json.loads(self.rfile.read(int(self.headers.get('Content-Length',0))) or b'{}');requests.append((self.path,body))
+        if self.path.endswith('/trash'): flight_trashed['value']=True
+        if self.path.endswith('/restore'): flight_trashed['value']=False
         if self.path.endswith('/details'): flight_details.update(body)
         if self.path=='/api/bench/start': state.update(recorder_mode=2,recording=True,bench_recording=True,log_file='/TEST000.BIN')
         if self.path=='/api/bench/stop': state.update(recorder_mode=3,recording=False,bench_recording=False)
@@ -58,7 +62,7 @@ with sync_playwright() as p:
     browser=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
     page=browser.new_page(viewport={'width':390,'height':844})
     errors=[];page.on('pageerror',lambda e:errors.append(e.stack))
-    page.on('dialog',lambda d:d.accept('START BENCH TEST' if d.type=='prompt' and 'START BENCH' in d.message else 'STOP BENCH TEST' if d.type=='prompt' else None))
+    page.on('dialog',lambda d:d.accept('START BENCH TEST' if d.type=='prompt' and 'START BENCH' in d.message else 'TRASH LAPTOP COPY' if d.type=='prompt' and 'TRASH LAPTOP COPY' in d.message else 'STOP BENCH TEST' if d.type=='prompt' else None))
     page.goto(f'http://127.0.0.1:{server.server_port}/');page.click('nav button[data-view=preflight]')
     page.wait_for_function("!document.querySelector('#startBench').disabled")
     page.evaluate("renderPreflight({run_status:'COMPLETE',overall:'WARNING',generated_utc:'2026-11-05T14:00:00Z',checks:[{name:'SD initialization',status:'FAIL',message:'SD fault',correction:'Inspect SD wiring.'}]})")
@@ -213,6 +217,13 @@ with sync_playwright() as p:
     page.click('#restoreLibrary')
     page.wait_for_function('document.querySelector("#restoreStatus").textContent.includes("2 files added")')
     assert requests[-1]==('/api/library/restore',b'PK-backup-fixture')
+    page.click('[data-trash-flight]')
+    page.wait_for_function('document.querySelectorAll("[data-flight-row]").length===0 && document.querySelectorAll("[data-trash-restore]").length===1')
+    assert requests[-1]==('/api/flight/'+'a'*64+'/trash',{'confirm':'TRASH LAPTOP COPY'})
+    assert 'Feather SD unchanged' in page.locator('#trashStatus').inner_text()
+    page.click('[data-trash-restore]')
+    page.wait_for_function('document.querySelectorAll("[data-flight-row]").length===1 && document.querySelectorAll("[data-trash-restore]").length===0')
+    assert requests[-1][0]=='/api/flight/'+'a'*64+'/restore'
     assert not errors,errors
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     print('Recovery browser smoke passed: bench source return, location, map, units, offline fallback, mobile width')

@@ -133,6 +133,35 @@ class FlightLibraryTests(unittest.TestCase):
             self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
         self.assertFalse(list(self.library.root.glob("*.part")))
 
+    def test_laptop_flight_trash_is_reversible_and_keeps_raw_bytes(self):
+        raw = fixture()
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        sensor = sensor_fixture(raw)
+        self.library.import_sensor_stream(imported["id"], "V12D007.SEN", io.BytesIO(sensor))
+        moved = self.library.trash_flight(imported["id"])
+        self.assertTrue(moved["feather_sd_unchanged"])
+        self.assertEqual([], self.library.list())
+        self.assertEqual(1, len(self.library.list_trash()))
+        trashed = FlightLibrary(self.library.root / "trash" / imported["id"])
+        self.assertEqual(raw, trashed.get(imported["id"])[1].read_bytes())
+        self.assertEqual(sensor, trashed.get_sensor(imported["id"])[1].read_bytes())
+        with self.assertRaisesRegex(FlightImportError, "Trash copy"):
+            self.library.trash_flight(imported["id"])
+        self.library.restore_trash(imported["id"])
+        self.assertEqual(raw, self.library.get(imported["id"])[1].read_bytes())
+        self.assertEqual(sensor, self.library.get_sensor(imported["id"])[1].read_bytes())
+        self.assertEqual([], self.library.list_trash())
+
+    def test_trash_integrity_failure_does_not_restore_damaged_raw_file(self):
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(fixture()))
+        self.library.trash_flight(imported["id"])
+        trashed_raw = self.library.root / "trash" / imported["id"] / "raw" / f"{imported['id']}.bin"
+        trashed_raw.write_bytes(b"damaged")
+        self.assertEqual("invalid", self.library.list_trash()[0]["integrity"])
+        with self.assertRaisesRegex(FlightImportError, "checksum"):
+            self.library.restore_trash(imported["id"])
+        self.assertEqual([], self.library.list())
+
     def test_corrupt_header_and_unsafe_filename_are_rejected(self):
         with self.assertRaisesRegex(FlightImportError, "magic"):
             self.library.import_stream("bad.BIN", io.BytesIO(b"x" * 64))

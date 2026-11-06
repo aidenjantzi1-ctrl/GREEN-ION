@@ -24,6 +24,8 @@ MAX_FILES = 1000
 SAFE_PATH = re.compile(
     r"(?:flights/raw/[0-9a-f]{64}\.(?:bin|sen)|"
     r"flights/metadata/[0-9a-f]{64}\.json|"
+    r"flights/trash/[0-9a-f]{64}/raw/[0-9a-f]{64}\.(?:bin|sen)|"
+    r"flights/trash/[0-9a-f]{64}/metadata/[0-9a-f]{64}\.json|"
     r"session-[A-Za-z0-9_.-]{1,100}\.jsonl|"
     r"session_imports/[0-9a-f]{64}\.json)\Z"
 )
@@ -45,6 +47,8 @@ def file_digest(path: Path) -> tuple[int, str]:
 
 def files_for_backup(root: Path) -> list[tuple[str, Path]]:
     patterns = ("flights/raw/*.bin", "flights/raw/*.sen", "flights/metadata/*.json",
+                "flights/trash/*/raw/*.bin", "flights/trash/*/raw/*.sen",
+                "flights/trash/*/metadata/*.json",
                 "session-*.jsonl", "session_imports/*.json")
     files = []
     for pattern in patterns:
@@ -170,15 +174,18 @@ def _validate_staged_library(stage: Path, manifest: dict) -> None:
     for entry in manifest["entries"]:
         name = entry["path"]
         path = stage / name
-        if name.startswith("flights/raw/") and path.stem != entry["sha256"]:
+        if "/raw/" in name and path.stem != entry["sha256"]:
             raise BackupError(f"raw flight identity mismatch: {name}")
-        if name.startswith("flights/metadata/"):
+        if name.startswith("flights/metadata/") or name.startswith("flights/trash/") and "/metadata/" in name:
             identifier = path.stem
             try:
-                metadata, _raw = flights.get(identifier)
+                library = FlightLibrary(stage / "flights" / "trash" / name.split("/")[2]) if name.startswith("flights/trash/") else flights
+                if name.startswith("flights/trash/") and name.split("/")[2] != identifier:
+                    raise BackupError(f"Trash directory and flight identity differ: {name}")
+                metadata, _raw = library.get(identifier)
                 if metadata.get("id") != identifier or metadata.get("sha256") != identifier:
                     raise BackupError(f"flight metadata identity mismatch: {name}")
-                flights.analysis_timeline(identifier)
+                library.analysis_timeline(identifier)
             except (OSError, ValueError, KeyError, TypeError) as error:
                 raise BackupError(f"flight metadata/recording invalid: {name}: {error}") from error
         elif name.startswith("session_imports/"):
