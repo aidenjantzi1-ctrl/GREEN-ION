@@ -780,6 +780,17 @@ class GroundStationManagerTests(unittest.TestCase):
             self.assertIsNone(restarted.snapshot()["last_position"])
             self.assertEqual(original, writer.raw_path.read_bytes())
 
+    def test_restart_does_not_restore_fix_without_original_raw_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            writer = SessionWriter(root, "previous")
+            TelemetryManager(writer, clock=self.clock).ingest(
+                "wifi", {"sequence": 1, "uptime_ms": 100, "gps_status": "live",
+                         "gps_fix_age_ms": 100, "latitude": 37.1, "longitude": -121.9})
+            writer.raw_path.unlink()
+            restarted = TelemetryManager(SessionWriter(root, "new"), clock=self.clock)
+            self.assertIsNone(restarted.snapshot()["last_position"])
+
     def test_failed_restart_snapshot_write_keeps_previous_snapshot_and_raw_log(self):
         with tempfile.TemporaryDirectory() as directory:
             writer = SessionWriter(Path(directory), "snapshot")

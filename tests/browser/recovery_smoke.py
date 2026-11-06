@@ -240,6 +240,15 @@ with sync_playwright() as p:
     page.click('[data-trash-restore]')
     page.wait_for_function('document.querySelectorAll("[data-flight-row]").length===1 && document.querySelectorAll("[data-trash-restore]").length===0')
     assert requests[-1][0]=='/api/flight/'+'a'*64+'/restore'
+    state.update(last_position=[37.1,-121.9], last_position_source='simulation', gps_status='live', link_status='live')
+    page.click('nav button[data-view=recovery]')
+    page.wait_for_function("document.querySelector('#positionDetail').textContent.includes('SIMULATION — NOT HARDWARE')")
+    assert 'do not use for rocket recovery' in page.locator('#positionConfidence').inner_text()
+    assert page.locator('#googleRocket').is_hidden()
+    assert page.locator('#recoveryDistance').inner_text()=='—'
+    page.wait_for_function("document.querySelector('#recoveryMapStatus').textContent.includes('SIMULATION — NOT HARDWARE')")
+    assert page.locator('#recoveryMapOverlay [data-marker=simulation]').count()==1
+    assert page.locator('#recoveryMapOverlay [data-marker=rocket]').count()==0
     assert not errors,errors
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     print('Recovery browser smoke passed: bench source return, location, map, units, offline fallback, mobile width')
