@@ -832,6 +832,25 @@ class FlightExportFilenameTests(unittest.TestCase):
             ground_station.Handler.do_GET(Request())
             self.assertEqual("v12d007.json", response.call_args.args[3])
 
+    def test_jsonl_import_route_rejects_oversize_before_reading(self):
+        raw = b'{"received_utc":"2026-11-06T01:30:00Z","source":"wifi","data":{}}\n'
+
+        class Request:
+            path = "/api/import-session"
+            headers = {"Content-Length": str(len(raw)), "X-Green-Ion-Filename": "session.jsonl"}
+            rfile = BytesIO(raw)
+
+        with patch.object(ground_station.SESSIONS, "import_stream", return_value={"sha256": "a" * 64}) as imported, \
+                patch.object(ground_station, "json_response") as response:
+            ground_station.Handler.do_POST(Request())
+            self.assertEqual("session.jsonl", imported.call_args.args[0])
+            self.assertEqual(len(raw), imported.call_args.kwargs["expected_bytes"])
+            self.assertTrue(response.call_args.args[1]["success"])
+            Request.headers["Content-Length"] = str(32 * 1024 * 1024 + 1)
+            ground_station.Handler.do_POST(Request())
+            self.assertEqual(1, imported.call_count)
+            self.assertEqual(400, response.call_args.args[2])
+
 
 if __name__ == "__main__":
     unittest.main()

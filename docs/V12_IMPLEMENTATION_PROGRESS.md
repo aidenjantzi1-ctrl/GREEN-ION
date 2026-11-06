@@ -1,6 +1,6 @@
 # GREEN ION V12 implementation progress
 
-Updated 2026-11-05 5:28 PM Pacific (Phase 6 Analysis underway). Development branch: `codex/green-ion-v12`. This run fetched the remote development head `637101c`, matching a clean worktree, reviewed the prior progress and recent commits, and repaired a lowercase `.bin` export filename issue. Earlier phase evidence remains below and in the phase audits.
+Updated 2026-11-05 7:36 PM Pacific (Phase 6 Analysis underway). Development branch: `codex/green-ion-v12`. This run fetched remote `91756f5`, matching a clean worktree, reviewed its export filename repair and the Phase 6 checkpoint, then added validated JSONL session import. Earlier phase evidence remains below and in the phase audits.
 
 ## Current phase
 
@@ -52,6 +52,8 @@ Phase 6 comparison increment: two to four distinct imported onboard flights can 
 
 Current Phase 6 follow-up: CSV and JSON export download names now use the imported BIN's stem, so lowercase `.bin` inputs receive correct `.csv` and `.json` names. A route regression test covers both names. Verification: 143 Python tests, Node syntax, RKT4 browser analysis tests and `git diff --check` passed. The current run inspected available tool metadata and found no Codex usage balance or reset-time signal; no reset was assumed. The cloud environment reported enforced restricted network policy and no credential bindings; Git fetch succeeded through the configured environment. No physical hardware was attached.
 
+Phase 6 JSONL session increment: the Ground Station now validates bounded (32 MiB) JSONL imports against its existing `{received_utc, source, data}` event shape, requires timezone-aware timestamps and supported sources, rejects nonfinite JSON and incomplete transfers, tracks receive-time reversals and a missing final newline, keeps the original bytes with SHA-256 identity, and detects duplicates. Imported files are explicitly separate from live laptop sessions and onboard RKT4 recordings; imports never feed the live telemetry manager. Download rechecks the imported checksum. The Analysis UI shows source counts and checksum, with mobile rows stacked to prevent long names overflowing. Verification: 148 Python tests, Node syntax, RKT4 browser analysis and a 390-pixel Chromium smoke covering the import UI and no horizontal overflow passed. All browser and test inputs were fixtures; no physical session was imported.
+
 ## Existing implementation verified in code
 
 - Feather firmware, Uno receiver, shared protocol, and recorder components are present.
@@ -64,9 +66,9 @@ Current Phase 6 follow-up: CSV and JSON export download names now use the import
 
 - Phase 1 and Phase 2 software acceptance are complete. Physical Windows/iPhone interaction and rocket hardware were not tested in this cloud session.
 - Phase 3 software acceptance is complete. Unsupported fused altitude and physical hardware behavior remain explicit limits.
-- Phase 4 software acceptance is reached for supported checks. Physical GPS time/position, interrupted-file recovery, recording-disconnect, SD and stationary-sensor verification are still open and NOT TESTED. Phase 5 cloud-verifiable software acceptance is complete; physical Recovery is NOT TESTED. Phase 6 remains unfinished after companion import; Phases 7–8 software remain unfinished. Existing roadmap checkboxes are historical and are not proof of this plan's acceptance criteria.
+- Phase 4 software acceptance is reached for supported checks. Physical GPS time/position, interrupted-file recovery, recording-disconnect, SD and stationary-sensor verification are still open and NOT TESTED. Phase 5 cloud-verifiable software acceptance is complete; physical Recovery is NOT TESTED. Phase 6 remains unfinished after JSONL import; Phases 7–8 software remain unfinished. Existing roadmap checkboxes are historical and are not proof of this plan's acceptance criteria.
 - Real hardware performance, GPS accuracy, radio operation, SD power-loss behavior, and launch readiness remain **NOT TESTED**.
 
 ## Next exact task
 
-Continue Phase 6 with validated JSONL import, backup/restore and protected deletion. Review graph gap handling and synchronization with actual `.BIN`/`.SEN` pairs during the local hardware session. Audit timestamp alignment against actual firmware files during the local hardware session. Preserve raw bytes, checksums, V11 library behavior and existing exports. Physical Recovery and Phase 4 hardware outcomes remain NOT TESTED. Codex usage balance and reset time are unavailable from exposed tools; no reset interval is assumed. Scheduler-side nonoverlap remains unverified.
+Continue Phase 6 with backup/restore integrity and protected deletion, distinguishing laptop library copies, laptop sessions and Feather SD files. Review graph gap handling and synchronization with actual `.BIN`/`.SEN` pairs during the local hardware session. Audit timestamp alignment against actual firmware files during the local hardware session. Preserve raw bytes, checksums, V11 library behavior and existing exports. Physical Recovery and Phase 4 hardware outcomes remain NOT TESTED. Codex usage balance and reset time are unavailable from exposed tools; no reset interval is assumed. Scheduler-side nonoverlap remains unverified.

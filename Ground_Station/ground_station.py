@@ -24,6 +24,7 @@ from urllib.parse import parse_qs, quote, urlparse
 import webbrowser
 
 from flight_library import FlightImportError, FlightLibrary, MAX_SENSOR_BYTES
+from session_library import MAX_SESSION_BYTES, SessionImportError, SessionLibrary
 from sensor_log import SensorLogError
 from telemetry_manager import SessionWriter, TelemetryManager, valid_coordinate
 
@@ -35,6 +36,7 @@ STOP = threading.Event()
 CONFIG = {"serial_port": "auto", "feather_url": "http://192.168.4.1"}
 CONFIG_LOCK = threading.Lock()
 FLIGHTS = FlightLibrary(DATA_DIR / "flights")
+SESSIONS = SessionLibrary(DATA_DIR)
 PREFLIGHT_DIR = DATA_DIR / "preflight"
 PREFLIGHT_LOCK = threading.Lock()
 DIAGNOSTIC_LOG = DATA_DIR / "diagnostic-history.jsonl"
@@ -842,11 +844,7 @@ class Handler(SimpleHTTPRequestHandler):
             json_response(self, {"ports": available_ports(), "config": config})
             return
         if path == "/api/sessions":
-            sessions = []
-            for item in sorted(DATA_DIR.glob("session-*.jsonl"), reverse=True):
-                sessions.append({"name": item.name, "bytes": item.stat().st_size,
-                                 "modified": datetime.fromtimestamp(item.stat().st_mtime, timezone.utc).isoformat()})
-            json_response(self, {"sessions": sessions})
+            json_response(self, {"sessions": SESSIONS.list()})
             return
         if path == "/api/flights":
             json_response(self, {"flights": FLIGHTS.list()})
@@ -908,6 +906,12 @@ class Handler(SimpleHTTPRequestHandler):
             if candidate.parent != DATA_DIR.resolve() or not candidate.is_file() or not name.startswith("session-") or not name.endswith(".jsonl"):
                 json_response(self, {"error": "invalid session file"}, 400)
                 return
+            if name.startswith("session-import-"):
+                try:
+                    candidate = SESSIONS.imported_file(name)
+                except SessionImportError as error:
+                    json_response(self, {"error": str(error)}, 409)
+                    return
             self.send_response(200)
             self.send_header("Content-Type", "application/x-ndjson")
             self.send_header("Content-Disposition", f'attachment; filename="{name}"')
@@ -1010,6 +1014,17 @@ class Handler(SimpleHTTPRequestHandler):
                                                expected_bytes=length, source_kind="manual_upload")
                 json_response(self, {"success": True, "flight": result}, 200)
             except (OSError, ValueError, FlightImportError) as error:
+                json_response(self, {"success": False, "error": str(error)}, 400)
+            return
+        if self.path == "/api/import-session":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > MAX_SESSION_BYTES:
+                    raise SessionImportError("JSONL upload must be between 1 byte and 32 MiB")
+                result = SESSIONS.import_stream(self.headers.get("X-Green-Ion-Filename", ""),
+                                                LimitedReader(self.rfile, length), expected_bytes=length)
+                json_response(self, {"success": True, "session": result})
+            except (OSError, ValueError, SessionImportError) as error:
                 json_response(self, {"success": False, "error": str(error)}, 400)
             return
         if self.path.startswith("/api/import-sen/"):
