@@ -319,6 +319,25 @@ class FlightLibraryTests(unittest.TestCase):
         self.assertEqual(3000, len(json.loads(b"".join(json_chunks))["records"]))
         self.assertEqual(3001, len(b"".join(csv_chunks).splitlines()))
 
+    def test_sensor_csv_streams_only_inspected_valid_prefix_in_bounded_chunks(self):
+        raw = fixture()
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        example = sensor_fixture(raw)
+        records = []
+        for sequence in range(3000):
+            record = bytearray(example[32:])
+            struct.pack_into("<I", record, 4, sequence)
+            struct.pack_into("<I", record, 64, zlib.crc32(record[:64]) & 0xFFFFFFFF)
+            records.append(bytes(record))
+        sensor = example[:32] + b"".join(records) + b"torn"
+        attached = self.library.import_sensor_stream(imported["id"], "V12D007.SEN", io.BytesIO(sensor))
+        self.assertEqual("torn_tail", attached["inspection"]["status"])
+        chunks = list(self.library.iter_sensor_csv_export(imported["id"]))
+        self.assertGreater(len(chunks), 1)
+        self.assertLess(max(map(len, chunks)), 70000)
+        self.assertEqual(3001, len(b"".join(chunks).splitlines()))
+        self.assertEqual(b"".join(chunks), self.library.sensor_csv_export(imported["id"]))
+
     def test_empty_or_invalid_flight_does_not_claim_a_peak_speed(self):
         imported = self.library.import_stream("V12D007.BIN", io.BytesIO(fixture()[:32]))
         timeline = self.library.analysis_timeline(imported["id"])

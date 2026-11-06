@@ -969,10 +969,10 @@ class Handler(SimpleHTTPRequestHandler):
                     sensor, path = FLIGHTS.get_sensor(identifier)
                     file_response(self, path, "application/octet-stream", sensor["original_name"])
                 elif export == "sensor-csv":
-                    sensor, _path = FLIGHTS.get_sensor(identifier)
-                    bytes_response(self, FLIGHTS.sensor_csv_export(identifier), "text/csv",
-                                   Path(sensor["original_name"]).stem +
-                                   ("-valid-prefix.csv" if sensor["inspection"]["status"] != "valid" else ".csv"))
+                    sensor, sensor_path = FLIGHTS.get_sensor(identifier)
+                    stream_response(self, FLIGHTS.iter_sensor_csv_export(identifier, _verified=(sensor, sensor_path)),
+                                    "text/csv", Path(sensor["original_name"]).stem +
+                                    ("-valid-prefix.csv" if sensor["inspection"]["status"] != "valid" else ".csv"))
                 elif export == "csv":
                     stream_response(self, FLIGHTS.iter_csv_export(identifier, _verified=(metadata, raw)), "text/csv",
                                     Path(metadata["original_name"]).stem + ".csv")

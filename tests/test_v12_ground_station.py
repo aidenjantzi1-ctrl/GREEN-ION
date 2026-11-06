@@ -955,6 +955,20 @@ class FlightExportFilenameTests(unittest.TestCase):
             self.assertEqual((metadata, Path("unused")), csv_export.call_args.kwargs["_verified"])
             self.assertEqual((metadata, Path("unused")), json_export.call_args.kwargs["_verified"])
 
+    def test_sensor_csv_route_streams_inspected_prefix_with_filename(self):
+        class Request:
+            path = "/api/flight/" + "a" * 64 + "/sensor-csv"
+
+        sensor = {"original_name": "V12D007.SEN", "inspection": {"status": "torn_tail"}}
+        with patch.object(ground_station.FLIGHTS, "get", return_value=({"original_name": "V12D007.BIN"}, Path("raw"))), \
+                patch.object(ground_station.FLIGHTS, "get_sensor", return_value=(sensor, Path("sen"))) as get_sensor, \
+                patch.object(ground_station.FLIGHTS, "iter_sensor_csv_export", return_value=iter([b"csv"])) as export, \
+                patch.object(ground_station, "stream_response") as response:
+            ground_station.Handler.do_GET(Request())
+            self.assertEqual("V12D007-valid-prefix.csv", response.call_args.args[3])
+            self.assertEqual((sensor, Path("sen")), export.call_args.kwargs["_verified"])
+            get_sensor.assert_called_once()
+
     def test_jsonl_import_route_rejects_oversize_before_reading(self):
         raw = b'{"received_utc":"2026-11-06T01:30:00Z","source":"wifi","data":{}}\n'
 

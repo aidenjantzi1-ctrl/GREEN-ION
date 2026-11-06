@@ -1081,3 +1081,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Simulated a client disconnect during ZIP download after archive creation and confirmed the existing `finally` block removes the temporary archive. No product code change was needed.
 - Verification: 181 Python tests passed. Physical Windows network disconnect remains NOT TESTED.
+
+### Post-Phase 8 bounded GIS1 CSV export (2026-11-05)
+
+- Analysis now streams attached SEN CSV from inspected valid-prefix records with bounded memory. The raw SEN and the `-valid-prefix.csv` marker for torn/corrupt logs are preserved.
+- Verification: 183 Python tests passed, including a 3,000-record torn-tail fixture and route filename check. No physical SEN recording was used.

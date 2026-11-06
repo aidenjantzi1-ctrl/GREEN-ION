@@ -20,7 +20,8 @@ import threading
 import uuid
 from typing import BinaryIO
 
-from sensor_log import SensorLogError, csv_row, parse_sensor_log, validate_rkt4_binding, CSV_FIELDS
+from sensor_log import (SensorLogError, csv_row, iter_valid_prefix_records, parse_sensor_log,
+                        validate_rkt4_binding, CSV_FIELDS)
 
 HEADER_BYTES = 32
 RECORD_BYTES = 16
@@ -529,13 +530,28 @@ class FlightLibrary:
         return sensor, path
 
     def sensor_csv_export(self, identifier: str) -> bytes:
-        sensor, path = self.get_sensor(identifier)
-        _header, rows, _inspection = parse_sensor_log(path.read_bytes(), sensor["header"]["flight_sequence"])
-        text = io.StringIO(newline="")
-        writer = csv.DictWriter(text, fieldnames=CSV_FIELDS)
-        writer.writeheader()
-        writer.writerows(csv_row(row) for row in rows)
-        return text.getvalue().encode()
+        return b"".join(self.iter_sensor_csv_export(identifier))
+
+    def iter_sensor_csv_export(self, identifier: str, *, _verified: tuple[dict, Path] | None = None):
+        """Yield bounded CSV chunks from the inspected GIS1 valid prefix."""
+        sensor, path = _verified if _verified is not None else self.get_sensor(identifier)
+
+        def chunks():
+            text = io.StringIO(newline="")
+            writer = csv.DictWriter(text, fieldnames=CSV_FIELDS)
+            writer.writeheader()
+            rows = iter_valid_prefix_records(path, sensor["header"]["flight_sequence"],
+                                             sensor["inspection"]["valid_prefix_records"])
+            for row in rows:
+                writer.writerow(csv_row(row))
+                if text.tell() >= 65536:
+                    yield text.getvalue().encode()
+                    text.seek(0)
+                    text.truncate(0)
+            if text.tell():
+                yield text.getvalue().encode()
+
+        return chunks()
 
     def analysis_timeline(self, identifier: str, max_points: int = 1500) -> dict:
         if not 100 <= max_points <= 5000:

@@ -182,6 +182,17 @@ def parse_sensor_log(
     )
 
 
+def iter_valid_prefix_records(path: Path, expected_sequence: int, count: int):
+    """Read only an inspected GIS1 valid prefix, retaining one record at a time."""
+    with path.open("rb") as handle:
+        decode_header(handle.read(HEADER_BYTES), expected_sequence)
+        for _ in range(count):
+            raw = handle.read(RECORD_BYTES)
+            if len(raw) != RECORD_BYTES:
+                raise SensorLogError("sensor log became shorter than its inspected valid prefix")
+            yield _decode_record(raw)
+
+
 def validate_rkt4_binding(header: Header, rkt4_data: bytes) -> bool:
     if len(rkt4_data) < 32 or rkt4_data[:4] != b"RKT4":
         return False
