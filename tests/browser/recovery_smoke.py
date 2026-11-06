@@ -113,6 +113,10 @@ with sync_playwright() as p:
     page.wait_for_function('document.querySelectorAll("#recoveryMapOverlay [data-marker]").length===2')
     assert page.locator('#recoveryMapOverlay [data-marker=rocket]').count()==1
     assert page.locator('#recoveryMapOverlay [data-marker=user]').count()==1
+    page.select_option('#recoveryMapLayer','satellite')
+    assert 'World_Imagery/MapServer/tile/' in page.locator('#recoveryMapTiles img').first.get_attribute('src')
+    assert 'Esri' in page.locator('#recoveryMapCredit').inner_text()
+    page.select_option('#recoveryMapLayer','street')
     page.evaluate("document.querySelector('#recoveryMapTiles img').dispatchEvent(new Event('error'))")
     assert 'imagery unavailable' in page.locator('#recoveryMapStatus').inner_text()
     assert page.locator('#recoveryDistance').inner_text()!='—'

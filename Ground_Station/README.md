@@ -18,6 +18,8 @@ The Ground Station is the offline Windows application that remains on the laptop
 5. Connect Windows Wi-Fi to the Feather access point. The default Feather address is `http://192.168.4.1`.
 6. Use **Preflight** for readiness checks, **Mission Control** for live status, **Recovery** for GPS, **Analysis** for recordings and sessions, and **Diagnostics** for connection evidence.
 
+For iPhone Companion access, follow [the private-LAN HTTPS setup and physical verification guide](../docs/V12_IPHONE_COMPANION.md). The default server stays on laptop loopback. A phone-reachable bind requires a specific private IPv4 address, trusted certificate/key and a password supplied through `GREEN_ION_COMPANION_PASSWORD`; the certificate and password must stay outside Git.
+
 No internet, phone, cloud account, Bluetooth, or hotspot is needed. The server continues running when Feather Wi-Fi is lost and automatically uses valid LoRa packets. If both links fail, graphs and the last valid GPS position remain visible and become explicitly stale.
 
 ## Final navigation

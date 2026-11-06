@@ -13,8 +13,11 @@ from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 import json
 import math
+import ipaddress
+import os
 from pathlib import Path
 import re
+import ssl
 import threading
 import time
 import tempfile
@@ -26,6 +29,7 @@ from urllib.parse import parse_qs, quote, urlparse
 import webbrowser
 
 from flight_library import FlightImportError, FlightLibrary, MAX_SENSOR_BYTES
+from companion_security import CompanionSecurity
 from session_library import MAX_SESSION_BYTES, SessionImportError, SessionLibrary
 from library_backup import BackupError, MAX_ARCHIVE_BYTES, create_backup, restore_backup
 from sensor_log import SensorLogError
@@ -804,13 +808,15 @@ def available_ports() -> list[dict]:
 
 class Handler(SimpleHTTPRequestHandler):
     def translate_path(self, path: str) -> str:
-        relative = path.split("?", 1)[0].lstrip("/") or "index.html"
-        candidate = (ROOT / relative).resolve()
-        if ROOT not in candidate.parents and candidate != ROOT:
-            return str(ROOT / "index.html")
-        return str(candidate)
+        return str(ROOT / "index.html")
+
+    def do_HEAD(self) -> None:
+        self.send_error(405, "HEAD is not supported")
 
     def do_GET(self) -> None:
+        security = getattr(getattr(self, "server", None), "companion_security", None)
+        if security and security.handle_get(self):
+            return
         parsed = urlparse(self.path)
         path = parsed.path
         if path in ("/api/telemetry", "/api/status"):
@@ -954,9 +960,15 @@ class Handler(SimpleHTTPRequestHandler):
                 while chunk := handle.read(65536):
                     self.wfile.write(chunk)
             return
-        super().do_GET()
+        if path in ("/", "/index.html"):
+            super().do_GET()
+        else:
+            json_response(self, {"error": "not found"}, 404)
 
     def do_POST(self) -> None:
+        security = getattr(getattr(self, "server", None), "companion_security", None)
+        if security and security.handle_post(self):
+            return
         if self.path in ("/api/bench/start", "/api/bench/stop", "/api/bench/verify"):
             try:
                 if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
@@ -1346,8 +1358,38 @@ def main() -> None:
     parser.add_argument("--no-wifi", action="store_true")
     parser.add_argument("--listen", default="127.0.0.1")
     parser.add_argument("--http-port", type=int, default=8765)
+    parser.add_argument("--https-cert", type=Path, help="trusted local HTTPS certificate PEM for iPhone Companion")
+    parser.add_argument("--https-key", type=Path, help="private key PEM; keep it outside the repository")
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
+    try:
+        address = ipaddress.ip_address(args.listen)
+    except ValueError:
+        parser.error("--listen must be an explicit IPv4 loopback or private LAN address")
+    private_lan = any(address in ipaddress.ip_network(block) for block in
+                      ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")) if address.version == 4 else False
+    if address.version != 4 or not (address.is_loopback or private_lan):
+        parser.error("--listen must be an IPv4 loopback or specific private LAN address")
+    companion = None
+    if not address.is_loopback:
+        if not args.https_cert or not args.https_key:
+            parser.error("a private LAN bind requires --https-cert and --https-key")
+    if bool(args.https_cert) != bool(args.https_key):
+        parser.error("--https-cert and --https-key must be supplied together")
+    if args.https_cert:
+        password = os.environ.get("GREEN_ION_COMPANION_PASSWORD", "")
+        try:
+            companion = CompanionSecurity(password)
+        except ValueError as error:
+            parser.error(str(error))
+    tls = None
+    if args.https_cert:
+        tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        tls.minimum_version = ssl.TLSVersion.TLSv1_2
+        try:
+            tls.load_cert_chain(str(args.https_cert), str(args.https_key))
+        except (OSError, ssl.SSLError) as error:
+            parser.error(f"cannot load HTTPS certificate/key: {error}")
     with CONFIG_LOCK:
         CONFIG.update(serial_port=args.port, feather_url=args.feather_url.rstrip("/"))
     workers = []
@@ -1360,9 +1402,12 @@ def main() -> None:
             workers.append(threading.Thread(target=wifi_source, daemon=True, name="wifi"))
     for worker in workers:
         worker.start()
-    url = f"http://{args.listen}:{args.http_port}"
+    url = f"{'https' if tls else 'http'}://{args.listen}:{args.http_port}"
     try:
         server = ThreadingHTTPServer((args.listen, args.http_port), Handler)
+        server.companion_security = companion
+        if tls:
+            server.socket = tls.wrap_socket(server.socket, server_side=True)
     except OSError as error:
         STOP.set()
         if getattr(error, "winerror", None) == 10048 or error.errno in (48, 98):

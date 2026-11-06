@@ -1022,3 +1022,13 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Added current-GPS peak altitude and estimated apogee elapsed time to the timeline, comparison and printable report. Analysis graph can show all recorded time or 30/10-second windows around the replay cursor, with a barometric apogee marker. No combined altitude or launch/landing event is invented.
 - `V12_PHASE6_AUDIT.md` distinguishes software evidence from open physical V11/V12 file, SD and Windows print checks. Verification: 162 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium smoke passed.
+
+### Phase 7 authenticated HTTPS Companion foundation (2026-11-05)
+
+- Preserved laptop loopback default. Private LAN binding now requires a specific RFC1918 IPv4 address, TLS certificate/key and environment-provided pairing password. Wildcard/public/unprotected binds fail before workers start. All pages/APIs require an expiring random cookie session in Companion mode; pairing is rate-limited, POSTs require matching HTTPS Origin, and logout revokes the session. Arbitrary static files are not served.
+- `V12_IPHONE_COMPANION.md` details network arrangements, trusted-certificate setup and physical iPhone checks. Verification: 166 Python tests, Node syntax, RKT4 browser analysis, existing Recovery mobile smoke and local HTTPS Chromium pairing/security smoke passed. A real iPhone, trusted certificate and cellular routing remain NOT TESTED.
+
+### Phase 7 Companion connection and Recovery imagery (2026-11-05)
+
+- Added connected/unreachable Companion badge and pairing redirect on expired sessions. Recovery can request Esri World Imagery satellite tiles or OpenStreetMap street tiles with attribution; offline coordinates and relative track survive imagery failures.
+- Audited the software path in `V12_PHASE7_AUDIT.md`. The 390-pixel Recovery and local HTTPS Companion Chromium smokes passed. iPhone Safari certificate trust, GPS permission, cellular and physical link behavior remain NOT TESTED.

@@ -1,0 +1,13 @@
+# Phase 7 iPhone Companion software audit
+
+The Windows laptop is the authoritative Ground Station. This audit uses code review, Python tests and a local Chromium HTTPS smoke at phone width. No physical iPhone, Windows dual-adapter network or cellular link was exercised.
+
+| Requirement | Current software evidence | Remaining check |
+| --- | --- | --- |
+| Local server, authentication and sessions | Default bind is loopback only. A specific private LAN bind requires TLS and a 16+ character environment password. Random HttpOnly/Secure/SameSite cookies expire after two hours; logout revokes them. Login attempts are limited. All page and API routes are gated; POST requires matching HTTPS Origin. Arbitrary static files are blocked. | Pairing from trusted iPhone Safari and actual firewall scope are NOT TESTED. |
+| Mobile Mission Control | The six-page laptop dashboard adapts to 390-pixel width, including live telemetry, recorder state, graph, map and Wi-Fi/LoRa indicators. A Companion badge reports connected or laptop-unreachable; expired sessions return to pairing. | Real phone refresh, sensor measurements and link transitions are NOT TESTED. |
+| Mobile Recovery | Rocket/phone positions, last fix age, straight-line distance, bearing, online street or satellite map, offline coordinate track, Google Maps link and SD handoff remain in the shared responsive page. Manual position works without device location. | iPhone Safari GPS permission, satellite tile delivery, iPhone cellular and LAN coexistence are NOT TESTED. |
+| Mobile Analysis | Authenticated phone page uses the laptop flight library, graph/replay, reports, raw downloads, ZIP backup and protected laptop Trash routes. No separate cloud database exists. | Actual iPhone file downloads, report printing and large-file transfer are NOT TESTED. |
+| Network arrangement | `V12_IPHONE_COMPANION.md` documents router/two-adapter, Uno LoRa and Wi-Fi-only cases and exact physical steps. | The hardware arrangements, especially simultaneous Feather AP and iPhone access, require the user's devices. |
+
+Cloud verification: 166 Python tests, Node syntax, RKT4 browser analysis, the 390-pixel Recovery smoke and a local HTTPS Chromium Companion smoke passed. The HTTPS smoke used a throwaway self-signed certificate and an explicit same-origin API login because an untrusted certificate gives Chromium an opaque form Origin; it is not evidence that an iPhone trusts the certificate. The field setup requires a certificate trusted by Safari. Phase 7 is **software-implemented for the supported local-server path**, with physical phone acceptance open. Phase 8 should begin with end-to-end integration checks and a user-run Windows/iPhone/hardware validation procedure.
