@@ -240,7 +240,9 @@ with sync_playwright() as p:
     page.click('[data-trash-restore]')
     page.wait_for_function('document.querySelectorAll("[data-flight-row]").length===1 && document.querySelectorAll("[data-trash-restore]").length===0')
     assert requests[-1][0]=='/api/flight/'+'a'*64+'/restore'
-    state.update(last_position=[37.1,-121.9], last_position_source='simulation', gps_status='live', link_status='live')
+    prior_track=page.evaluate('track.length')
+    state.update(last_position=[37.2,-121.8], latitude=37.2, longitude=-121.8,
+                 last_position_source='simulation', gps_status='live', link_status='live')
     page.click('nav button[data-view=recovery]')
     page.wait_for_function("document.querySelector('#positionDetail').textContent.includes('SIMULATION — NOT HARDWARE')")
     assert 'do not use for rocket recovery' in page.locator('#positionConfidence').inner_text()
@@ -249,6 +251,7 @@ with sync_playwright() as p:
     page.wait_for_function("document.querySelector('#recoveryMapStatus').textContent.includes('SIMULATION — NOT HARDWARE')")
     assert page.locator('#recoveryMapOverlay [data-marker=simulation]').count()==1
     assert page.locator('#recoveryMapOverlay [data-marker=rocket]').count()==0
+    assert page.evaluate('track.length')==prior_track
     state.update(gps_fix_current_age_ms=3500, gps_status='stale', gps_altitude_valid=True)
     page.wait_for_function("document.querySelector('#fixAge').textContent.includes('3.5 s')")
     assert page.locator('#gpsAltitudeValidity').inner_text()=='NOT CURRENT'
