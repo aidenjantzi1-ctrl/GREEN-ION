@@ -176,6 +176,47 @@ class FlightLibraryTests(unittest.TestCase):
             self.library.get(imported["id"])
         self.assertEqual(raw, (self.library.raw / f"{imported['id']}.bin").read_bytes())
 
+    def test_plausible_but_wrong_summary_size_is_rejected_on_verified_access(self):
+        raw = fixture()
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        metadata_path = self.library.meta / f"{imported['id']}.json"
+        damaged = json.loads(metadata_path.read_text(encoding="utf-8"))
+        damaged["summary"]["bytes"] += 16
+        damaged["summary"]["records"] += 1
+        metadata_path.write_text(json.dumps(damaged), encoding="utf-8")
+        self.assertEqual([], self.library.list())
+        with self.assertRaisesRegex(FlightImportError, "summary size"):
+            self.library.get(imported["id"])
+        with self.assertRaisesRegex(FlightImportError, "metadata no longer matches"):
+            self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        self.assertEqual(raw, (self.library.raw / f"{imported['id']}.bin").read_bytes())
+
+    def test_damaged_summary_or_sensor_metadata_cannot_break_library_or_duplicate_import(self):
+        raw = fixture()
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        metadata_path = self.library.meta / f"{imported['id']}.json"
+        for field, value in (("duration_s", "bad"), ("peak_altitude_m_estimated", float("nan")),
+                             ("warnings", ["ok", 3])):
+            with self.subTest(field=field):
+                damaged = json.loads(json.dumps(imported))
+                damaged["summary"][field] = value
+                metadata_path.write_text(json.dumps(damaged), encoding="utf-8")
+                self.assertEqual([], self.library.list())
+                with self.assertRaisesRegex(FlightImportError, "metadata no longer matches"):
+                    self.library.get(imported["id"])
+                with self.assertRaisesRegex(FlightImportError, "metadata no longer matches"):
+                    self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+                self.assertEqual(raw, (self.library.raw / f"{imported['id']}.bin").read_bytes())
+        metadata_path.write_text(json.dumps(imported), encoding="utf-8")
+        self.library.import_sensor_stream(imported["id"], "V12D007.SEN",
+                                          io.BytesIO(sensor_fixture(raw)))
+        damaged = json.loads(metadata_path.read_text(encoding="utf-8"))
+        damaged["sensor"]["inspection"]["status"] = None
+        metadata_path.write_text(json.dumps(damaged), encoding="utf-8")
+        self.assertEqual([], self.library.list())
+        with self.assertRaisesRegex(FlightImportError, "metadata no longer matches"):
+            self.library.get(imported["id"])
+
     def test_corrupt_header_and_unsafe_filename_are_rejected(self):
         with self.assertRaisesRegex(FlightImportError, "magic"):
             self.library.import_stream("bad.BIN", io.BytesIO(b"x" * 64))

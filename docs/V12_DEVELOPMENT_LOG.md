@@ -1056,3 +1056,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Raw BIN/SEN HTTP downloads now stream verified files from disk in 64 KiB reads with exact lengths. Full BIN CSV/JSON exports stream bounded chunks, preserving schema and filenames while avoiding whole-export allocation.
 - Verification: 172 Python tests including 3,000-record chunk/output checks, Node RKT4 test, and an authenticated HTTPS Chromium smoke that downloaded fixture BIN/CSV/JSON through the real routes. Physical files remain NOT TESTED.
+
+### Post-Phase 8 flight metadata validation (2026-11-05)
+
+- Reject damaged RKT4 summaries, nonfinite numbers and malformed sensor inspection fields on library listing, verified access and duplicate import. Listing now checks raw presence/size while holding the library lock and skips metadata files removed during listing. Verified access checks both raw checksum and summary byte count. This prevents malformed local metadata from breaking Analysis without changing raw recordings.
+- Verification: 174 Python tests passed, including malformed summary/sensor and wrong-size cases. Prior browser and target-build evidence remains applicable; no physical recordings were tested.

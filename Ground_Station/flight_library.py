@@ -26,6 +26,7 @@ HEADER_BYTES = 32
 RECORD_BYTES = 16
 ALLOWED_RATES = (10, 25, 50)
 SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}\.BIN$", re.IGNORECASE)
+SHA256_NAME = re.compile(r"[0-9a-f]{64}")
 FLIGHT_STEM = re.compile(r"^(?:V12D|AIRP|TEST)[0-9]{3}$", re.IGNORECASE)
 MAX_SENSOR_BYTES = 16 * 1024 * 1024
 EXPONENT = 0.190294957
@@ -41,6 +42,69 @@ def file_sha256(path: Path) -> str:
         while chunk := handle.read(65536):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _valid_metadata(item: object, identifier: str) -> bool:
+    """Reject damaged laptop metadata before it reaches the library UI or analysis."""
+    if not isinstance(item, dict) or not SHA256_NAME.fullmatch(identifier):
+        return False
+    if (item.get("id") != identifier or item.get("sha256") != identifier or
+            item.get("raw_file") != f"{identifier}.bin" or
+            not isinstance(item.get("original_name"), str) or
+            not SAFE_NAME.fullmatch(item["original_name"])):
+        return False
+    summary = item.get("summary")
+    if not isinstance(summary, dict) or summary.get("format") != "RKT4" or summary.get("version") != 2:
+        return False
+    for field in ("bytes", "records", "sample_rate_hz", "trailing_bytes", "invalid_records", "timestamp_gaps"):
+        value = summary.get(field)
+        if type(value) is not int or value < 0:
+            return False
+    if (summary["bytes"] < HEADER_BYTES or summary["bytes"] > 256 * 1024 * 1024 or
+            summary["sample_rate_hz"] not in ALLOWED_RATES or
+            (summary["records"], summary["trailing_bytes"]) !=
+            divmod(summary["bytes"] - HEADER_BYTES, RECORD_BYTES) or
+            summary["invalid_records"] > summary["records"] or
+            summary["timestamp_gaps"] > max(0, summary["records"] - 1)):
+        return False
+    for field in ("baseline_pressure_pa", "duration_s", "peak_altitude_m_estimated",
+                  "start_battery_v", "end_battery_v"):
+        value = summary.get(field)
+        if type(value) not in (int, float) or abs(value) > 1e12 or not math.isfinite(value) or value < 0:
+            return False
+    if (summary["baseline_pressure_pa"] == 0 or
+            not isinstance(summary.get("warnings"), list) or
+            not all(isinstance(warning, str) for warning in summary["warnings"]) or
+            not isinstance(summary.get("disclaimer"), str)):
+        return False
+    for field in ("label", "rocket_profile", "imported_utc", "source"):
+        if field in item and not isinstance(item[field], str):
+            return False
+    if item.get("flight_date") is not None and not isinstance(item["flight_date"], str):
+        return False
+    sensor = item.get("sensor")
+    if sensor is not None:
+        if not isinstance(sensor, dict):
+            return False
+        inspection = sensor.get("inspection")
+        header = sensor.get("header")
+        if (not SHA256_NAME.fullmatch(str(sensor.get("sha256", ""))) or
+                sensor.get("raw_file") != f"{sensor['sha256']}.sen" or
+                not isinstance(sensor.get("original_name"), str) or
+                not isinstance(inspection, dict) or not isinstance(header, dict) or
+                not isinstance(inspection.get("status"), str) or
+                not isinstance(inspection.get("first_invalid_reason"), (str, type(None)))):
+            return False
+        for field in ("valid_prefix_records", "sequence_gaps", "trailing_bytes"):
+            if type(inspection.get(field)) is not int or inspection[field] < 0:
+                return False
+        if type(header.get("flight_sequence")) is not int:
+            return False
+    try:
+        json.dumps(item, allow_nan=False)
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 def pressure_altitude(pressure_pa: float, baseline_pa: float) -> float | None:
@@ -204,7 +268,12 @@ class FlightLibrary:
             if not metadata_path.exists():
                 self._save_metadata(identifier, metadata)
             else:
-                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                try:
+                    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError) as error:
+                    raise FlightImportError("stored flight metadata is unreadable") from error
+                if not _valid_metadata(metadata, identifier) or metadata["summary"]["bytes"] != received:
+                    raise FlightImportError("stored flight metadata no longer matches its raw recording")
             metadata["duplicate"] = duplicate
             return metadata
         except Exception:
@@ -213,35 +282,44 @@ class FlightLibrary:
 
     def list(self) -> list[dict]:
         result = []
-        for path in sorted(self.meta.glob("*.json"), key=lambda item: item.lstat().st_mtime, reverse=True):
-            try:
-                if path.is_symlink():
+        with self._lock:
+            candidates = []
+            for path in self.meta.glob("*.json"):
+                try:
+                    if not path.is_symlink():
+                        candidates.append((path.lstat().st_mtime, path))
+                except OSError:
                     continue
-                item = json.loads(path.read_text(encoding="utf-8"))
-                if (not isinstance(item, dict) or item.get("id") != path.stem or
-                        item.get("sha256") != path.stem or item.get("raw_file") != f"{path.stem}.bin" or
-                        not isinstance(item.get("summary"), dict)):
+            for _mtime, path in sorted(candidates, reverse=True):
+                try:
+                    item = json.loads(path.read_text(encoding="utf-8"))
+                    if not _valid_metadata(item, path.stem):
+                        continue
+                    raw = self.raw / item["raw_file"]
+                    if raw.is_symlink() or not raw.is_file() or raw.stat().st_size != item["summary"]["bytes"]:
+                        continue
+                    result.append(item)
+                except (OSError, json.JSONDecodeError):
                     continue
-                result.append(item)
-            except (OSError, json.JSONDecodeError):
-                continue
         return result
 
     def get(self, identifier: str) -> tuple[dict, Path]:
         metadata_path = self._metadata_path(identifier)
         if metadata_path.is_symlink():
             raise FlightImportError("stored flight metadata is a symlink")
-        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-        if (not isinstance(metadata, dict) or metadata.get("id") != identifier or
-                metadata.get("sha256") != identifier or metadata.get("raw_file") != f"{identifier}.bin" or
-                not isinstance(metadata.get("original_name"), str) or
-                not isinstance(metadata.get("summary"), dict)):
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise FlightImportError("stored flight metadata is unreadable") from error
+        if not _valid_metadata(metadata, identifier):
             raise FlightImportError("stored flight metadata no longer matches its raw recording")
         raw = (self.raw / metadata["raw_file"]).resolve()
         if raw.parent != self.raw.resolve() or not raw.is_file():
             raise FlightImportError("raw flight file is unavailable")
         if file_sha256(raw) != identifier:
             raise FlightImportError("raw flight checksum no longer matches import metadata")
+        if raw.stat().st_size != metadata["summary"]["bytes"]:
+            raise FlightImportError("stored flight summary size no longer matches its raw recording")
         return metadata, raw
 
     def update_details(self, identifier: str, label: str, rocket_profile: str,
