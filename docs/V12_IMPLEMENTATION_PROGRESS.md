@@ -1,6 +1,6 @@
 # GREEN ION V12 implementation progress
 
-Updated 2026-11-06 7:38 AM Pacific (post-Phase 8 Recovery source review). Development branch: `codex/green-ion-v12`. This run fetched GitHub and confirmed local and remote at `2674c17` with a clean worktree before the changes below. Earlier phase evidence remains below and in the phase audits.
+Updated 2026-11-06 7:38 AM Pacific (post-Phase 8 Recovery source review). Development branch: `codex/green-ion-v12`. This run fetched GitHub and confirmed local and remote at `2674c17` with a clean worktree, then pushed verified Recovery source fixes through `f5b6d26`. Earlier phase evidence remains below and in the phase audits.
 
 ## Current phase
 
@@ -17,7 +17,7 @@ Phase 3 now shows separate GPS altitude quality, current/last-known coordinates,
 | Capability | Status | Evidence |
 | --- | --- | --- |
 | GitHub read | AVAILABLE | GitHub connector read the development branch commits; Git fetch obtained the branch. |
-| GitHub write/push | AVAILABLE | Previous run pushed through `2674c17`; this run fetched that exact GitHub tip and pushed the verified Recovery source fixes to `codex/green-ion-v12`. No merge to `main` occurred. |
+| GitHub write/push | AVAILABLE | Previous run pushed through `2674c17`; this run fetched that exact GitHub tip and pushed the verified Recovery source fixes through `f5b6d26` to `codex/green-ion-v12`. No merge to `main` occurred. |
 | Python 3 and test runner | AVAILABLE | Python 3.12.14; current run: 208 `unittest` tests passed. Earlier native, Node and browser evidence is retained below and in the phase audits. |
 | Node.js syntax check | AVAILABLE | Node 24.22.1 checked the current Ground Station script; RKT4 browser analysis tests passed. |
 | Arduino CLI | VERIFIED IN PRIOR RUN | Arduino CLI 1.5.1 compiled Feather ESP32 V2 at 1,220,837 flash / 69,928 RAM bytes and Uno R3 at 14,370 flash / 712 RAM bytes using ESP32 2.0.17 and AVR 1.8.7. Both commands exited 0 in the earlier Phase 8 target-build run; this Python-only run did not recompile firmware. Vendor versions are in `V12_BUILD_GUIDE.md`. Compilation is not hardware evidence. |
