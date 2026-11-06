@@ -693,6 +693,19 @@ class GroundStationManagerTests(unittest.TestCase):
         self.assertEqual(1, source["duplicates"])
         self.assertEqual(1, source["out_of_order"])
 
+    def test_invalid_uptime_does_not_consume_sequence_or_block_following_packet(self):
+        self.assertTrue(self.manager.ingest("radio", {"sequence": 1, "uptime_ms": 100}))
+        with self.assertRaisesRegex(ValueError, "uptime_ms"):
+            self.manager.ingest("radio", {"sequence": 2, "uptime_ms": "invalid"})
+        self.assertTrue(self.manager.ingest("radio", {"sequence": 2, "uptime_ms": 200}))
+        source = self.manager.snapshot()["sources"]["radio"]
+        self.assertEqual(2, source["received"])
+        self.assertEqual(0, source["duplicates"])
+        self.assertEqual(0, source["missing_packets"])
+        self.assertTrue(self.manager.ingest("radio", {"sequence": 3, "uptime_ms": 300,
+                                                      "sd_total_bytes": 10 ** 1000}))
+        self.assertIsNone(self.manager.snapshot()["sd_total_bytes"])
+
     def test_sequence_gap_and_rollover_are_counted_correctly(self):
         self.manager.ingest("radio", self.row(1))
         self.manager.ingest("radio", self.row(4))

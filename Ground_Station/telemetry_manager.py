@@ -322,6 +322,25 @@ class TelemetryManager:
             raise ValueError("telemetry row must be an object")
         now = self.clock()
         clean = {key: value for key, value in row.items() if key in MEASUREMENT_FIELDS or key == "sequence"}
+        sequence = clean.get("sequence")
+        uptime = clean.get("uptime_ms")
+        for name, value in (("sequence", sequence), ("uptime_ms", uptime)):
+            if value is None:
+                continue
+            if isinstance(value, bool):
+                raise ValueError(f"invalid {name}")
+            try:
+                normalized = int(value)
+            except (TypeError, ValueError, OverflowError) as error:
+                raise ValueError(f"invalid {name}") from error
+            if not 0 <= normalized <= 0xFFFFFFFF:
+                raise ValueError(f"invalid {name}")
+            clean[name] = normalized
+        sequence = clean.get("sequence")
+        uptime = clean.get("uptime_ms")
+        for name, value in clean.items():
+            if isinstance(value, int) and not isinstance(value, bool) and value.bit_length() > 64:
+                clean[name] = None
         if source == "radio" and isinstance(clean.get("flags"), int) and not isinstance(clean["flags"], bool):
             flags = clean["flags"]
             if 0 <= flags <= 0xFFFF:
@@ -338,18 +357,12 @@ class TelemetryManager:
                                        "acceleration_z_g", "rotation_x_dps", "rotation_y_dps",
                                        "rotation_z_dps"):
                         clean[field_name] = None
-        sequence = clean.get("sequence")
-        uptime = clean.get("uptime_ms")
         with self.lock:
             state = self.sources[source]
             if sequence is not None:
-                try:
-                    sequence = int(sequence) & 0xFFFFFFFF
-                except (TypeError, ValueError) as error:
-                    raise ValueError("invalid sequence") from error
                 clean["sequence"] = sequence
                 rebooted = (uptime is not None and state.last_uptime_ms is not None and
-                            state.last_uptime_ms - int(uptime) > 10000 and sequence <= 5)
+                            state.last_uptime_ms - uptime > 10000 and sequence <= 5)
                 if state.last_sequence is not None and not rebooted:
                     if sequence == state.last_sequence:
                         state.duplicates += 1
@@ -362,8 +375,8 @@ class TelemetryManager:
                         state.missing_packets += gap - 1
                 state.last_sequence = sequence
             if uptime is not None:
-                clean["uptime_ms"] = int(uptime)
-                state.last_uptime_ms = int(uptime)
+                clean["uptime_ms"] = uptime
+                state.last_uptime_ms = uptime
             clean["source"] = source
             clean["received_utc"] = utc_now()
             state.latest = clean

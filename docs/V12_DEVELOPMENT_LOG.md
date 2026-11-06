@@ -1136,3 +1136,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Uno serial reads are capped at 4 KiB and non-object/nonfinite JSON lines become parse errors, letting subsequent valid status and telemetry continue.
 - Verification: 196 Python tests passed, including a fake serial feed with malformed then valid status lines. Physical Uno/RFM95W remains NOT TESTED.
+
+### Post-Phase 8 packet state validation (2026-11-06)
+
+- Validate sequence and uptime before changing duplicate/gap state, so a malformed uptime cannot suppress the next valid packet. Omit oversized integer measurements from merged snapshots before finite-number checks.
+- Verification: 197 Python tests passed. Physical telemetry timing remains NOT TESTED.
