@@ -1141,3 +1141,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Validate sequence and uptime before changing duplicate/gap state, so a malformed uptime cannot suppress the next valid packet. Omit oversized integer measurements from merged snapshots before finite-number checks.
 - Verification: 197 Python tests passed. Physical telemetry timing remains NOT TESTED.
+
+### Post-Phase 8 laptop JSONL durability (2026-11-06)
+
+- Append an accepted telemetry packet before updating live sequence/gap state. If local logging fails, the packet can be retried. A later append separates a torn prior line, snapshot temp files are cleaned after failure, and symlinked session files are refused.
+- Verification: 200 Python tests passed, including simulated disk failure and retry. Onboard SD firmware and physical disk behavior remain NOT TESTED.

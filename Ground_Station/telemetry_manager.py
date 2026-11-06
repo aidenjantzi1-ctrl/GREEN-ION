@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import json
 import math
+import os
 from pathlib import Path
 import threading
 import time
@@ -264,17 +265,32 @@ class SessionWriter:
 
     def append(self, source: str, row: dict) -> None:
         event = {"received_utc": utc_now(), "source": source, "data": row}
-        encoded = json.dumps(event, separators=(",", ":"), allow_nan=False)
-        with self.lock, self.raw_path.open("a", encoding="utf-8", newline="\n") as handle:
-            handle.write(encoded + "\n")
-            handle.flush()
+        encoded = (json.dumps(event, separators=(",", ":"), allow_nan=False) + "\n").encode()
+        with self.lock:
+            if self.raw_path.is_symlink():
+                raise OSError("session recording is a symlink")
+            separate_torn_line = False
+            if self.raw_path.is_file() and self.raw_path.stat().st_size:
+                with self.raw_path.open("rb") as existing:
+                    existing.seek(-1, os.SEEK_END)
+                    separate_torn_line = existing.read(1) != b"\n"
+            with self.raw_path.open("ab") as handle:
+                if separate_torn_line:
+                    handle.write(b"\n")
+                handle.write(encoded)
+                handle.flush()
 
     def save_snapshot(self, snapshot: dict) -> None:
         temporary = self.snapshot_path.with_suffix(".tmp")
         payload = {"session_id": self.session_id, "saved_utc": utc_now(), "snapshot": snapshot}
         with self.lock:
-            temporary.write_text(json.dumps(payload, separators=(",", ":"), allow_nan=False), encoding="utf-8")
-            temporary.replace(self.snapshot_path)
+            if temporary.is_symlink():
+                raise OSError("session snapshot temporary file is a symlink")
+            try:
+                temporary.write_text(json.dumps(payload, separators=(",", ":"), allow_nan=False), encoding="utf-8")
+                temporary.replace(self.snapshot_path)
+            finally:
+                temporary.unlink(missing_ok=True)
 
 
 class TelemetryManager:
@@ -359,6 +375,7 @@ class TelemetryManager:
                         clean[field_name] = None
         with self.lock:
             state = self.sources[source]
+            gap_increment = 0
             if sequence is not None:
                 clean["sequence"] = sequence
                 rebooted = (uptime is not None and state.last_uptime_ms is not None and
@@ -372,13 +389,17 @@ class TelemetryManager:
                         return False
                     gap = (sequence - state.last_sequence) & 0xFFFFFFFF
                     if gap > 1:
-                        state.missing_packets += gap - 1
+                        gap_increment = gap - 1
+            clean["source"] = source
+            clean["received_utc"] = utc_now()
+            if self.writer:
+                self.writer.append(source, clean)
+            state.missing_packets += gap_increment
+            if sequence is not None:
                 state.last_sequence = sequence
             if uptime is not None:
                 clean["uptime_ms"] = uptime
                 state.last_uptime_ms = uptime
-            clean["source"] = source
-            clean["received_utc"] = utc_now()
             state.latest = clean
             state.received_monotonic = now
             state.received += 1
@@ -414,7 +435,6 @@ class TelemetryManager:
             if len(self.history) > 1200:
                 del self.history[:200]
             if self.writer:
-                self.writer.append(source, clean)
                 self.writer.save_snapshot(self._snapshot_locked(now))
             return True
 

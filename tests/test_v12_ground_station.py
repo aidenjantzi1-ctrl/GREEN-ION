@@ -706,6 +706,40 @@ class GroundStationManagerTests(unittest.TestCase):
                                                       "sd_total_bytes": 10 ** 1000}))
         self.assertIsNone(self.manager.snapshot()["sd_total_bytes"])
 
+    def test_failed_session_append_does_not_accept_packet_or_advance_sequence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            writer = SessionWriter(Path(directory), "durability")
+            manager = TelemetryManager(writer=writer, clock=self.clock)
+            self.assertTrue(manager.ingest("radio", {"sequence": 1, "uptime_ms": 100}))
+            with patch.object(writer, "append", side_effect=OSError("disk full")):
+                with self.assertRaisesRegex(OSError, "disk full"):
+                    manager.ingest("radio", {"sequence": 2, "uptime_ms": 200})
+            self.assertEqual(1, manager.snapshot()["sources"]["radio"]["received"])
+            self.assertTrue(manager.ingest("radio", {"sequence": 2, "uptime_ms": 200}))
+            self.assertEqual(2, manager.snapshot()["sources"]["radio"]["received"])
+            self.assertEqual(2, len(writer.raw_path.read_bytes().splitlines()))
+
+    def test_session_writer_separates_torn_jsonl_before_next_event(self):
+        with tempfile.TemporaryDirectory() as directory:
+            writer = SessionWriter(Path(directory), "torn")
+            writer.raw_path.write_bytes(b'{"source":"radio"')
+            writer.append("radio", {"sequence": 7})
+            lines = writer.raw_path.read_bytes().splitlines()
+            self.assertEqual(b'{"source":"radio"', lines[0])
+            self.assertEqual(7, json.loads(lines[1])["data"]["sequence"])
+
+    @unittest.skipIf(os.name == "nt", "symlink creation may require Windows developer mode")
+    def test_session_writer_rejects_symlinked_raw_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            outside = root / "outside.jsonl"
+            outside.write_bytes(b"original\n")
+            writer = SessionWriter(root, "linked")
+            writer.raw_path.symlink_to(outside)
+            with self.assertRaisesRegex(OSError, "symlink"):
+                writer.append("radio", {"sequence": 1})
+            self.assertEqual(b"original\n", outside.read_bytes())
+
     def test_sequence_gap_and_rollover_are_counted_correctly(self):
         self.manager.ingest("radio", self.row(1))
         self.manager.ingest("radio", self.row(4))
