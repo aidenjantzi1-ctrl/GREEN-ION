@@ -136,15 +136,19 @@ def feather_download_bytes(response) -> int:
     return sizes[0]
 
 
-def feather_json_object(data: bytes) -> dict:
-    """Keep malformed Feather API JSON out of hardware-evidence checks."""
+def strict_json_object(data: bytes | str, source: str) -> dict:
+    """Keep malformed device JSON out of hardware-evidence checks."""
     def reject_nonfinite(value: str):
-        raise ValueError(f"Feather response contains nonfinite {value}")
+        raise ValueError(f"{source} contains nonfinite {value}")
 
     payload = json.loads(data, parse_constant=reject_nonfinite)
     if not isinstance(payload, dict):
-        raise ValueError("Feather response was not a JSON object")
+        raise ValueError(f"{source} was not a JSON object")
     return payload
+
+
+def feather_json_object(data: bytes) -> dict:
+    return strict_json_object(data, "Feather response")
 
 
 def feather_post(path: str, timeout: float = 4.0, base_url: str | None = None) -> tuple[int, dict]:
@@ -1403,19 +1407,19 @@ def serial_source() -> None:
                     with CONFIG_LOCK:
                         if CONFIG["serial_port"] != requested:
                             break
-                    line = connection.readline().decode("utf-8", errors="replace").strip()
+                    line = connection.readline(4096).decode("utf-8", errors="replace").strip()
                     if not line:
                         continue
                     try:
-                        row = json.loads(line)
-                    except json.JSONDecodeError:
-                        MANAGER.note_parse_error("radio", "Uno sent a non-JSON line")
+                        row = strict_json_object(line, "Uno line")
+                    except ValueError as error:
+                        MANAGER.note_parse_error("radio", str(error))
                         continue
                     kind = row.get("type")
                     if kind == "telemetry":
                         try:
                             MANAGER.ingest("radio", row)
-                        except ValueError as error:
+                        except (ValueError, TypeError) as error:
                             MANAGER.note_parse_error("radio", str(error))
                     elif kind == "receiver_status":
                         try:

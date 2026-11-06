@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -82,6 +83,11 @@ class FileResponseTests(unittest.TestCase):
         for payload in (b"[]", b"null", b'{"battery_v":NaN}', b'{"battery_v":Infinity}'):
             with self.subTest(payload=payload), self.assertRaises(ValueError):
                 ground_station.feather_json_object(payload)
+        self.assertEqual({"type": "receiver_status", "ok": False},
+                         ground_station.strict_json_object('{"type":"receiver_status","ok":false}', "Uno line"))
+        for payload in ("[]", '{"rssi_dbm":NaN}', "null"):
+            with self.subTest(payload=payload), self.assertRaises(ValueError):
+                ground_station.strict_json_object(payload, "Uno line")
 
     def test_aborted_backup_download_removes_temporary_zip(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -143,6 +149,42 @@ class FileResponseTests(unittest.TestCase):
                 ground_station.Handler.do_GET(existing)
                 self.assertEqual(path.read_bytes(), existing.wfile.getvalue())
                 self.assertEqual(str(path.stat().st_size), existing.headers["Content-Length"])
+
+    def test_serial_worker_survives_nonobject_line_and_reads_next_status(self):
+        class Stop:
+            count = 0
+
+            def is_set(self):
+                self.count += 1
+                return self.count > 4
+
+            def wait(self, _seconds):
+                pass
+
+        class Connection:
+            lines = iter((b"[]\n", b'{"type":"receiver_status","ok":true}\n'))
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def readline(self, size):
+                self.assert_size = size
+                return next(self.lines, b"\n")
+
+        connection = Connection()
+        serial = SimpleNamespace(Serial=lambda *_args, **_kwargs: connection, SerialException=OSError)
+        with patch.dict(sys.modules, {"serial": serial}), \
+                patch.object(ground_station, "STOP", Stop()), \
+                patch.object(ground_station, "choose_port", return_value="COM1"), \
+                patch.object(ground_station.MANAGER, "note_receiver_status") as status, \
+                patch.object(ground_station.MANAGER, "note_parse_error") as parse_error:
+            ground_station.serial_source()
+        self.assertEqual(4096, connection.assert_size)
+        self.assertEqual("radio", parse_error.call_args.args[0])
+        status.assert_called_once_with({"type": "receiver_status", "ok": True})
 
     @unittest.skipIf(os.name == "nt", "symlink creation may require Windows developer mode")
     def test_diagnostics_history_symlink_is_not_read_written_or_exported(self):

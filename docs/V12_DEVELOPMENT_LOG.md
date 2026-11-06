@@ -1131,3 +1131,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Feather status, file-list, capacity, POST and Wi-Fi polling responses now require JSON objects without NaN/Infinity. RUNNING Preflight actions must have object-valued SD/capacity/sensor entries before refresh.
 - Verification: 195 Python tests passed. Physical Feather responses remain NOT TESTED.
+
+### Post-Phase 8 Uno serial boundary (2026-11-06)
+
+- Uno serial reads are capped at 4 KiB and non-object/nonfinite JSON lines become parse errors, letting subsequent valid status and telemetry continue.
+- Verification: 196 Python tests passed, including a fake serial feed with malformed then valid status lines. Physical Uno/RFM95W remains NOT TESTED.
