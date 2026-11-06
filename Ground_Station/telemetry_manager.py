@@ -8,6 +8,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import threading
 import time
 import uuid
@@ -304,6 +305,82 @@ class TelemetryManager:
         self.history: list[dict] = []
         self.lock = threading.RLock()
         self.started_utc = utc_now()
+        if self.writer:
+            self._restore_last_position()
+
+    def _restore_last_position(self) -> None:
+        """Recover a saved fix as stale context, never as a live source packet."""
+        path = self.writer.snapshot_path
+        try:
+            if path.is_symlink():
+                return
+            with path.open("rb") as handle:
+                data = handle.read(1024 * 1024 + 1)
+            if len(data) > 1024 * 1024:
+                return
+            stored = json.loads(data)
+            if not isinstance(stored, dict) or not isinstance(stored.get("snapshot"), dict):
+                return
+            session_id = stored.get("session_id")
+            if not isinstance(session_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", session_id):
+                return
+            raw = self.writer.directory / f"session-{session_id}.jsonl"
+            if raw.is_symlink() or not raw.is_file():
+                return
+            saved = stored["snapshot"]
+            position = saved.get("last_position")
+            source = saved.get("last_position_source")
+            received_utc = saved.get("last_position_utc")
+            if (not isinstance(position, list) or len(position) != 2 or
+                    not valid_coordinate(*position) or source not in ("wifi", "radio", "simulation") or
+                    not isinstance(received_utc, str)):
+                return
+            recorded = None
+            with raw.open("rb") as handle:
+                while line := handle.readline(65537):
+                    if len(line) > 65536 or not line.endswith(b"\n"):
+                        while line and not line.endswith(b"\n"):
+                            line = handle.readline(65537)
+                        continue
+                    try:
+                        event = json.loads(line)
+                    except (UnicodeError, ValueError):
+                        continue
+                    if not isinstance(event, dict) or not isinstance(event.get("data"), dict):
+                        continue
+                    row = event["data"]
+                    fix_age = row.get("gps_fix_age_ms")
+                    if (event.get("source") in ("wifi", "radio", "simulation") and
+                            row.get("gps_status") == "live" and
+                            type(fix_age) in (int, float) and abs(fix_age) <= 3000 and
+                            math.isfinite(fix_age) and fix_age >= 0 and
+                            valid_coordinate(row.get("latitude"), row.get("longitude")) and
+                            isinstance(row.get("received_utc"), str)):
+                        recorded = (event["source"], row)
+            if (recorded is None or recorded[0] != source or
+                    recorded[1]["received_utc"] != received_utc or
+                    [recorded[1]["latitude"], recorded[1]["longitude"]] != position):
+                return
+            received = datetime.fromisoformat(received_utc)
+            if received.tzinfo is None:
+                return
+            age_s = (datetime.now(timezone.utc) - received).total_seconds()
+            if age_s < -5:
+                return
+            def optional_count(value, maximum):
+                return value if type(value) is int and 0 <= value <= maximum else None
+
+            row = recorded[1]
+            self.last_position = {
+                "latitude": float(position[0]), "longitude": float(position[1]),
+                "received_monotonic": self.clock() - max(0.0, age_s),
+                "received_utc": received_utc, "source": source,
+                "flight_state": optional_count(row.get("flight_state"), 7),
+                "fix_quality": optional_count(row.get("gps_fix_quality"), 255),
+                "satellites": optional_count(row.get("satellites"), 255),
+            }
+        except (OSError, ValueError, TypeError, OverflowError, json.JSONDecodeError):
+            return
 
     def note_connection(self, source: str, error: str | None) -> None:
         with self.lock:

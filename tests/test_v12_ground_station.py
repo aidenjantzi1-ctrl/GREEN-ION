@@ -740,6 +740,61 @@ class GroundStationManagerTests(unittest.TestCase):
                 writer.append("radio", {"sequence": 1})
             self.assertEqual(b"original\n", outside.read_bytes())
 
+    def test_restart_restores_last_fix_without_claiming_live_telemetry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            old_writer = SessionWriter(root, "previous")
+            old_manager = TelemetryManager(old_writer, clock=self.clock)
+            old_manager.ingest("wifi", {"sequence": 1, "uptime_ms": 100,
+                                         "gps_status": "live", "gps_fix_age_ms": 100,
+                                         "latitude": 37.1, "longitude": -121.9,
+                                         "gps_fix_quality": 1, "satellites": 7})
+            restarted = TelemetryManager(SessionWriter(root, "new"), clock=self.clock)
+            snapshot = restarted.snapshot()
+            self.assertEqual([37.1, -121.9], snapshot["last_position"])
+            self.assertEqual("wifi", snapshot["last_position_source"])
+            self.assertEqual("missing", snapshot["link_status"])
+            self.assertIsNone(snapshot["active_source"])
+            self.assertGreaterEqual(snapshot["last_position_age_ms"], 0)
+            saved = json.loads(old_writer.snapshot_path.read_text())
+            saved["snapshot"]["last_position"] = [38.0, -121.9]
+            old_writer.snapshot_path.write_text(json.dumps(saved))
+            tampered = TelemetryManager(SessionWriter(root, "after-tamper"), clock=self.clock)
+            self.assertIsNone(tampered.snapshot()["last_position"])
+
+    def test_corrupt_restart_snapshot_is_ignored_without_touching_raw_session(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            writer = SessionWriter(root, "previous")
+            writer.append("radio", {"sequence": 1})
+            writer.snapshot_path.write_text('{"session_id":"previous","snapshot":{"last_position":[]}}')
+            original = writer.raw_path.read_bytes()
+            restarted = TelemetryManager(SessionWriter(root, "new"), clock=self.clock)
+            self.assertIsNone(restarted.snapshot()["last_position"])
+            self.assertEqual(original, writer.raw_path.read_bytes())
+
+    def test_failed_restart_snapshot_write_keeps_previous_snapshot_and_raw_log(self):
+        with tempfile.TemporaryDirectory() as directory:
+            writer = SessionWriter(Path(directory), "snapshot")
+            writer.append("wifi", {"sequence": 1})
+            writer.save_snapshot({"last_position": None})
+            prior_snapshot = writer.snapshot_path.read_bytes()
+            prior_raw = writer.raw_path.read_bytes()
+            original_write = Path.write_text
+
+            def fail_after_partial_write(target, content, *args, **kwargs):
+                if target.suffix == ".tmp":
+                    original_write(target, content[:8], *args, **kwargs)
+                    raise OSError("disk full")
+                return original_write(target, content, *args, **kwargs)
+
+            with patch.object(Path, "write_text", side_effect=fail_after_partial_write, autospec=True):
+                with self.assertRaisesRegex(OSError, "disk full"):
+                    writer.save_snapshot({"last_position": [1, 2]})
+            self.assertEqual(prior_snapshot, writer.snapshot_path.read_bytes())
+            self.assertEqual(prior_raw, writer.raw_path.read_bytes())
+            self.assertFalse(writer.snapshot_path.with_suffix(".tmp").exists())
+
     def test_sequence_gap_and_rollover_are_counted_correctly(self):
         self.manager.ingest("radio", self.row(1))
         self.manager.ingest("radio", self.row(4))

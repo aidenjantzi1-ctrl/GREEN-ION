@@ -19,7 +19,7 @@ All phases have cloud-verifiable software paths. Phase 6 Feather SD deletion is 
 
 ## Verification at this checkpoint
 
-- Python: `python3 -m unittest discover -s tests -q` — **200 passed** on Python 3.12 after laptop JSONL durability follow-up.
+- Python: `python3 -m unittest discover -s tests -q` — **203 passed** on Python 3.12 after restart GPS context follow-up.
 - Native recorder/protocol: all **17** `tests/cpp/test_v12_*.cpp` programs compiled with `g++ -std=c++17 -Wall -Wextra -Werror` and executed successfully in this run, including RKT4, sensor log, calibration, watcher, landing, recovery, radio and coordinated failure paths.
 - JavaScript: `node tests/js/test_rkt4.mjs` passed; extracted Ground Station script passed `node --check`.
 - Chromium: `tests/browser/recovery_smoke.py` passed at 390 pixels for Recovery, Analysis, satellite request/failure fallback, recorder bench flow, backup and Trash; `tests/browser/companion_smoke.py` passed over local HTTPS for pairing gate, protected API, cross-origin denial, mobile layout and logout. These are fixture/synthetic checks, not real rocket or iPhone tests.

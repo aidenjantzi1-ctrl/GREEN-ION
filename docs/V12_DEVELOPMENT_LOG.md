@@ -1146,3 +1146,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Append an accepted telemetry packet before updating live sequence/gap state. If local logging fails, the packet can be retried. A later append separates a torn prior line, snapshot temp files are cleaned after failure, and symlinked session files are refused.
 - Verification: 200 Python tests passed, including simulated disk failure and retry. Onboard SD firmware and physical disk behavior remain NOT TESTED.
+
+### Post-Phase 8 restart GPS context (2026-11-06)
+
+- Restore a bounded saved last GPS position only when it matches the last valid GPS event in the prior raw JSONL session, calculating its age from UTC and keeping Wi-Fi/LoRa link state missing until new packets arrive. Corrupt, oversized or tampered snapshots are ignored; simulated snapshot write failure leaves the older snapshot and raw JSONL intact.
+- Verification: 203 Python tests and 390-pixel Recovery Chromium smoke passed. Physical Windows restart and GPS remain NOT TESTED.
