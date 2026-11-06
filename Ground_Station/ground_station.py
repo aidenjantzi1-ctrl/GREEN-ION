@@ -88,16 +88,21 @@ def bytes_response(handler: SimpleHTTPRequestHandler, body: bytes, content_type:
 
 def file_response(handler: SimpleHTTPRequestHandler, path: Path, content_type: str,
                   filename: str) -> None:
-    """Serve a verified original with bounded memory use."""
-    handler.send_response(200)
-    handler.send_header("Content-Type", content_type)
-    handler.send_header("Cache-Control", "no-store")
-    handler.send_header("Content-Disposition", f'attachment; filename="{filename}"')
-    handler.send_header("Content-Length", str(path.stat().st_size))
-    handler.end_headers()
+    """Serve the file length observed at open, even if a live session grows."""
     with path.open("rb") as source:
-        while chunk := source.read(65536):
+        remaining = os.fstat(source.fileno()).st_size
+        handler.send_response(200)
+        handler.send_header("Content-Type", content_type)
+        handler.send_header("Cache-Control", "no-store")
+        handler.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        handler.send_header("Content-Length", str(remaining))
+        handler.end_headers()
+        while remaining:
+            chunk = source.read(min(65536, remaining))
+            if not chunk:
+                break
             handler.wfile.write(chunk)
+            remaining -= len(chunk)
 
 
 def stream_response(handler: SimpleHTTPRequestHandler, chunks, content_type: str,
@@ -979,14 +984,7 @@ class Handler(SimpleHTTPRequestHandler):
                 except SessionImportError as error:
                     json_response(self, {"error": str(error)}, 409)
                     return
-            self.send_response(200)
-            self.send_header("Content-Type", "application/x-ndjson")
-            self.send_header("Content-Disposition", f'attachment; filename="{name}"')
-            self.send_header("Content-Length", str(candidate.stat().st_size))
-            self.end_headers()
-            with candidate.open("rb") as handle:
-                while chunk := handle.read(65536):
-                    self.wfile.write(chunk)
+            file_response(self, candidate, "application/x-ndjson", name)
             return
         if path in ("/", "/index.html"):
             super().do_GET()

@@ -7,12 +7,14 @@ import struct
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "Ground_Station"))
 
 from flight_library import FlightLibrary
+import library_backup
 from library_backup import BackupError, create_backup, restore_backup
 from session_library import SessionLibrary
 from telemetry_manager import SessionWriter
@@ -188,6 +190,26 @@ class LibraryBackupTests(unittest.TestCase):
         raw.symlink_to(outside, target_is_directory=True)
         with self.assertRaisesRegex(BackupError, "unsafe library file"):
             create_backup(self.source, self.archive)
+
+    def test_backup_rejects_session_append_during_archive_creation(self):
+        active = self.source / "session-live-test.jsonl"
+        original_digest = library_backup.file_digest
+        changed = False
+
+        def digest_with_concurrent_append(path):
+            nonlocal changed
+            result = original_digest(path)
+            if path == active and not changed:
+                changed = True
+                with active.open("ab") as output:
+                    output.write(session_bytes())
+            return result
+
+        with patch.object(library_backup, "file_digest", side_effect=digest_with_concurrent_append):
+            with self.assertRaisesRegex(BackupError, "changed during backup"):
+                create_backup(self.source, self.archive)
+        self.assertTrue(changed)
+        self.assertTrue(active.read_bytes().endswith(session_bytes()))
 
 
 if __name__ == "__main__":

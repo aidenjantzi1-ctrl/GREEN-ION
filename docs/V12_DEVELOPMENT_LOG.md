@@ -1066,3 +1066,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Reject preexisting symlinked parent folders during backup and restore. A crafted ZIP with updated manifest checksums but invalid flight metadata fails staging validation before any file is published.
 - Verification: 177 Python tests passed, including ZIP semantic tamper, backup symlink and restore symlink regressions. Physical Windows backup and restore remain NOT TESTED.
+
+### Post-Phase 8 concurrent session transfer (2026-11-05)
+
+- Confirmed backup rejects an active JSONL append detected during ZIP creation. Changed file downloads to send at most the size observed at file open, so an append during an active-session download cannot exceed Content-Length.
+- Verification: 179 Python tests and authenticated HTTPS Companion Chromium smoke passed, including simulated append during backup and download plus fixture BIN/CSV/JSON transfers. No physical laptop telemetry was used.

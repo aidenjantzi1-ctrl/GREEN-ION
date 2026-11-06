@@ -26,6 +26,45 @@ class Clock:
         self.value += seconds
 
 
+class FileResponseTests(unittest.TestCase):
+    def test_live_session_append_does_not_exceed_declared_download_length(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "session-live.jsonl"
+            original = b"a" * 65536 + b"\n"
+            path.write_bytes(original)
+
+            class Output:
+                def __init__(self):
+                    self.body = bytearray()
+
+                def write(self, chunk):
+                    self.body.extend(chunk)
+                    if len(self.body) == 65536:
+                        with path.open("ab") as output:
+                            output.write(b"new event\n")
+
+            class Handler:
+                def __init__(self):
+                    self.headers = {}
+                    self.wfile = Output()
+
+                def send_response(self, status):
+                    self.status = status
+
+                def send_header(self, name, value):
+                    self.headers[name] = value
+
+                def end_headers(self):
+                    pass
+
+            handler = Handler()
+            ground_station.file_response(handler, path, "application/x-ndjson", path.name)
+            self.assertEqual(200, handler.status)
+            self.assertEqual(str(len(original)), handler.headers["Content-Length"])
+            self.assertEqual(original, bytes(handler.wfile.body))
+            self.assertTrue(path.read_bytes().endswith(b"new event\n"))
+
+
 class RecorderPrepareTests(unittest.TestCase):
     def test_only_stationary_live_feather_status_can_restart_calibration(self):
         ready = {"active_source": "wifi", "sources": {"wifi": {"status": "live"}},
