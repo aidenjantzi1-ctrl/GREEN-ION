@@ -1086,3 +1086,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Analysis now streams attached SEN CSV from inspected valid-prefix records with bounded memory. The raw SEN and the `-valid-prefix.csv` marker for torn/corrupt logs are preserved.
 - Verification: 183 Python tests passed, including a 3,000-record torn-tail fixture and route filename check. No physical SEN recording was used.
+
+### Post-Phase 8 bounded GIS1 timeline analysis (2026-11-06)
+
+- Analysis now scans GIS1 valid-prefix records and keeps compact timestamp/index keys for nearest-sample matching, avoiding a full decoded-row list and duplicate sorted pairs. It checks the current raw inspection against metadata and retains IMU/GPS peaks, out-of-order timestamp matching and missing-sample behavior.
+- Verification: 185 Python tests and 390-pixel Recovery Chromium smoke passed. Actual paired BIN/SEN files remain NOT TESTED.

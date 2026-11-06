@@ -337,6 +337,39 @@ class FlightLibraryTests(unittest.TestCase):
         self.assertLess(max(map(len, chunks)), 70000)
         self.assertEqual(3001, len(b"".join(chunks).splitlines()))
         self.assertEqual(b"".join(chunks), self.library.sensor_csv_export(imported["id"]))
+        timeline = self.library.analysis_timeline(imported["id"])
+        self.assertEqual("torn_tail", timeline["sensor_status"])
+        self.assertIsNotNone(timeline["points"][1]["sensor"])
+
+    def test_timeline_chooses_nearest_sensor_even_when_sensor_timestamps_are_out_of_order(self):
+        raw = fixture()
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        example = sensor_fixture(raw)
+        rows = []
+        for sequence, timestamp in ((1, 50000), (2, 30000)):
+            record = bytearray(example[32:])
+            struct.pack_into("<I", record, 0, timestamp)
+            struct.pack_into("<I", record, 4, sequence)
+            struct.pack_into("<I", record, 64, zlib.crc32(record[:64]) & 0xFFFFFFFF)
+            rows.append(bytes(record))
+        self.library.import_sensor_stream(imported["id"], "V12D007.SEN",
+                                          io.BytesIO(example[:32] + b"".join(rows)))
+        timeline = self.library.analysis_timeline(imported["id"])
+        self.assertEqual(-10.0, timeline["points"][1]["sensor"]["time_delta_ms"])
+
+    def test_timeline_rejects_plausible_but_wrong_sensor_inspection(self):
+        raw = fixture()
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        self.library.import_sensor_stream(imported["id"], "V12D007.SEN",
+                                          io.BytesIO(sensor_fixture(raw)))
+        metadata_path = self.library.meta / f"{imported['id']}.json"
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        metadata["sensor"]["inspection"]["sequence_gaps"] = 1
+        metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+        with self.assertRaisesRegex(FlightImportError, "sensor inspection"):
+            self.library.analysis_timeline(imported["id"])
+        self.assertEqual(sensor_fixture(raw),
+                         (self.library.raw / f"{metadata['sensor']['sha256']}.sen").read_bytes())
 
     def test_empty_or_invalid_flight_does_not_claim_a_peak_speed(self):
         imported = self.library.import_stream("V12D007.BIN", io.BytesIO(fixture()[:32]))

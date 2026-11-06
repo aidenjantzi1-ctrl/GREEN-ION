@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import struct
 import sys
+from typing import Callable
 import zlib
 
 HEADER_BYTES = 32
@@ -89,7 +90,7 @@ def decode_header(data: bytes, expected_sequence: int | None = None) -> Header:
     )
 
 
-def _decode_record(data: bytes) -> dict:
+def decode_record(data: bytes) -> dict:
     if len(data) != RECORD_BYTES:
         raise SensorLogError("short_record")
     if struct.unpack_from("<I", data, 64)[0] != _crc32(data[:64]):
@@ -158,7 +159,7 @@ def parse_sensor_log(
     for index in range(complete_records):
         start = HEADER_BYTES + index * RECORD_BYTES
         try:
-            record = _decode_record(data[start : start + RECORD_BYTES])
+            record = decode_record(data[start : start + RECORD_BYTES])
         except SensorLogError as error:
             invalid_index = index
             invalid_reason = str(error)
@@ -190,7 +191,32 @@ def iter_valid_prefix_records(path: Path, expected_sequence: int, count: int):
             raw = handle.read(RECORD_BYTES)
             if len(raw) != RECORD_BYTES:
                 raise SensorLogError("sensor log became shorter than its inspected valid prefix")
-            yield _decode_record(raw)
+            yield decode_record(raw)
+
+
+def inspect_sensor_file(path: Path, expected_sequence: int,
+                        on_valid: Callable[[int, dict], None]) -> tuple[Header, Inspection]:
+    """Inspect a GIS1 file without retaining decoded rows."""
+    size = path.stat().st_size
+    with path.open("rb") as handle:
+        header = decode_header(handle.read(HEADER_BYTES), expected_sequence)
+        complete_records, trailing_bytes = divmod(size - HEADER_BYTES, RECORD_BYTES)
+        valid_prefix = sequence_gaps = 0
+        previous_sequence = invalid_index = invalid_reason = None
+        for index in range(complete_records):
+            try:
+                record = decode_record(handle.read(RECORD_BYTES))
+            except SensorLogError as error:
+                invalid_index, invalid_reason = index, str(error)
+                break
+            if previous_sequence is not None and record["sequence"] != ((previous_sequence + 1) & UINT32_MAX):
+                sequence_gaps += 1
+            previous_sequence = record["sequence"]
+            valid_prefix += 1
+            on_valid(index, record)
+    status = "corrupt" if invalid_index is not None else ("torn_tail" if trailing_bytes else "valid")
+    return header, Inspection(status, size, complete_records, valid_prefix, trailing_bytes,
+                              invalid_index, invalid_reason, sequence_gaps)
 
 
 def validate_rkt4_binding(header: Header, rkt4_data: bytes) -> bool:

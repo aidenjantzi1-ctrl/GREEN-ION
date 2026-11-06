@@ -20,8 +20,8 @@ import threading
 import uuid
 from typing import BinaryIO
 
-from sensor_log import (SensorLogError, csv_row, iter_valid_prefix_records, parse_sensor_log,
-                        validate_rkt4_binding, CSV_FIELDS)
+from sensor_log import (SensorLogError, csv_row, decode_record, inspect_sensor_file,
+                        iter_valid_prefix_records, parse_sensor_log, validate_rkt4_binding, CSV_FIELDS)
 
 HEADER_BYTES = 32
 RECORD_BYTES = 16
@@ -93,13 +93,20 @@ def _valid_metadata(item: object, identifier: str) -> bool:
                 sensor.get("raw_file") != f"{sensor['sha256']}.sen" or
                 not isinstance(sensor.get("original_name"), str) or
                 not isinstance(inspection, dict) or not isinstance(header, dict) or
-                not isinstance(inspection.get("status"), str) or
+                inspection.get("status") not in ("valid", "torn_tail", "corrupt") or
                 not isinstance(inspection.get("first_invalid_reason"), (str, type(None)))):
             return False
-        for field in ("valid_prefix_records", "sequence_gaps", "trailing_bytes"):
+        for field in ("complete_records", "valid_prefix_records", "sequence_gaps", "trailing_bytes"):
             if type(inspection.get(field)) is not int or inspection[field] < 0:
                 return False
-        if type(header.get("flight_sequence")) is not int:
+        if (type(sensor.get("bytes")) is not int or sensor["bytes"] < 32 or
+                sensor["bytes"] > MAX_SENSOR_BYTES or
+                (inspection["complete_records"], inspection["trailing_bytes"]) !=
+                divmod(sensor["bytes"] - 32, 68) or
+                inspection["valid_prefix_records"] > inspection["complete_records"] or
+                type(header.get("flight_sequence")) is not int or
+                not 0 <= header["flight_sequence"] <= 999 or
+                header.get("sample_rate_hz") != summary["sample_rate_hz"]):
             return False
     try:
         json.dumps(item, allow_nan=False)
@@ -527,6 +534,8 @@ class FlightLibrary:
             raise FlightImportError("raw sensor file is unavailable")
         if file_sha256(path) != sensor["sha256"]:
             raise FlightImportError("raw sensor checksum no longer matches import metadata")
+        if path.stat().st_size != sensor["bytes"]:
+            raise FlightImportError("stored sensor summary size no longer matches its raw recording")
         return sensor, path
 
     def sensor_csv_export(self, identifier: str) -> bytes:
@@ -601,18 +610,10 @@ class FlightLibrary:
         last_current_gps_fix = None
         if metadata.get("sensor"):
             sensor, sensor_path = self.get_sensor(identifier)
-            header, rows, inspection = parse_sensor_log(sensor_path.read_bytes(),
-                                                        sensor["header"]["flight_sequence"])
-            with raw.open("rb") as handle:
-                if not validate_rkt4_binding(header, handle.read(HEADER_BYTES)):
-                    raise FlightImportError("stored sensor companion no longer matches this RKT4 flight")
-            sensor_status = inspection.status
-            sensor_gaps = inspection.sequence_gaps
-            pairs = sorted(((((row["timestamp_us"] - first_us) & 0xFFFFFFFF), row) for row in rows),
-                           key=lambda pair: pair[0]) if first_us is not None else []
-            stamps = [pair[0] for pair in pairs]
-            tolerance_us = round(500_000 / header.sample_rate_hz)
-            for row in rows:
+            stamps = []
+
+            def accept_sensor(row_index, row):
+                nonlocal peak_acceleration_g, peak_gps_altitude_m, last_current_gps_fix
                 if row["imu_valid"]:
                     magnitude = math.sqrt(sum(axis * axis for axis in row["acceleration"])) / 9.80665
                     peak_acceleration_g = max(peak_acceleration_g or 0.0, magnitude)
@@ -620,28 +621,49 @@ class FlightLibrary:
                     last_current_gps_fix = [row["latitude_e7"] / 1e7, row["longitude_e7"] / 1e7]
                     if row["gps_altitude_m"] is not None and math.isfinite(row["gps_altitude_m"]):
                         peak_gps_altitude_m = max(peak_gps_altitude_m if peak_gps_altitude_m is not None else row["gps_altitude_m"], row["gps_altitude_m"])
-            for point in points:
-                target = round(point["elapsed_s"] * 1_000_000)
-                index = bisect_left(stamps, target)
-                nearby = [pairs[i] for i in (index - 1, index) if 0 <= i < len(pairs)]
-                if not nearby:
-                    point["sensor"] = None
-                    continue
-                stamp, row = min(nearby, key=lambda pair: abs(pair[0] - target))
-                if abs(stamp - target) > tolerance_us:
-                    point["sensor"] = None
-                    continue
-                point["sensor"] = {
-                    "time_delta_ms": round((stamp - target) / 1000, 2),
-                    "imu_valid": row["imu_valid"],
-                    "acceleration_mps2": list(row["acceleration"]) if row["imu_valid"] else None,
-                    "gyro_rad_s": list(row["gyro"]) if row["imu_valid"] else None,
-                    "gps_status": "live" if row["gps_current"] else "stale" if row["gps_has_position"] else "missing",
-                    "latitude": row["latitude_e7"] / 1e7 if row["gps_has_position"] else None,
-                    "longitude": row["longitude_e7"] / 1e7 if row["gps_has_position"] else None,
-                    "gps_altitude_m": row["gps_altitude_m"] if row["gps_has_position"] else None,
-                    "gps_speed_mps": row["gps_speed_mps"] if row["gps_has_position"] else None,
-                }
+                if first_us is not None:
+                    stamp = (row["timestamp_us"] - first_us) & 0xFFFFFFFF
+                    stamps.append((stamp << 32) | row_index)
+
+            header, inspection = inspect_sensor_file(sensor_path, sensor["header"]["flight_sequence"],
+                                                     accept_sensor)
+            if any(sensor["inspection"].get(field) != getattr(inspection, field)
+                   for field in ("status", "complete_records", "valid_prefix_records", "trailing_bytes",
+                                 "first_invalid_record", "first_invalid_reason", "sequence_gaps")):
+                raise FlightImportError("stored sensor inspection no longer matches its raw recording")
+            with raw.open("rb") as handle:
+                if not validate_rkt4_binding(header, handle.read(HEADER_BYTES)):
+                    raise FlightImportError("stored sensor companion no longer matches this RKT4 flight")
+            sensor_status = inspection.status
+            sensor_gaps = inspection.sequence_gaps
+            tolerance_us = round(500_000 / header.sample_rate_hz)
+            stamps.sort()
+            with sensor_path.open("rb") as sensor_file:
+                for point in points:
+                    target = round(point["elapsed_s"] * 1_000_000)
+                    index = bisect_left(stamps, target << 32)
+                    nearby = [stamps[i] for i in (index - 1, index) if 0 <= i < len(stamps)]
+                    if not nearby:
+                        point["sensor"] = None
+                        continue
+                    selected = min(nearby, key=lambda key: abs((key >> 32) - target))
+                    stamp = selected >> 32
+                    if abs(stamp - target) > tolerance_us:
+                        point["sensor"] = None
+                        continue
+                    sensor_file.seek(32 + (selected & 0xFFFFFFFF) * 68)
+                    row = decode_record(sensor_file.read(68))
+                    point["sensor"] = {
+                        "time_delta_ms": round((stamp - target) / 1000, 2),
+                        "imu_valid": row["imu_valid"],
+                        "acceleration_mps2": list(row["acceleration"]) if row["imu_valid"] else None,
+                        "gyro_rad_s": list(row["gyro"]) if row["imu_valid"] else None,
+                        "gps_status": "live" if row["gps_current"] else "stale" if row["gps_has_position"] else "missing",
+                        "latitude": row["latitude_e7"] / 1e7 if row["gps_has_position"] else None,
+                        "longitude": row["longitude_e7"] / 1e7 if row["gps_has_position"] else None,
+                        "gps_altitude_m": row["gps_altitude_m"] if row["gps_has_position"] else None,
+                        "gps_speed_mps": row["gps_speed_mps"] if row["gps_has_position"] else None,
+                    }
         return {
             "flight_id": identifier, "analysis_version": 2, "source": "onboard_rkt4",
             "total_records": total, "displayed_records": len(points), "display_stride": stride,
