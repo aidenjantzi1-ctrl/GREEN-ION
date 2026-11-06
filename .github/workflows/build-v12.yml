@@ -95,6 +95,11 @@ jobs:
           /tmp/test-v12-sensor-health
           g++ -std=c++17 -Wall -Wextra -Werror \
             -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_gps_freshness.cpp \
+            -o /tmp/test-v12-gps-freshness
+          /tmp/test-v12-gps-freshness
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
             tests/cpp/test_v12_bench_tests.cpp \
             -o /tmp/test-v12-bench-tests
           /tmp/test-v12-bench-tests

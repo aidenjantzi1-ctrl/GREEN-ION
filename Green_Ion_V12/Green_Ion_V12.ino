@@ -35,6 +35,7 @@
 #include <GreenIonSensorLogCore.h>
 #include <GreenIonSensorRecovery.h>
 #include <GreenIonSensorHealth.h>
+#include <GreenIonGpsFreshness.h>
 #include <GreenIonBenchTests.h>
 #include <GreenIonAirplaneMode.h>
 
@@ -694,9 +695,15 @@ static void serviceGps(uint32_t nowMs) {
       state.lastGpsAltitudeMs = nowMs;
     }
   }
-  if (state.gpsFixCurrent) {
+  uint32_t parsedFixMs = 0;
+  if (state.gpsFixCurrent &&
+      green_ion::gpsFixTimestamp(nowMs, gps.secondsSinceFix(),
+                                 config::GPS_CURRENT_MAX_AGE_MS, &parsedFixMs) &&
+      isfinite(gps.latitudeDegrees) && isfinite(gps.longitudeDegrees) &&
+      fabsf(gps.latitudeDegrees) <= 90.0f &&
+      fabsf(gps.longitudeDegrees) <= 180.0f) {
     state.gpsHasPosition = true;
-    state.lastGpsFixMs = nowMs;
+    state.lastGpsFixMs = parsedFixMs;
     state.latitude = gps.latitudeDegrees;
     state.longitude = gps.longitudeDegrees;
     if (rmcSentence) {
