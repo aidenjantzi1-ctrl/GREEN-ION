@@ -1,4 +1,5 @@
 import json
+import os
 from io import BytesIO
 from pathlib import Path
 import re
@@ -136,6 +137,30 @@ class FileResponseTests(unittest.TestCase):
                 ground_station.Handler.do_GET(existing)
                 self.assertEqual(path.read_bytes(), existing.wfile.getvalue())
                 self.assertEqual(str(path.stat().st_size), existing.headers["Content-Length"])
+
+    @unittest.skipIf(os.name == "nt", "symlink creation may require Windows developer mode")
+    def test_diagnostics_history_symlink_is_not_read_written_or_exported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            outside = root / "outside.jsonl"
+            outside.write_bytes(b"private\n")
+            linked = root / "diagnostic-history.jsonl"
+            linked.symlink_to(outside)
+
+            class Request:
+                path = "/api/diagnostics/export"
+                server = None
+
+            with patch.object(ground_station, "DIAGNOSTIC_LOG", linked), \
+                    patch.object(ground_station, "json_response") as error, \
+                    patch.object(ground_station, "file_response") as download:
+                self.assertEqual([], ground_station.recent_diagnostics())
+                with self.assertRaisesRegex(OSError, "symlink"):
+                    ground_station.record_diagnostic_result({"test": "sd", "status": "PASS"})
+                ground_station.Handler.do_GET(Request())
+                self.assertEqual(409, error.call_args.args[2])
+                download.assert_not_called()
+            self.assertEqual(b"private\n", outside.read_bytes())
 
 
 class RecorderPrepareTests(unittest.TestCase):
@@ -375,6 +400,32 @@ class PreflightHistoryTests(unittest.TestCase):
                     patch.object(Path, "read_text", side_effect=removed_after_listing, autospec=True):
                 path.unlink()
                 self.assertEqual("NOT RUN", ground_station.refresh_preflight_run()["run_status"])
+
+    @unittest.skipIf(os.name == "nt", "symlink creation may require Windows developer mode")
+    def test_preflight_history_and_export_reject_symlink_and_oversize_files(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(ground_station, "PREFLIGHT_DIR", Path(directory)):
+            root = Path(directory)
+            outside = root / "outside.json"
+            outside.write_text('{"secret":"unrelated"}', encoding="utf-8")
+            linked_id = "a" * 32
+            linked = root / f"preflight-{linked_id}.json"
+            linked.symlink_to(outside)
+            large_id = "b" * 32
+            large = root / f"preflight-{large_id}.json"
+            large.write_bytes(b"x" * (ground_station.MAX_PREFLIGHT_REPORT_BYTES + 1))
+            self.assertEqual([], ground_station.preflight_runs())
+
+            class Request:
+                server = None
+
+            with patch.object(ground_station, "bytes_response") as download, \
+                    patch.object(ground_station, "json_response") as error:
+                for run_id in (linked_id, large_id):
+                    Request.path = f"/api/preflight/export?id={run_id}"
+                    ground_station.Handler.do_GET(Request())
+                    self.assertEqual(404, error.call_args.args[2])
+                    download.assert_not_called()
 
     def test_saved_report_is_exportable_and_incomplete_run_times_out(self):
         from datetime import datetime, timedelta, timezone

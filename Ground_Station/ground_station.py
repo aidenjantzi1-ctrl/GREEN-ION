@@ -46,6 +46,7 @@ FLIGHTS = FlightLibrary(DATA_DIR / "flights")
 SESSIONS = SessionLibrary(DATA_DIR)
 PREFLIGHT_DIR = DATA_DIR / "preflight"
 PREFLIGHT_LOCK = threading.Lock()
+MAX_PREFLIGHT_REPORT_BYTES = 1024 * 1024
 DIAGNOSTIC_LOG = DATA_DIR / "diagnostic-history.jsonl"
 DIAGNOSTIC_LOCK = threading.Lock()
 
@@ -651,6 +652,16 @@ def save_preflight_run(report: dict, run_id: str | None = None) -> dict:
     return report
 
 
+def read_preflight_file(path: Path) -> bytes:
+    if path.is_symlink():
+        raise ValueError("preflight report is a symlink")
+    with path.open("rb") as handle:
+        data = handle.read(MAX_PREFLIGHT_REPORT_BYTES + 1)
+    if len(data) > MAX_PREFLIGHT_REPORT_BYTES:
+        raise ValueError("preflight report exceeds the 1 MiB limit")
+    return data
+
+
 def preflight_runs(limit: int = 30) -> list[dict]:
     if not PREFLIGHT_DIR.is_dir():
         return []
@@ -664,7 +675,7 @@ def preflight_runs(limit: int = 30) -> list[dict]:
     reports = []
     for _mtime, path in sorted(paths, reverse=True):
         try:
-            report = json.loads(path.read_text(encoding="utf-8"))
+            report = json.loads(read_preflight_file(path))
             if (not isinstance(report, dict) or
                     not re.fullmatch(r"preflight-[0-9a-f]{32}\.json", path.name) or
                     report.get("run_id") != path.stem.removeprefix("preflight-") or
@@ -694,8 +705,8 @@ def refresh_preflight_run() -> dict:
     run_id = runs[0]["run_id"]
     path = PREFLIGHT_DIR / f"preflight-{run_id}.json"
     try:
-        report = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        report = json.loads(read_preflight_file(path))
+    except (OSError, ValueError, json.JSONDecodeError):
         return empty()
     if (not isinstance(report, dict) or report.get("run_id") != run_id or
             not isinstance(report.get("run_status"), str)):
@@ -856,13 +867,16 @@ def record_diagnostic_result(result: dict) -> None:
     for key in ("file", "sha256", "summary"):
         if key in result:
             entry[key] = result[key]
-    with DIAGNOSTIC_LOCK, DIAGNOSTIC_LOG.open("a", encoding="utf-8", newline="\n") as handle:
-        handle.write(json.dumps(entry, allow_nan=False, separators=(",", ":")) + "\n")
-        handle.flush()
+    with DIAGNOSTIC_LOCK:
+        if DIAGNOSTIC_LOG.is_symlink():
+            raise OSError("diagnostic history is a symlink")
+        with DIAGNOSTIC_LOG.open("a", encoding="utf-8", newline="\n") as handle:
+            handle.write(json.dumps(entry, allow_nan=False, separators=(",", ":")) + "\n")
+            handle.flush()
 
 
 def recent_diagnostics(limit: int = 50) -> list[dict]:
-    if not DIAGNOSTIC_LOG.is_file():
+    if DIAGNOSTIC_LOG.is_symlink() or not DIAGNOSTIC_LOG.is_file():
         return []
     with DIAGNOSTIC_LOCK, DIAGNOSTIC_LOG.open(encoding="utf-8") as handle:
         lines = deque(handle, maxlen=limit)
@@ -914,7 +928,9 @@ class Handler(SimpleHTTPRequestHandler):
             json_response(self, {"results": recent_diagnostics()})
             return
         if path == "/api/diagnostics/export":
-            if DIAGNOSTIC_LOG.is_file():
+            if DIAGNOSTIC_LOG.is_symlink():
+                json_response(self, {"error": "diagnostic history is a symlink"}, 409)
+            elif DIAGNOSTIC_LOG.is_file():
                 file_response(self, DIAGNOSTIC_LOG, "application/x-ndjson", "green-ion-diagnostics.jsonl")
             else:
                 bytes_response(self, b"", "application/x-ndjson", "green-ion-diagnostics.jsonl")
@@ -926,7 +942,11 @@ class Handler(SimpleHTTPRequestHandler):
                 if run_id != raw_id:
                     raise ValueError("noncanonical preflight ID")
                 path_on_disk = PREFLIGHT_DIR / f"preflight-{run_id}.json"
-                bytes_response(self, path_on_disk.read_bytes(), "application/json",
+                report_bytes = read_preflight_file(path_on_disk)
+                report = json.loads(report_bytes)
+                if not isinstance(report, dict) or report.get("run_id") != run_id:
+                    raise ValueError("preflight report identity mismatch")
+                bytes_response(self, report_bytes, "application/json",
                                f"preflight-{run_id}.json")
             except (ValueError, OSError):
                 json_response(self, {"error": "preflight report not found"}, 404)

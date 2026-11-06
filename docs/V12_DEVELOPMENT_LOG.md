@@ -1106,3 +1106,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Fetched the development branch at `7c6c6ba`. Preflight history checks canonical IDs, aware timestamps and RUNNING actions; refresh returns NOT RUN if its selected file disappears or changes to malformed content before reading.
 - Verification: 188 Python tests passed. Physical Preflight remains NOT TESTED.
+
+### Post-Phase 8 local history integrity (2026-11-06)
+
+- Preflight reads now cap reports at 1 MiB, reject symlinks, and verify export identity. Diagnostics history refuses symlinked files for append, list and export.
+- Verification: 190 Python tests passed, including oversized and symlink fixtures. No physical Windows files were used.
