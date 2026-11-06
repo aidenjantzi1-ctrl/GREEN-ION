@@ -1,6 +1,6 @@
 # GREEN ION V12 implementation progress
 
-Updated 2026-11-06 about 4:10 AM Pacific (post-Phase 8 GPS freshness). Development branch: `codex/green-ion-v12`. This run fetched GitHub and verified local and remote at `7c6c6ba` with a clean worktree, then pushed verified reliability changes through `095f98d`; the latest Recovery UI change and missing-evidence regression are recorded below. Earlier phase evidence remains below and in the phase audits.
+Updated 2026-11-06 4:10 AM Pacific (post-Phase 8 Recovery and GPS freshness). Development branch: `codex/green-ion-v12`. This run fetched GitHub and verified local and remote at `7c6c6ba` with a clean worktree, then pushed verified reliability changes through `1903a70`. Earlier phase evidence remains below and in the phase audits.
 
 ## Current phase
 
