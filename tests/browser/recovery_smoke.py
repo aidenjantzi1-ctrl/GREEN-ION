@@ -258,14 +258,17 @@ with sync_playwright() as p:
     page.evaluate("""async () => {
       const priorFetch=window.fetch, now=Date.now();
       const points=[
-        {source:'wifi',sequence:21,received_utc:new Date(now-2000).toISOString(),altitude_m:10,gps_status:'live',gps_fix_age_ms:100,latitude:37.1,longitude:-121.9},
-        {source:'radio',sequence:22,received_utc:new Date(now-1000).toISOString(),altitude_m:12,gps_status:'live',gps_fix_age_ms:200,latitude:37.11,longitude:-121.91},
-        {source:'simulation',sequence:23,received_utc:new Date(now).toISOString(),altitude_m:14,gps_status:'live',gps_fix_age_ms:100,latitude:38,longitude:-122}
+        {source:'wifi',sequence:21,received_utc:new Date(now-4000).toISOString(),altitude_m:10,gps_altitude_m:100,gps_altitude_valid:true,gps_status:'live',gps_fix_age_ms:100,latitude:37.1,longitude:-121.9},
+        {source:'radio',sequence:22,received_utc:new Date(now-3000).toISOString(),altitude_m:12,gps_altitude_m:110,gps_status:'live',gps_fix_age_ms:200,latitude:37.11,longitude:-121.91},
+        {source:'wifi',sequence:23,received_utc:new Date(now-2000).toISOString(),altitude_m:13,gps_altitude_m:999,gps_status:'live',gps_fix_age_ms:-1,latitude:39,longitude:-123},
+        {source:'wifi',sequence:24,received_utc:new Date(now-1000).toISOString(),altitude_m:13,gps_altitude_m:888,gps_altitude_valid:false,gps_status:'live',gps_fix_age_ms:100},
+        {source:'simulation',sequence:25,received_utc:new Date(now).toISOString(),altitude_m:14,gps_status:'live',gps_fix_age_ms:100,latitude:38,longitude:-122}
       ];
       window.fetch=(url,options)=>url==='/api/history'?Promise.resolve({ok:true,json:async()=>({points})}):priorFetch(url,options);
       try { await restoreRecentHistory(); } finally { window.fetch=priorFetch; }
     }""")
-    assert page.evaluate('history.slice(-3).map(p=>p.source)')==['wifi','radio','simulation']
+    assert page.evaluate('history.slice(-5).map(p=>p.source)')==['wifi','radio','wifi','wifi','simulation']
+    assert page.evaluate('history.slice(-3,-1).map(p=>p.gps_altitude_m)')==[None,None]
     assert 'SIMULATION — NOT HARDWARE' in page.locator('#graphLegend').inner_text()
     assert page.evaluate('track.at(-1)')==[37.11,-121.91]
     assert not errors,errors

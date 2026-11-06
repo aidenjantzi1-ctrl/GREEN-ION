@@ -515,7 +515,7 @@ class TelemetryManager:
             point = {
                 key: clean.get(key) for key in
                 ("received_utc", "source", "sequence", "uptime_ms", "flight_state", "altitude_m",
-                 "gps_altitude_m", "vertical_speed_mps", "acceleration_g",
+                 "gps_altitude_m", "gps_altitude_valid", "vertical_speed_mps", "acceleration_g",
                  "acceleration_x_g", "acceleration_y_g", "acceleration_z_g",
                  "rotation_x_dps", "rotation_y_dps", "rotation_z_dps",
                  "battery_v", "battery_sample_uptime_ms", "pressure_pa", "latitude", "longitude",

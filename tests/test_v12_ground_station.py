@@ -871,6 +871,7 @@ class GroundStationManagerTests(unittest.TestCase):
         row = {**self.row(7), "gps_status": "live", "gps_fix_age_ms": 0,
                "gps_fix_uptime_ms": 700,
                "latitude": 37.1, "longitude": -121.9, "gps_altitude_m": 125.0,
+               "gps_altitude_valid": False,
                "battery_v": 3.9, "pressure_pa": 101000,
                "acceleration_x_g": 0.1, "rotation_z_dps": 2.5,
                "flight_state": 3}
@@ -882,6 +883,7 @@ class GroundStationManagerTests(unittest.TestCase):
         self.assertEqual((37.1, -121.9, 0),
                          (point["latitude"], point["longitude"], point["gps_fix_age_ms"]))
         self.assertEqual(700, point["gps_fix_uptime_ms"])
+        self.assertIs(point["gps_altitude_valid"], False)
         self.assertEqual((0.1, 2.5), (point["acceleration_x_g"], point["rotation_z_dps"]))
         self.assertEqual(3, point["flight_state"])
 
