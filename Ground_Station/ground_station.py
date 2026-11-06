@@ -684,7 +684,9 @@ def preflight_runs(limit: int = 30) -> list[dict]:
                     not re.fullmatch(r"preflight-[0-9a-f]{32}\.json", path.name) or
                     report.get("run_id") != path.stem.removeprefix("preflight-") or
                     not isinstance(report.get("created_utc"), str) or
-                    not isinstance(report.get("run_status"), str)):
+                    not isinstance(report.get("run_status"), str) or
+                    not isinstance(report.get("checks"), list) or
+                    any(not isinstance(check, dict) for check in report["checks"])):
                 continue
             started = datetime.fromisoformat(report["created_utc"])
             if started.tzinfo is None or (report["run_status"] == "RUNNING" and
@@ -713,7 +715,9 @@ def refresh_preflight_run() -> dict:
     except (OSError, ValueError, json.JSONDecodeError):
         return empty()
     if (not isinstance(report, dict) or report.get("run_id") != run_id or
-            not isinstance(report.get("run_status"), str)):
+            not isinstance(report.get("run_status"), str) or
+            not isinstance(report.get("checks"), list) or
+            any(not isinstance(check, dict) for check in report["checks"])):
         return empty()
     try:
         started = datetime.fromisoformat(report["created_utc"])
@@ -902,6 +906,7 @@ def recent_diagnostics(limit: int = 50) -> list[dict]:
             except (UnicodeError, json.JSONDecodeError):
                 continue
             if isinstance(item, dict):
+                item["hardware_test_started"] = item.get("hardware_test_started") is True
                 results.append(item)
     return list(reversed(results))
 
@@ -959,7 +964,9 @@ class Handler(SimpleHTTPRequestHandler):
                 path_on_disk = PREFLIGHT_DIR / f"preflight-{run_id}.json"
                 report_bytes = read_preflight_file(path_on_disk)
                 report = json.loads(report_bytes)
-                if not isinstance(report, dict) or report.get("run_id") != run_id:
+                if (not isinstance(report, dict) or report.get("run_id") != run_id or
+                        not isinstance(report.get("checks"), list) or
+                        any(not isinstance(check, dict) for check in report["checks"])):
                     raise ValueError("preflight report identity mismatch")
                 bytes_response(self, report_bytes, "application/json",
                                f"preflight-{run_id}.json")

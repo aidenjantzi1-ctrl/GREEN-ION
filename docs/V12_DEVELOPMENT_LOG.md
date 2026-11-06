@@ -1121,3 +1121,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Failed Preflight saves remove partial `.tmp` files while retaining the prior report. Diagnostic appends separate a torn final JSONL line before writing the next result.
 - Verification: 193 Python tests passed, including simulated disk failure and torn-line recovery. No physical disk failure was tested.
+
+### Post-Phase 8 dashboard history shape validation (2026-11-06)
+
+- Preflight history, refresh and export reject reports whose `checks` cannot be rendered as a list of objects. Diagnostics history treats `hardware_test_started` as true only for JSON boolean true.
+- Verification: 194 Python tests passed. No physical hardware test was performed.

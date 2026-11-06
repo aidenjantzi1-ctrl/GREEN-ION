@@ -371,14 +371,16 @@ class PreflightHistoryTests(unittest.TestCase):
             valid = ground_station.save_preflight_run
             with patch.object(ground_station, "PREFLIGHT_DIR", preflight), \
                     patch.object(ground_station, "DIAGNOSTIC_LOG", root / "diagnostic-history.jsonl"):
-                saved = valid({"created_utc": "2026-11-06T00:00:00Z", "run_status": "COMPLETE"})
+                saved = valid({"created_utc": "2026-11-06T00:00:00Z", "run_status": "COMPLETE", "checks": []})
                 (preflight / "preflight-bad.json").write_text("[]", encoding="utf-8")
                 (preflight / "preflight-wrong.json").write_text(
                     json.dumps({"run_id": "other", "created_utc": "now", "run_status": "COMPLETE"}),
                     encoding="utf-8")
                 self.assertEqual([saved["run_id"]], [item["run_id"] for item in ground_station.preflight_runs(1)])
-                ground_station.DIAGNOSTIC_LOG.write_text('[]\n{"status":"PASS"}\nnot-json\n', encoding="utf-8")
-                self.assertEqual([{"status": "PASS"}], ground_station.recent_diagnostics())
+                ground_station.DIAGNOSTIC_LOG.write_text(
+                    '[]\n{"status":"PASS","hardware_test_started":"false"}\nnot-json\n', encoding="utf-8")
+                self.assertEqual([{"status": "PASS", "hardware_test_started": False}],
+                                 ground_station.recent_diagnostics())
 
     def test_diagnostics_history_skips_huge_and_torn_lines_without_hiding_valid_results(self):
         with tempfile.TemporaryDirectory() as directory, \
@@ -403,7 +405,7 @@ class PreflightHistoryTests(unittest.TestCase):
                 patch.object(ground_station, "PREFLIGHT_DIR", Path(directory)):
             run_id = "c" * 32
             prior = ground_station.save_preflight_run({"created_utc": "2026-11-06T00:00:00+00:00",
-                                                        "run_status": "COMPLETE"}, run_id)
+                                                        "run_status": "COMPLETE", "checks": []}, run_id)
             path = Path(directory) / f"preflight-{run_id}.json"
             original = path.read_bytes()
             original_write = Path.write_text
@@ -424,7 +426,7 @@ class PreflightHistoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, \
                 patch.object(ground_station, "PREFLIGHT_DIR", Path(directory)):
             saved = ground_station.save_preflight_run({
-                "created_utc": "2026-11-06T00:00:00+00:00", "run_status": "COMPLETE"})
+                "created_utc": "2026-11-06T00:00:00+00:00", "run_status": "COMPLETE", "checks": []})
             bad = ground_station.save_preflight_run({
                 "created_utc": "not-a-date", "run_status": "RUNNING", "actions": []})
             self.assertEqual(saved["run_id"], ground_station.preflight_runs(1)[0]["run_id"])
@@ -440,6 +442,25 @@ class PreflightHistoryTests(unittest.TestCase):
                     patch.object(Path, "read_text", side_effect=removed_after_listing, autospec=True):
                 path.unlink()
                 self.assertEqual("NOT RUN", ground_station.refresh_preflight_run()["run_status"])
+
+    def test_wrong_type_preflight_checks_cannot_reach_dashboard_or_export(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(ground_station, "PREFLIGHT_DIR", Path(directory)):
+            bad = ground_station.save_preflight_run({
+                "created_utc": "2026-11-06T00:00:00+00:00", "run_status": "COMPLETE",
+                "checks": "not a list"})
+            self.assertEqual([], ground_station.preflight_runs())
+            self.assertEqual("NOT RUN", ground_station.refresh_preflight_run()["run_status"])
+
+            class Request:
+                path = f"/api/preflight/export?id={bad['run_id']}"
+                server = None
+
+            with patch.object(ground_station, "bytes_response") as download, \
+                    patch.object(ground_station, "json_response") as error:
+                ground_station.Handler.do_GET(Request())
+                self.assertEqual(404, error.call_args.args[2])
+                download.assert_not_called()
 
     @unittest.skipIf(os.name == "nt", "symlink creation may require Windows developer mode")
     def test_preflight_history_and_export_reject_symlink_and_oversize_files(self):
@@ -476,7 +497,7 @@ class PreflightHistoryTests(unittest.TestCase):
             created = (datetime.now(timezone.utc) - timedelta(seconds=46)).isoformat()
             report = ground_station.save_preflight_run({
                 "created_utc": created, "run_status": "RUNNING", "overall": "WARNING",
-                "progress": "waiting", "actions": {"sensor_test": {"http_status": 202}}})
+                "progress": "waiting", "actions": {"sensor_test": {"http_status": 202}}, "checks": []})
             self.assertEqual(report["run_id"], ground_station.preflight_runs()[0]["run_id"])
             finished = ground_station.refresh_preflight_run()
             self.assertEqual("COMPLETE", finished["run_status"])
