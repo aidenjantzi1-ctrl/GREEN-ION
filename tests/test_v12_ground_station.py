@@ -380,6 +380,15 @@ class PreflightHistoryTests(unittest.TestCase):
                 ground_station.DIAGNOSTIC_LOG.write_text('[]\n{"status":"PASS"}\nnot-json\n', encoding="utf-8")
                 self.assertEqual([{"status": "PASS"}], ground_station.recent_diagnostics())
 
+    def test_diagnostics_history_skips_huge_and_torn_lines_without_hiding_valid_results(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(ground_station, "DIAGNOSTIC_LOG", Path(directory) / "history.jsonl"):
+            path = ground_station.DIAGNOSTIC_LOG
+            path.write_bytes(b'{"test":"older"}\n' + b"x" * 200000 + b"\n" +
+                             b'{"test":"newer"}\n' + b'{"test":"torn"}')
+            self.assertEqual(["newer", "older"],
+                             [entry["test"] for entry in ground_station.recent_diagnostics(2)])
+
     def test_preflight_refresh_ignores_bad_date_and_removed_report(self):
         with tempfile.TemporaryDirectory() as directory, \
                 patch.object(ground_station, "PREFLIGHT_DIR", Path(directory)):

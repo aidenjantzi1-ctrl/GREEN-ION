@@ -49,6 +49,7 @@ PREFLIGHT_LOCK = threading.Lock()
 MAX_PREFLIGHT_REPORT_BYTES = 1024 * 1024
 DIAGNOSTIC_LOG = DATA_DIR / "diagnostic-history.jsonl"
 DIAGNOSTIC_LOCK = threading.Lock()
+MAX_DIAGNOSTIC_LINE_BYTES = 128 * 1024
 
 
 class LimitedReader:
@@ -876,19 +877,22 @@ def record_diagnostic_result(result: dict) -> None:
 
 
 def recent_diagnostics(limit: int = 50) -> list[dict]:
-    if DIAGNOSTIC_LOG.is_symlink() or not DIAGNOSTIC_LOG.is_file():
+    if limit <= 0 or DIAGNOSTIC_LOG.is_symlink() or not DIAGNOSTIC_LOG.is_file():
         return []
-    with DIAGNOSTIC_LOCK, DIAGNOSTIC_LOG.open(encoding="utf-8") as handle:
-        lines = deque(handle, maxlen=limit)
-    results = []
-    for line in reversed(lines):
-        try:
-            item = json.loads(line)
+    results = deque(maxlen=limit)
+    with DIAGNOSTIC_LOCK, DIAGNOSTIC_LOG.open("rb") as handle:
+        while chunk := handle.readline(MAX_DIAGNOSTIC_LINE_BYTES + 1):
+            if len(chunk) > MAX_DIAGNOSTIC_LINE_BYTES or not chunk.endswith(b"\n"):
+                while chunk and not chunk.endswith(b"\n"):
+                    chunk = handle.readline(MAX_DIAGNOSTIC_LINE_BYTES + 1)
+                continue
+            try:
+                item = json.loads(chunk)
+            except (UnicodeError, json.JSONDecodeError):
+                continue
             if isinstance(item, dict):
                 results.append(item)
-        except json.JSONDecodeError:
-            continue
-    return results
+    return list(reversed(results))
 
 
 def available_ports() -> list[dict]:

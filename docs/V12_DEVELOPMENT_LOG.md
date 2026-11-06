@@ -1111,3 +1111,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Preflight reads now cap reports at 1 MiB, reject symlinks, and verify export identity. Diagnostics history refuses symlinked files for append, list and export.
 - Verification: 190 Python tests passed, including oversized and symlink fixtures. No physical Windows files were used.
+
+### Post-Phase 8 bounded Diagnostics history listing (2026-11-06)
+
+- Read JSONL history with a 128 KiB line cap, skipping huge or unterminated entries while retaining the latest valid results. Raw history export still streams original bytes.
+- Verification: 191 Python tests passed, including a 200 KB damaged line and torn final entry. No physical Windows history was used.
