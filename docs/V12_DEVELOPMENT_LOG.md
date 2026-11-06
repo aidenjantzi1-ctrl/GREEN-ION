@@ -1101,3 +1101,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Fetched the development branch at `7039572`. Preflight list now skips invalid JSON shapes, mismatched IDs and disappearing files without hiding older valid reports; Diagnostics history ignores non-object JSONL entries.
 - Verification: 187 Python tests passed. No physical hardware was used.
+
+### Post-Phase 8 Preflight refresh resilience (2026-11-06)
+
+- Fetched the development branch at `7c6c6ba`. Preflight history checks canonical IDs, aware timestamps and RUNNING actions; refresh returns NOT RUN if its selected file disappears or changes to malformed content before reading.
+- Verification: 188 Python tests passed. Physical Preflight remains NOT TESTED.

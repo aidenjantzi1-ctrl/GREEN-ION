@@ -666,13 +666,18 @@ def preflight_runs(limit: int = 30) -> list[dict]:
         try:
             report = json.loads(path.read_text(encoding="utf-8"))
             if (not isinstance(report, dict) or
+                    not re.fullmatch(r"preflight-[0-9a-f]{32}\.json", path.name) or
                     report.get("run_id") != path.stem.removeprefix("preflight-") or
                     not isinstance(report.get("created_utc"), str) or
                     not isinstance(report.get("run_status"), str)):
                 continue
+            started = datetime.fromisoformat(report["created_utc"])
+            if started.tzinfo is None or (report["run_status"] == "RUNNING" and
+                                          not isinstance(report.get("actions"), dict)):
+                continue
             reports.append({key: report.get(key) for key in
                             ("run_id", "created_utc", "run_status", "overall", "progress")})
-        except (OSError, json.JSONDecodeError):
+        except (OSError, ValueError, json.JSONDecodeError):
             continue
         if len(reports) >= limit:
             break
@@ -680,12 +685,28 @@ def preflight_runs(limit: int = 30) -> list[dict]:
 
 
 def refresh_preflight_run() -> dict:
+    def empty() -> dict:
+        return {**preflight_report(), "run_status": "NOT RUN", "progress": "Run Full Preflight to begin."}
+
     runs = preflight_runs(1)
     if not runs:
-        return {**preflight_report(), "run_status": "NOT RUN", "progress": "Run Full Preflight to begin."}
+        return empty()
     run_id = runs[0]["run_id"]
     path = PREFLIGHT_DIR / f"preflight-{run_id}.json"
-    report = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return empty()
+    if (not isinstance(report, dict) or report.get("run_id") != run_id or
+            not isinstance(report.get("run_status"), str)):
+        return empty()
+    try:
+        started = datetime.fromisoformat(report["created_utc"])
+    except (KeyError, TypeError, ValueError):
+        return empty()
+    if started.tzinfo is None or (report.get("run_status") == "RUNNING" and
+                                  not isinstance(report.get("actions"), dict)):
+        return empty()
     if report.get("run_status") != "RUNNING":
         return report
     refreshed = preflight_report(report.get("actions"))
@@ -699,7 +720,6 @@ def refresh_preflight_run() -> dict:
     sensor_done = all(
         new_terminal_result(name) for name in ("imu_test_result", "gps_test_result")
     )
-    started = datetime.fromisoformat(report["created_utc"])
     timed_out = (datetime.now(timezone.utc) - started).total_seconds() >= 45
     complete = sensor_done or timed_out
     refreshed.update(run_id=run_id, created_utc=report["created_utc"],

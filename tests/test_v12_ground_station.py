@@ -355,6 +355,27 @@ class PreflightHistoryTests(unittest.TestCase):
                 ground_station.DIAGNOSTIC_LOG.write_text('[]\n{"status":"PASS"}\nnot-json\n', encoding="utf-8")
                 self.assertEqual([{"status": "PASS"}], ground_station.recent_diagnostics())
 
+    def test_preflight_refresh_ignores_bad_date_and_removed_report(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(ground_station, "PREFLIGHT_DIR", Path(directory)):
+            saved = ground_station.save_preflight_run({
+                "created_utc": "2026-11-06T00:00:00+00:00", "run_status": "COMPLETE"})
+            bad = ground_station.save_preflight_run({
+                "created_utc": "not-a-date", "run_status": "RUNNING", "actions": []})
+            self.assertEqual(saved["run_id"], ground_station.preflight_runs(1)[0]["run_id"])
+            path = Path(directory) / f"preflight-{saved['run_id']}.json"
+            original_read = Path.read_text
+
+            def removed_after_listing(candidate, *args, **kwargs):
+                if candidate == path and not candidate.exists():
+                    raise FileNotFoundError(candidate)
+                return original_read(candidate, *args, **kwargs)
+
+            with patch.object(ground_station, "preflight_runs", return_value=[{"run_id": saved["run_id"]}]), \
+                    patch.object(Path, "read_text", side_effect=removed_after_listing, autospec=True):
+                path.unlink()
+                self.assertEqual("NOT RUN", ground_station.refresh_preflight_run()["run_status"])
+
     def test_saved_report_is_exportable_and_incomplete_run_times_out(self):
         from datetime import datetime, timedelta, timezone
 
