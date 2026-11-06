@@ -16,6 +16,7 @@ for key in ('firmware_version','recorder_mode','recording','sd_ok','battery_v','
 requests=[]
 flight_sensor={"value":None}
 imported_session={"value":None}
+session_trashed={"value":False}
 flight_details={"label":"","rocket_profile":"","flight_date":None}
 flight_trashed={"value":False}
 timeline={'flight_id':'a'*64,'source':'onboard_rkt4','total_records':3,'displayed_records':3,'display_stride':1,'sensor_status':'valid','estimated_peak_index':1,'peak_vertical_speed_mps_estimated':12.0,'peak_acceleration_g':1.2,'warnings':[],
@@ -31,7 +32,8 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path=='/api/flights': data,ctype=json.dumps({'flights':[] if flight_trashed['value'] else [{'id':'a'*64,'original_name':'V12D007.BIN','sha256':'a'*64,'summary':{'records':3,'duration_s':.08,'peak_altitude_m_estimated':1.0,'bytes':80,'warnings':[]},**flight_details,**({'sensor':flight_sensor['value']} if flight_sensor['value'] else {})}]}).encode(),'application/json'
         elif self.path=='/api/flights/trash': data,ctype=json.dumps({'flights':[{'id':'a'*64,'original_name':'V12D007.BIN',**flight_details}] if flight_trashed['value'] else []}).encode(),'application/json'
         elif self.path.startswith('/api/flight/') and self.path.endswith('/timeline'): data,ctype=json.dumps(timeline).encode(),'application/json'
-        elif self.path=='/api/sessions': data,ctype=json.dumps({'sessions':[imported_session['value']] if imported_session['value'] else []}).encode(),'application/json'
+        elif self.path=='/api/sessions': data,ctype=json.dumps({'sessions':[imported_session['value']] if imported_session['value'] and not session_trashed['value'] else [],'active_session_name':'session-active.jsonl'}).encode(),'application/json'
+        elif self.path=='/api/sessions/trash': data,ctype=json.dumps({'sessions':[{'name':imported_session['value']['name'],'bytes':imported_session['value']['bytes'],'integrity':'valid'}] if imported_session['value'] and session_trashed['value'] else []}).encode(),'application/json'
         elif self.path=='/api/library/backup': data,ctype=b'PK-backup-fixture','application/zip'
         else: data,ctype=b'{}','application/json'
         self.send_response(200);self.send_header('Content-Type',ctype);self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data)
@@ -49,8 +51,10 @@ class Handler(BaseHTTPRequestHandler):
             flight_sensor['value']={'original_name':'V12D007.SEN','sha256':'b'*64,'inspection':{'status':'valid','valid_prefix_records':1,'sequence_gaps':0}}
             data=json.dumps({'success':True,'sensor':flight_sensor['value']}).encode();self.send_response(200);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data);return
         body=json.loads(self.rfile.read(int(self.headers.get('Content-Length',0))) or b'{}');requests.append((self.path,body))
-        if self.path.endswith('/trash'): flight_trashed['value']=True
-        if self.path.endswith('/restore'): flight_trashed['value']=False
+        if self.path.startswith('/api/flight/') and self.path.endswith('/trash'): flight_trashed['value']=True
+        if self.path.startswith('/api/flight/') and self.path.endswith('/restore'): flight_trashed['value']=False
+        if self.path.startswith('/api/session/') and self.path.endswith('/trash'): session_trashed['value']=True
+        if self.path.startswith('/api/session/') and self.path.endswith('/restore'): session_trashed['value']=False
         if self.path.endswith('/details'): flight_details.update(body)
         if self.path=='/api/bench/start': state.update(recorder_mode=2,recording=True,bench_recording=True,log_file='/TEST000.BIN')
         if self.path=='/api/bench/stop': state.update(recorder_mode=3,recording=False,bench_recording=False)
@@ -62,7 +66,7 @@ with sync_playwright() as p:
     browser=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
     page=browser.new_page(viewport={'width':390,'height':844})
     errors=[];page.on('pageerror',lambda e:errors.append(e.stack))
-    page.on('dialog',lambda d:d.accept('START BENCH TEST' if d.type=='prompt' and 'START BENCH' in d.message else 'TRASH LAPTOP COPY' if d.type=='prompt' and 'TRASH LAPTOP COPY' in d.message else 'STOP BENCH TEST' if d.type=='prompt' else None))
+    page.on('dialog',lambda d:d.accept('START BENCH TEST' if d.type=='prompt' and 'START BENCH' in d.message else 'TRASH LAPTOP SESSION' if d.type=='prompt' and 'TRASH LAPTOP SESSION' in d.message else 'TRASH LAPTOP COPY' if d.type=='prompt' and 'TRASH LAPTOP COPY' in d.message else 'STOP BENCH TEST' if d.type=='prompt' else None))
     page.goto(f'http://127.0.0.1:{server.server_port}/');page.click('nav button[data-view=preflight]')
     page.wait_for_function("!document.querySelector('#startBench').disabled")
     page.evaluate("renderPreflight({run_status:'COMPLETE',overall:'WARNING',generated_utc:'2026-11-05T14:00:00Z',checks:[{name:'SD initialization',status:'FAIL',message:'SD fault',correction:'Inspect SD wiring.'}]})")
@@ -217,6 +221,11 @@ with sync_playwright() as p:
     page.click('#restoreLibrary')
     page.wait_for_function('document.querySelector("#restoreStatus").textContent.includes("2 files added")')
     assert requests[-1]==('/api/library/restore',b'PK-backup-fixture')
+    page.click('[data-session-trash]')
+    page.wait_for_function('document.querySelectorAll("[data-session-trash]").length===0 && document.querySelectorAll("[data-session-restore]").length===1')
+    assert requests[-1][1]=={'confirm':'TRASH LAPTOP SESSION'}
+    page.click('[data-session-restore]')
+    page.wait_for_function('document.querySelectorAll("[data-session-trash]").length===1 && document.querySelectorAll("[data-session-restore]").length===0')
     page.click('[data-trash-flight]')
     page.wait_for_function('document.querySelectorAll("[data-flight-row]").length===0 && document.querySelectorAll("[data-trash-restore]").length===1')
     assert requests[-1]==('/api/flight/'+'a'*64+'/trash',{'confirm':'TRASH LAPTOP COPY'})

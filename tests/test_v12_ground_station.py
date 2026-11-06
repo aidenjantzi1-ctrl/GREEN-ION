@@ -893,6 +893,26 @@ class FlightExportFilenameTests(unittest.TestCase):
             moved.assert_called_once_with("a" * 64)
             self.assertTrue(reply.call_args.args[1]["success"])
 
+    def test_session_trash_route_refuses_current_writable_session(self):
+        active = ground_station.MANAGER.writer.raw_path.name
+        raw = b'{"confirm":"TRASH LAPTOP SESSION"}'
+
+        class Request:
+            path = "/api/session/" + active + "/trash"
+            headers = {"Content-Type": "application/json", "Content-Length": str(len(raw))}
+            rfile = BytesIO(raw)
+
+        with patch.object(ground_station.SESSIONS, "trash_session",
+                          side_effect=ground_station.SessionImportError("current writable laptop session")) as moved, \
+                patch.object(ground_station, "json_response") as reply:
+            ground_station.Handler.do_POST(Request())
+            moved.assert_called_once_with(active, active)
+            self.assertEqual(400, reply.call_args.args[2])
+            Request.rfile = BytesIO(b'{}')
+            Request.headers["Content-Length"] = "2"
+            ground_station.Handler.do_POST(Request())
+            self.assertEqual(1, moved.call_count)
+
 
 if __name__ == "__main__":
     unittest.main()

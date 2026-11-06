@@ -1012,3 +1012,8 @@ After CI passes, upload the exact V12 Feather artifact, connect to `GREEN-ION` a
 
 - Added typed, two-step UI confirmation and an active-recorder server guard for moving imported laptop flights to reversible local Trash. The original BIN/SEN and metadata are checksum-verified before the active library entry is removed. Restore rejects conflicting active files. Feather SD remains outside this operation.
 - Backup ZIP now includes Trash and validates its recording/metadata on restore. Verification: 156 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium Trash/restore smoke passed. All flight bytes were fixtures; no physical SD test occurred.
+
+### Phase 6 reversible laptop session Trash (2026-11-05)
+
+- Added typed and second-confirmed Trash for completed laptop JSONL sessions. The current writable session is refused server-side; imported sessions retain SHA-256 and metadata checks, and legacy sessions retain raw bytes. Trash entries are included in ZIP backup/restore.
+- Verification: 161 Python tests, Node syntax, RKT4 browser analysis and 390-pixel Chromium session Trash/restore smoke passed. All sessions were fixtures; physical telemetry was NOT TESTED.

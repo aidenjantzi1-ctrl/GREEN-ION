@@ -107,6 +107,22 @@ class LibraryBackupTests(unittest.TestCase):
         restored_library.restore_trash(self.flight["id"])
         self.assertEqual(flight_bytes(), restored_library.get(self.flight["id"])[1].read_bytes())
 
+    def test_backup_includes_trashed_imported_and_legacy_sessions(self):
+        imported_name = self.session["name"]
+        self.sessions.trash_session(imported_name)
+        self.sessions.trash_session("session-legacy-v11.jsonl")
+        manifest = create_backup(self.source, self.archive)
+        self.assertTrue(any(item["path"].startswith("session_trash/") for item in manifest["entries"]))
+        target = self.base / "restore-session-trash"
+        restore_backup(target, io.BytesIO(self.archive.read_bytes()))
+        restored = SessionLibrary(target)
+        self.assertEqual(2, len(restored.list_trash()))
+        restored.restore_trash(imported_name)
+        restored.restore_trash("session-legacy-v11.jsonl")
+        self.assertEqual(session_bytes(), restored.imported_file(imported_name).read_bytes())
+        self.assertEqual(b"legacy session format preserved\n",
+                         (target / "session-legacy-v11.jsonl").read_bytes())
+
 
 if __name__ == "__main__":
     unittest.main()

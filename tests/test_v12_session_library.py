@@ -73,6 +73,38 @@ class SessionLibraryTests(unittest.TestCase):
         with self.assertRaisesRegex(SessionImportError, "checksum"):
             self.library.import_stream("original.jsonl", io.BytesIO(raw))
 
+    def test_imported_session_trash_preserves_bytes_and_blocks_active_session(self):
+        raw = event(1)
+        imported = self.library.import_stream("original.jsonl", io.BytesIO(raw))
+        name = imported["name"]
+        with self.assertRaisesRegex(SessionImportError, "current writable"):
+            self.library.trash_session(name, active_name=name)
+        self.library.trash_session(name, active_name="session-current.jsonl")
+        self.assertEqual([], self.library.list())
+        self.assertEqual("valid", self.library.list_trash()[0]["integrity"])
+        self.assertEqual(raw, (self.library.root / "session_trash" / name / name).read_bytes())
+        self.library.restore_trash(name)
+        self.assertEqual(raw, self.library.imported_file(name).read_bytes())
+        self.assertEqual([], self.library.list_trash())
+
+    def test_legacy_session_trash_is_reversible_without_rewriting(self):
+        name = "session-legacy.jsonl"
+        raw = b'{"old_format":true}\n'
+        (self.library.root / name).write_bytes(raw)
+        self.library.trash_session(name)
+        self.library.restore_trash(name)
+        self.assertEqual(raw, (self.library.root / name).read_bytes())
+
+    def test_damaged_imported_trash_metadata_blocks_restore(self):
+        imported = self.library.import_stream("original.jsonl", io.BytesIO(event(1)))
+        name = imported["name"]
+        self.library.trash_session(name)
+        (self.library.root / "session_trash" / name / f"{imported['sha256']}.json").write_text("{}")
+        self.assertEqual("invalid", self.library.list_trash()[0]["integrity"])
+        with self.assertRaisesRegex(SessionImportError, "metadata"):
+            self.library.restore_trash(name)
+        self.assertFalse((self.library.root / name).exists())
+
 
 if __name__ == "__main__":
     unittest.main()

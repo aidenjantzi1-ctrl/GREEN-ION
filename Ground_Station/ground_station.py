@@ -847,7 +847,11 @@ class Handler(SimpleHTTPRequestHandler):
             json_response(self, {"ports": available_ports(), "config": config})
             return
         if path == "/api/sessions":
-            json_response(self, {"sessions": SESSIONS.list()})
+            json_response(self, {"sessions": SESSIONS.list(),
+                                 "active_session_name": MANAGER.writer.raw_path.name if MANAGER.writer else None})
+            return
+        if path == "/api/sessions/trash":
+            json_response(self, {"sessions": SESSIONS.list_trash()})
             return
         if path == "/api/library/backup":
             with tempfile.NamedTemporaryFile(dir=DATA_DIR, prefix="backup-", suffix=".part",
@@ -1057,6 +1061,29 @@ class Handler(SimpleHTTPRequestHandler):
                     result = FLIGHTS.restore_trash(parts[2])
                 json_response(self, {"success": True, "flight": result})
             except (OSError, ValueError, FlightImportError, json.JSONDecodeError) as error:
+                json_response(self, {"success": False, "error": str(error)}, 400)
+            return
+        if self.path.startswith("/api/session/") and (self.path.endswith("/trash") or self.path.endswith("/restore")):
+            try:
+                parts = self.path.strip("/").split("/")
+                if len(parts) != 4:
+                    raise SessionImportError("invalid session Trash request")
+                if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
+                    raise SessionImportError("a JSON confirmation is required")
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > 256:
+                    raise SessionImportError("invalid session Trash request length")
+                payload = json.loads(self.rfile.read(length))
+                if not isinstance(payload, dict):
+                    raise SessionImportError("invalid session Trash payload")
+                if parts[3] == "trash":
+                    if payload.get("confirm") != "TRASH LAPTOP SESSION":
+                        raise SessionImportError("type TRASH LAPTOP SESSION to move only the laptop session")
+                    result = SESSIONS.trash_session(parts[2], MANAGER.writer.raw_path.name if MANAGER.writer else None)
+                else:
+                    result = SESSIONS.restore_trash(parts[2])
+                json_response(self, {"success": True, "session": result})
+            except (OSError, ValueError, SessionImportError, json.JSONDecodeError) as error:
                 json_response(self, {"success": False, "error": str(error)}, 400)
             return
         if self.path == "/api/import-bin":

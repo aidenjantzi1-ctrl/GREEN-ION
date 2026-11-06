@@ -26,6 +26,8 @@ SAFE_PATH = re.compile(
     r"flights/metadata/[0-9a-f]{64}\.json|"
     r"flights/trash/[0-9a-f]{64}/raw/[0-9a-f]{64}\.(?:bin|sen)|"
     r"flights/trash/[0-9a-f]{64}/metadata/[0-9a-f]{64}\.json|"
+    r"session_trash/session-[A-Za-z0-9_.-]{1,100}\.jsonl/session-[A-Za-z0-9_.-]{1,100}\.jsonl|"
+    r"session_trash/session-import-[0-9a-f]{64}\.jsonl/[0-9a-f]{64}\.json|"
     r"session-[A-Za-z0-9_.-]{1,100}\.jsonl|"
     r"session_imports/[0-9a-f]{64}\.json)\Z"
 )
@@ -49,6 +51,7 @@ def files_for_backup(root: Path) -> list[tuple[str, Path]]:
     patterns = ("flights/raw/*.bin", "flights/raw/*.sen", "flights/metadata/*.json",
                 "flights/trash/*/raw/*.bin", "flights/trash/*/raw/*.sen",
                 "flights/trash/*/metadata/*.json",
+                "session_trash/session-*.jsonl/*.jsonl", "session_trash/session-*.jsonl/*.json",
                 "session-*.jsonl", "session_imports/*.json")
     files = []
     for pattern in patterns:
@@ -198,6 +201,31 @@ def _validate_staged_library(stage: Path, manifest: dict) -> None:
                 inspect_session(stage / metadata["name"])
             except (OSError, ValueError, KeyError, TypeError) as error:
                 raise BackupError(f"imported session invalid: {name}: {error}") from error
+        elif name.startswith("session_trash/"):
+            parts = name.split("/")
+            if len(parts) != 3:
+                raise BackupError(f"invalid session Trash path: {name}")
+            session_name = parts[1]
+            if parts[2].endswith(".jsonl") and parts[2] != session_name:
+                raise BackupError(f"session Trash directory/name mismatch: {name}")
+            match = re.fullmatch(r"session-import-([0-9a-f]{64})\.jsonl", session_name)
+            if match and parts[2].endswith(".jsonl") and file_digest(path)[1] != match.group(1):
+                raise BackupError(f"trashed imported session checksum mismatch: {name}")
+            if match and parts[2].endswith(".jsonl"):
+                try:
+                    inspect_session(path)
+                except (OSError, ValueError) as error:
+                    raise BackupError(f"trashed imported session invalid: {name}: {error}") from error
+            if parts[2].endswith(".json") and (not match or parts[2] != f"{match.group(1)}.json"):
+                raise BackupError(f"trashed imported session metadata mismatch: {name}")
+            if parts[2].endswith(".json"):
+                try:
+                    metadata = json.loads(path.read_text(encoding="utf-8"))
+                    if (metadata.get("id") != match.group(1) or metadata.get("sha256") != match.group(1) or
+                            metadata.get("name") != session_name or not (path.parent / session_name).is_file()):
+                        raise BackupError(f"trashed imported session metadata invalid: {name}")
+                except (OSError, ValueError, AttributeError) as error:
+                    raise BackupError(f"trashed imported session metadata invalid: {name}: {error}") from error
 
 
 def restore_backup(root: Path, source: BinaryIO, expected_bytes: int | None = None) -> dict:
