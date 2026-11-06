@@ -255,6 +255,19 @@ with sync_playwright() as p:
     state.update(gps_fix_current_age_ms=3500, gps_status='stale', gps_altitude_valid=True)
     page.wait_for_function("document.querySelector('#fixAge').textContent.includes('3.5 s')")
     assert page.locator('#gpsAltitudeValidity').inner_text()=='NOT CURRENT'
+    page.evaluate("""async () => {
+      const priorFetch=window.fetch, now=Date.now();
+      const points=[
+        {source:'wifi',sequence:21,received_utc:new Date(now-2000).toISOString(),altitude_m:10,gps_status:'live',gps_fix_age_ms:100,latitude:37.1,longitude:-121.9},
+        {source:'radio',sequence:22,received_utc:new Date(now-1000).toISOString(),altitude_m:12,gps_status:'live',gps_fix_age_ms:200,latitude:37.11,longitude:-121.91},
+        {source:'simulation',sequence:23,received_utc:new Date(now).toISOString(),altitude_m:14,gps_status:'live',gps_fix_age_ms:100,latitude:38,longitude:-122}
+      ];
+      window.fetch=(url,options)=>url==='/api/history'?Promise.resolve({ok:true,json:async()=>({points})}):priorFetch(url,options);
+      try { await restoreRecentHistory(); } finally { window.fetch=priorFetch; }
+    }""")
+    assert page.evaluate('history.slice(-3).map(p=>p.source)')==['wifi','radio','simulation']
+    assert 'SIMULATION — NOT HARDWARE' in page.locator('#graphLegend').inner_text()
+    assert page.evaluate('track.at(-1)')==[37.11,-121.91]
     assert not errors,errors
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     print('Recovery browser smoke passed: bench source return, location, map, units, offline fallback, mobile width')
