@@ -1118,6 +1118,7 @@ static void serviceSerialBench(uint32_t nowMs) {
 static void resetCalibration(uint32_t nowMs) {
   flightWatcher.cancel();
   recorderCore.resetBuffer();
+  sensorLogCore.resetBuffer();
   if (!state.recording) flightState = green_ion::STATE_IDLE;
   calibrationWarmup = 0;
   calibrationAttempts = 0;
@@ -1190,6 +1191,7 @@ static void processCalibration(uint32_t nowMs, bool valid) {
   calibrationBaselinePa = result.baselinePressurePa;
   calibrationNoiseM = result.noiseAltitudeM;
   recorderCore.resetBuffer();
+  sensorLogCore.resetBuffer();
   watcherAltitudeM = watcherPreviousAltitudeM = NAN;
   watcherSpeedMps = NAN;
   watcherPreviousMs = 0;

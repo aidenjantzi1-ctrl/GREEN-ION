@@ -69,6 +69,15 @@ class SensorLogCore {
   }
   uint32_t droppedRecords() const { return pending_.dropped(); }
 
+  bool resetBuffer() {
+    if (active()) return false;
+    sink_ = NULL;
+    prebuffer_.clear();
+    pending_.clear();
+    status_ = SENSOR_CORE_BUFFERING;
+    return true;
+  }
+
   void observe(const Record &record) {
     if (active()) pending_.pushLatest(record, true);
     else if (status_ == SENSOR_CORE_BUFFERING)

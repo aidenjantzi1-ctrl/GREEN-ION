@@ -45,6 +45,7 @@ int main() {
   MockSink sink;
   assert(core.start(sink, header));
   assert(core.active() && core.prebufferedRecords() == 3);
+  assert(!core.resetBuffer());
   assert(sink.bytes.size() == kHeaderBytes);
   assert(core.serviceOne());
   assert(core.serviceOne());
@@ -67,6 +68,15 @@ int main() {
   core.observe(record(8));
   assert(core.stop() && core.status() == SENSOR_CORE_STOPPED);
   assert(sequenceAt(sink.bytes, 5) == 8);
+  assert(core.resetBuffer());
+  assert(core.status() == SENSOR_CORE_BUFFERING);
+  assert(core.queuedRecords() == 0);
+  core.observe(record(9));
+  MockSink secondFlight;
+  assert(core.start(secondFlight, header));
+  assert(core.stop());
+  assert(secondFlight.bytes.size() == kHeaderBytes + kRecordBytes);
+  assert(sequenceAt(secondFlight.bytes, 0) == 9);
 
   SensorLogCore<2, 2> startWriteFailure;
   startWriteFailure.observe(record(1));
@@ -74,6 +84,12 @@ int main() {
   badStart.failWrite = true;
   assert(!startWriteFailure.start(badStart, header));
   assert(startWriteFailure.status() == SENSOR_CORE_START_FAILED);
+  assert(startWriteFailure.resetBuffer());
+  startWriteFailure.observe(record(2));
+  MockSink retrySink;
+  assert(startWriteFailure.start(retrySink, header));
+  assert(startWriteFailure.stop());
+  assert(sequenceAt(retrySink.bytes, 0) == 2);
 
   SensorLogCore<2, 2> startFlushFailure;
   startFlushFailure.observe(record(1));
