@@ -19,6 +19,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <Preferences.h>
+#include <string.h>
 #include "esp32-hal-bt.h"
 #include <GreenIonProtocol.h>
 #include <GreenIonTelemetryQueue.h>
@@ -323,12 +324,27 @@ class SdRecoveryCommitter : public green_ion::recovery::RecoveryCommitter {
   bool saveReport() override {
     if (SD.exists(reportPath_) && !SD.remove(reportPath_)) return false;
     File recovery = SD.open(reportPath_, FILE_WRITE);
-    const bool saved = recovery && recovery.print(report_) == report_.length();
+    bool saved = recovery && recovery.print(report_) == report_.length();
     if (recovery) {
       recovery.flush();
+      saved = saved && static_cast<bool>(recovery);
       recovery.close();
     }
-    return saved;
+    if (!saved) return false;
+    // Do not remove journals until the closed report can be read back exactly.
+    File verify = SD.open(reportPath_, FILE_READ);
+    if (!verify) return false;
+    bool matches = static_cast<size_t>(verify.size()) == report_.length();
+    uint8_t chunk[64];
+    for (size_t offset = 0; matches && offset < report_.length();) {
+      const size_t remaining = report_.length() - offset;
+      const size_t count = remaining < sizeof(chunk) ? remaining : sizeof(chunk);
+      matches = verify.read(chunk, count) == static_cast<int>(count) &&
+                memcmp(chunk, report_.c_str() + offset, count) == 0;
+      offset += count;
+    }
+    verify.close();
+    return matches;
   }
 
   bool removeSlotA() override {
@@ -1404,7 +1420,7 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs,
     snprintf(candidate, sizeof(candidate), "/%s%03u.BIN", prefix, sequence);
     bool available = !SD.exists(candidate);
     if (available) {
-      for (const char *suffix : {".TXT", ".SEN", ".JRA", ".JRB"}) {
+      for (const char *suffix : {".TXT", ".SEN", ".JRA", ".JRB", ".RCV"}) {
         String related = candidate;
         related.replace(".BIN", suffix);
         if (SD.exists(related)) {
