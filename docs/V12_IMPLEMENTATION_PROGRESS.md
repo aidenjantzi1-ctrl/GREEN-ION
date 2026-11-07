@@ -1,6 +1,6 @@
 # GREEN ION V12 implementation progress
 
-Updated 2026-11-06 5:38 PM Pacific (post-Phase 8 GIS1 altitude freshness review). Development branch: `codex/green-ion-v12`. This run fetched GitHub and confirmed local and remote at `8ef5d4a` with a clean worktree before the changes below. Earlier phase evidence remains below and in the phase audits.
+Updated 2026-11-06 5:38 PM Pacific (post-Phase 8 GIS1 altitude freshness review). Development branch: `codex/green-ion-v12`. This run fetched GitHub and confirmed local and remote at `8ef5d4a` with a clean worktree, then pushed the GIS1 freshness extension as `b3d09c1`. Earlier phase evidence remains below and in the phase audits.
 
 ## Current phase
 
@@ -17,7 +17,7 @@ Phase 3 now shows separate GPS altitude quality, current/last-known coordinates,
 | Capability | Status | Evidence |
 | --- | --- | --- |
 | GitHub read | AVAILABLE | GitHub connector read the development branch commits; Git fetch obtained the branch. |
-| GitHub write/push | AVAILABLE | Previous run pushed through `8ef5d4a`; this run fetched that GitHub tip and pushed the compatible GIS1 altitude freshness extension to `codex/green-ion-v12`. No merge to `main` occurred. |
+| GitHub write/push | AVAILABLE | Previous run pushed through `8ef5d4a`; this run fetched that GitHub tip and pushed the compatible GIS1 altitude freshness extension as `b3d09c1` to `codex/green-ion-v12`. No merge to `main` occurred. |
 | Python 3 and test runner | AVAILABLE | Python 3.12.14; current run: 209 `unittest` tests passed. Earlier native, Node and browser evidence is retained below and in the phase audits. |
 | Node.js syntax check | AVAILABLE | Node 24.22.1 checked this run's Analysis replay code with `node --check`; RKT4 browser analysis tests passed earlier. |
 | Arduino CLI | VERIFIED THIS RUN | Arduino CLI 1.5.1 compiled the changed Feather ESP32 V2 firmware at 1,221,469 flash / 69,928 RAM bytes with ESP32 2.0.17; exit code 0. The ESP32 core printed missing discovery-tool warnings. The prior Phase 8 run compiled Uno R3 at 14,370 flash / 712 RAM bytes with AVR 1.8.7; Uno was unchanged and was not recompiled now. Vendor versions are in `V12_BUILD_GUIDE.md`. Compilation is not hardware evidence. |
