@@ -76,6 +76,10 @@ int main() {
   assert(selectNewestCheckpoint(slotA, sizeof(slotA), corruptB, sizeof(corruptB),
                                 second.committedBytes, selected));
   assert(selected.generation == 1);
+  // A short write to the newer slot must leave the older complete slot usable.
+  assert(selectNewestCheckpoint(slotA, sizeof(slotA), slotB, 20,
+                                second.committedBytes, selected));
+  assert(selected.generation == 1);
 
   assert(checkpointForFile(slotB, sizeof(slotB), first.committedBytes, decoded) ==
          CHECKPOINT_BEYOND_FILE);

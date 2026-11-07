@@ -1284,9 +1284,10 @@ static bool saveCheckpoint(uint32_t nowMs) {
     return false;
   }
   File journal = SD.open(target, FILE_WRITE);
-  const bool saved = journal && journal.write(encoded, sizeof(encoded)) == sizeof(encoded);
+  bool saved = journal && journal.write(encoded, sizeof(encoded)) == sizeof(encoded);
   if (journal) {
     journal.flush();
+    saved = saved && journal.size() == sizeof(encoded);
     journal.close();
   }
   if (!saved) {
