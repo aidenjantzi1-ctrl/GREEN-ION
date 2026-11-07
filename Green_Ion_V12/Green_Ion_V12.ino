@@ -1355,12 +1355,30 @@ static bool writeCompletionMetadata(uint32_t nowMs, uint32_t fileBytes) {
   }
   digitalWrite(config::PIN_LORA_CS, HIGH);
   File metadataFile = SD.open(metadataFilename, FILE_APPEND);
-  const bool saved = metadataFile &&
+  bool saved = metadataFile &&
                      metadataFile.write(reinterpret_cast<const uint8_t *>(encoded),
                                         encodedBytes) == encodedBytes;
   if (metadataFile) {
     metadataFile.flush();
+    saved = saved && static_cast<bool>(metadataFile);
     metadataFile.close();
+  }
+  if (saved) {
+    File verify = SD.open(metadataFilename, FILE_READ);
+    saved = verify && static_cast<uint64_t>(verify.size()) >= encodedBytes &&
+            static_cast<uint64_t>(verify.size()) <= UINT32_MAX;
+    if (saved) {
+      saved = verify.seek(static_cast<uint32_t>(verify.size() - encodedBytes));
+      uint8_t chunk[64];
+      for (size_t offset = 0; saved && offset < encodedBytes;) {
+        const size_t remaining = encodedBytes - offset;
+        const size_t count = remaining < sizeof(chunk) ? remaining : sizeof(chunk);
+        saved = verify.read(chunk, count) == static_cast<int>(count) &&
+                memcmp(chunk, encoded + offset, count) == 0;
+        offset += count;
+      }
+    }
+    if (verify) verify.close();
   }
   if (!saved) ++metadataFailures;
   return saved;
