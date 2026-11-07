@@ -11,6 +11,8 @@ html=(ROOT/'Ground_Station/index.html').read_bytes()
 state=ground_station.MANAGER.snapshot()
 state.update(active_source='wifi',link_status='live',firmware_version='V12-development',recorder_mode=1,recording=False,sd_ok=True,battery_v=3.9,bench_recording=False,bench_max_ms=120000,log_file='')
 state['sources']['wifi']['status']='live'
+state['sensor_log_gps_position_omitted']=7
+state['field_meta']['sensor_log_gps_position_omitted']={'freshness':'live','valid':True}
 for key in ('firmware_version','recorder_mode','recording','sd_ok','battery_v','bench_recording','log_file'):
     state['field_meta'][key]={'freshness':'live','valid':True}
 requests=[]
@@ -67,7 +69,9 @@ with sync_playwright() as p:
     page=browser.new_page(viewport={'width':390,'height':844})
     errors=[];page.on('pageerror',lambda e:errors.append(e.stack))
     page.on('dialog',lambda d:d.accept('START BENCH TEST' if d.type=='prompt' and 'START BENCH' in d.message else 'TRASH LAPTOP SESSION' if d.type=='prompt' and 'TRASH LAPTOP SESSION' in d.message else 'TRASH LAPTOP COPY' if d.type=='prompt' and 'TRASH LAPTOP COPY' in d.message else 'STOP BENCH TEST' if d.type=='prompt' else None))
-    page.goto(f'http://127.0.0.1:{server.server_port}/');page.click('nav button[data-view=preflight]')
+    page.goto(f'http://127.0.0.1:{server.server_port}/')
+    page.wait_for_function("document.querySelector('#sensorLogGpsOmitted').textContent==='7'")
+    page.click('nav button[data-view=preflight]')
     page.wait_for_function("!document.querySelector('#startBench').disabled")
     page.evaluate("renderPreflight({run_status:'COMPLETE',overall:'WARNING',generated_utc:'2026-11-05T14:00:00Z',checks:[{name:'SD initialization',status:'FAIL',message:'SD fault',correction:'Inspect SD wiring.'}]})")
     assert 'Next: Inspect SD wiring.' in page.locator('#preflightReport').inner_text()

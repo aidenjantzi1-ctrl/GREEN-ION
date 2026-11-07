@@ -161,6 +161,7 @@ uint32_t metadataFailures = 0;
 uint32_t finalizationFailures = 0;
 uint32_t sensorLogSequence = 0;
 uint32_t sensorLogFailures = 0;
+uint32_t sensorLogGpsPositionOmitted = 0;
 uint32_t sensorLogCommittedBytes = 0;
 uint32_t sensorLogCommittedRecords = 0;
 bool sensorLogCheckpointable = false;
@@ -1585,11 +1586,19 @@ static green_ion::sensor_log::Record makeSensorLogRecord(uint32_t nowUs,
                                                           uint32_t nowMs) {
   uint16_t flags = 0;
   if (state.imuDataValid) flags |= green_ion::sensor_log::FLAG_IMU_VALID;
-  const bool positionValid = state.gpsHasPosition &&
+  const bool coordinatesValid = state.gpsHasPosition &&
       isfinite(state.latitude) && isfinite(state.longitude) &&
       state.latitude >= -90.0 && state.latitude <= 90.0 &&
-      state.longitude >= -180.0 && state.longitude <= 180.0 &&
+      state.longitude >= -180.0 && state.longitude <= 180.0;
+  const bool positionValid = coordinatesValid &&
       isfinite(state.gpsAltitudeM) && isfinite(state.gpsSpeedMps);
+  // GIS1 v1 readers expect finite altitude and speed with every position.
+  // Count the otherwise usable coordinates that cannot be encoded.
+  if (coordinatesValid && !positionValid &&
+      (sensorLogCore.active() ||
+       sensorLogCore.status() == green_ion::sensor_log::SENSOR_CORE_BUFFERING) &&
+      sensorLogGpsPositionOmitted != UINT32_MAX)
+    ++sensorLogGpsPositionOmitted;
   if (positionValid) flags |= green_ion::sensor_log::FLAG_GPS_HAS_POSITION;
   if (positionValid && gpsPositionCurrent(nowMs))
     flags |= green_ion::sensor_log::FLAG_GPS_CURRENT;
@@ -1848,6 +1857,7 @@ static void sendDashboardStatus() {
   body += ",\"sensor_log_failures\":" + String(sensorLogFailures);
   body += ",\"sensor_log_pending\":" + String(sensorLogCore.queuedRecords());
   body += ",\"sensor_log_dropped\":" + String(sensorLogCore.droppedRecords());
+  body += ",\"sensor_log_gps_position_omitted\":" + String(sensorLogGpsPositionOmitted);
   body += ",\"sensor_log_status\":" + String(static_cast<uint8_t>(sensorLogCore.status()));
   body += ",\"finalization_failures\":" + String(finalizationFailures);
   body += ",\"landing_peak_m\":" + numberOrNull(landingWatcher.peakAltitudeM(), 2);

@@ -110,6 +110,7 @@
 | `sensor_log_failures` | integer | count | measured |
 | `sensor_log_pending` | integer | count | measured |
 | `sensor_log_dropped` | integer | count | measured |
+| `sensor_log_gps_position_omitted` | integer | count | measured |
 | `finalization_failures` | integer | count | measured |
 | `missed_sample_periods` | integer | count | measured |
 | `recovery_pending` | integer | flag | measured |

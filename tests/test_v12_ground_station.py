@@ -1011,7 +1011,9 @@ class GroundStationManagerTests(unittest.TestCase):
     def test_recorder_diagnostics_are_present_only_when_reported(self):
         self.manager.ingest("wifi", {**self.row(1), "log_file": "V12D001.BIN",
                                      "recorder_mode": 2, "checkpoint_failures": 0,
-                                     "sensor_log_dropped": 3, "recovery_pending": 0,
+                                     "sensor_log_dropped": 3,
+                                     "sensor_log_gps_position_omitted": 7,
+                                     "recovery_pending": 0,
                                      "recorder_written_records": 45,
                                      "recorder_written_bytes": 752,
                                      "checkpoint_committed_records": 42})
@@ -1021,6 +1023,7 @@ class GroundStationManagerTests(unittest.TestCase):
         self.assertTrue(snapshot["field_meta"]["recovery_pending"]["valid"])
         self.assertEqual(45, snapshot["recorder_written_records"])
         self.assertEqual(42, snapshot["checkpoint_committed_records"])
+        self.assertEqual(7, snapshot["sensor_log_gps_position_omitted"])
         self.clock.advance(3)
         self.manager.ingest("radio", {**self.row(2), "flags": 1 << 4})
         snapshot = self.manager.snapshot()
@@ -1028,6 +1031,7 @@ class GroundStationManagerTests(unittest.TestCase):
         self.assertFalse(snapshot["field_meta"]["checkpoint_failures"]["valid"])
         self.assertFalse(snapshot["field_meta"]["log_file"]["valid"])
         self.assertFalse(snapshot["field_meta"]["recorder_written_records"]["valid"])
+        self.assertFalse(snapshot["field_meta"]["sensor_log_gps_position_omitted"]["valid"])
 
     def test_sd_capacity_snapshot_is_labeled_stale_during_recording(self):
         row = {**self.row(1), "sd_capacity_known": True,
