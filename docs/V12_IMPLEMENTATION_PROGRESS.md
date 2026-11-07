@@ -17,7 +17,7 @@ Phase 3 now shows separate GPS altitude quality, current/last-known coordinates,
 | Capability | Status | Evidence |
 | --- | --- | --- |
 | GitHub read | AVAILABLE | This run fetched `codex/green-ion-v12` from GitHub and confirmed local and remote at `1c4b567` before edits. |
-| GitHub write/push | AVAILABLE | Earlier fixes through `1c4b567` were verified on the development branch. This run confines the recovery-report changes to `codex/green-ion-v12`; no merge to `main`. |
+| GitHub write/push | AVAILABLE | This run pushed the recovery-report readback and `.RCV` allocation guard as `e4a9e81` to `codex/green-ion-v12`; `git ls-remote` confirmed that branch tip. No merge to `main`. |
 | Python 3 and test runner | AVAILABLE | Python 3.12.14; 209 `unittest` tests passed this run. |
 | Node.js syntax check | AVAILABLE | Node 24.22.1 checked this run’s inline Ground Station JavaScript with `node --check`; exit 0. |
 | Arduino CLI | VERIFIED THIS RUN | Arduino CLI 1.5.1 compiled the changed Feather ESP32 V2 firmware at 1,222,037 flash / 69,936 RAM bytes with ESP32 2.0.17; exit 0. ESP32 discovery-tool warnings appeared. Uno was unchanged. Compilation is not hardware evidence. |
