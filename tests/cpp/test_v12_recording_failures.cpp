@@ -55,7 +55,7 @@ struct RecordingHarness {
 static green_ion::sensor_log::Record missingSensors() {
   return {
     0, 0, NAN, NAN, NAN, NAN, NAN, NAN,
-    0, 0, 0.0f, 0.0f, UINT32_MAX, 0, 0, 0, 0, 0, 0,
+    0, 0, 0.0f, 0.0f, UINT32_MAX, 0, 0, 0, 0, 0, 0, 0,
   };
 }
 
@@ -66,7 +66,7 @@ static green_ion::sensor_log::Record liveSensors(uint16_t flags) {
     hasGps ? 374219999 : 0, hasGps ? -1220840575 : 0,
     hasGps ? 12.5f : 0.0f, hasGps ? 3.25f : 0.0f,
     hasGps ? 500u : UINT32_MAX, hasGps ? 900u : 0u,
-    flags, static_cast<uint8_t>(hasGps ? 9 : 0), 12, 34, 56,
+    flags, static_cast<uint8_t>(hasGps ? 9 : 0), 12, 34, 56, 0,
   };
 }
 

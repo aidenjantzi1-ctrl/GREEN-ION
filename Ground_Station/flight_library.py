@@ -619,7 +619,9 @@ class FlightLibrary:
                     peak_acceleration_g = max(peak_acceleration_g or 0.0, magnitude)
                 if row["gps_current"]:
                     last_current_gps_fix = [row["latitude_e7"] / 1e7, row["longitude_e7"] / 1e7]
-                    if row["gps_altitude_m"] is not None and math.isfinite(row["gps_altitude_m"]):
+                    if (row["gps_altitude_current"] is not False and
+                            row["gps_altitude_m"] is not None and
+                            math.isfinite(row["gps_altitude_m"])):
                         peak_gps_altitude_m = max(peak_gps_altitude_m if peak_gps_altitude_m is not None else row["gps_altitude_m"], row["gps_altitude_m"])
                 if first_us is not None:
                     stamp = (row["timestamp_us"] - first_us) & 0xFFFFFFFF
@@ -662,6 +664,7 @@ class FlightLibrary:
                         "latitude": row["latitude_e7"] / 1e7 if row["gps_has_position"] else None,
                         "longitude": row["longitude_e7"] / 1e7 if row["gps_has_position"] else None,
                         "gps_altitude_m": row["gps_altitude_m"] if row["gps_has_position"] else None,
+                        "gps_altitude_current": row["gps_altitude_current"],
                         "gps_speed_mps": row["gps_speed_mps"] if row["gps_has_position"] else None,
                     }
         return {

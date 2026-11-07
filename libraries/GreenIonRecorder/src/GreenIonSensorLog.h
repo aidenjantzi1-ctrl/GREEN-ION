@@ -20,6 +20,12 @@ enum RecordFlags : uint16_t {
   FLAG_GPS_CURRENT = 1u << 2,
 };
 
+// Optional GIS1 v1 extension in previously reserved bytes 62–63. Legacy
+// readers ignore those bytes; zero means the altitude freshness is unknown.
+static const uint8_t kGpsQualityMarker = 0xa5;
+static const uint8_t GPS_QUALITY_KNOWN = 1u << 7;
+static const uint8_t GPS_ALTITUDE_CURRENT = 1u << 0;
+
 struct Header {
   uint16_t sampleRateHz;
   uint16_t flightSequence;
@@ -47,6 +53,7 @@ struct Record {
   uint8_t gpsHour;
   uint8_t gpsMinute;
   uint8_t gpsSecond;
+  uint8_t gpsQualityFlags;
 };
 
 enum Result : uint8_t {
@@ -96,6 +103,11 @@ inline bool recordFieldsValid(const Record &record) {
     return false;
   if ((record.flags & FLAG_GPS_CURRENT) &&
       !(record.flags & FLAG_GPS_HAS_POSITION))
+    return false;
+  if ((record.gpsQualityFlags & ~(GPS_QUALITY_KNOWN | GPS_ALTITUDE_CURRENT)) != 0 ||
+      ((record.gpsQualityFlags & GPS_ALTITUDE_CURRENT) &&
+       (!(record.gpsQualityFlags & GPS_QUALITY_KNOWN) ||
+        !(record.flags & FLAG_GPS_CURRENT))))
     return false;
   if (record.flags & FLAG_IMU_VALID) {
     if (!isfinite(record.accelerationX) || !isfinite(record.accelerationY) ||
@@ -171,6 +183,10 @@ inline bool encodeRecord(uint8_t out[kRecordBytes], const Record &record) {
   out[59] = record.gpsHour;
   out[60] = record.gpsMinute;
   out[61] = record.gpsSecond;
+  if (record.gpsQualityFlags & GPS_QUALITY_KNOWN) {
+    out[62] = record.gpsQualityFlags;
+    out[63] = kGpsQualityMarker;
+  }
   rkt4::writeU32(out + 64, crc32(out, 64));
   return true;
 }
@@ -187,7 +203,11 @@ inline Result decodeRecord(const uint8_t *data, size_t length, Record &out) {
     rkt4::readFloat32(data + 40), rkt4::readFloat32(data + 44),
     rkt4::readU32(data + 48), rkt4::readU32(data + 52),
     rkt4::readU16(data + 56), data[58], data[59], data[60], data[61],
+    static_cast<uint8_t>(data[63] == kGpsQualityMarker ? data[62] : 0),
   };
+  if (data[63] == kGpsQualityMarker &&
+      !(candidate.gpsQualityFlags & GPS_QUALITY_KNOWN))
+    return SENSOR_LOG_BAD_FIELDS;
   if (!recordFieldsValid(candidate)) return SENSOR_LOG_BAD_FIELDS;
   out = candidate;
   return SENSOR_LOG_VALID;

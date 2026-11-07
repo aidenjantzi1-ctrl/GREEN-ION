@@ -11,7 +11,7 @@ This is software evidence for the eight-phase V12 plan. No physical rocket hardw
 | Battery voltage, validity, estimate and warnings | Feather ADC voltage; Ground Station range check and coarse 1S LiPo estimate; boundary and stale-preflight tests passed | Voltage divider and curve need multimeter and load validation; percentage is an estimate |
 | SD and recorder state, capacity, errors and recovery | Feather status and idle-cached capacity; live written counts separated from committed checkpoints; native failure tests passed | Exact free space during recording is unavailable; cache is labeled stale; physical power-loss survival untested |
 | Wi-Fi and LoRa communication status | Independent source state, gap/duplicate/out-of-order counters, RSSI and protocol/receiver errors; merge tests passed | Receiver is not physically connected; LoRa v2 carries fewer fields |
-| RKT4 v2 and GIS1 preservation | Existing format tests and browser analysis passed; this phase did not change either file format | Hardware writes and recovery still require bench tests |
+| RKT4 v2 and GIS1 preservation | RKT4 v2 and the GIS1 v1 layout remain intact; a later optional altitude-freshness marker uses two reserved GIS1 record bytes and preserves legacy reads. Existing format tests and browser analysis passed | Hardware writes and recovery still require bench tests |
 
 ## Verification performed in this run
 

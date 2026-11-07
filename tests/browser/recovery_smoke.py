@@ -198,6 +198,11 @@ with sync_playwright() as p:
     assert '37.100000' in page.locator('#analysisReadout').inner_text()
     page.select_option('#analysisSeries','gps_altitude_m')
     assert '100.00' in page.locator('#analysisReadout').inner_text()
+    page.evaluate("analysisData.points[1].sensor.gps_altitude_current=false;renderFlightReplay()")
+    assert 'GPS altitude · MSL m: missing' in page.locator('#analysisReadout').inner_text()
+    page.evaluate("analysisData.points[1].sensor.gps_altitude_current=true;renderFlightReplay()")
+    assert '100.00' in page.locator('#analysisReadout').inner_text()
+    page.evaluate("analysisData.points[1].sensor.gps_altitude_current=null;renderFlightReplay()")
     page.select_option('#analysisWindow','10')
     assert page.locator('#analysisWindow').input_value()=='10'
     page.locator('#analysisScrub').fill('2')

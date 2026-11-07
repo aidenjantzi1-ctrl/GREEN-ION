@@ -10,7 +10,7 @@ static sensor_log::Record sample(uint32_t sequence) {
   return {
     sequence * 20000u, sequence, 1.0f, 2.0f, 3.0f,
     0.1f, 0.2f, 0.3f, 0, 0, 0.0f, 0.0f,
-    UINT32_MAX, 0, sensor_log::FLAG_IMU_VALID, 0, 0, 0, 0,
+    UINT32_MAX, 0, sensor_log::FLAG_IMU_VALID, 0, 0, 0, 0, 0,
   };
 }
 

@@ -1613,6 +1613,10 @@ static green_ion::sensor_log::Record makeSensorLogRecord(uint32_t nowUs,
     state.gpsHour,
     state.gpsMinute,
     state.gpsSecond,
+    static_cast<uint8_t>(green_ion::sensor_log::GPS_QUALITY_KNOWN |
+        ((positionValid && gpsPositionCurrent(nowMs) && state.gpsAltitudeValid &&
+          nowMs - state.lastGpsAltitudeMs <= config::GPS_CURRENT_MAX_AGE_MS)
+             ? green_ion::sensor_log::GPS_ALTITUDE_CURRENT : 0)),
   };
 }
 

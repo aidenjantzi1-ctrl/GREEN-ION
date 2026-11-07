@@ -24,6 +24,9 @@ ALLOWED_RATES = {10, 25, 50}
 FLAG_IMU_VALID = 1 << 0
 FLAG_GPS_HAS_POSITION = 1 << 1
 FLAG_GPS_CURRENT = 1 << 2
+GPS_QUALITY_MARKER = 0xA5
+GPS_QUALITY_KNOWN = 1 << 7
+GPS_ALTITUDE_CURRENT = 1 << 0
 KNOWN_FLAGS = FLAG_IMU_VALID | FLAG_GPS_HAS_POSITION | FLAG_GPS_CURRENT
 UINT32_MAX = 0xFFFFFFFF
 RECORD = struct.Struct("<II6fii2fIIHBBBB2xI")
@@ -31,7 +34,7 @@ CSV_FIELDS = (
     "timestamp_us", "sequence", "imu_status",
     "acceleration_x_mps2", "acceleration_y_mps2", "acceleration_z_mps2",
     "gyro_x_rad_s", "gyro_y_rad_s", "gyro_z_rad_s", "gps_status",
-    "latitude_deg", "longitude_deg", "gps_altitude_m", "gps_speed_mps",
+    "latitude_deg", "longitude_deg", "gps_altitude_m", "gps_altitude_current", "gps_speed_mps",
     "gps_fix_age_ms", "last_gps_fix_uptime_ms", "satellites", "gps_utc",
 )
 
@@ -107,6 +110,16 @@ def decode_record(data: bytes) -> dict:
     imu_valid = bool(flags & FLAG_IMU_VALID)
     gps_has_position = bool(flags & FLAG_GPS_HAS_POSITION)
     gps_current = bool(flags & FLAG_GPS_CURRENT)
+    quality_flags = data[62] if data[63] == GPS_QUALITY_MARKER else 0
+    if data[63] == GPS_QUALITY_MARKER and (
+        not quality_flags & GPS_QUALITY_KNOWN or
+        quality_flags & ~(GPS_QUALITY_KNOWN | GPS_ALTITUDE_CURRENT)
+    ):
+        raise SensorLogError("bad_gps_quality_flags")
+    gps_altitude_current = (bool(quality_flags & GPS_ALTITUDE_CURRENT)
+                            if quality_flags & GPS_QUALITY_KNOWN else None)
+    if gps_altitude_current and not gps_current:
+        raise SensorLogError("altitude_current_without_position")
     if gps_current and not gps_has_position:
         raise SensorLogError("current_without_position")
     if satellites > 64 or gps_hour > 23 or gps_minute > 59 or gps_second > 60:
@@ -134,6 +147,7 @@ def decode_record(data: bytes) -> dict:
         "imu_valid": imu_valid,
         "gps_has_position": gps_has_position,
         "gps_current": gps_current,
+        "gps_altitude_current": gps_altitude_current,
         "latitude_e7": latitude_e7,
         "longitude_e7": longitude_e7,
         "gps_altitude_m": gps_altitude_m,
@@ -257,6 +271,8 @@ def csv_row(record: dict) -> dict[str, str | int]:
         "latitude_deg": f"{record['latitude_e7'] / 1e7:.7f}" if gps_has_position else "",
         "longitude_deg": f"{record['longitude_e7'] / 1e7:.7f}" if gps_has_position else "",
         "gps_altitude_m": _number(record["gps_altitude_m"]) if gps_has_position else "",
+        "gps_altitude_current": ("" if record["gps_altitude_current"] is None else
+                                 str(record["gps_altitude_current"]).lower()),
         "gps_speed_mps": _number(record["gps_speed_mps"]) if gps_has_position else "",
         "gps_fix_age_ms": record["gps_fix_age_ms"] if gps_has_position else "",
         "last_gps_fix_uptime_ms": record["last_gps_fix_uptime_ms"] if gps_has_position else "",

@@ -42,7 +42,7 @@ int main() {
     341234567, -1171234567, 1024.5f, 12.75f, 250u, 0xffffff00u,
     static_cast<uint16_t>(FLAG_IMU_VALID | FLAG_GPS_HAS_POSITION |
                           FLAG_GPS_CURRENT),
-    9, 23, 59, 60,
+    9, 23, 59, 60, 0,
   };
   uint8_t encodedRecord[kRecordBytes];
   assert(encodeRecord(encodedRecord, record));
@@ -56,6 +56,25 @@ int main() {
   assert(decodedRecord.latitudeE7 == record.latitudeE7);
   assert(decodedRecord.longitudeE7 == record.longitudeE7);
   assert(decodedRecord.gpsFixAgeMs == 250u && decodedRecord.satellites == 9);
+  assert(decodedRecord.gpsQualityFlags == 0);  // Existing GIS1 bytes stay valid.
+
+  Record altitudeCurrent = record;
+  altitudeCurrent.gpsQualityFlags = GPS_QUALITY_KNOWN | GPS_ALTITUDE_CURRENT;
+  assert(encodeRecord(encodedRecord, altitudeCurrent));
+  assert(encodedRecord[62] == altitudeCurrent.gpsQualityFlags);
+  assert(encodedRecord[63] == kGpsQualityMarker);
+  assert(decodeRecord(encodedRecord, sizeof(encodedRecord), decodedRecord) ==
+         SENSOR_LOG_VALID);
+  assert(decodedRecord.gpsQualityFlags == altitudeCurrent.gpsQualityFlags);
+  Record altitudeStale = record;
+  altitudeStale.gpsQualityFlags = GPS_QUALITY_KNOWN;
+  assert(encodeRecord(encodedRecord, altitudeStale));
+  assert(decodeRecord(encodedRecord, sizeof(encodedRecord), decodedRecord) ==
+         SENSOR_LOG_VALID);
+  assert(decodedRecord.gpsQualityFlags == GPS_QUALITY_KNOWN);
+  Record invalidQuality = altitudeCurrent;
+  invalidQuality.flags &= ~FLAG_GPS_CURRENT;
+  assert(!encodeRecord(encodedRecord, invalidQuality));
 
   uint8_t corruptedHeader[kHeaderBytes];
   memcpy(corruptedHeader, encodedHeader, sizeof(corruptedHeader));

@@ -28,7 +28,8 @@ def fixture(trailing=b""):
 
 def sensor_fixture(rkt4: bytes, *, start_us: int = 40000, rate: int = 25,
                    header_crc: int | None = None, torn: bytes = b"",
-                   gps_current: bool = False) -> bytes:
+                   gps_current: bool = False,
+                   gps_altitude_current: bool | None = None) -> bytes:
     header = bytearray(32)
     struct.pack_into("<4sHHHHH2xII4x", header, 0, b"GIS1", 1, 32, 68, rate, 7,
                      start_us, zlib.crc32(rkt4[:32]) & 0xFFFFFFFF if header_crc is None else header_crc)
@@ -41,6 +42,10 @@ def sensor_fixture(rkt4: bytes, *, start_us: int = 40000, rate: int = 25,
         sensor_log.FLAG_IMU_VALID | sensor_log.FLAG_GPS_HAS_POSITION | sensor_log.FLAG_GPS_CURRENT if gps_current else sensor_log.FLAG_IMU_VALID,
         7 if gps_current else 0, 12, 34, 56, 0,
     ))
+    if gps_altitude_current is not None:
+        record[62] = sensor_log.GPS_QUALITY_KNOWN | (
+            sensor_log.GPS_ALTITUDE_CURRENT if gps_altitude_current else 0)
+        record[63] = sensor_log.GPS_QUALITY_MARKER
     struct.pack_into("<I", record, 64, zlib.crc32(record[:64]) & 0xFFFFFFFF)
     return bytes(header) + bytes(record) + torn
 
@@ -290,9 +295,30 @@ class FlightLibraryTests(unittest.TestCase):
                                           io.BytesIO(sensor_fixture(raw, gps_current=True)))
         timeline = self.library.analysis_timeline(imported["id"])
         self.assertEqual(123.5, timeline["peak_current_gps_altitude_m"])
+        self.assertIsNone(timeline["points"][1]["sensor"]["gps_altitude_current"])
         self.assertEqual([37.1, -121.9], timeline["last_current_gps_fix"])
         self.assertIsNotNone(timeline["estimated_apogee_elapsed_s"])
         self.assertIn(b"Peak GPS altitude (quality unverified)", self.library.report_html(imported["id"]))
+
+    def test_extended_gis1_stale_altitude_is_excluded_without_losing_position(self):
+        raw = fixture()
+        imported = self.library.import_stream("V12D007.BIN", io.BytesIO(raw))
+        extended = sensor_fixture(raw, gps_current=True, gps_altitude_current=False)
+        self.library.import_sensor_stream(imported["id"], "V12D007.SEN", io.BytesIO(extended))
+        timeline = self.library.analysis_timeline(imported["id"])
+        self.assertIsNone(timeline["peak_current_gps_altitude_m"])
+        self.assertEqual([37.1, -121.9], timeline["last_current_gps_fix"])
+        self.assertIs(timeline["points"][1]["sensor"]["gps_altitude_current"], False)
+        self.assertIs(sensor_log.decode_record(extended[32:])["gps_altitude_current"], False)
+        self.assertEqual("false", sensor_log.csv_row(sensor_log.decode_record(extended[32:]))["gps_altitude_current"])
+        current = sensor_fixture(raw, gps_current=True, gps_altitude_current=True)
+        self.assertIs(sensor_log.decode_record(current[32:])["gps_altitude_current"], True)
+        self.assertEqual("true", sensor_log.csv_row(sensor_log.decode_record(current[32:]))["gps_altitude_current"])
+        malformed = bytearray(current[32:])
+        malformed[62] = sensor_log.GPS_ALTITUDE_CURRENT
+        struct.pack_into("<I", malformed, 64, zlib.crc32(malformed[:64]) & 0xFFFFFFFF)
+        with self.assertRaisesRegex(sensor_log.SensorLogError, "bad_gps_quality_flags"):
+            sensor_log.decode_record(bytes(malformed))
 
     def test_large_timeline_is_bounded_and_retains_peak_and_final_sample(self):
         header = fixture()[:32]
