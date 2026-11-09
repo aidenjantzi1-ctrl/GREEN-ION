@@ -805,10 +805,6 @@ function render(d,collect=true) {
  $("prepareAll").disabled=lock||d.armed||d.recording||d.launchWatch||d.simulation;
  $("stop").disabled=lock||(!d.recording&&!d.launchWatch);
  $("disconnect").disabled=lock||!d.recording;
- $("simulate").disabled=
-  lock||d.recording||d.armed||d.simulation;
- $("simstop").disabled=
-  lock||!d.simulation;
  // Keep the SD test clickable in view-only mode: it requests control
  // and reports errors instead of silently appearing unresponsive.
  $("sdtest").disabled=deviceLock||d.recording||d.armed;
@@ -1171,6 +1167,7 @@ async function installFirmware() {
  ))return;
 
  busy=true;
+ v12Busy=true;
  $("firmwareProgress").style.width="0%";
  $("firmwarePercent").textContent="0%";
  $("updateFeedback").textContent=
@@ -1205,6 +1202,7 @@ async function installFirmware() {
   $("updateFeedback").textContent="Update failed: "+err.message;
   notice(err.message,false);
   busy=false;
+  v12Busy=false;
  }
 }
 
@@ -1699,8 +1697,6 @@ $("installFirmware").onclick=installFirmware;
 $("stop").onclick=()=>{
  if(confirm("Stop and save flight?"))command("stop");
 };
-$("simulate").onclick=()=>command("simulate");
-$("simstop").onclick=()=>command("simstop");
 $("sdtest").onclick=testSDCard;
 $("groundtest").onclick=()=>command("groundtest");
 $("shutdown").onclick=shutdown;
@@ -1747,8 +1743,8 @@ notice("V11 dashboard restored. Starting V12 compatibility layer...");
 <script>
 "use strict";
 const v12Unsupported=[
- "takeControl","releaseControl","saveMission","saveRate","arm","start","cancelWatch",
- "simulate","simstop","ledoff","ledauto","installFirmware","rollbackFirmware",
+ "saveMission","saveRate","arm","start","cancelWatch",
+ "ledoff","ledauto",
  "restoreConfig","shutdown","disconnect","downloadPreflight","scanIntegrity","downloadEverything"
 ];
 const v12HardwareEndpoint='/api/hardware-test';
@@ -1765,12 +1761,12 @@ function v12ConfigureUi(){
  document.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>openTab(button.dataset.tab,button));
  v12Unsupported.forEach(id=>{const node=$(id);if(node){node.disabled=true;node.title="Not yet implemented by the V12 firmware backend";}});
  ['missionKind','motorLabel','sampleRate','recordingLimit'].forEach(id=>{const node=$(id);if(node)node.disabled=true;});
- v12Set('controlState','V12 LOCAL');v12Set('controlLease','No remote-control lease');
+ v12Set('controlState','VIEW ONLY');v12Set('controlLease','60-second maintenance lease');
  v12Set('settingsSaveState','V12 sample rate and recording policy are fixed in firmware for deterministic logging.');
- v12Set('testFeedback','Use the real IMU, GPS and all-sensor tests above. Simulation is intentionally disabled.');
+ v12Set('testFeedback','Use live sensor and SD checks; no simulated flight mode.');
  v12Set('ledFeedback','V12 automatic status indication is firmware-controlled. Manual RGB effects are not yet exposed.');
- v12Set('updateFeedback','Browser OTA and rollback are not yet implemented in V12. Upload a verified build over USB.');
- v12Set('maintenanceStatus','V12 OTA, rollback and configuration restore: unavailable; use USB and retain the previous verified binary.');
+ v12Set('updateFeedback','Take Control before uploading a verified .ino.bin image. Keep power connected.');
+ v12Set('maintenanceStatus','Checking OTA partitions, previous firmware and power...');
  v12Set('powerFeedback','Deep sleep control is not exposed in V12. Recorder operation remains autonomous.');
  v12Set('groundTestDetail','Runs the live IMU/GPS diagnostic and, when idle, a real temporary SD write/read/delete test.');
  $('prepareAll').textContent='RESTART STATIONARY CALIBRATION';
@@ -1779,6 +1775,10 @@ function v12ConfigureUi(){
  $('fieldArm').textContent='AUTOMATIC WATCH IS FIRMWARE CONTROLLED';$('fieldArm').disabled=true;
  $('prepareAll').onclick=$('fieldPrepare').onclick=$('calibrate').onclick=$('testCalibrate').onclick=v12Calibrate;
  $('stop').onclick=$('fieldStop').onclick=v12Stop;
+ $('takeControl').onclick=v12TakeControl;
+ $('releaseControl').onclick=v12ReleaseControl;
+ $('installFirmware').onclick=installFirmware;
+ $('rollbackFirmware').onclick=rollbackFirmware;
  $('testImu').onclick=()=>v12HardwareTest('imu');
  $('testGps').onclick=()=>v12HardwareTest('gps');
  $('testAllSensors').onclick=()=>v12HardwareTest('all');
@@ -1799,7 +1799,8 @@ function v12ConfigureUi(){
 async function v12Fetch(path,method='GET',body=null){
  const options={method,cache:'no-store'};
  if(body){options.headers={'Content-Type':'application/x-www-form-urlencoded'};options.body=new URLSearchParams(body);}
- const response=await fetch('/api/'+path,options);
+ const separator=path.includes('?')?'&':'?';
+ const response=await fetch('/api/'+path+separator+'token='+encodeURIComponent(clientToken),options);
  const text=await response.text();let data={};try{data=JSON.parse(text);}catch(e){data={message:text};}
  if(!response.ok||data.success===false)throw Error(data.message||data.error||('HTTP '+response.status));
  return data;
@@ -1817,6 +1818,17 @@ function v12Render(d){
  v12Set('batteryPercent',batteryPct.toFixed(0)+'%');v12Set('batteryVoltage',v12Number(battery,3)+' V');
   v12Set('speed',v12Number(imperial&&v12Finite(d.vertical_speed_mps)?Number(d.vertical_speed_mps)*3.28084:d.vertical_speed_mps,2)+(imperial?' ft/s':' m/s'));v12Set('peak',v12Number(imperial&&v12Finite(d.landing_peak_m)?Number(d.landing_peak_m)*3.28084:d.landing_peak_m,1)+(imperial?' ft':' m'));
  v12Set('flightState',phase);v12Set('flightPhase',phase);v12Set('missionIdentity','V12 autonomous recorder');
+ v12Set('controlState',d.maintenance_controller?'MAINTENANCE CONTROL':'VIEW ONLY');
+ v12Set('controlLease',d.maintenance_controller?'Active — 60-second lease':(d.maintenance_locked?'Held by another browser':'Available — tap Take Control'));
+ $('takeControl').disabled=!!d.ota_uploading;
+ $('releaseControl').disabled=!d.maintenance_controller||!!d.ota_uploading;
+ const maintenanceReady=d.maintenance_controller&&!d.recording&&!d.ota_uploading&&d.ota_battery_ready;
+ $('installFirmware').disabled=!maintenanceReady||!d.ota_available;
+ $('rollbackFirmware').disabled=!maintenanceReady||!d.rollback_available;
+ v12Set('maintenanceStatus',d.ota_uploading?'Firmware update in progress — keep power connected':
+    'OTA '+(d.ota_available?'READY':'UNAVAILABLE')+' | Previous image '+(d.rollback_available?'AVAILABLE':'NOT FOUND')+
+    ' | Battery '+(d.ota_battery_ready?'OK':'LOW / NOT DETECTED')+
+    ' | '+(d.maintenance_controller?'CONTROL GRANTED':'Take Control before maintenance'));
  v12Set('prebufferStatus',String(d.prebuffer_records||0)+' buffered records');
  v12Set('prepareStatus',d.recording?'Flight logging is active. Dashboard loss cannot stop recording.':'V12 calibrates and watches for launch automatically after boot.');
  v12Set('feedback',d.recording?'Recording '+(d.log_file||'RKT4 file'):'Recorder is '+phase.toLowerCase()+'.');
@@ -1830,7 +1842,7 @@ function v12Render(d){
  v12Set('integrityStatus',d.recovery_status||'Not scanned');v12Set('recoveredFlights',String(d.recovered_logs||0));v12Set('recoveredSamples',String(d.recovered_records||0));
  v12Set('storageMissed',String(d.missed_sample_periods||0));v12Set('flushHeartbeat',d.recording?'ACTIVE':'IDLE');v12Set('maximumFlush','Bounded periodic flush');
  v12Set('firmwareBuild','GREEN ION V12 · RKT4 v2');v12Set('recordingLimitStatus','Automatic landing / firmware policy');
- v12Set('samples',String(d.prebuffer_records||0));v12Set('sampleRateStatus','25 Hz configured');v12Set('sampleErrors',String(d.missed_sample_periods||0));
+ v12Set('samples',String(d.prebuffer_records||0));v12Set('sampleRateStatus','50 Hz fixed');v12Set('sampleErrors',String(d.missed_sample_periods||0));
  v12Set('sdErrors',String((d.checkpoint_failures||0)+(d.sensor_log_failures||0)));v12Set('duration',d.recording?'Recording':'--');v12Set('filename',d.log_file||'--');
  v12Set('savedFlightLabel','Automatic V12 sequence');v12Set('savedMotorLabel','Not stored in V12 yet');v12Set('minimumPressure',v12Number(pressure,0)+' Pa');
  v12Set('temperatureRange',v12Number(d.imu_temperature_c,1)+' °C current');v12Set('launched',Number(d.flight_state)>0?'YES / WATCHING':'NO');v12Set('finish',phase);
@@ -1856,6 +1868,12 @@ function v12Render(d){
 
 async function v12Poll(){if(v12Busy)return;try{v12Render(await v12Fetch('status'));}catch(error){v12Set('connection','● OFFLINE');$('connection').style.color='#ff91a0';v12Set('feedback','Dashboard offline; autonomous recording continues on the Feather.');}}
 function v12SetUnits(useImperial){imperial=useImperial;$('metric').classList.toggle('active',!useImperial);$('imperial').classList.toggle('active',useImperial);if(state)v12Render(state);drawAll();drawSavedGraph();}
+async function v12TakeControl(){
+ try{notice((await v12Fetch('control','POST')).message,true);}catch(e){notice(e.message,false);}finally{await v12Poll();}
+}
+async function v12ReleaseControl(){
+ try{notice((await v12Fetch('release','POST')).message,true);}catch(e){notice(e.message,false);}finally{await v12Poll();}
+}
 async function v12Calibrate(){try{notice((await v12Fetch('calibrate','POST')).message,true);}catch(error){notice(error.message,false);}finally{v12Poll();}}
 async function v12Stop(){if(!confirm('Stop, flush and finalize the active V12 recording?'))return;try{notice((await v12Fetch('stop','POST')).message,true);}catch(error){notice(error.message,false);}finally{v12Poll();}}
 async function v12HardwareTest(sensor){try{const result=await v12Fetch('hardware-test','POST',{sensor});notice(result.accepted?'Hardware test started. Keep the board stationary for the IMU bias test.':'Test not accepted',!!result.accepted);}catch(error){notice(error.message,false);}finally{v12Poll();}}
@@ -1867,7 +1885,7 @@ async function v12LoadFiles(){try{const result=await v12Fetch('files');v12Set('s
 
 loadFiles=v12LoadFiles;
 v12ConfigureUi();
-notice('V11 blue dashboard restored with live V12 recorder integration. Connecting...');
+notice('GREEN ION V12: connecting to the real recorder...');
 setInterval(v12Poll,1200);v12Poll();
 </script>
 </body>
