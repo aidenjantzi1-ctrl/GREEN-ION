@@ -1021,6 +1021,7 @@ static void serviceSerialBench(uint32_t nowMs) {
     }
   }
   if (benchMode != BENCH_OFF && recorderMode != RECORDER_RECORDING &&
+      recorderMode != RECORDER_MAINTENANCE &&
       nowMs - lastBenchOutputMs >= config::BENCH_OUTPUT_INTERVAL_MS) {
     lastBenchOutputMs = nowMs;
     printBenchStatus(nowMs);
@@ -1840,6 +1841,7 @@ static void queueTelemetry(uint32_t nowMs) {
 }
 
 static void serviceTelemetry(uint32_t nowMs, uint32_t nowUs) {
+  if (recorderMode == RECORDER_MAINTENANCE) return;
   if (nowMs - lastRadioAttemptMs < config::RADIO_RETRY_INTERVAL_MS) return;
   const bool radioBusy = state.radioOk && radio.mode() == RHGenericDriver::RHModeTx;
   if (!green_ion::radioDispatchAllowed(
