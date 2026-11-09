@@ -1461,6 +1461,10 @@ static uint16_t telemetryFlags(uint32_t ageMs) {
   return flags;
 }
 
+// Implementations live in Maintenance.h, after recorder helpers.
+static bool otaPartitionsAvailable();
+static bool previousFirmwareAvailable();
+
 static void sendDashboardStatus() {
   const uint32_t age = gpsAgeMs(millis());
   const char *gpsStatus = !state.gpsHasPosition ? "missing" :
