@@ -209,7 +209,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 </div>
 
 <div class="card" id="controlAccessCard">
- <h2>Control access</h2>
+ <h2>Maintenance access</h2>
  <div class="row"><span>This phone</span>
   <strong id="controlState">VIEW ONLY</strong></div>
  <div class="row"><span>Lease</span>
@@ -222,11 +222,11 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   RELEASE CONTROL
  </button>
  </div>
- <p class="muted">Phones, tablets and computers may all view the dashboard. One connected browser at a time can change recorder settings. The control lease renews while that browser is connected.</p>
+ <p class="muted">Only one browser may install or roll back firmware at a time. Tap Take Control just before maintenance; the lease expires after 60 seconds.</p>
 </div>
 
 <div class="card" id="prepareRecordCard">
- <h2>Prepare and record</h2><p class="muted">Two taps: prepare the recorder, then arm it to watch automatically for launch.</p>
+ <h2>Prepare and record</h2><p class="muted">V12 automatically calibrates and watches for launch. Keep the rocket stationary during startup.</p>
  <input id="missionKind" type="hidden" value="flight">
  <label for="flightLabel">Automatic label</label>
  <input id="flightLabel" type="text" readonly value="Flight 1">
@@ -298,7 +298,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 </section>
 
 <section id="flight" class="page">
- <div class="card"><h2>Automatic flight workflow</h2><p>Prepare once, then arm and watch. V10 adds dual checkpoints, emergency RAM recovery, adaptive filtering, and confidence reporting.</p><div class="row"><span>Active phase</span><strong id="flightPhase">IDLE</strong></div><div class="row"><span>Automatic label</span><strong id="missionIdentity">--</strong></div><div class="row"><span>Prebuffer</span><strong id="prebufferStatus">--</strong></div><div class="progress"><div id="prepareProgress"></div></div><div class="notice" id="prepareStatus">Run Prepare for Launch.</div></div>
+ <div class="card"><h2>Automatic flight workflow</h2><p>V12 calibrates and watches for launch automatically. The RKT4 flight log takes priority over optional radio and sensor logging.</p><div class="row"><span>Active phase</span><strong id="flightPhase">IDLE</strong></div><div class="row"><span>Automatic label</span><strong id="missionIdentity">--</strong></div><div class="row"><span>Prebuffer</span><strong id="prebufferStatus">--</strong></div><div class="progress"><div id="prepareProgress"></div></div><div class="notice" id="prepareStatus">Run Prepare for Launch.</div></div>
 </section>
 
 <section id="field" class="page">
@@ -336,9 +336,9 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <div class="row"><span>GPS altitude / speed / UTC</span><strong id="gpsMotion">--</strong></div>
  </div>
  <div class="card">
-  <h2>10-second complete ground test</h2>
-  <p class="muted">Checks live BMP388 readings, altitude noise, battery stability, sample timing, SD writes, and a real flush.</p>
-  <button id="groundtest" class="wide green">RUN COMPLETE GROUND TEST</button>
+  <h2>Preflight sensor and SD checks</h2>
+  <p class="muted">Starts IMU/GPS diagnostics and checks a temporary SD file. Not a complete flight or power-loss test.</p>
+  <button id="groundtest" class="wide green">RUN SENSOR + SD CHECKS</button>
   <div class="row"><span>Result</span><strong id="groundTestResult">NOT RUN</strong></div>
   <div class="notice" id="groundTestDetail">Calibrate and test the SD card first.</div>
  </div>
@@ -346,11 +346,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <h2>Sensor testing</h2>
   <button id="testCalibrate">CALIBRATE ALTITUDE</button>
   <div class="notice" id="testFeedback">Ready for testing.</div>
-  <div class="actions">
-   <button id="simulate">START SIMULATION</button>
-   <button id="simstop" class="secondary">STOP SIMULATION</button>
-  </div>
-  <p class="muted">Simulation does not create a flight log.</p>
+  <p class="muted">Use live sensor and SD diagnostics for hardware testing.</p>
  </div>
  <div class="card" id="graphOptionsCard">
   <h2>Graph options</h2>
@@ -425,8 +421,6 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
    <div>Yellow solid — armed</div>
    <div class="dot" style="background:#22c55e"></div>
    <div>Green blink — recording</div>
-   <div class="dot" style="background:#a855f7"></div>
-   <div>Purple blink — simulation</div>
    <div class="dot" style="background:#ef4444"></div>
    <div>Red blink — sensor / SD fault</div>
    <div class="dot" style="background:#f59e0b"></div>
@@ -489,13 +483,13 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  <div class="card" id="v12AvailabilityCard">
   <h2>V12 feature availability</h2>
   <div class="notice">The blue V11 experience is restored around the V12 recorder. Recording, live sensors, hardware tests, SD verification, downloads, browser CSV/PDF analysis, calibration, and safe stop are connected to real V12 firmware.</div>
-  <p class="muted"><strong>Not yet available in V12:</strong> browser OTA/rollback, editable sample-rate and mission labels, RGB effects, manual arming/simulation, configuration restore, and deep sleep. Their controls are disabled below instead of pretending to work. V12 automatically calibrates, watches for launch, records, flushes, and recovers independently of Wi-Fi.</p>
+  <p class="muted"><strong>Not yet available in V12:</strong> editable sample-rate and mission labels, RGB effects, manual arming, configuration restore, and deep sleep. These controls remain disabled. OTA and rollback need Take Control, an idle recorder and sufficient battery power. V12 automatically calibrates, watches for launch, records, flushes, and recovers independently of Wi-Fi.</p>
  </div>
  <div class="card"><h2>Help and connection</h2>
-  <details open><summary>Connect from a phone, iPad or computer</summary><p>Connect to <strong>GREEN-ION</strong> Wi-Fi and open <strong>http://192.168.4.1</strong>. This local Wi-Fi does not provide internet access; remain connected to use the recorder.</p></details>
-  <details><summary>Buttons disabled or view-only?</summary><p>When one device is connected, it receives control automatically. With multiple viewers, use <strong>Take Control</strong> under Utilities. Recording or arming temporarily disables some settings.</p></details>
-  <details><summary>SD testing or download trouble?</summary><p>Finish recording and disarm, then run <strong>Detect &amp; Test SD Card</strong> under Storage. The check uses only a temporary file. Download saved recordings after logging ends.</p></details>
-  <details><summary>Updating the firmware</summary><p>Install only the main <strong>.ino.bin</strong> file from a successful GitHub Actions build. Keep power connected, and perform a ground test after updating.</p></details>
+  <details open><summary>Connect from a phone, iPad or computer</summary><p>Connect to <strong>GREEN-ION-V12</strong> Wi-Fi and open <strong>http://192.168.4.1</strong>. This local Wi-Fi does not provide internet access; remain connected to use the recorder.</p></details>
+  <details><summary>Buttons disabled or view-only?</summary><p>Take Control under System before firmware maintenance. The rocket's recorder runs autonomously; maintenance access cannot arm it.</p></details>
+  <details><summary>SD testing or download trouble?</summary><p>Finish recording, then run the SD check under Storage. The check uses only a temporary file. Download saved recordings after logging ends.</p></details>
+  <details><summary>Updating the firmware</summary><p>Use a Feather ESP32 V2 <strong>.ino.bin</strong> from a verified build. Keep stable power (battery at least 3.65 V) and run ground tests after updating.</p></details>
   <details><summary>Reading the flight calculations</summary><p>Altitude comes from atmospheric pressure. Derived speed, acceleration, apparent G, flight phases and landing estimates have uncertainty. Onboard SD logging continues without a live Wi-Fi connection once recording has started.</p></details>
  </div>
  <div class="card">
@@ -510,12 +504,12 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <div class="progress" aria-label="Firmware upload progress"><div id="firmwareProgress"></div></div>
   <div class="row"><span>Upload progress</span><strong id="firmwarePercent">0%</strong></div>
   <div class="notice" id="updateFeedback">
-   Updates are allowed only while disarmed and not recording.
+   Take Control, stop recording and check stable power before OTA.
   </div>
   <button id="rollbackFirmware" class="secondary" style="width:100%">ROLL BACK TO PREVIOUS FIRMWARE</button>
-  <a href="/api/config" download><button class="secondary" style="width:100%">DOWNLOAD CONFIGURATION BACKUP</button></a>
-  <input id="configFile" type="file" accept=".json,application/json">
-  <button id="restoreConfig" class="secondary" style="width:100%">RESTORE CONFIGURATION</button>
+  <a href="/api/config" download><button class="secondary" style="width:100%">DOWNLOAD DEVICE SETTINGS (READ ONLY)</button></a>
+  <input id="configFile" type="file" accept=".json,application/json" style="display:none">
+  <button id="restoreConfig" class="secondary" style="width:100%;display:none">RESTORE CONFIGURATION</button>
   <div class="notice" id="maintenanceStatus">Maintenance status loading...</div>
   <p class="muted">Do not use a bootloader, partitions, or merged
   binary. Use the file ending in <strong>.ino.bin</strong>. Keep
