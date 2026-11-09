@@ -40,8 +40,11 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [ ] Add firmware storage-adapter failure and boot recovery/checkpoint/report transaction harnesses.
 - [ ] Port the remaining V11 autonomous flight watcher, recovery checkpoints, dashboard, control lease, and OTA paths with regression tests.
 
+- [x] Add V12 source-contract tests for OTA routes, maintenance lease, idle recorder guard, ESP32 image checks, rollback partition checks, and removal of the stale simulation UI. **Source only; not a physical OTA test.**
+
 ## Hardware-only tests — NOT TESTED
 
+- [ ] Exercise real phone OTA upload, restart, previous-slot rollback, invalid/aborted upload, low battery, multi-client lease, and interrupted transfer using expendable data.
 - [ ] Confirm I2C discovery and addresses with all three devices connected.
 - [ ] Confirm 50/100 Hz IMU acquisition without dropped SD samples.
 - [ ] Confirm GPS cold/warm start, outdoor fix, fix age, and last-known behavior.
