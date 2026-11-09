@@ -5,7 +5,7 @@
 
   V12 remains intentionally isolated from V11. This development build combines
   RKT4 recording, a bounded prebuffer, stationary pressure calibration, and a
-  recorder-only launch watcher. Recovery and OTA paths are still incomplete.
+  recorder-only launch watcher, recovery journaling and guarded OTA maintenance.
 */
 
 #include <Arduino.h>
@@ -18,6 +18,9 @@
 #include <RH_RF95.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <Update.h>
+#include <esp_ota_ops.h>
+#include <esp_app_desc.h>
 #include <GreenIonProtocol.h>
 #include <GreenIonTelemetryQueue.h>
 #include <GreenIonRadioRecovery.h>
@@ -52,6 +55,20 @@ String checkpointFilenameA;
 String checkpointFilenameB;
 String metadataFilename;
 WebServer dashboardServer(80);
+
+String maintenanceControllerToken;
+uint32_t maintenanceLeaseAtMs = 0;
+static const uint32_t MAINTENANCE_LEASE_MS = 60000;
+static const uint16_t OTA_MIN_BATTERY_MV = 3650;
+bool otaMaintenanceHold = false;
+bool otaUploadInProgress = false;
+bool otaUploadSucceeded = false;
+bool otaHeaderChecked = false;
+bool otaRebootPending = false;
+uint32_t otaUploadBytes = 0;
+uint32_t otaRebootAtMs = 0;
+String otaUploadError;
+
 
 class SdFileSink : public green_ion::recorder::ByteSink {
  public:
@@ -169,7 +186,7 @@ enum BenchMode : uint8_t {
   BENCH_ALL,
 };
 
-BenchMode benchMode = BENCH_ALL;
+BenchMode benchMode = BENCH_OFF; // Default to readable event output, not a 1 Hz raw dump.
 char serialCommand[32] = {};
 uint8_t serialCommandLength = 0;
 
@@ -877,8 +894,10 @@ static void printBenchStatus(uint32_t nowMs) {
   if (benchMode == BENCH_GPS || benchMode == BENCH_ALL) printGpsBenchStatus(nowMs);
 }
 
+static void printConsoleStatus();
 static void applySerialCommand(uint32_t nowMs) {
-  if (!strcmp(serialCommand, "bench imu")) benchMode = BENCH_IMU;
+  if (!strcmp(serialCommand, "status") || !strcmp(serialCommand, "help")) { printConsoleStatus(); return; }
+  else if (!strcmp(serialCommand, "bench imu")) benchMode = BENCH_IMU;
   else if (!strcmp(serialCommand, "bench gps")) benchMode = BENCH_GPS;
   else if (!strcmp(serialCommand, "bench all")) benchMode = BENCH_ALL;
   else if (!strcmp(serialCommand, "bench off")) benchMode = BENCH_OFF;
@@ -1542,7 +1561,22 @@ static void sendDashboardStatus() {
   body += ",\"recovered_sensor_records\":" + String(recoveredSensorRecords);
   body += ",\"sensor_recovery_issues\":" + String(sensorRecoveryIssues);
   body += ",\"recovery_pending\":" + String(recoveryPending);
-  body += ",\"recovery_status\":\"" + recoveryStatus + "\"}";
+  body += ",\"recovery_status\":\"" + recoveryStatus + "\"";
+  body += ",\"ota_available\":";
+  body += otaPartitionsAvailable() ? "true" : "false";
+  body += ",\"rollback_available\":";
+  body += previousFirmwareAvailable() ? "true" : "false";
+  body += ",\"ota_uploading\":";
+  body += otaMaintenanceHold ? "true" : "false";
+  body += ",\"ota_battery_ready\":";
+  body += state.batteryMv >= OTA_MIN_BATTERY_MV ? "true" : "false";
+  body += ",\"maintenance_controller\":";
+  body += maintenanceControllerToken.length() &&
+          millis() - maintenanceLeaseAtMs <= MAINTENANCE_LEASE_MS &&
+          dashboardServer.arg("token") == maintenanceControllerToken ? "true" : "false";
+  body += ",\"maintenance_locked\":";
+  body += maintenanceControllerToken.length() &&
+          millis() - maintenanceLeaseAtMs <= MAINTENANCE_LEASE_MS ? "true}" : "false}";
   dashboardServer.send(200, "application/json", body);
 }
 
@@ -1618,6 +1652,10 @@ static void sendDashboardDownload(bool metadata) {
 }
 
 static void runDashboardSdTest() {
+  if (otaMaintenanceHold) {
+    dashboardServer.send(409, "application/json", "{\"success\":false,\"message\":\"Firmware maintenance is active\"}");
+    return;
+  }
   if (state.recording || recorderMode == RECORDER_RECORDING) {
     dashboardServer.send(409, "application/json",
                          "{\"success\":false,\"message\":\"SD test is disabled while recording\"}");
@@ -1646,6 +1684,8 @@ static void runDashboardSdTest() {
          : "{\"success\":false,\"message\":\"SD write/read verification failed\"}");
 }
 
+#include "Maintenance.h"
+
 static void initializeDashboard() {
   WiFi.mode(WIFI_AP);
   WiFi.softAP(config::DASHBOARD_SSID, config::DASHBOARD_PASSWORD);
@@ -1668,12 +1708,56 @@ static void initializeDashboard() {
         "e.respondWith(fetch(e.request).then(r=>{const x=r.clone();caches.open(C).then(c=>c.put(e.request,x));return r;})"
         ".catch(()=>caches.match(e.request).then(r=>r||caches.match('/'))));});");
   });
+  dashboardServer.on("/api/control", HTTP_POST, []() {
+    const String token = dashboardServer.arg("token");
+    if (!maintenanceTokenValid(token)) {
+      dashboardServer.send(400, "application/json",
+        "{\"success\":false,\"message\":\"Invalid browser control token\"}");
+      return;
+    }
+    if (otaMaintenanceHold || otaRebootPending) {
+      dashboardServer.send(409, "application/json",
+        "{\"success\":false,\"message\":\"Maintenance is already in progress\"}");
+      return;
+    }
+    if (maintenanceLeaseValid() && token != maintenanceControllerToken) {
+      dashboardServer.send(409, "application/json",
+        "{\"success\":false,\"message\":\"Another browser has control; try after 60 seconds\"}");
+      return;
+    }
+    maintenanceControllerToken = token;
+    maintenanceLeaseAtMs = millis();
+    dashboardServer.send(200, "application/json",
+      "{\"success\":true,\"message\":\"Maintenance control granted for 60 seconds\"}");
+  });
+  dashboardServer.on("/api/release", HTTP_POST, []() {
+    if (!requireMaintenanceController()) return;
+    maintenanceControllerToken = "";
+    dashboardServer.send(200, "application/json",
+      "{\"success\":true,\"message\":\"Maintenance control released\"}");
+  });
+  dashboardServer.on("/api/rollback", HTTP_POST, handleV12Rollback);
+  dashboardServer.on("/api/update", HTTP_POST,
+                     finishV12FirmwareUpload, handleV12FirmwareUpload);
+  dashboardServer.on("/api/config", HTTP_GET, []() {
+    dashboardServer.sendHeader("Content-Disposition",
+      "attachment; filename=\"GREEN-ION-V12-SETTINGS.json\"");
+    dashboardServer.send(200, "application/json",
+      "{\"format\":12,\"firmware\":\"V12\",\"sample_rate_hz\":" +
+      String(config::SENSOR_RATE_HZ) +
+      ",\"telemetry_interval_ms\":" + String(config::TELEMETRY_INTERVAL_MS) +
+      ",\"restorable\":false,\"note\":\"Fixed firmware configuration; for reference only\"}");
+  });
   dashboardServer.on("/api/status", sendDashboardStatus);
   dashboardServer.on("/api/files", sendDashboardFiles);
   dashboardServer.on("/api/download", []() { sendDashboardDownload(false); });
   dashboardServer.on("/api/metadata", []() { sendDashboardDownload(true); });
   dashboardServer.on("/api/sdtest", HTTP_POST, runDashboardSdTest);
   dashboardServer.on("/api/calibrate", HTTP_POST, []() {
+    if (otaMaintenanceHold) {
+      dashboardServer.send(409, "application/json", "{\"success\":false,\"message\":\"Firmware maintenance is active\"}");
+      return;
+    }
     if (state.recording || recorderMode == RECORDER_RECORDING) {
       dashboardServer.send(409, "application/json",
                            "{\"success\":false,\"message\":\"Calibration cannot restart while recording\"}");
@@ -1695,6 +1779,10 @@ static void initializeDashboard() {
               : "{\"success\":false,\"message\":\"Recorder finalization failed; recovery evidence was retained\"}");
   });
   dashboardServer.on("/api/hardware-test", HTTP_POST, []() {
+    if (otaMaintenanceHold) {
+      dashboardServer.send(409, "application/json", "{\"accepted\":false,\"error\":\"Firmware maintenance is active\"}");
+      return;
+    }
     if (!dashboardServer.hasArg("sensor")) {
       dashboardServer.send(400, "application/json",
                            "{\"accepted\":false,\"error\":\"missing sensor\"}");
@@ -1805,14 +1893,29 @@ void setup() {
   resetCalibration(millis());
   initializeRadio();
   initializeDashboard();
-  Serial.printf("GREEN ION V12 dev: baro=%d imu=%d gps=%d sd=%d radio=%d\n",
-                state.barometerOk, state.imuOk, state.gpsOk, state.sdOk, state.radioOk);
-  Serial.println("Hardware tests: test imu | test gps | test all | test status. Live output: bench imu | bench gps | bench all | bench status | bench off.");
-  Serial.println("RADIO SAFETY: attach a suitable antenna before entering 'radio test'.");
+  const esp_partition_t *running = esp_ota_get_running_partition();
+  esp_ota_img_states_t imageState;
+  if (running && esp_ota_get_state_partition(running, &imageState) == ESP_OK &&
+      imageState == ESP_OTA_IMG_PENDING_VERIFY) {
+    if (esp_ota_mark_app_valid_cancel_rollback() == ESP_OK)
+      Serial.println("[OTA] New application boot confirmed; previous slot retained.");
+  }
+  printConsoleStatus();
+  Serial.println("TIP: 'bench all' prints raw IMU/GPS data; 'bench off' returns to quiet mode.");
+  Serial.println("RADIO: coordinate the channel and attach antennas before radio tests.");
   sampleClock.start(micros());
 }
 
 void loop() {
+  if (otaRebootPending &&
+      static_cast<int32_t>(millis() - otaRebootAtMs) >= 0)
+    ESP.restart();
+  if (otaMaintenanceHold) {
+    // Flash updates must not race the flight watcher, 50 Hz sampler, or SD.
+    dashboardServer.handleClient();
+    delay(1);
+    return;
+  }
   const uint32_t nowMs = millis();
   const uint32_t nowUs = micros();
 
@@ -1847,6 +1950,27 @@ void loop() {
   queueTelemetry(nowMs);
   serviceTelemetry(nowMs, micros());
   dashboardServer.handleClient();
+  static RecorderMode lastConsoleMode = RECORDER_CALIBRATING;
+  static uint32_t lastConsoleStatusMs = 0;
+  if (recorderMode != lastConsoleMode) {
+    lastConsoleMode = recorderMode;
+    Serial.printf("[FLIGHT] %s | file=%s\n",
+      recorderMode == RECORDER_WATCHING ? "Calibrated; watching" :
+      recorderMode == RECORDER_RECORDING ? "Launch detected; recording" :
+      recorderMode == RECORDER_COMPLETE ? "Recording finalized" :
+      recorderMode == RECORDER_FAULT ? "Recorder needs attention" : "Recalibrating",
+      logFilename.length() ? logFilename.c_str() : "none");
+  }
+  if (recorderMode != RECORDER_RECORDING &&
+      nowMs - lastConsoleStatusMs >= 10000) {
+    lastConsoleStatusMs = nowMs;
+    Serial.printf("[STATUS] %s | SD %s | battery %.2f V | GPS %s | enter 'status'\n",
+      recorderMode == RECORDER_WATCHING ? "WATCHING" :
+      recorderMode == RECORDER_COMPLETE ? "COMPLETE" :
+      recorderMode == RECORDER_FAULT ? "CHECK" : "CALIBRATING",
+      state.sdOk ? "OK" : "CHECK", state.batteryMv / 1000.0f,
+      gpsPositionCurrent(nowMs) ? "LIVE" : "NO CURRENT FIX");
+  }
   yield();
 }
 
