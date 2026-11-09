@@ -67,6 +67,7 @@ bool otaHeaderChecked = false;
 bool otaRebootPending = false;
 uint32_t otaUploadBytes = 0;
 uint32_t otaRebootAtMs = 0;
+uint32_t otaLastActivityMs = 0;
 String otaUploadError;
 
 
@@ -1917,6 +1918,14 @@ void loop() {
   if (otaMaintenanceHold) {
     // Flash updates must not race the flight watcher, 50 Hz sampler, or SD.
     dashboardServer.handleClient();
+    if (!otaRebootPending && millis() - otaLastActivityMs > 30000UL) {
+      if (otaUploadInProgress) Update.abort();
+      otaUploadInProgress = false;
+      otaMaintenanceHold = false;
+      otaUploadError = "Firmware upload timed out; previous image retained";
+      Serial.println("[OTA] Upload timed out; restarting stationary calibration.");
+      resetCalibration(millis());
+    }
     delay(1);
     return;
   }
