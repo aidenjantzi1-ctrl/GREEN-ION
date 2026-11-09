@@ -226,7 +226,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 </div>
 
 <div class="card" id="prepareRecordCard">
- <h2>Prepare and record</h2><p class="muted">Two taps: prepare the recorder, then arm it to watch automatically for launch.</p>
+ <h2>Prepare and record</h2><p class="muted">V12 calibrates on boot, then watches automatically for launch. Use Prepare only to repeat stationary calibration.</p>
  <input id="missionKind" type="hidden" value="flight">
  <label for="flightLabel">Automatic label</label>
  <input id="flightLabel" type="text" readonly value="Flight 1">
@@ -266,10 +266,10 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  <div class="actions">
   <button id="prepareAll" class="wide">1 · PREPARE FOR LAUNCH</button>
   <button id="calibrate" style="display:none">CALIBRATE</button>
-  <button id="armWatch" class="wide green">2 · ARM &amp; WATCH FOR LAUNCH</button>
+  <button id="armWatch" class="wide green" style="display:none">AUTOMATIC LAUNCH WATCH</button>
   <button id="arm" style="display:none">ARM LOGGER</button>
   <button id="start" style="display:none">START LAUNCH WATCH</button>
-  <button id="cancelWatch" class="secondary">CANCEL ARM / LAUNCH WATCH</button>
+  <button id="cancelWatch" class="secondary" style="display:none">CANCEL WATCH</button>
   <button id="stop" class="danger">STOP &amp; SAVE</button>
   <button id="disconnect" class="secondary">DISCONNECT WI-FI</button>
  </div>
@@ -298,14 +298,14 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 </section>
 
 <section id="flight" class="page">
- <div class="card"><h2>Automatic flight workflow</h2><p>Prepare once, then arm and watch. V10 adds dual checkpoints, emergency RAM recovery, adaptive filtering, and confidence reporting.</p><div class="row"><span>Active phase</span><strong id="flightPhase">IDLE</strong></div><div class="row"><span>Automatic label</span><strong id="missionIdentity">--</strong></div><div class="row"><span>Prebuffer</span><strong id="prebufferStatus">--</strong></div><div class="progress"><div id="prepareProgress"></div></div><div class="notice" id="prepareStatus">Run Prepare for Launch.</div></div>
+ <div class="card"><h2>Automatic flight workflow</h2><p>V12 calibrates and watches automatically. It records RKT4 flight data and a synchronized IMU/GPS sensor file, then writes recovery evidence.</p><div class="row"><span>Active phase</span><strong id="flightPhase">IDLE</strong></div><div class="row"><span>Automatic label</span><strong id="missionIdentity">--</strong></div><div class="row"><span>Prebuffer</span><strong id="prebufferStatus">--</strong></div><div class="progress"><div id="prepareProgress"></div></div><div class="notice" id="prepareStatus">Run Prepare for Launch.</div></div>
 </section>
 
 <section id="field" class="page">
  <div class="card"><h2>FIELD MODE</h2><p class="muted">Large launch-day controls.</p>
   <div class="value big" id="fieldBattery">--</div><div class="notice" id="fieldReadiness">Connecting...</div>
   <button id="fieldPrepare" class="wide">1 · PREPARE FOR LAUNCH</button>
-  <button id="fieldArm" class="wide green">2 · ARM &amp; WATCH</button>
+  <button id="fieldArm" class="wide green" style="display:none">AUTOMATIC WATCH</button>
   <button id="fieldStop" class="wide danger">STOP &amp; SAVE</button>
   <label><input id="audibleCues" type="checkbox"> Phone speaks preparation results</label>
  </div>
@@ -336,9 +336,9 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <div class="row"><span>GPS altitude / speed / UTC</span><strong id="gpsMotion">--</strong></div>
  </div>
  <div class="card">
-  <h2>10-second complete ground test</h2>
-  <p class="muted">Checks live BMP388 readings, altitude noise, battery stability, sample timing, SD writes, and a real flush.</p>
-  <button id="groundtest" class="wide green">RUN COMPLETE GROUND TEST</button>
+  <h2>Integrated preflight bench check</h2>
+  <p class="muted">Checks live IMU, GPS communication/fix and a temporary SD write/read/delete. Some checks may be inconclusive without an outdoor GPS fix. This is not a substitute for physical power, radio and vibration testing.</p>
+  <button id="groundtest" class="wide green">RUN INTEGRATED BENCH CHECK</button>
   <div class="row"><span>Result</span><strong id="groundTestResult">NOT RUN</strong></div>
   <div class="notice" id="groundTestDetail">Calibrate and test the SD card first.</div>
  </div>
@@ -346,11 +346,10 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <h2>Sensor testing</h2>
   <button id="testCalibrate">CALIBRATE ALTITUDE</button>
   <div class="notice" id="testFeedback">Ready for testing.</div>
-  <div class="actions">
-   <button id="simulate">START SIMULATION</button>
-   <button id="simstop" class="secondary">STOP SIMULATION</button>
+  <div class="actions" style="display:none" aria-hidden="true">
+   <button id="simulate" disabled>Retired demo control</button>
+   <button id="simstop" disabled>Retired demo control</button>
   </div>
-  <p class="muted">Simulation does not create a flight log.</p>
  </div>
  <div class="card" id="graphOptionsCard">
   <h2>Graph options</h2>
@@ -425,8 +424,6 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
    <div>Yellow solid — armed</div>
    <div class="dot" style="background:#22c55e"></div>
    <div>Green blink — recording</div>
-   <div class="dot" style="background:#a855f7"></div>
-   <div>Purple blink — simulation</div>
    <div class="dot" style="background:#ef4444"></div>
    <div>Red blink — sensor / SD fault</div>
    <div class="dot" style="background:#f59e0b"></div>
@@ -489,13 +486,13 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  <div class="card" id="v12AvailabilityCard">
   <h2>V12 feature availability</h2>
   <div class="notice">The blue V11 experience is restored around the V12 recorder. Recording, live sensors, hardware tests, SD verification, downloads, browser CSV/PDF analysis, calibration, and safe stop are connected to real V12 firmware.</div>
-  <p class="muted"><strong>Not yet available in V12:</strong> browser OTA/rollback, editable sample-rate and mission labels, RGB effects, manual arming/simulation, configuration restore, and deep sleep. Their controls are disabled below instead of pretending to work. V12 automatically calibrates, watches for launch, records, flushes, and recovers independently of Wi-Fi.</p>
+  <p class="muted"><strong>V12 flight functions:</strong> automatic calibration, launch watching, RKT4/IMU/GPS recording, SD verification, recovery, and offline analysis. OTA and rollback work only in explicit bench maintenance mode. Editable sample-rate/mission labels, manual RGB effects, configuration restore, and deep sleep remain unavailable; their controls are disabled.</p>
  </div>
  <div class="card"><h2>Help and connection</h2>
-  <details open><summary>Connect from a phone, iPad or computer</summary><p>Connect to <strong>GREEN-ION</strong> Wi-Fi and open <strong>http://192.168.4.1</strong>. This local Wi-Fi does not provide internet access; remain connected to use the recorder.</p></details>
+  <details open><summary>Connect from a phone, iPad or computer</summary><p>Connect to <strong>GREEN-ION-V12</strong> Wi-Fi and open <strong>http://192.168.4.1</strong>. This local Wi-Fi does not provide internet access; remain connected to use the recorder.</p></details>
   <details><summary>Buttons disabled or view-only?</summary><p>When one device is connected, it receives control automatically. With multiple viewers, use <strong>Take Control</strong> under Utilities. Recording or arming temporarily disables some settings.</p></details>
   <details><summary>SD testing or download trouble?</summary><p>Finish recording and disarm, then run <strong>Detect &amp; Test SD Card</strong> under Storage. The check uses only a temporary file. Download saved recordings after logging ends.</p></details>
-  <details><summary>Updating the firmware</summary><p>Install only the main <strong>.ino.bin</strong> file from a successful GitHub Actions build. Keep power connected, and perform a ground test after updating.</p></details>
+  <details><summary>Updating the firmware</summary><p>Only update on the bench with a charged LiPo, stable USB power, and no active recording. Entering maintenance disables launch detection. Select the main <strong>.ino.bin</strong> file from a successful GitHub Actions build. Recalibrate and perform all ground tests after a restart.</p></details>
   <details><summary>Reading the flight calculations</summary><p>Altitude comes from atmospheric pressure. Derived speed, acceleration, apparent G, flight phases and landing estimates have uncertainty. Onboard SD logging continues without a live Wi-Fi connection once recording has started.</p></details>
  </div>
  <div class="card">
@@ -510,9 +507,10 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <div class="progress" aria-label="Firmware upload progress"><div id="firmwareProgress"></div></div>
   <div class="row"><span>Upload progress</span><strong id="firmwarePercent">0%</strong></div>
   <div class="notice" id="updateFeedback">
-   Updates are allowed only while disarmed and not recording.
+   Before updating, charge the LiPo to at least 3.60 V, connect USB power, and verify no flight recording is active. The app enters maintenance and turns launch watching off.
   </div>
   <button id="rollbackFirmware" class="secondary" style="width:100%">ROLL BACK TO PREVIOUS FIRMWARE</button>
+  <button id="exitMaintenance" class="secondary" style="width:100%">EXIT MAINTENANCE / RECALIBRATE</button>
   <a href="/api/config" download><button class="secondary" style="width:100%">DOWNLOAD CONFIGURATION BACKUP</button></a>
   <input id="configFile" type="file" accept=".json,application/json">
   <button id="restoreConfig" class="secondary" style="width:100%">RESTORE CONFIGURATION</button>
@@ -1754,14 +1752,14 @@ notice("V11 dashboard restored. Starting V12 compatibility layer...");
 "use strict";
 const v12Unsupported=[
  "takeControl","releaseControl","saveMission","saveRate","arm","start","cancelWatch",
- "simulate","simstop","ledoff","ledauto","installFirmware","rollbackFirmware",
+ "simulate","simstop","ledoff","ledauto",
  "restoreConfig","shutdown","disconnect","downloadPreflight","scanIntegrity","downloadEverything"
 ];
 const v12HardwareEndpoint='/api/hardware-test';
 const v12Set=(id,value)=>{const node=$(id);if(node)node.textContent=value;};
 const v12Finite=value=>value!==null&&value!==''&&Number.isFinite(Number(value));
 const v12Number=(value,digits=1,suffix="--")=>v12Finite(value)?Number(value).toFixed(digits):suffix;
-const v12FlightNames=["CALIBRATING","WATCHING FOR LAUNCH","RECORDING","LANDED / COMPLETE","RECORDER FAULT"];
+const v12FlightNames=["CALIBRATING","WATCHING FOR LAUNCH","RECORDING","LANDED / COMPLETE","RECORDER FAULT","BENCH MAINTENANCE — LAUNCH DETECTION OFF"];
 let v12Busy=false;
 
 function v12ConfigureUi(){
@@ -1775,8 +1773,8 @@ function v12ConfigureUi(){
  v12Set('settingsSaveState','V12 sample rate and recording policy are fixed in firmware for deterministic logging.');
  v12Set('testFeedback','Use the real IMU, GPS and all-sensor tests above. Simulation is intentionally disabled.');
  v12Set('ledFeedback','V12 automatic status indication is firmware-controlled. Manual RGB effects are not yet exposed.');
- v12Set('updateFeedback','Browser OTA and rollback are not yet implemented in V12. Upload a verified build over USB.');
- v12Set('maintenanceStatus','V12 OTA, rollback and configuration restore: unavailable; use USB and retain the previous verified binary.');
+ v12Set('updateFeedback','Bench OTA ready. Upload only a verified Feather .ino.bin image while on stable USB power; the recorder must not be in flight.');
+ v12Set('maintenanceStatus','OTA/rollback are available in bench maintenance; configuration restore remains unavailable.');
  v12Set('powerFeedback','Deep sleep control is not exposed in V12. Recorder operation remains autonomous.');
  v12Set('groundTestDetail','Runs the live IMU/GPS diagnostic and, when idle, a real temporary SD write/read/delete test.');
  $('prepareAll').textContent='RESTART STATIONARY CALIBRATION';
@@ -1790,6 +1788,9 @@ function v12ConfigureUi(){
  $('testAllSensors').onclick=()=>v12HardwareTest('all');
  $('groundtest').onclick=v12GroundTest;
  $('sdtest').onclick=v12SdTest;
+ $('installFirmware').onclick=v12InstallFirmware;
+ $('rollbackFirmware').onclick=v12RollbackFirmware;
+ $('exitMaintenance').onclick=v12ExitMaintenance;
  $('refresh').onclick=v12LoadFiles;
  $('fileSort').onchange=v12LoadFiles;
  $('savedGraphMetric').onchange=drawSavedGraph;
@@ -1824,9 +1825,9 @@ function v12Render(d){
   v12Set('speed',v12Number(imperial&&v12Finite(d.vertical_speed_mps)?Number(d.vertical_speed_mps)*3.28084:d.vertical_speed_mps,2)+(imperial?' ft/s':' m/s'));v12Set('peak',v12Number(imperial&&v12Finite(d.landing_peak_m)?Number(d.landing_peak_m)*3.28084:d.landing_peak_m,1)+(imperial?' ft':' m'));
  v12Set('flightState',phase);v12Set('flightPhase',phase);v12Set('missionIdentity','V12 autonomous recorder');
  v12Set('prebufferStatus',String(d.prebuffer_records||0)+' buffered records');
- v12Set('prepareStatus',d.recording?'Flight logging is active. Dashboard loss cannot stop recording.':'V12 calibrates and watches for launch automatically after boot.');
+ v12Set('prepareStatus',d.maintenance_mode?'Firmware maintenance: launch watching is disabled until exit and calibration.':d.recording?'Flight logging is active. Dashboard loss cannot stop recording.':'V12 calibrates and watches for launch automatically after boot.');
  v12Set('feedback',d.recording?'Recording '+(d.log_file||'RKT4 file'):'Recorder is '+phase.toLowerCase()+'.');
- v12Set('preflightScore',d.sd_ok&&d.barometer_ready&&d.imu_ok?'READY':'CHECK');
+ v12Set('preflightScore',d.maintenance_mode?'NOT ARMED — MAINTENANCE':d.sd_ok&&d.barometer_ready&&d.imu_ok?'READY':'CHECK');
  v12Set('preflightDetail','SD '+(d.sd_ok?'OK':'FAULT')+' · BMP388 '+(d.barometer_ready?'OK':'FAULT')+' · IMU '+(d.imu_ok?'OK':'FAULT')+' · GPS '+d.gps_status+' · radio '+(d.radio_ok?'OK':'optional/fault'));
  v12Set('overviewSD',d.sd_ok?'MOUNTED':'UNAVAILABLE');v12Set('overviewSamples',String(d.prebuffer_records||0)+' prebuffered');v12Set('overviewFile',d.log_file||'Next V12D###.BIN');
  v12Set('recovery',d.recovery_status||'Not scanned');v12Set('missed',String(d.missed_sample_periods||0));v12Set('metadata',d.metadata_file||'--');
@@ -1835,8 +1836,12 @@ function v12Render(d){
  v12Set('storageWriteErrors',String((d.checkpoint_failures||0)+(d.metadata_failures||0)+(d.finalization_failures||0)));
  v12Set('integrityStatus',d.recovery_status||'Not scanned');v12Set('recoveredFlights',String(d.recovered_logs||0));v12Set('recoveredSamples',String(d.recovered_records||0));
  v12Set('storageMissed',String(d.missed_sample_periods||0));v12Set('flushHeartbeat',d.recording?'ACTIVE':'IDLE');v12Set('maximumFlush','Bounded periodic flush');
- v12Set('firmwareBuild','GREEN ION V12 · RKT4 v2');v12Set('recordingLimitStatus','Automatic landing / firmware policy');
- v12Set('samples',String(d.prebuffer_records||0));v12Set('sampleRateStatus','25 Hz configured');v12Set('sampleErrors',String(d.missed_sample_periods||0));
+ v12Set('firmwareBuild','V12 · '+(d.firmware_build||'unknown build'));v12Set('recordingLimitStatus','Automatic landing / firmware policy');
+ v12Set('maintenanceStatus',d.maintenance_mode?'MAINTENANCE ACTIVE: launch detection OFF. Reboot or exit and recalibrate before flight.':d.ota_available?'OTA slot available; enter maintenance from this dashboard to install or roll back.':'OTA partition unavailable. Use USB to install firmware with OTA partitions.');
+ $('exitMaintenance').disabled=!d.maintenance_mode;
+ $('installFirmware').disabled=!!d.recording||!!d.update_in_progress||!d.ota_available||!!d.maintenance_mode;
+ $('rollbackFirmware').disabled=!!d.recording||!!d.update_in_progress||!d.ota_available||!!d.maintenance_mode;
+ v12Set('samples',String(d.prebuffer_records||0));v12Set('sampleRateStatus',String(d.sample_rate_hz||50)+' Hz configured');v12Set('sampleErrors',String(d.missed_sample_periods||0));
  v12Set('sdErrors',String((d.checkpoint_failures||0)+(d.sensor_log_failures||0)));v12Set('duration',d.recording?'Recording':'--');v12Set('filename',d.log_file||'--');
  v12Set('savedFlightLabel','Automatic V12 sequence');v12Set('savedMotorLabel','Not stored in V12 yet');v12Set('minimumPressure',v12Number(pressure,0)+' Pa');
  v12Set('temperatureRange',v12Number(d.imu_temperature_c,1)+' °C current');v12Set('launched',Number(d.flight_state)>0?'YES / WATCHING':'NO');v12Set('finish',phase);
@@ -1866,10 +1871,107 @@ async function v12Calibrate(){try{notice((await v12Fetch('calibrate','POST')).me
 async function v12Stop(){if(!confirm('Stop, flush and finalize the active V12 recording?'))return;try{notice((await v12Fetch('stop','POST')).message,true);}catch(error){notice(error.message,false);}finally{v12Poll();}}
 async function v12HardwareTest(sensor){try{const result=await v12Fetch('hardware-test','POST',{sensor});notice(result.accepted?'Hardware test started. Keep the board stationary for the IMU bias test.':'Test not accepted',!!result.accepted);}catch(error){notice(error.message,false);}finally{v12Poll();}}
 async function v12SdTest(){try{v12Set('sdTestFeedback','Running real write/read/delete verification...');const result=await v12Fetch('sdtest','POST');v12Set('sdTestFeedback',result.message);v12Set('sdTestResult','PASS');await v12LoadFiles();}catch(error){v12Set('sdTestFeedback',error.message);v12Set('sdTestResult','FAIL');}}
-async function v12GroundTest(){try{v12Set('groundTestResult','RUNNING');await v12Fetch('hardware-test','POST',{sensor:'all'});if(!state?.recording)await v12Fetch('sdtest','POST');v12Set('groundTestResult','IN PROGRESS');v12Set('groundTestDetail','Sensor tests are collecting live samples. PASS/FAIL/INCONCLUSIVE appears above; SD verification completed when idle.');}catch(error){v12Set('groundTestResult','INCONCLUSIVE');v12Set('groundTestDetail',error.message);}}
+async function v12GroundTest(){
+ if(state?.recording||state?.maintenance_mode){v12Set('groundTestResult','BLOCKED');v12Set('groundTestDetail','Cannot test while recording or in firmware maintenance.');return;}
+ $('groundtest').disabled=true;
+ v12Set('groundTestResult','RUNNING');
+ v12Set('groundTestDetail','Testing IMU (5 s), GPS (12 s), and verifying the SD card. Keep Feather stationary; outdoor GPS fix may take longer.');
+ try{
+  await v12Fetch('hardware-test','POST',{sensor:'all'});
+  const sd=await v12Fetch('sdtest','POST');
+  await new Promise(resolve=>setTimeout(resolve,13500));
+  const d=await v12Fetch('status');
+  const results=[String(d.imu_test_result||'NOT RUN').toUpperCase(),String(d.gps_test_result||'NOT RUN').toUpperCase()];
+  const fail=results.some(x=>x==='FAIL');
+  const pass=results.every(x=>x==='PASS')&&sd.success;
+  v12Set('groundTestResult',fail?'FAIL':pass?'PASS':'INCONCLUSIVE');
+  v12Set('groundTestDetail','IMU: '+results[0]+' · GPS: '+results[1]+' · SD: '+(sd.success?'PASS':'FAIL')+'. This check does not verify radio range, power interruption, vibration, or flight readiness.');
+ }catch(error){
+  v12Set('groundTestResult','INCONCLUSIVE');
+  v12Set('groundTestDetail',error.message);
+ }finally{$('groundtest').disabled=false;v12Poll();}
+}
+
+
+let v12MaintenanceToken='';
+async function v12EnterMaintenance() {
+ const result=await v12Fetch('maintenance','POST');
+ v12MaintenanceToken=result.token;
+ v12Set('maintenanceStatus',result.message);
+ return v12MaintenanceToken;
+}
+async function v12ExitMaintenance() {
+ if(!v12MaintenanceToken) {
+   notice('Maintenance token lost after a reload. Restart the Feather to leave maintenance and recalibrate.',false);
+   return;
+ }
+ try{
+   const result=await v12Fetch('maintenance/exit','POST',{token:v12MaintenanceToken});
+   v12MaintenanceToken='';
+   v12Set('updateFeedback',result.message);
+   notice(result.message,true);
+   await v12Poll();
+ }catch(error){notice(error.message,false);}
+}
+async function v12RollbackFirmware() {
+ if(!confirm('ROLLBACK ON BENCH ONLY: finish all flights, keep USB power connected, and disable launch detection to select the previous valid OTA image. Continue?'))return;
+ try{
+   const token=await v12EnterMaintenance();
+   const result=await v12Fetch('rollback','POST',{token});
+   v12Set('updateFeedback',result.message+' Reconnect after reboot, then rerun hardware checks.');
+   v12Set('connection','RESTARTING');
+ }catch(error){
+   v12Set('updateFeedback','Rollback not completed: '+error.message+'. If maintenance is active, exit maintenance before flight.');
+   notice(error.message,false);
+ }
+}
+async function v12InstallFirmware() {
+ const file=$('firmwareFile').files[0];
+ if(!file||!file.name.toLowerCase().endsWith('.ino.bin')){
+   v12Set('updateFeedback','Choose the main Feather file ending in .ino.bin from a successful build.');
+   return;
+ }
+ if(!confirm('INSTALL ON BENCH ONLY: no flight may be underway. Keep charged LiPo and USB power connected. Launch watching turns OFF until reboot. Install '+file.name+'?'))return;
+ v12Busy=true;
+ $('firmwareProgress').style.width='0%';
+ v12Set('firmwarePercent','0%');
+ try{
+   const token=await v12EnterMaintenance();
+   const form=new FormData();
+   form.append('firmware',file,file.name);
+   const result=await new Promise((resolve,reject)=>{
+     const request=new XMLHttpRequest();
+     request.open('POST','/api/update?token='+encodeURIComponent(token));
+     request.timeout=120000;
+     request.upload.onprogress=event=>{
+       if(!event.lengthComputable)return;
+       const pct=Math.min(100,Math.round(event.loaded/event.total*100));
+       $('firmwareProgress').style.width=pct+'%';
+       v12Set('firmwarePercent',pct+'%');
+       v12Set('updateFeedback','Uploading '+file.name+' · '+pct+'%. Do not unplug power.');
+     };
+     request.onerror=()=>reject(Error('Connection lost during firmware upload; inspect current firmware before retrying'));
+     request.ontimeout=()=>reject(Error('Upload timed out; inspect Feather Serial Monitor before retrying'));
+     request.onload=()=>{
+       let data;
+       try{data=JSON.parse(request.responseText);}catch{reject(Error('Invalid server response: '+request.status));return;}
+       if(request.status<200||request.status>=300||!data.success)reject(Error(data.message||'Firmware rejected'));
+       else resolve(data);
+     };
+     request.send(form);
+   });
+   $('firmwareProgress').style.width='100%';
+   v12Set('firmwarePercent','100%');
+   v12Set('updateFeedback',result.message+'. Wait for GREEN-ION-V12 Wi-Fi, verify build, then rerun all bench tests.');
+   v12Set('connection','RESTARTING');
+ }catch(error){
+   v12Set('updateFeedback','Update failed: '+error.message+'. Launch detection remains OFF in maintenance; exit or restart before flight.');
+   notice(error.message,false);
+ }finally{v12Busy=false;}
+}
 
 async function v12ShowFlight(name){selectedFlight=name;flightMeta={file:name};v12Set('flightSummaryStatus','Loading and validating '+name+'...');$('flightSummaryDetails').replaceChildren();await loadSavedGraph(name);if(loadedFlightName===name){const valid=savedFlightSeries.filter(r=>r[4]===1),peak=valid.length?Math.max(...valid.map(r=>r[5]).filter(Number.isFinite)):NaN,duration=savedFlightSeries.length?savedFlightSeries[savedFlightSeries.length-1][0]:0;v12Set('flightSummaryStatus',name+' · RKT4 v2 decoded in this browser');for(const [label,value] of [['Samples',savedFlightSeries.length],['Valid samples',valid.length],['Duration',duration.toFixed(2)+' s'],['Peak barometric altitude',v12Number(peak,2)+' m']]){const row=document.createElement('div');row.className='row';row.innerHTML='<span>'+label+'</span><strong>'+value+'</strong>';$('flightSummaryDetails').appendChild(row);}}}
-async function v12LoadFiles(){try{const result=await v12Fetch('files');v12Set('storageUsed',bytes(result.used)+' / '+bytes(result.total));v12Set('sdFreeSpace',bytes(Math.max(0,result.total-result.used)));v12Set('fileCount',String(result.files.length));const list=$('fileList');list.replaceChildren();let files=result.files.slice();const sort=$('fileSort').value;files.sort((a,b)=>sort==='old'?a.name.localeCompare(b.name):sort==='size'?b.size-a.size:b.name.localeCompare(a.name));if(!files.length){list.textContent='No completed V12 RKT4 recordings yet.';return;}for(const file of files){const row=document.createElement('div');row.className='file';const label=document.createElement('span');label.textContent=file.name+' · '+bytes(file.size);const actions=document.createElement('span');const view=document.createElement('button');view.textContent='VIEW / GRAPH';view.onclick=()=>v12ShowFlight(file.name);const bin=document.createElement('button');bin.textContent='BIN';bin.onclick=()=>location.href='/api/download?name='+encodeURIComponent(file.name);const csv=document.createElement('button');csv.textContent='CSV';csv.onclick=async()=>{await v12ShowFlight(file.name);if(loadedFlightName===file.name)downloadRowsCsv(file.name,savedFlightSeries);};const txt=document.createElement('button');txt.textContent='TXT';txt.onclick=()=>location.href='/api/metadata?name='+encodeURIComponent(file.name);actions.append(view,bin,csv,txt);row.append(label,actions);list.appendChild(row);}if(!selectedFlight)await v12ShowFlight(files[0].name);}catch(error){v12Set('fileList','Cannot list recordings: '+error.message);}}
+async function v12LoadFiles(){try{const result=await v12Fetch('files');v12Set('storageUsed',bytes(result.used)+' / '+bytes(result.total));v12Set('sdFreeSpace',bytes(Math.max(0,result.total-result.used)));v12Set('fileCount',String(result.files.length));const list=$('fileList');list.replaceChildren();let files=result.files.slice();const sort=$('fileSort').value;files.sort((a,b)=>sort==='old'?a.name.localeCompare(b.name):sort==='size'?b.size-a.size:b.name.localeCompare(a.name));if(!files.length){list.textContent='No completed V12 RKT4 recordings yet.';return;}for(const file of files){const row=document.createElement('div');row.className='file';const label=document.createElement('span');label.textContent=file.name+' · '+bytes(file.size);const actions=document.createElement('span');const view=document.createElement('button');view.textContent='VIEW / GRAPH';view.onclick=()=>v12ShowFlight(file.name);const bin=document.createElement('button');bin.textContent='BIN';bin.onclick=()=>location.href='/api/download?name='+encodeURIComponent(file.name);const csv=document.createElement('button');csv.textContent='CSV';csv.onclick=async()=>{await v12ShowFlight(file.name);if(loadedFlightName===file.name)downloadRowsCsv(file.name,savedFlightSeries);};const sen=document.createElement('button');sen.textContent='SEN';sen.title='Full-resolution IMU/GPS companion log';sen.onclick=()=>location.href='/api/sensors?name='+encodeURIComponent(file.name);const txt=document.createElement('button');txt.textContent='TXT';txt.onclick=()=>location.href='/api/metadata?name='+encodeURIComponent(file.name);actions.append(view,bin,sen,csv,txt);row.append(label,actions);list.appendChild(row);}if(!selectedFlight)await v12ShowFlight(files[0].name);}catch(error){v12Set('fileList','Cannot list recordings: '+error.message);}}
 
 loadFiles=v12LoadFiles;
 v12ConfigureUi();
