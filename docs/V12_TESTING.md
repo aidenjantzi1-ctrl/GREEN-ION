@@ -44,6 +44,7 @@ Evidence is reported in five separate levels: source inspection, automated host 
 
 ## Hardware-only tests — NOT TESTED
 
+- [ ] Exercise real phone OTA upload, restart, previous-slot rollback, invalid/aborted upload, low battery, multi-client lease, and interrupted transfer using expendable data.
 - [ ] Confirm I2C discovery and addresses with all three devices connected.
 - [ ] Confirm 50/100 Hz IMU acquisition without dropped SD samples.
 - [ ] Confirm GPS cold/warm start, outdoor fix, fix age, and last-known behavior.
