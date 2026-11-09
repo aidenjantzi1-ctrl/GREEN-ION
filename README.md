@@ -52,7 +52,13 @@ Enter `test imu`, `test gps`, `test all`, or `test status`. Use `bench imu`, `be
 
 Detailed instructions: [`docs/V12_FIRST_DAY_TEST.md`](docs/V12_FIRST_DAY_TEST.md).
 
-## Arduino Uno receiver
+## Phone OTA and firmware rollback (development)
+
+V12 now implements a guarded phone firmware upload, controller lease and previous-image rollback in the local dashboard. These workflows are **not physically validated yet** and must not be trusted for flight until checked on the actual ESP32 Feather V2. Use the verified `.ino.bin` for the Feather, keep stable power, and see [V12 phone OTA and rollback instructions](docs/V12_OTA.md). Firmware updates require an idle recorder and a measured battery voltage of at least 3.65 V.
+
+The unused on-device flight simulation buttons have been removed. Real IMU, GPS, SD and calibration testing remain available. Arduino Serial Monitor defaults to a quiet, readable flight summary; use `status` and `bench all` for detail.
+
+
 
 The Uno code is included at [`Ground_Receiver/Ground_Receiver.ino`](Ground_Receiver/Ground_Receiver.ino). Select **Arduino Uno**, install RadioHead and the local `GreenIonProtocol` library, then upload. Attach suitable antennas before any radio transmission. The shared 920.5 MHz setting remains provisional and must be coordinated with the Rocketry Organization of California before field use; the frequency alone does not establish FCC compliance or freedom from interference.
 
