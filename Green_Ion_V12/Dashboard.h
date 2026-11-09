@@ -240,8 +240,8 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  <label for="sampleRate">SD samples per second</label>
  <select id="sampleRate">
   <option value="10">10 Hz · longest recordings</option>
-  <option value="25" selected>25 Hz · recommended</option>
-  <option value="50">50 Hz · fastest detail</option>
+  <option value="25">25 Hz · legacy option</option>
+  <option value="50" selected>50 Hz · V12 fixed rate</option>
  </select>
  <label for="recordingLimit">Automatic recording limit</label>
  <select id="recordingLimit">
@@ -302,7 +302,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 </section>
 
 <section id="field" class="page">
- <div class="card"><h2>FIELD MODE</h2><p class="muted">Large launch-day controls.</p>
+ <div class="card"><h2>Launch-day quick controls</h2><p class="muted">Large launch-day controls.</p>
   <div class="value big" id="fieldBattery">--</div><div class="notice" id="fieldReadiness">Connecting...</div>
   <button id="fieldPrepare" class="wide">1 · PREPARE FOR LAUNCH</button>
   <button id="fieldArm" class="wide green">2 · ARM &amp; WATCH</button>
@@ -1756,6 +1756,18 @@ let v12Busy=false;
 
 function v12ConfigureUi(){
  $('flight').append($('prepareRecordCard'),$('recorderHealthCard'));
+ // Put launch-day controls on the single Flight page.
+ const fieldPage=$('field');
+ if(fieldPage){
+   const fieldCard=fieldPage.querySelector('.card');
+   if(fieldCard)$('flight').prepend(fieldCard);
+   const fieldTab=document.querySelector('[data-tab="field"]');
+   if(fieldTab)fieldTab.remove();
+   fieldPage.remove();
+ }
+ $('armWatch').style.display='none';
+ $('fieldArm').style.display='none';
+ $('cancelWatch').style.display='none';
  $('utilities').prepend($('controlAccessCard'));
  $('status').append($('graphOptionsCard'),$('altGraphCard'),$('pressureGraphCard'),$('tempGraphCard'));
  document.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>openTab(button.dataset.tab,button));
