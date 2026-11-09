@@ -56,7 +56,7 @@ class V12DashboardRestoreTests(unittest.TestCase):
 
     def test_unsupported_v11_controls_are_explicitly_disabled(self):
         self.assertIn("v12Unsupported", V12_DASHBOARD)
-        self.assertIn("Not yet available in V12", V12_DASHBOARD)
+        self.assertIn("OTA and rollback work only in explicit bench maintenance mode", V12_DASHBOARD)
         self.assertIn("node.disabled=true", V12_DASHBOARD)
 
     def test_browser_analysis_and_offline_shell_are_retained(self):

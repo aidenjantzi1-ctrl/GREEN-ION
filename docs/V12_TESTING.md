@@ -38,7 +38,9 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Integrate landing finalization with recorder stop success/failure and completion-metadata golden/error tests.
 - [x] Add native barometer health-policy tests for initialization loss, transient read failure, sustained runtime loss, retry failure, recovery, rollover, invalid configuration, and recorder-critical deferral; add source checks for firmware ordering and stale-value clearing.
 - [ ] Add firmware storage-adapter failure and boot recovery/checkpoint/report transaction harnesses.
-- [ ] Port the remaining V11 autonomous flight watcher, recovery checkpoints, dashboard, control lease, and OTA paths with regression tests.
+- [x] Restore V11-style browser OTA and rollback controls in V12 with explicit maintenance, token-gated POSTs, battery/recording guards, alternate-partition selection and source regression tests.
+- [x] Add optional human-readable Uno console summaries while retaining JSON telemetry; add V12 dashboard JavaScript syntax validation in host tests.
+- [ ] Validate OTA/rollback, power interruption and failed uploads on actual Feather hardware; control leases/configuration restore and other V11 UI features are not implemented in V12.
 
 ## Hardware-only tests — NOT TESTED
 
@@ -52,6 +54,7 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [ ] Measure battery-divider accuracy against a multimeter and current draw in every state.
 - [ ] Verify buzzer transistor drive, current, acoustics, and absence of logging timing disruption.
 - [ ] Perform controlled power-loss, SD-removal, sensor-disconnect, and brownout recovery tests.
+- [ ] Perform real Feather OTA update, update interruption and alternate-slot rollback tests with the charged LiPo and USB connected; verify files survive and re-calibration after restart.
 - [ ] Perform vibration, retention, antenna placement, thermal, and full-duration bench tests.
 - [ ] Conduct flight testing only after a documented readiness review.
 

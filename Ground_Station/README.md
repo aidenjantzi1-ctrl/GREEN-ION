@@ -4,9 +4,9 @@ The ground station is the equipment and software that stays on the ground, recei
 
 ## Open it
 
-Double-click `OPEN_GROUND_STATION.cmd`. It starts simulated data by default and opens the website automatically. Keep the small command window open while using the website; closing it stops the local site.
+Double-click `OPEN_GROUND_STATION.cmd`. It **asks for the Arduino Uno COM port** (for example `COM5`) to start the live radio ground station. Press Enter without entering a port for explicitly labeled simulated/demo data. The website opens automatically; keep the command window open. Close Arduino Serial Monitor before starting the live mode, since both programs cannot share the COM port.
 
-Simulation mode uses only Python's standard library. It plots an offline relative GPS trajectory and saves every row to `logs/*.csv`. It is a software demonstration, not hardware evidence.
+Demo mode uses only Python's standard library. It plots an offline relative GPS trajectory and saves every row to `logs/*.csv`. It is not hardware evidence. **Live mode requires the Arduino Uno receiver, its connected RFM95W radio/antenna, and `pyserial`.**
 
 The equivalent manual command is optional:
 

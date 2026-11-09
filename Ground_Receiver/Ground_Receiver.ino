@@ -18,6 +18,12 @@ RH_RF95 radio(PIN_CS, PIN_DIO0);
 uint32_t validPackets = 0;
 uint32_t invalidPackets = 0;
 uint32_t lastPacketMs = 0;
+uint32_t estimatedMissingPackets = 0;
+uint32_t lastSequence = 0;
+bool haveLastSequence = false;
+bool humanReadable = false;
+char serialCommand[20] = {};
+uint8_t serialCommandLength = 0;
 bool haveLastPosition = false;
 int32_t lastLatitudeE7 = 0;
 int32_t lastLongitudeE7 = 0;
@@ -40,6 +46,13 @@ static void printScaledDegrees(int32_t value) {
 static void printTelemetry(const green_ion::TelemetryPacket &packet, int16_t rssi) {
   const bool current = green_ion::hasCurrentPosition(packet);
   const bool bench = green_ion::isBenchRadioPacket(packet);
+  if (haveLastSequence) {
+    const uint32_t gap = packet.sequence - lastSequence;
+    // A huge delta is a restart/out-of-order packet, not lost radio traffic.
+    if (gap > 1 && gap < 1000000UL) estimatedMissingPackets += gap - 1;
+  }
+  lastSequence = packet.sequence;
+  haveLastSequence = true;
   if (green_ion::hasPosition(packet)) {
     haveLastPosition = true;
     lastLatitudeE7 = packet.latitudeE7;
@@ -92,6 +105,8 @@ static void printTelemetry(const green_ion::TelemetryPacket &packet, int16_t rss
   Serial.print(packet.flags);
   Serial.print(F(",\"health\":"));
   Serial.print(packet.health);
+  Serial.print(F(",\"estimated_missing_packets\":"));
+  Serial.print(estimatedMissingPackets);
   Serial.print(F(",\"valid_packets\":"));
   Serial.print(validPackets);
   Serial.print(F(",\"invalid_packets\":"));
@@ -103,6 +118,52 @@ static void printTelemetry(const green_ion::TelemetryPacket &packet, int16_t rss
   Serial.print(F(",\"last_position_age_ms\":"));
   if (haveLastPosition) Serial.print(millis() - lastPositionReceivedMs); else Serial.print(F("null"));
   Serial.println(F("}"));
+  // Human-friendly optional summary; JSON always remains available to Python.
+  if (humanReadable) {
+    Serial.print(F("[RADIO] #"));
+    Serial.print(packet.sequence);
+    Serial.print(F(" | Alt: "));
+    Serial.print(packet.altitudeCm / 100.0f, 1);
+    Serial.print(F(" m | Battery: "));
+    Serial.print(packet.batteryMv / 1000.0f, 2);
+    Serial.print(F(" V | GPS: "));
+    Serial.print(current ? F("LIVE") : (green_ion::hasPosition(packet) ? F("STALE") : F("NONE")));
+    Serial.print(F(" | RSSI: "));
+    Serial.print(rssi);
+    Serial.print(F(" dBm | Missed est.: "));
+    Serial.println(estimatedMissingPackets);
+  }
+}
+
+static void handleSerialCommands() {
+  while (Serial.available()) {
+    const char value = static_cast<char>(Serial.read());
+    if (value == '\r') continue;
+    if (value == '\n') {
+      serialCommand[serialCommandLength] = '\0';
+      if (!strcmp(serialCommand, "human on")) {
+        humanReadable = true;
+        Serial.println(F("[HELP] Human summaries ON. JSON telemetry continues for Python."));
+      } else if (!strcmp(serialCommand, "human off")) {
+        humanReadable = false;
+        Serial.println(F("[HELP] Human summaries OFF. JSON telemetry continues."));
+      } else if (!strcmp(serialCommand, "status")) {
+        Serial.print(F("[STATUS] Receiver valid: "));
+        Serial.print(validPackets);
+        Serial.print(F(" | CRC/rejected: "));
+        Serial.print(invalidPackets);
+        Serial.print(F(" | Estimated missed: "));
+        Serial.println(estimatedMissingPackets);
+      } else if (serialCommandLength) {
+        Serial.println(F("[HELP] Commands: human on | human off | status"));
+      }
+      serialCommandLength = 0;
+    } else if (serialCommandLength + 1 < sizeof(serialCommand)) {
+      serialCommand[serialCommandLength++] = value;
+    } else {
+      serialCommandLength = 0;
+    }
+  }
 }
 
 void setup() {
@@ -135,6 +196,7 @@ void setup() {
 }
 
 void loop() {
+  handleSerialCommands();
   if (!radio.available()) return;
   uint8_t buffer[RH_RF95_MAX_MESSAGE_LEN];
   uint8_t length = sizeof(buffer);
