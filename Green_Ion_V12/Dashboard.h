@@ -1753,6 +1753,9 @@ const v12Finite=value=>value!==null&&value!==''&&Number.isFinite(Number(value));
 const v12Number=(value,digits=1,suffix="--")=>v12Finite(value)?Number(value).toFixed(digits):suffix;
 const v12FlightNames=["CALIBRATING","WATCHING FOR LAUNCH","RECORDING","LANDED / COMPLETE","RECORDER FAULT"];
 let v12Busy=false;
+let v12CompositePending=false;
+let v12CompositeStarted=0;
+let v12CompositeSdOk=false;
 
 function v12ConfigureUi(){
  $('flight').append($('prepareRecordCard'),$('recorderHealthCard'));
@@ -1875,6 +1878,19 @@ function v12Render(d){
  v12Set('gpsCoordinates',d.latitude==null?'No position':Number(d.latitude).toFixed(7)+', '+Number(d.longitude).toFixed(7));
  v12Set('gpsMotion',v12Number(d.gps_altitude_m,1)+' m · '+v12Number(d.gps_speed_mps,2)+' m/s · '+String(d.gps_utc_hour||0).padStart(2,'0')+':'+String(d.gps_utc_minute||0).padStart(2,'0')+':'+String(d.gps_utc_second||0).padStart(2,'0')+' UTC');
  ['testImu','testGps','testAllSensors'].forEach(id=>$(id).disabled=!d.hardware_tests_allowed);
+ if(v12CompositePending && v12CompositeSdOk && Date.now()-v12CompositeStarted>=13000){
+   const imu=String(d.imu_test_result||'').toUpperCase();
+   const gps=String(d.gps_test_result||'').toUpperCase();
+   if(['PASS','FAIL','INCONCLUSIVE'].includes(imu) &&
+      ['PASS','FAIL','INCONCLUSIVE'].includes(gps)){
+     const result=imu==='FAIL'||gps==='FAIL'?'FAIL':
+       imu==='PASS'&&gps==='PASS'?'PASS':'INCONCLUSIVE';
+     v12Set('groundTestResult',result);
+     v12Set('groundTestDetail','IMU '+imu+' · GPS '+gps+
+       ' · SD PASS. An inconclusive GPS result can mean no current outdoor satellite fix; inspect details above.');
+     v12CompositePending=false;
+   }
+ }
   if(!paused){if(v12Finite(altitude))append('altitude',Number(altitude));if(v12Finite(pressure))append('pressure',Number(pressure));if(v12Finite(d.imu_temperature_c))append('temperature',Number(d.imu_temperature_c));drawAll();}
 }
 
@@ -1890,7 +1906,24 @@ async function v12Calibrate(){try{notice((await v12Fetch('calibrate','POST')).me
 async function v12Stop(){if(!confirm('Stop, flush and finalize the active V12 recording?'))return;try{notice((await v12Fetch('stop','POST')).message,true);}catch(error){notice(error.message,false);}finally{v12Poll();}}
 async function v12HardwareTest(sensor){try{const result=await v12Fetch('hardware-test','POST',{sensor});notice(result.accepted?'Hardware test started. Keep the board stationary for the IMU bias test.':'Test not accepted',!!result.accepted);}catch(error){notice(error.message,false);}finally{v12Poll();}}
 async function v12SdTest(){try{v12Set('sdTestFeedback','Running real write/read/delete verification...');const result=await v12Fetch('sdtest','POST');v12Set('sdTestFeedback',result.message);v12Set('sdTestResult','PASS');await v12LoadFiles();}catch(error){v12Set('sdTestFeedback',error.message);v12Set('sdTestResult','FAIL');}}
-async function v12GroundTest(){try{v12Set('groundTestResult','RUNNING');await v12Fetch('hardware-test','POST',{sensor:'all'});if(!state?.recording)await v12Fetch('sdtest','POST');v12Set('groundTestResult','IN PROGRESS');v12Set('groundTestDetail','Sensor tests are collecting live samples. PASS/FAIL/INCONCLUSIVE appears above; SD verification completed when idle.');}catch(error){v12Set('groundTestResult','INCONCLUSIVE');v12Set('groundTestDetail',error.message);}}
+async function v12GroundTest(){
+ if(v12CompositePending)return;
+ v12Set('groundTestResult','RUNNING');
+ v12Set('groundTestDetail','Testing real IMU/GPS communication and temporary SD write/read/delete...');
+ v12CompositePending=true;v12CompositeSdOk=false;v12CompositeStarted=Date.now();
+ try{
+   await v12Fetch('hardware-test','POST',{sensor:'all'});
+   const sd=await v12Fetch('sdtest','POST');
+   v12CompositeSdOk=!!sd.success;
+   if(!v12CompositeSdOk)throw Error('SD verification did not pass');
+   v12Set('groundTestResult','IN PROGRESS');
+   v12Set('groundTestDetail','SD PASS. Waiting for IMU and GPS diagnostics (~12 seconds).');
+ }catch(error){
+   v12CompositePending=false;
+   v12Set('groundTestResult','FAIL');
+   v12Set('groundTestDetail',error.message);
+ }
+}
 
 async function v12ShowFlight(name){selectedFlight=name;flightMeta={file:name};v12Set('flightSummaryStatus','Loading and validating '+name+'...');$('flightSummaryDetails').replaceChildren();await loadSavedGraph(name);if(loadedFlightName===name){const valid=savedFlightSeries.filter(r=>r[4]===1),peak=valid.length?Math.max(...valid.map(r=>r[5]).filter(Number.isFinite)):NaN,duration=savedFlightSeries.length?savedFlightSeries[savedFlightSeries.length-1][0]:0;v12Set('flightSummaryStatus',name+' · RKT4 v2 decoded in this browser');for(const [label,value] of [['Samples',savedFlightSeries.length],['Valid samples',valid.length],['Duration',duration.toFixed(2)+' s'],['Peak barometric altitude',v12Number(peak,2)+' m']]){const row=document.createElement('div');row.className='row';row.innerHTML='<span>'+label+'</span><strong>'+value+'</strong>';$('flightSummaryDetails').appendChild(row);}}}
 async function v12LoadFiles(){try{const result=await v12Fetch('files');v12Set('storageUsed',bytes(result.used)+' / '+bytes(result.total));v12Set('sdFreeSpace',bytes(Math.max(0,result.total-result.used)));v12Set('fileCount',String(result.files.length));const list=$('fileList');list.replaceChildren();let files=result.files.slice();const sort=$('fileSort').value;files.sort((a,b)=>sort==='old'?a.name.localeCompare(b.name):sort==='size'?b.size-a.size:b.name.localeCompare(a.name));if(!files.length){list.textContent='No completed V12 RKT4 recordings yet.';return;}for(const file of files){const row=document.createElement('div');row.className='file';const label=document.createElement('span');label.textContent=file.name+' · '+bytes(file.size);const actions=document.createElement('span');const view=document.createElement('button');view.textContent='VIEW / GRAPH';view.onclick=()=>v12ShowFlight(file.name);const bin=document.createElement('button');bin.textContent='BIN';bin.onclick=()=>location.href='/api/download?name='+encodeURIComponent(file.name);const csv=document.createElement('button');csv.textContent='CSV';csv.onclick=async()=>{await v12ShowFlight(file.name);if(loadedFlightName===file.name)downloadRowsCsv(file.name,savedFlightSeries);};const txt=document.createElement('button');txt.textContent='TXT';txt.onclick=()=>location.href='/api/metadata?name='+encodeURIComponent(file.name);actions.append(view,bin,csv,txt);row.append(label,actions);list.appendChild(row);}if(!selectedFlight)await v12ShowFlight(files[0].name);}catch(error){v12Set('fileList','Cannot list recordings: '+error.message);}}
