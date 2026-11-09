@@ -147,7 +147,7 @@ The Uno does not control flight. The computer provides approximate received tele
 
 ## Phone app — flight, home test, saved files
 
-- V12 calibrates while stationary after boot and **automatically watches for launch** when calibrated. There is no aircraft/airplane simulation test mode.
+- V12 calibrates while stationary after boot and **automatically watches for launch** when calibrated. There is no aircraft/airplane simulation test mode. **After one flight is saved, reboot/reset the Feather and recheck calibration before the next flight** (for example before switching from Green Eggs to So Long).
 - **Testing**: Test IMU, Test GPS, Test All Sensors, and Integrated Preflight Bench Check; run **Detect & Test SD Card**. A GPS communication test without a fresh outdoor fix can legitimately show **INCONCLUSIVE**.
 - **Flight**: launch detection writes a primary RKT4 file and synchronized IMU/GPS companion file. Recording operates without continuing Wi-Fi access. **Do not press Stop & Save during flight.**
 - **After landing**: open Storage and download **BIN** (primary), **SEN** (IMU/GPS), **TXT** (metadata), or **CSV** (derived browser export). Keep the matching BIN/SEN pair.
@@ -191,7 +191,7 @@ Uno commands: **human on**, **human off**, **status**. JSON packet lines are ret
 - [ ] Sensor I2C tests and real **outdoor GPS fix**. Determine last-known behavior when signal is lost.
 - [ ] SD tests, real 50 Hz flight-like recordings, corrupt/torn-tail inspection, recovery after controlled power loss.
 - [ ] Radio + SD at the same time, packet gaps, RSSI, GPS recovery, range and frequency coordination.
-- [ ] Check **WATCHING FOR LAUNCH**, **not MAINTENANCE**, and no unresolved health faults.
+- [ ] Check **WATCHING FOR LAUNCH**, **not MAINTENANCE**, and no unresolved health faults. Reset and recalibrate between flights.
 - [ ] Review the finished hardware and rocket configuration with Rolling Robots mentor and ROC range safety officer. Follow kit instructions and launch-field rules.
 
 ## Detailed sources, code and validation
