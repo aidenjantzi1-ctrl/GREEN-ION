@@ -2,7 +2,7 @@ name: Build Green Ion V12 development firmware
 
 on:
   push:
-    branches: [main, "codex/**", "v12/**"]
+    branches: [main, "codex/**", "v12/**", "feature/**"]
     paths:
       - "Green_Ion_V12/**"
       - "Ground_Receiver/**"
