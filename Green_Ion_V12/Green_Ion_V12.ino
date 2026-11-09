@@ -1659,7 +1659,7 @@ static void sendDashboardFiles() {
   dashboardServer.send(200, "application/json", body);
 }
 
-static void sendDashboardDownload(bool metadata) {
+static void sendDashboardDownload(bool metadata, bool sensors = false) {
   if (state.recording) {
     dashboardServer.send(409, "application/json",
                          "{\"success\":false,\"message\":\"Recording is active; downloads are deferred\"}");
@@ -1668,7 +1668,9 @@ static void sendDashboardDownload(bool metadata) {
   String name = dashboardServer.arg("name");
   if (metadata && dashboardFlightFilename(name, ".BIN"))
     name.replace(".BIN", ".TXT");
-  const char *suffix = metadata ? ".TXT" : ".BIN";
+  if (sensors && dashboardFlightFilename(name, ".BIN"))
+    name.replace(".BIN", ".SEN");
+  const char *suffix = metadata ? ".TXT" : (sensors ? ".SEN" : ".BIN");
   if (!dashboardFlightFilename(name, suffix)) {
     dashboardServer.send(400, "application/json",
                          "{\"success\":false,\"message\":\"Invalid V12 flight filename\"}");
@@ -1748,6 +1750,7 @@ static void initializeDashboard() {
   dashboardServer.on("/api/files", sendDashboardFiles);
   dashboardServer.on("/api/download", []() { sendDashboardDownload(false); });
   dashboardServer.on("/api/metadata", []() { sendDashboardDownload(true); });
+  dashboardServer.on("/api/sensors", []() { sendDashboardDownload(false, true); });
   dashboardServer.on("/api/sdtest", HTTP_POST, runDashboardSdTest);
   dashboardServer.on("/api/calibrate", HTTP_POST, []() {
     if (state.recording || recorderMode == RECORDER_RECORDING ||
