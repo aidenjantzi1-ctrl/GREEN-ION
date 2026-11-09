@@ -48,7 +48,8 @@
   - [x] Restore the actual V11 blue tabbed visual foundation, mobile layouts, live graphs, RKT4 browser analysis, CSV export, printable reports, SD file listing/downloads, and offline dashboard shell in V12.
   - [x] Integrate live BMP388, LSM6DSO32, PA1010D, radio, battery, SD, recorder/recovery health, and nonblocking hardware-test results into that interface.
   - [x] Add recorder-safe V12 calibration, stop/finalize, temporary SD verification, file listing, BIN download, and metadata download endpoints; all SD browsing remains locked out while recording.
-  - [ ] Port V11 browser OTA/rollback, configuration backup/restore, editable mission/sample-rate settings, RGB controls, and deep-sleep controls. Until real backends exist, the restored interface labels and disables these controls.
+  - [x] Implement guarded V11-derived browser OTA, inactive-slot rollback and read-only settings export in V12. Physical upload/rollback is NOT TESTED.
+  - [ ] Port V11 configuration restore, editable mission/sample-rate settings, RGB controls and deep-sleep controls; unsupported controls remain disabled.
 
 ## Phase 3 — simulated integration and release candidate
 
