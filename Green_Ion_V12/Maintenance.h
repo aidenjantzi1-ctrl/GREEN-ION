@@ -56,6 +56,7 @@ static bool previousFirmwareAvailable() {
 static void handleV12FirmwareUpload() {
   HTTPUpload &upload = dashboardServer.upload();
   if (upload.status == UPLOAD_FILE_START) {
+    otaLastActivityMs = millis();
     otaUploadError = "";
     otaUploadBytes = 0;
     otaUploadSucceeded = false;
@@ -89,6 +90,7 @@ static void handleV12FirmwareUpload() {
     otaMaintenanceHold = true;
     Serial.println("[OTA] Phone upload started; flight watcher suspended.");
   } else if (upload.status == UPLOAD_FILE_WRITE) {
+    otaLastActivityMs = millis();
     if (!otaUploadInProgress) return;
     if (!otaHeaderChecked) {
       otaHeaderChecked = true;
@@ -108,6 +110,7 @@ static void handleV12FirmwareUpload() {
     }
     otaUploadBytes += written;
   } else if (upload.status == UPLOAD_FILE_END) {
+    otaLastActivityMs = millis();
     if (!otaUploadInProgress) return;
     if (otaUploadBytes < 200000) {
       otaUploadError = "Firmware too small to be a complete application";
@@ -125,7 +128,10 @@ static void handleV12FirmwareUpload() {
   } else if (upload.status == UPLOAD_FILE_ABORTED) {
     if (otaUploadInProgress) Update.abort();
     otaUploadInProgress = false;
+    otaMaintenanceHold = false;
     otaUploadError = "Firmware upload aborted";
+    if (recorderMode != RECORDER_RECORDING) resetCalibration(millis());
+    Serial.println("[OTA] Client disconnected; stationary calibration resumed.");
   }
 }
 
