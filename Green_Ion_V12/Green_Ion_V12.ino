@@ -115,6 +115,7 @@ enum RecorderMode : uint8_t {
   RECORDER_COMPLETE,
   RECORDER_FAULT,
   RECORDER_MAINTENANCE,
+  RECORDER_HOME_TEST,
 };
 
 RecorderMode recorderMode = RECORDER_CALIBRATING;
@@ -127,6 +128,14 @@ static String otaUploadError;
 static String otaMaintenanceToken;
 static uint32_t consoleLastStatusMs = 0;
 static uint8_t consoleLastMode = 0xff;
+// Dedicated reserved-file home verification, isolated from actual flights.
+static File homeFile;
+static bool homeLogActive = false, homeWifiSeen = false, homeWifiAbsent = false;
+static bool homeCleanupOk = true;
+static uint8_t homeResult = 0;  // idle=0, running=1, pass=2, fail=3
+static uint16_t homeSamples = 0, homeValidSamples = 0;
+static uint32_t homeStartedMs = 0, homeMissedStart = 0, homeMissed = 0;
+static uint32_t homeRadioStartSent = 0, homeRadioStartFailures = 0;
 float calibrationSamples[config::CALIBRATION_TARGET_SAMPLES];
 uint16_t calibrationWarmup = 0;
 uint16_t calibrationAttempts = 0;
@@ -898,6 +907,7 @@ static const char *recorderModeLabel() {
     case RECORDER_COMPLETE: return "FLIGHT SAVED";
     case RECORDER_FAULT: return "FAULT - CHECK HARDWARE";
     case RECORDER_MAINTENANCE: return "MAINTENANCE - LAUNCH WATCH OFF";
+    case RECORDER_HOME_TEST: return "HOME VERIFICATION - LAUNCH WATCH OFF";
     default: return "UNKNOWN";
   }
 }
@@ -1044,7 +1054,8 @@ static void resetCalibration(uint32_t nowMs) {
 
 static void serviceBarometerRecovery(uint32_t nowMs) {
   const bool recorderCritical = recorderMode == RECORDER_WATCHING ||
-                                recorderMode == RECORDER_RECORDING;
+                                recorderMode == RECORDER_RECORDING ||
+                                recorderMode == RECORDER_HOME_TEST;
   if (!barometerHealth.shouldAttempt(nowMs, recorderCritical)) return;
   const bool initialized = configureBarometerHardware();
   barometerHealth.noteInitialize(nowMs, initialized);
@@ -1449,7 +1460,8 @@ static void serviceSensorLog(uint32_t nowMs, uint32_t nowUs) {
 
 static void appendLog(uint32_t nowUs, uint32_t nowMs, bool valid) {
   if (recorderMode == RECORDER_COMPLETE ||
-      recorderMode == RECORDER_MAINTENANCE) return;
+      recorderMode == RECORDER_MAINTENANCE ||
+      recorderMode == RECORDER_HOME_TEST) return;
   green_ion::rkt4::Record record = {
     nowUs,
     state.pressurePa,
@@ -1613,6 +1625,23 @@ static void sendDashboardStatus() {
   body += otaUploadInProgress ? "true" : "false";
   body += ",\"ota_available\":";
   body += esp_ota_get_next_update_partition(esp_ota_get_running_partition()) ? "true" : "false";
+  body += ",\"home_test_active\":";
+  body += recorderMode == RECORDER_HOME_TEST ? "true" : "false";
+  body += ",\"home_record_result\":\"" +
+    String(homeResult == 1 ? "RUNNING" : homeResult == 2 ? "PASS" :
+           homeResult == 3 ? "FAIL" : "IDLE") + "\"";
+  body += ",\"home_record_samples\":" + String(homeSamples);
+  body += ",\"home_record_valid_samples\":" + String(homeValidSamples);
+  body += ",\"home_record_missed\":" + String(homeMissed);
+  body += ",\"home_record_elapsed_s\":" +
+          String(homeLogActive ? (millis() - homeStartedMs) / 1000UL : 0);
+  body += ",\"home_record_wifi_absent\":";
+  body += homeWifiAbsent ? "true" : "false";
+  body += ",\"home_record_cleanup_ok\":";
+  body += homeCleanupOk ? "true" : "false";
+  body += ",\"home_radio_sent\":" + String(radioBenchPacketsSent - homeRadioStartSent);
+  body += ",\"home_radio_remaining\":" + String(radioBenchPacketsRemaining);
+  body += ",\"home_radio_failures\":" + String(radioSendFailures - homeRadioStartFailures);
   body += "}";
   dashboardServer.send(200, "application/json", body);
 }
@@ -1691,7 +1720,8 @@ static void sendDashboardDownload(bool metadata, bool sensors = false) {
 }
 
 static void runDashboardSdTest() {
-  if (state.recording || recorderMode == RECORDER_RECORDING) {
+  if (state.recording || recorderMode == RECORDER_RECORDING ||
+      recorderMode == RECORDER_MAINTENANCE || homeLogActive) {
     dashboardServer.send(409, "application/json",
                          "{\"success\":false,\"message\":\"SD test is disabled while recording\"}");
     return;
@@ -1719,6 +1749,7 @@ static void runDashboardSdTest() {
          : "{\"success\":false,\"message\":\"SD write/read verification failed\"}");
 }
 
+#include "HomeVerification.h"
 #include "FirmwareMaintenance.h"
 
 static void initializeDashboard() {
@@ -1753,9 +1784,14 @@ static void initializeDashboard() {
   dashboardServer.on("/api/metadata", []() { sendDashboardDownload(true); });
   dashboardServer.on("/api/sensors", []() { sendDashboardDownload(false, true); });
   dashboardServer.on("/api/sdtest", HTTP_POST, runDashboardSdTest);
+  dashboardServer.on("/api/home/start", HTTP_POST, homeStart);
+  dashboardServer.on("/api/home/record", HTTP_POST, homeStartLog);
+  dashboardServer.on("/api/home/radio", HTTP_POST, homeRadio);
+  dashboardServer.on("/api/home/finish", HTTP_POST, homeFinish);
   dashboardServer.on("/api/calibrate", HTTP_POST, []() {
     if (state.recording || recorderMode == RECORDER_RECORDING ||
-        recorderMode == RECORDER_MAINTENANCE || otaUploadInProgress) {
+        recorderMode == RECORDER_MAINTENANCE ||
+        recorderMode == RECORDER_HOME_TEST || otaUploadInProgress) {
       dashboardServer.send(409, "application/json",
                            "{\"success\":false,\"message\":\"Calibration blocked during flight or firmware maintenance\"}");
       return;
@@ -1908,6 +1944,7 @@ void loop() {
   if (sampleClock.due(nowUs)) {
     const bool barometerReadingValid = readSensors(nowMs);
     appendLog(nowUs, nowMs, barometerReadingValid);
+    homeCapture(nowUs, barometerReadingValid);
   }
   serviceGps(nowMs);
   serviceHardwareTests(nowMs);
