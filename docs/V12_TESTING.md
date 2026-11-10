@@ -67,3 +67,19 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [ ] Conduct flight testing only after a documented readiness review.
 
 No item in the hardware-only section may be checked from simulation or compilation evidence. A frequency inside 902–928 MHz is not, by itself, proof of FCC compliance or an interference-free channel.
+
+## V12 reliability/preflight/profile upgrade — source + CI evidence
+
+- [x] Native deterministic preflight classification, with blocking primary-recorder conditions and separate optional warnings, plus JSON snapshot export.
+- [x] Rocket profiles persisted in Feather Preferences; validated labels stored in additional TXT lines without changing RKT4 v2 or .SEN bytes.
+- [x] Collision-safe new flight-file allocation checks BIN, SEN, TXT, JRA, JRB and RCV siblings.
+- [x] Home-test result codes persisted in Feather NVS, sensor PASS independently re-verified on device, interrupted session marker detected after Feather restart, and phone reconnection restoration.
+- [x] Receiver heartbeat with packet-gap, duplicate, out-of-order, reboot and five-packet bench reception counters; Python serial auto-retry, staleness handling and CSV export.
+- [x] Python ground-station tests, native C++ preflight tests, source-contract and JavaScript syntax checks added to CI.
+- [ ] Full physical home-test and NVS power-interruption/resume test with SD card, LiPo and Wi-Fi dropout.
+- [ ] Flight recording with deliberate SD/LoRa contention and GPS failures, plus direct pressure calibration accuracy measurements.
+- [ ] Actual Uno receiver end-to-end bench confirmation, legal frequency coordination, radio range measurement and antenna inspection.
+- [ ] Rocket-by-rocket mechanical fit and range safety review for Green Eggs and So Long.
+
+Software status flags are only a **readiness advisory**; none constitute approval to fly.
+
