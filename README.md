@@ -4,6 +4,8 @@ GREEN ION is a model-rocket flight recorder. An **Adafruit Feather ESP32 V2** in
 
 **Status: software development, hardware validation pending.** Automated tests and compilation are not proof that your actual wiring, GPS, SD card, radio, power supply, mounting, or flight are safe or reliable. GREEN ION never controls ignition, staging, deployment or other energetic devices.
 
+**Continuing with another ChatGPT?** Read [CHATGPT_TRANSFER.txt](CHATGPT_TRANSFER.txt) for the project context, engineering rules, development workflow, and prioritized improvement ideas.
+
 ## Three programs — what to use
 
 | Location | File | Purpose |
