@@ -2129,12 +2129,29 @@ function paint(){
     vals.filter(x=>x==="INCONCLUSIVE"||x==="NOT VERIFIED").length+
     " inconclusive/not verified. Flight readiness is NEVER automatically approved.";
 }
-function save(result,note,data={}){
+async function save(result,note,data={}){
+ if(step<0||!active)return;
+ busy=true;pending="saving";paint();
+ const action=result==="NOT VERIFIED"?"skip":result==="CONFIRMED"?"confirm":"measure";
+ try {
+  const response=await fetch("/api/home/step",{method:"POST",cache:"no-store",
+    headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body:new URLSearchParams({step:String(step+1),action})});
+  const ack=await response.json();
+  if(!response.ok||!ack.success)throw Error(ack.message||"Device refused result");
+  result=String(ack.result);
+  note+=" Feather evidence: "+result+".";
+  data.device_verified=result==="PASS";
+  data.device_result=result;
+ } catch(error) {
+  result="INCONCLUSIVE";
+  note+=" Device could not persist this step ("+error.message+"). Re-run before relying on the result.";
+  data.device_verified=false;
+ }
  results[step]=result;
  evidence.push({step:step+1,title:here().title,result,note,details:data,checked_at:new Date().toISOString()});
  busy=false;pending="";
- setMessage(note+" Choose NEXT STEP, or RUN again to retry.");
- paint();
+ setMessage(note+" Choose NEXT STEP, or RUN again to retry.");paint();
 }
 async function start(){
  busy=true;paint();
@@ -2203,7 +2220,7 @@ async function run(){
    return;
   }
  }catch(err){save("FAIL","Test failed: "+err.message);}
- finally{if(pending){busy=false;paint();}}
+ finally{if(pending&&pending!=="saving"){busy=false;paint();}}
 }
 async function poll(){
  if(!active||!pending)return;
@@ -2279,16 +2296,33 @@ node("homeNext").onclick=next;
 node("homeSkip").onclick=skip;
 node("homeFinish").onclick=finish;
 node("homeReport").onclick=report;
-// If the phone reloaded during a Wi-Fi dropout, recover the in-progress
-// session and offer explicit cleanup. Lost prior step results are NOT re-certified.
+// Restore only results persisted and classified by the Feather. Following an
+// actual Feather reboot, the session is not resumed; user starts a new one.
 request("status").then(s=>{
- if(!active&&!busy&&s.home_test_active){
-  active=true;
-  step=(s.home_record_result&&s.home_record_result!=="IDLE")?7:0;
-  pending=step===7?"record":"";
-  setMessage("Reconnected to an existing home test. Earlier browser-only confirmations must be repeated. "+
-    (pending==="record"?"Recovering the ongoing temporary recording status.":"Finish this session to restore calibration."));
+ if(active||busy)return;
+ if(s.home_test_active){
+  active=true;results={};evidence=[];
+  const labels=["NOT RUN","PASS","FAIL","INCONCLUSIVE","CONFIRMED","NOT VERIFIED"];
+  const saved=String(s.home_steps||"").split("");
+  saved.slice(0,steps.length).forEach((digit,i)=>{
+   const code=Number(digit);
+   if(code>=1&&code<labels.length){
+    results[i]=labels[code];
+    evidence.push({step:i+1,title:steps[i].title,result:labels[code],
+      restored:true,note:"Restored from Feather NVS; detailed browser measurements were not retained."});
+   }
+  });
+  const missing=steps.findIndex((item,i)=>!Object.prototype.hasOwnProperty.call(results,i));
+  step=missing>=0?missing:steps.length-1;
+  if(String(s.home_record_result)==="RUNNING"){step=7;pending="record";}
+  if(step===5&&Number(s.home_radio_remaining)>0){pending="radio";radioStarted=true;}
+  setMessage("Reconnected to a Feather home session. Saved step result codes were recovered; "+
+   "missing checks must be repeated. "+(pending==="record"?
+    "The temporary SD recording continues. Reconnect and check its result.":here().guide));
   paint();
+ }else if(s.home_interrupted) {
+  setMessage("Previous Feather home verification was interrupted by restart/power loss. "+
+    "Start a NEW safe bench session to clean reserved data and repeat all measurements.");
  }
 }).catch(()=>{});
 setInterval(poll,1200);
