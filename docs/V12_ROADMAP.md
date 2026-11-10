@@ -62,3 +62,14 @@
 
 Follow `V12_HARDWARE_BRINGUP.md`, record measured evidence, and keep every unperformed hardware test marked `NOT TESTED`.
 
+
+## Reliability integration after initial V12 roadmap
+
+- [x] Advisory preflight bitmask + explicit blockers and optional warnings.
+- [x] Persist user-selected rocket/motor profile and add new-flight TXT metadata without format breakage.
+- [x] Prefer collision-safe allocation that respects orphan companion files.
+- [x] Persist step result codes on Feather and distinguish interrupted sessions/partial browser recovery.
+- [x] Add Uno receive statistics/heartbeat and Windows serial reconnection with receiver evidence.
+- [ ] Validate all new behavior with real hardware and recorded bench evidence.
+- [ ] Add comprehensive injected SD failure tests and actual recovery/rollback field trials.
+- [ ] Support a fully receiver-authenticated radio test report if a secure receiver-to-dashboard link becomes available. Manual evidence is currently required.
