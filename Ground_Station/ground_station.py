@@ -12,11 +12,12 @@ from __future__ import annotations
 
 import argparse
 import csv
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 import json
 import math
+from urllib.parse import urlsplit, unquote
 from pathlib import Path
 import threading
 import time
@@ -28,56 +29,145 @@ LOG_DIR = ROOT / "logs"
 
 @dataclass
 class Store:
+    """Thread-safe link, GPS freshness and receiver-side packet evidence."""
     latest: dict | None = None
     received_monotonic: float = 0.0
     last_position: tuple[float, float] | None = None
     last_position_monotonic: float = 0.0
-    lock: threading.Lock = threading.Lock()
+    lock: threading.Lock = field(default_factory=threading.Lock)
+    receiver_state: str = "missing"
+    receiver_error: str = ""
+    receiver_info: dict = field(default_factory=dict)
+    bench_packets: int = 0
+    last_bench: dict | None = None
+    received_packets: int = 0
+    inferred_missing: int = 0
+    repeated_packets: int = 0
+    out_of_order: int = 0
+    resets: int = 0
+    last_seq: int | None = None
+    last_uptime: int | None = None
+    avg_rssi: float | None = None
+    log_path: Path | None = None
+
+    def receiver(self, status: str, detail: str = "", info: dict | None = None) -> None:
+        with self.lock:
+            self.receiver_state = status
+            self.receiver_error = detail[:300]
+            if info is not None:
+                self.receiver_info = info
+
+    def bench(self, row: dict) -> None:
+        with self.lock:
+            self.bench_packets += 1
+            self.last_bench = row
 
     def update(self, row: dict) -> None:
         now = time.monotonic()
         with self.lock:
-            self.latest = row
+            self.latest = dict(row)
             self.received_monotonic = now
-            if row.get("latitude") is not None and row.get("longitude") is not None:
-                self.last_position = (float(row["latitude"]), float(row["longitude"]))
+            self.received_packets += 1
+            seq = row.get("sequence")
+            uptime = row.get("uptime_ms")
+            if isinstance(seq, int) and isinstance(uptime, int):
+                if self.last_uptime is not None and uptime < self.last_uptime:
+                    self.resets += 1
+                    self.last_seq = None
+                if self.last_seq is not None:
+                    delta = (seq - self.last_seq) & 0xFFFFFFFF
+                    if delta == 0:
+                        self.repeated_packets += 1
+                    elif 1 < delta < 1000000:
+                        self.inferred_missing += delta - 1
+                    elif delta >= 1000000:
+                        self.out_of_order += 1
+                self.last_seq, self.last_uptime = seq, uptime
+            rssi = row.get("rssi_dbm")
+            if isinstance(rssi, (int, float)) and math.isfinite(rssi):
+                self.avg_rssi = float(rssi) if self.avg_rssi is None else (
+                    0.9 * self.avg_rssi + 0.1 * float(rssi)
+                )
+            lat, lon = row.get("latitude"), row.get("longitude")
+            # Received a stale last-known position != a fresh GPS acquisition.
+            if (isinstance(lat, (int, float)) and isinstance(lon, (int, float))
+                    and math.isfinite(lat) and math.isfinite(lon)
+                    and -90 <= lat <= 90 and -180 <= lon <= 180
+                    and row.get("gps_status") == "live"):
+                self.last_position = (float(lat), float(lon))
                 self.last_position_monotonic = now
 
     def snapshot(self) -> dict:
         now = time.monotonic()
         with self.lock:
             row = dict(self.latest or {})
-            row["packet_age_ms"] = round((now - self.received_monotonic) * 1000) if self.latest else None
+            age = round((now - self.received_monotonic) * 1000) if self.latest else None
+            row["packet_age_ms"] = age
+            row["link_status"] = "missing" if age is None else (
+                "stale" if age > 3000 else "live"
+            )
+            # Never label GPS live when the radio link itself is stale.
+            if row.get("link_status") != "live" and row.get("gps_status") == "live":
+                row["gps_status"] = "stale"
             row["last_position"] = self.last_position
             row["last_position_age_ms"] = (
-                round((now - self.last_position_monotonic) * 1000) if self.last_position else None
+                round((now - self.last_position_monotonic) * 1000)
+                if self.last_position else None
             )
-            if row.get("packet_age_ms") is not None and row["packet_age_ms"] > 3000:
-                row["link_status"] = "stale"
-            else:
-                row["link_status"] = "live" if self.latest else "missing"
+            row["receiver_state"] = self.receiver_state
+            row["receiver_error"] = self.receiver_error
+            row["receiver_info"] = dict(self.receiver_info)
+            row["bench_packets"] = self.bench_packets
+            row["last_bench"] = self.last_bench
+            row["packets_received"] = self.received_packets
+            row["packets_missed_estimated"] = self.inferred_missing
+            row["packets_repeated"] = self.repeated_packets
+            row["packets_out_of_order"] = self.out_of_order
+            row["sender_resets"] = self.resets
+            total = self.received_packets + self.inferred_missing
+            row["loss_pct_estimated"] = round(self.inferred_missing * 100 / total, 2) if total else 0
+            row["rssi_average_dbm"] = round(self.avg_rssi, 1) if self.avg_rssi is not None else None
+            row["log_download_available"] = bool(self.log_path and self.log_path.is_file())
             return row
-
 
 STORE = Store()
 
 
 class Handler(SimpleHTTPRequestHandler):
     def translate_path(self, path: str) -> str:
-        relative = path.split("?", 1)[0].lstrip("/") or "index.html"
-        return str(ROOT / relative)
+        relative = unquote(urlsplit(path).path).lstrip("/") or "index.html"
+        requested = (ROOT / relative).resolve()
+        return str(requested if requested.is_relative_to(ROOT) else ROOT / "index.html")
 
     def do_GET(self) -> None:
         if self.path == "/api/telemetry":
-            body = json.dumps(STORE.snapshot(), allow_nan=False).encode()
+            self._json(STORE.snapshot())
+            return
+        if self.path == "/api/export":
+            with STORE.lock:
+                logfile = STORE.log_path
+            if not logfile or not logfile.is_file():
+                self.send_error(404, "No telemetry CSV yet")
+                return
+            body = logfile.read_bytes()
             self.send_response(200)
-            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header("Content-Disposition", 'attachment; filename="green-ion-telemetry.csv"')
             self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
             return
         super().do_GET()
+
+    def _json(self, result: dict) -> None:
+        body = json.dumps(result, allow_nan=False).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def log_message(self, format: str, *args: object) -> None:
         return
@@ -135,23 +225,45 @@ def sample_source(stop: threading.Event, log_path: Path) -> None:
 def serial_source(stop: threading.Event, port: str, log_path: Path) -> None:
     try:
         import serial  # type: ignore
-    except ImportError as error:
-        raise SystemExit("pyserial is required for --port; run: py -3 -m pip install pyserial") from error
-    with serial.Serial(port, 115200, timeout=1) as connection:
-        while not stop.is_set():
-            line = connection.readline().decode("utf-8", errors="replace").strip()
-            if not line:
-                continue
-            try:
-                row = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if row.get("type") != "telemetry":
-                continue
-            row["source"] = "radio"
-            row["received_utc"] = datetime.now(timezone.utc).isoformat()
-            STORE.update(row)
-            write_log(row, log_path)
+    except ImportError:
+        STORE.receiver("missing", "Install pyserial: py -3 -m pip install pyserial")
+        return
+    while not stop.is_set():
+        try:
+            with serial.Serial(port, 115200, timeout=1) as connection:
+                STORE.receiver("connected", "Waiting for Uno receiver status")
+                print(f"[UNO] Serial connected on {port}; waiting for packets.")
+                while not stop.is_set():
+                    line = connection.readline().decode("utf-8", errors="replace").strip()
+                    if not line or not line.startswith("{"):
+                        continue
+                    try:
+                        row = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    kind = row.get("type")
+                    if kind == "receiver_status":
+                        STORE.receiver("ready" if row.get("ok") else "error",
+                                       "" if row.get("ok") else str(row.get("error", "Radio initialization failed")),
+                                       row)
+                    elif kind == "receiver_error":
+                        STORE.receiver("error", "Uno reported an invalid/CRC packet")
+                    elif kind == "radio_bench":
+                        STORE.bench(row)
+                    elif kind == "telemetry":
+                        row["source"] = "radio"
+                        row["received_utc"] = datetime.now(timezone.utc).isoformat()
+                        STORE.update(row)
+                        try:
+                            write_log(row, log_path)
+                        except OSError as error:
+                            STORE.receiver("error", f"CSV write failed: {error}")
+                            print(f"[LOG] Cannot write telemetry CSV: {error}")
+        except (serial.SerialException, OSError) as error:
+            STORE.receiver("disconnected", str(error))
+            print(f"[UNO] Disconnected: {error}; retrying in 2 seconds.")
+        if stop.wait(2):
+            break
 
 
 def main() -> None:
@@ -170,6 +282,12 @@ def main() -> None:
     use_sample = args.sample or not args.port
     target = sample_source if use_sample else serial_source
     target_args = (stop, log_path) if use_sample else (stop, args.port, log_path)
+    STORE.log_path = log_path
+    if not use_sample:
+        try:
+            import serial  # noqa: F401
+        except ImportError as error:
+            raise SystemExit("Live Uno mode requires pyserial: py -3 -m pip install pyserial") from error
     worker = threading.Thread(target=target, args=target_args, daemon=True)
     worker.start()
     url = f"http://{args.listen}:{args.http_port}"
