@@ -209,41 +209,41 @@ The current development firmware adds an advisory preflight evaluator, non-overw
 
 ### Flight profile — save before launch
 
-1. With the Feather safely secured on the bench, open its Wi-Fi dashboard at \`http://192.168.4.1/\`.
-2. Open **Flight → Rocket flight profile**. Select **Green Eggs**, **So Long**, or **Another rocket**. Type an optional motor designation (e.g. \`D12-5\`).
+1. With the Feather safely secured on the bench, open its Wi-Fi dashboard at `http://192.168.4.1/`.
+2. Open **Flight → Rocket flight profile**. Select **Green Eggs**, **So Long**, or **Another rocket**. Type an optional motor designation (e.g. `D12-5`).
 3. Press **SAVE ROCKET PROFILE & RECALIBRATE**. The name/motor are saved in Feather nonvolatile storage. Launch watching is cancelled until pressure calibration restarts and completes.
-4. Check the actual rocket name and preflight warning list. The selected rocket/motor are appended to each new flight's **V12D###.TXT** as \`rocket=\` / \`motor=\` lines. Binary **BIN/SEN formats are unchanged**.
+4. Check the actual rocket name and preflight warning list. The selected rocket/motor are appended to each new flight's **V12D###.TXT** as `rocket=` / `motor=` lines. Binary **BIN/SEN formats are unchanged**.
 5. After changing from Green Eggs to So Long, save a new profile and separately check physical fit, payload mass, center of gravity, motor/staging and recovery.
 
 No rocket is assumed by default. If an older flight TXT has no profile lines, the dashboard displays “Rocket not recorded in this flight” rather than attaching today's selection to historical data.
 
 ### Automatic preflight — advisory, not launch approval
 
-The Status/Flight recorder-health card updates from actual \`/api/status\` data. The firmware returns a classification plus a bitmask of reasons. **BLOCKED** means an essential software preflight requirement is missing, **CHECK_OPTIONAL** means core recorder conditions are met but optional sensors, GPS, radio, historical errors, calibration age, or the rocket profile need attention, and **READY_FOR_REVIEW** means the software checks currently have no flags. None of these proves that the rocket is safe or permitted to launch.
+The Status/Flight recorder-health card updates from actual `/api/status` data. The firmware returns a classification plus a bitmask of reasons. **BLOCKED** means an essential software preflight requirement is missing, **CHECK_OPTIONAL** means core recorder conditions are met but optional sensors, GPS, radio, historical errors, calibration age, or the rocket profile need attention, and **READY_FOR_REVIEW** means the software checks currently have no flags. None of these proves that the rocket is safe or permitted to launch.
 
 Essential conditions include SD availability, barometer health, voltage measurement above the conservative software threshold (3.60 V; verify your divider with a multimeter), valid pressure calibration, automatic watcher active, no OTA/home-test mode, no outstanding recovery evidence, and no interrupted home-test cleanup. Optional checks cover IMU range, current GPS fix, LoRa readiness, missed samples, companion errors, 30-minute calibration age, and rocket selection.
 
-Use **DOWNLOAD PREFLIGHT REPORT** for a snapshot JSON report. It explicitly states \`hardware_approved: false\`. A missing GPS fix does not disable pressure-only recording but is reported as a warning. **A radio being initialized is not proof that the Uno receives it.** Always complete physical inspection and range safety review separately.
+Use **DOWNLOAD PREFLIGHT REPORT** for a snapshot JSON report. It explicitly states `hardware_approved: false`. A missing GPS fix does not disable pressure-only recording but is reported as a warning. **A radio being initialized is not proof that the Uno receives it.** Always complete physical inspection and range safety review separately.
 
 ### Guided home test now saves step results on the Feather
 
 The **Testing → Full home verification** wizard writes completed step result codes into ESP32 nonvolatile storage, not just the current browser page. If a phone disconnects or reloads, the wizard restores only steps already recorded by the Feather. Automatic measurements are re-evaluated **on the Feather** rather than accepting a claimed PASS from JavaScript; user-checklist and Uno-reception steps are labeled **CONFIRMED**, not electronically measured.
 
-The 30-second 50 Hz test remains a TEMPORARY file \`/GIHOME.BIN\`; it checks actual RKT4 bytes and deletes its own temporary data only. A Wi-Fi disconnect must actually be observed to mark the complete recording + disconnect step PASS. Incomplete steps are **NOT VERIFIED** or **INCONCLUSIVE**. If the Feather reboots mid-session, it marks the previous test **INTERRUPTED** rather than resuming a potentially unsafe recording, and requires a fresh session and cleanup. Ending a session restarts stationary calibration.
+The 30-second 50 Hz test remains a TEMPORARY file `/GIHOME.BIN`; it checks actual RKT4 bytes and deletes its own temporary data only. A Wi-Fi disconnect must actually be observed to mark the complete recording + disconnect step PASS. Incomplete steps are **NOT VERIFIED** or **INCONCLUSIVE**. If the Feather reboots mid-session, it marks the previous test **INTERRUPTED** rather than resuming a potentially unsafe recording, and requires a fresh session and cleanup. Ending a session restarts stationary calibration.
 
 **Important:** The device stores step **result codes**, not a full raw time series or every browser-written narrative. The downloadable browser JSON includes observed details when available; restored historical codes are clearly identified. Tests still cannot establish physical flight, launch/landing detection, vibration, RF range, OTA reliability, independent battery operation without manual confirmation, or safe mounting.
 
 ### Flight data protection
 
-Flight filenames now check for pre-existing \`.BIN\`, \`.SEN\`, \`.TXT\`, journal and recovery-report siblings before allocating a new \`V12D###\` sequence. An orphaned companion/recovery file will no longer be casually overwritten when the primary BIN is missing. Existing checkpointing and RKT4/GIS1 bytes remain unchanged.
+Flight filenames now check for pre-existing `.BIN`, `.SEN`, `.TXT`, journal and recovery-report siblings before allocating a new `V12D###` sequence. An orphaned companion/recovery file will no longer be casually overwritten when the primary BIN is missing. Existing checkpointing and RKT4/GIS1 bytes remain unchanged.
 
 SD write/flush, interrupted recording recovery and file-integrity behavior must still be measured on hardware. Do not interpret collision protection alone as proof against power interruption, worn flash, or failing SD cards.
 
 ### LoRa receiver and Windows ground station
 
-The Arduino Uno firmware reports CRC/rejected counts, valid packets, estimated missing packets, duplicates, out-of-order packets, sender reboots and a 5-second receiver status heartbeat. Valid bench packets are tagged \`radio_bench\` and **not counted as flight telemetry** by the Windows program. The computer shows serial receiver state, RSSI average, estimated packet loss, receiver-side five-packet count, GPS freshness, and last-known position.
+The Arduino Uno firmware reports CRC/rejected counts, valid packets, estimated missing packets, duplicates, out-of-order packets, sender reboots and a 5-second receiver status heartbeat. Valid bench packets are tagged `radio_bench` and **not counted as flight telemetry** by the Windows program. The computer shows serial receiver state, RSSI average, estimated packet loss, receiver-side five-packet count, GPS freshness, and last-known position.
 
-To use real radio data, connect **both correct antennas**, plug the Uno into your Windows computer, close Arduino Serial Monitor and run \`Ground_Station/OPEN_GROUND_STATION.cmd\`, entering the Uno COM port. The Python program reconnects after USB/serial loss and records telemetry to \`Ground_Station/logs/\`. Select **Download telemetry CSV** in the local computer dashboard or open \`http://127.0.0.1:8765/api/export\`. Empty COM input runs explicitly labeled **DEMO**, which is never hardware evidence.
+To use real radio data, connect **both correct antennas**, plug the Uno into your Windows computer, close Arduino Serial Monitor and run `Ground_Station/OPEN_GROUND_STATION.cmd`, entering the Uno COM port. The Python program reconnects after USB/serial loss and records telemetry to `Ground_Station/logs/`. Select **Download telemetry CSV** in the local computer dashboard or open `http://127.0.0.1:8765/api/export`. Empty COM input runs explicitly labeled **DEMO**, which is never hardware evidence.
 
 Before the next launch, verify actual LoRa range, link reliability, CRC diagnostics, both antenna connections and the ROC-approved/legally usable channel. The firmware's configured 920.5 MHz is provisional and not itself clearance.
 
