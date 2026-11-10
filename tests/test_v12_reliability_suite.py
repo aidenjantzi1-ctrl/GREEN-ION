@@ -88,7 +88,7 @@ class FirmwareSourceContracts(unittest.TestCase):
 
     def test_home_test_persistence_and_uncertainty(self) -> None:
         for token in ('"giohome"', 'getBool("active", false)', 'putBool("active", true)',
-                      '"home/step"', 'homeStepStatuses', 'homeStepName',
+                      '"/api/home/step"', 'homeStepStatuses', 'homeStepName',
                       'homeWifiAbsent', 'homeCleanupOk'):
             self.assertIn(token, self.home + self.fw)
         self.assertIn("homeStoreStepResult", self.fw)
