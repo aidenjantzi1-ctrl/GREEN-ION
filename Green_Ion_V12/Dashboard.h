@@ -2077,6 +2077,26 @@ async function v12InstallFirmware() {
 async function v12ShowFlight(name){selectedFlight=name;flightMeta={file:name};v12Set('flightSummaryStatus','Loading and validating '+name+'...');$('flightSummaryDetails').replaceChildren();await loadSavedGraph(name);if(loadedFlightName===name){const valid=savedFlightSeries.filter(r=>r[4]===1),peak=valid.length?Math.max(...valid.map(r=>r[5]).filter(Number.isFinite)):NaN,duration=savedFlightSeries.length?savedFlightSeries[savedFlightSeries.length-1][0]:0;v12Set('flightSummaryStatus',name+' · RKT4 v2 decoded in this browser');for(const [label,value] of [['Samples',savedFlightSeries.length],['Valid samples',valid.length],['Duration',duration.toFixed(2)+' s'],['Peak barometric altitude',v12Number(peak,2)+' m']]){const row=document.createElement('div');row.className='row';row.innerHTML='<span>'+label+'</span><strong>'+value+'</strong>';$('flightSummaryDetails').appendChild(row);}}}
 async function v12LoadFiles(){try{const result=await v12Fetch('files');v12Set('storageUsed',bytes(result.used)+' / '+bytes(result.total));v12Set('sdFreeSpace',bytes(Math.max(0,result.total-result.used)));v12Set('fileCount',String(result.files.length));const list=$('fileList');list.replaceChildren();let files=result.files.slice();const sort=$('fileSort').value;files.sort((a,b)=>sort==='old'?a.name.localeCompare(b.name):sort==='size'?b.size-a.size:b.name.localeCompare(a.name));if(!files.length){list.textContent='No completed V12 RKT4 recordings yet.';return;}for(const file of files){const row=document.createElement('div');row.className='file';const label=document.createElement('span');label.textContent=file.name+' · '+bytes(file.size);const actions=document.createElement('span');const view=document.createElement('button');view.textContent='VIEW / GRAPH';view.onclick=()=>v12ShowFlight(file.name);const bin=document.createElement('button');bin.textContent='BIN';bin.onclick=()=>location.href='/api/download?name='+encodeURIComponent(file.name);const csv=document.createElement('button');csv.textContent='CSV';csv.onclick=async()=>{await v12ShowFlight(file.name);if(loadedFlightName===file.name)downloadRowsCsv(file.name,savedFlightSeries);};const sen=document.createElement('button');sen.textContent='SEN';sen.title='Full-resolution IMU/GPS companion log';sen.onclick=()=>location.href='/api/sensors?name='+encodeURIComponent(file.name);const txt=document.createElement('button');txt.textContent='TXT';txt.onclick=()=>location.href='/api/metadata?name='+encodeURIComponent(file.name);actions.append(view,bin,sen,csv,txt);row.append(label,actions);list.appendChild(row);}if(!selectedFlight)await v12ShowFlight(files[0].name);}catch(error){v12Set('fileList','Cannot list recordings: '+error.message);}}
 
+// The historical rocket/motor identity belongs to each downloaded TXT sidecar,
+// not to whichever rocket is currently selected on the Feather.
+const v12OriginalShowFlight=v12ShowFlight;
+v12ShowFlight=async function(name){
+ await v12OriginalShowFlight(name);
+ try{
+  const response=await fetch("/api/metadata?name="+encodeURIComponent(name),{cache:"no-store"});
+  if(!response.ok)return;
+  const metadata=await response.text();
+  const entries={};
+  for(const line of metadata.split(/\r?\n/)){
+   const equals=line.indexOf("=");
+   if(equals>0)entries[line.slice(0,equals).trim()]=line.slice(equals+1).trim();
+  }
+  v12Set("savedFlightLabel",entries.rocket||"Rocket not recorded in this flight");
+  v12Set("savedMotorLabel",entries.motor||"Motor not recorded in this flight");
+ }catch(error){
+  v12Set("savedFlightLabel","Metadata unavailable");
+ }
+};
 loadFiles=v12LoadFiles;
 v12ConfigureUi();
 notice('V11 blue dashboard restored with live V12 recorder integration. Connecting...');
