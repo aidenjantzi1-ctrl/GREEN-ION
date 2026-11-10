@@ -312,6 +312,26 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 </section>
 
 <section id="testing" class="page">
+ <div class="card" id="homeVerificationCard">
+  <h2>Full home verification — guided and temporary</h2>
+  <p class="muted">A step-by-step check of power, pressure, IMU, GPS, SD card, LoRa, battery and a real 30-second sensor recording. No flight is simulated. Some physical checks need your confirmation. Do not use with motors connected or on a launch pad.</p>
+  <div class="row"><span>Progress</span><strong id="homeStepCount">Not started</strong></div>
+  <div class="progress"><div id="homeProgressFill"></div></div>
+  <h3 id="homeStepTitle">Ready to start</h3>
+  <div class="notice" id="homeInstructions" role="status" aria-live="polite">Secure the Feather and remove all rocket motors. Attach radio antennas before transmitting. Tap Start full home test.</div>
+  <label id="homeConfirmLabel" style="display:none"><input id="homeConfirm" type="checkbox"><span id="homeConfirmText">I completed the physical check.</span></label>
+  <div class="row"><span>Result</span><strong id="homeStepStatus">NOT RUN</strong></div>
+  <div class="actions">
+   <button id="homeStart" class="green">START FULL HOME TEST</button>
+   <button id="homeRun" disabled>RUN / CONFIRM THIS STEP</button>
+   <button id="homeNext" disabled>NEXT STEP</button>
+   <button id="homeSkip" class="secondary" disabled>MARK NOT VERIFIED</button>
+   <button id="homeFinish" class="danger" disabled>END &amp; DELETE TEMP DATA</button>
+  </div>
+  <div class="notice" id="homeSummary">PASS describes only the check performed, not the entire rocket's flight readiness.</div>
+  <button id="homeReport" class="secondary" disabled>DOWNLOAD JSON TEST REPORT</button>
+ </div>
+
  <div class="card" id="hardwareTestsCard">
   <h2>V12 Hardware Tests</h2>
   <p class="muted">Live diagnostics run independently from the recorder. Tests are deferred whenever flight recording is active.</p>
@@ -1759,7 +1779,7 @@ const v12HardwareEndpoint='/api/hardware-test';
 const v12Set=(id,value)=>{const node=$(id);if(node)node.textContent=value;};
 const v12Finite=value=>value!==null&&value!==''&&Number.isFinite(Number(value));
 const v12Number=(value,digits=1,suffix="--")=>v12Finite(value)?Number(value).toFixed(digits):suffix;
-const v12FlightNames=["CALIBRATING","WATCHING FOR LAUNCH","RECORDING","LANDED / COMPLETE","RECORDER FAULT","BENCH MAINTENANCE — LAUNCH DETECTION OFF"];
+const v12FlightNames=["CALIBRATING","WATCHING FOR LAUNCH","RECORDING","LANDED / COMPLETE","RECORDER FAULT","BENCH MAINTENANCE — LAUNCH DETECTION OFF","HOME VERIFICATION — LAUNCH DETECTION OFF"];
 let v12Busy=false;
 
 function v12ConfigureUi(){
@@ -1825,9 +1845,9 @@ function v12Render(d){
   v12Set('speed',v12Number(imperial&&v12Finite(d.vertical_speed_mps)?Number(d.vertical_speed_mps)*3.28084:d.vertical_speed_mps,2)+(imperial?' ft/s':' m/s'));v12Set('peak',v12Number(imperial&&v12Finite(d.landing_peak_m)?Number(d.landing_peak_m)*3.28084:d.landing_peak_m,1)+(imperial?' ft':' m'));
  v12Set('flightState',phase);v12Set('flightPhase',phase);v12Set('missionIdentity','V12 autonomous recorder');
  v12Set('prebufferStatus',String(d.prebuffer_records||0)+' buffered records');
- v12Set('prepareStatus',d.maintenance_mode?'Firmware maintenance: launch watching is disabled until exit and calibration.':d.recording?'Flight logging is active. Dashboard loss cannot stop recording.':'V12 calibrates and watches for launch automatically after boot.');
+ v12Set('prepareStatus',d.home_test_active?'Home verification: launch watching is OFF until end and recalibration.':d.maintenance_mode?'Firmware maintenance: launch watching is disabled until exit and calibration.':d.recording?'Flight logging is active. Dashboard loss cannot stop recording.':'V12 calibrates and watches for launch automatically after boot.');
  v12Set('feedback',d.recording?'Recording '+(d.log_file||'RKT4 file'):'Recorder is '+phase.toLowerCase()+'.');
- v12Set('preflightScore',d.maintenance_mode?'NOT ARMED — MAINTENANCE':d.sd_ok&&d.barometer_ready&&d.imu_ok?'READY':'CHECK');
+ v12Set('preflightScore',d.home_test_active?'HOME TEST — LAUNCH WATCH OFF':d.maintenance_mode?'NOT ARMED — MAINTENANCE':d.sd_ok&&d.barometer_ready&&d.imu_ok?'READY':'CHECK');
  v12Set('preflightDetail','SD '+(d.sd_ok?'OK':'FAULT')+' · BMP388 '+(d.barometer_ready?'OK':'FAULT')+' · IMU '+(d.imu_ok?'OK':'FAULT')+' · GPS '+d.gps_status+' · radio '+(d.radio_ok?'OK':'optional/fault'));
  v12Set('overviewSD',d.sd_ok?'MOUNTED':'UNAVAILABLE');v12Set('overviewSamples',String(d.prebuffer_records||0)+' prebuffered');v12Set('overviewFile',d.log_file||'Next V12D###.BIN');
  v12Set('recovery',d.recovery_status||'Not scanned');v12Set('missed',String(d.missed_sample_periods||0));v12Set('metadata',d.metadata_file||'--');
@@ -1839,8 +1859,8 @@ function v12Render(d){
  v12Set('firmwareBuild','V12 · '+(d.firmware_build||'unknown build'));v12Set('recordingLimitStatus','Automatic landing / firmware policy');
  v12Set('maintenanceStatus',d.maintenance_mode?'MAINTENANCE ACTIVE: launch detection OFF. Reboot or exit and recalibrate before flight.':d.ota_available?'OTA slot available; enter maintenance from this dashboard to install or roll back.':'OTA partition unavailable. Use USB to install firmware with OTA partitions.');
  $('exitMaintenance').disabled=!d.maintenance_mode;
- $('installFirmware').disabled=!!d.recording||!!d.update_in_progress||!d.ota_available||!!d.maintenance_mode;
- $('rollbackFirmware').disabled=!!d.recording||!!d.update_in_progress||!d.ota_available||!!d.maintenance_mode;
+ $('installFirmware').disabled=!!d.recording||!!d.update_in_progress||!d.ota_available||!!d.maintenance_mode||!!d.home_test_active;
+ $('rollbackFirmware').disabled=!!d.recording||!!d.update_in_progress||!d.ota_available||!!d.maintenance_mode||!!d.home_test_active;
  v12Set('samples',String(d.prebuffer_records||0));v12Set('sampleRateStatus',String(d.sample_rate_hz||50)+' Hz configured');v12Set('sampleErrors',String(d.missed_sample_periods||0));
  v12Set('sdErrors',String((d.checkpoint_failures||0)+(d.sensor_log_failures||0)));v12Set('duration',d.recording?'Recording':'--');v12Set('filename',d.log_file||'--');
  v12Set('savedFlightLabel','Automatic V12 sequence');v12Set('savedMotorLabel','Not stored in V12 yet');v12Set('minimumPressure',v12Number(pressure,0)+' Pa');
@@ -1977,6 +1997,207 @@ loadFiles=v12LoadFiles;
 v12ConfigureUi();
 notice('V11 blue dashboard restored with live V12 recorder integration. Connecting...');
 setInterval(v12Poll,1200);v12Poll();
+</script>
+
+<script>
+/* GREEN ION V12 guided home verification; actual evidence, no simulated rocket flight. */
+(function(){
+"use strict";
+const node=id=>document.getElementById(id);
+const steps=[
+ {title:"1. Inspect wiring and safe setup",guide:"Remove all rocket motors. Check battery polarity, solder joints, insulated wires, secured SD card, mounting and antennas. Place the payload on a stable bench.",confirm:"I inspected the wiring, battery and both radio antennas.",kind:"manual"},
+ {title:"2. Battery, barometer and calibration",guide:"Keep the Feather still. Press Run to check real measured battery voltage, BMP388 pressure and stationary calibration baseline.",kind:"power"},
+ {title:"3. IMU acceleration and gyro test",guide:"Press Run. Keep the Feather motionless for five seconds while it measures the ±32 g IMU and gyro bias.",kind:"imu"},
+ {title:"4. GPS communication and current fix",guide:"Take GPS outdoors with a clear sky. Press Run for the 12-second GPS test. Communication without a fresh fix is INCONCLUSIVE, not a passing GPS position.",kind:"gps"},
+ {title:"5. Temporary SD read/write/cleanup",guide:"Press Run to write, read, compare and delete a test pattern. Existing real flight recordings are left alone.",kind:"sd"},
+ {title:"6. LoRa transmitter and Uno receiver",guide:"Connect both 900/915 MHz antennas, Uno USB and Windows ground station. Press Run to transmit five bench packets. Confirm five valid packets arrived at the actual Uno.",kind:"radio",confirm:"I saw five valid bench packets arrive on my Uno/Windows receiver."},
+ {title:"7. LiPo operation without USB",guide:"With a correctly wired protected LiPo, briefly unplug USB without disconnecting the battery or moving wiring. Verify the Feather remains powered, then reconnect USB.",kind:"manual",confirm:"Feather stayed running on LiPo and USB is safely reconnected."},
+ {title:"8. Temporary 50 Hz recording + Wi-Fi disconnect",guide:"Press Run for 30 seconds of real pressure samples. Briefly disconnect PHONE Wi-Fi for at least five seconds, rejoin GREEN-ION-V12 and watch the result. Do not remove Feather power. The test verifies the RKT4 data and deletes /GIHOME.BIN.",kind:"record"},
+ {title:"9. Final physical readiness review",guide:"Check the payload's secure mount, balance and recovery clearance for Green Eggs and So Long separately. RF range, hardware power-loss recovery, OTA/rollback, launch and landing detection, and flight conditions are NOT tested by this routine.",kind:"manual",confirm:"I reviewed remaining physical and range tests; I understand bench PASS is not flight approval."}
+];
+let active=false,step=-1,busy=false,pending="",results={},evidence=[],radioStarted=false,message="";
+const here=()=>steps[step];
+const setMessage=text=>{message=text;node("homeInstructions").textContent=text;};
+async function request(path,method="GET"){
+ const r=await fetch("/api/"+path,{method,cache:"no-store"});
+ let data;try{data=await r.json();}catch{throw Error("Invalid response or connection lost");}
+ if(!r.ok||data.success===false)throw Error(data.message||data.error||("HTTP "+r.status));
+ return data;
+}
+function paint(){
+ const item=here();
+ node("homeStart").disabled=active||busy;
+ node("homeRun").disabled=!active||busy||!item;
+ node("homeNext").disabled=!active||busy||!Object.prototype.hasOwnProperty.call(results,step);
+ node("homeSkip").disabled=!active||busy||!item;
+ node("homeFinish").disabled=!active;
+ node("homeReport").disabled=evidence.length===0;
+ node("homeConfirmLabel").style.display=active&&item&&item.confirm?"block":"none";
+ if(item&&item.confirm)node("homeConfirmText").textContent=item.confirm;
+ node("homeStepCount").textContent=active?(step+1)+" of "+steps.length:(evidence.length?"Session ended":"Not started");
+ node("homeStepTitle").textContent=item?item.title:(evidence.length?"Home test ended":"Ready to start");
+ node("homeProgressFill").style.width=(active?Math.floor((step+1)*100/steps.length):(evidence.length?100:0))+"%";
+ node("homeStepStatus").textContent=active?(results[step]||(busy?"RUNNING":pending==="radio"?"WAITING FOR RECEIVER":"NOT RUN")):"IDLE";
+ const vals=Object.values(results);
+ node("homeSummary").textContent=vals.filter(x=>x==="PASS").length+" measured PASS · "+
+    vals.filter(x=>x==="CONFIRMED").length+" manually confirmed · "+
+    vals.filter(x=>x==="FAIL").length+" FAIL · "+
+    vals.filter(x=>x==="INCONCLUSIVE"||x==="NOT VERIFIED").length+
+    " inconclusive/not verified. Flight readiness is NEVER automatically approved.";
+}
+function save(result,note,data={}){
+ results[step]=result;
+ evidence.push({step:step+1,title:here().title,result,note,details:data,checked_at:new Date().toISOString()});
+ busy=false;pending="";
+ setMessage(note+" Choose NEXT STEP, or RUN again to retry.");
+ paint();
+}
+async function start(){
+ busy=true;paint();
+ try{
+  const r=await request("home/start","POST");
+  active=true;step=0;results={};evidence=[];pending="";radioStarted=false;
+  node("homeConfirm").checked=false;
+  setMessage(r.message+". "+here().guide);
+ }catch(err){setMessage("Could not start: "+err.message);}
+ busy=false;paint();
+}
+async function run(){
+ if(!active||busy||!here())return;
+ const item=here(),kind=item.kind;
+ if(item.confirm&&!node("homeConfirm").checked){
+  setMessage("Complete the instructed physical check and tick the confirmation box first.");return;
+ }
+ busy=true;paint();
+ try{
+  if(kind==="manual"){
+   save("CONFIRMED","Manual inspection confirmed by user; not electronically measured.");return;
+  }
+  if(kind==="power"){
+   const s=await request("status");
+   const v=Number(s.battery_v),pressure=Number(s.pressure_pa),baseline=Number(s.calibration_baseline_pa);
+   const ok=Number.isFinite(v)&&v>=3.5&&Number.isFinite(pressure)&&pressure>=30000&&pressure<=120000&&
+     Number.isFinite(baseline)&&baseline>=30000&&baseline<=120000&&s.barometer_ready;
+   save(ok?"PASS":"FAIL","Measured battery "+v.toFixed(2)+" V, pressure "+pressure.toFixed(0)+
+     " Pa, calibration baseline "+(Number.isFinite(baseline)?baseline.toFixed(0):"missing")+" Pa.",
+     {battery_v:v,pressure_pa:pressure,calibration_baseline_pa:baseline});
+   return;
+  }
+  if(kind==="sd"){
+   const r=await request("sdtest","POST");
+   save("PASS",r.message);return;
+  }
+  if(kind==="imu"||kind==="gps"){
+   const r=await fetch("/api/hardware-test",{method:"POST",cache:"no-store",
+     headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"sensor="+kind});
+   const data=await r.json();
+   if(!r.ok||!data.accepted)throw Error(data.error||"Hardware test rejected");
+   pending=kind;setMessage("Collecting actual "+kind.toUpperCase()+" data. "+item.guide);
+   return;
+  }
+  if(kind==="radio"){
+   if(!radioStarted){
+    await request("home/radio","POST");radioStarted=true;pending="radio";
+    setMessage("Five bench packets queued. Watch the Uno receiver. After reception, tick confirmation and press RUN again.");
+    return;
+   }
+   const s=await request("status");
+   if(Number(s.home_radio_sent)<5||Number(s.home_radio_remaining)>0){
+    busy=false;pending="radio";
+    setMessage("Only "+s.home_radio_sent+" packets sent; wait until all five have transmitted.");paint();return;
+   }
+   const errors=Number(s.home_radio_failures);
+   save(errors?"INCONCLUSIVE":"CONFIRMED",
+     "Feather transmitted "+s.home_radio_sent+" packets; user confirmed actual Uno reception. TX errors: "+errors+
+     ". Radio range has NOT been validated.",
+     {feather_tx:s.home_radio_sent,tx_errors:errors,uno_confirmed:true});
+   return;
+  }
+  if(kind==="record"){
+   const r=await request("home/record","POST");pending="record";
+   setMessage(r.message+". Briefly disconnect and reconnect your phone Wi-Fi. The Feather keeps writing independently.");
+   return;
+  }
+ }catch(err){save("FAIL","Test failed: "+err.message);}
+ finally{if(pending){busy=false;paint();}}
+}
+async function poll(){
+ if(!active||!pending)return;
+ try{
+  const s=await request("status");
+  if(!s.home_test_active){
+   active=false;pending="";busy=false;
+   setMessage("Home session ended unexpectedly. Check calibration and re-run a fresh test.");
+   paint();return;
+  }
+  if(pending==="imu"||pending==="gps"){
+   const kind=pending,res=String(s[kind+"_test_result"]||"IDLE").toUpperCase();
+   if(["PASS","FAIL","INCONCLUSIVE","DEFERRED"].includes(res)){
+    save(res==="DEFERRED"?"INCONCLUSIVE":res,kind.toUpperCase()+" "+res+
+       ": "+(s[kind+"_test_message"]||"Completed"),{result:res,sensor_present:s[kind+"_ok"]});
+   }
+  }else if(pending==="record"){
+   const result=String(s.home_record_result||"IDLE").toUpperCase();
+   if(result==="PASS"||result==="FAIL"){
+    save(result,(result==="PASS"?"RKT4 recording verified and deleted. ":"Temporary RKT4 verification FAILED. ")+
+      "Samples: "+s.home_record_samples+", valid: "+s.home_record_valid_samples+
+      ", missed periods: "+s.home_record_missed+", Wi-Fi absence: "+
+      (s.home_record_wifi_absent?"OBSERVED":"NOT OBSERVED (rerun for Wi-Fi check)")+
+      ", temporary file removed: "+(s.home_record_cleanup_ok?"YES":"NO"),
+      {samples:s.home_record_samples,valid:s.home_record_valid_samples,missed:s.home_record_missed,
+       wifi_absence_observed:s.home_record_wifi_absent,deleted:s.home_record_cleanup_ok});
+   }else setMessage("Recording "+(s.home_record_elapsed_s||0)+"/30 seconds; "+
+     (s.home_record_samples||0)+" sensor records. Disconnect and reconnect PHONE Wi-Fi, not Feather power.");
+  }else if(pending==="radio"){
+   setMessage("Radio bench TX: "+s.home_radio_sent+" / 5 packets; remaining "+s.home_radio_remaining+
+     ". Confirm five valid packets arrived at the UNO, then press RUN.");
+  }
+ }catch(e){
+  setMessage("Dashboard connection interrupted. Reconnect to GREEN-ION-V12 Wi-Fi. The Feather's temporary recording continues without the phone.");
+ }
+}
+function next(){
+ if(!Object.prototype.hasOwnProperty.call(results,step))return;
+ if(step===steps.length-1){
+  setMessage("All steps reviewed. Press END & DELETE TEMP DATA, then wait for automatic stationary calibration.");
+  node("homeNext").disabled=true;return;
+ }
+ step++;pending="";radioStarted=false;node("homeConfirm").checked=false;setMessage(here().guide);paint();
+}
+function skip(){if(!active||busy||pending==="record")return;save("NOT VERIFIED","This check was skipped. It has not passed.");}
+async function finish(){
+ if(!active)return;
+ busy=true;paint();
+ try{
+  const r=await request("home/finish","POST");
+  active=false;step=-1;pending="";
+  evidence.push({event:"session ended",cleanup:r.message,at:new Date().toISOString()});
+  setMessage(r.message+". Hold Feather still while recalibrating. Verify WATCHING FOR LAUNCH before flight.");
+ }catch(e){
+  active=false;step=-1;pending="";
+  evidence.push({event:"cleanup not verified",error:e.message});
+  setMessage("Cleanup could not be confirmed: "+e.message+". Inspect GIHOME.BIN manually. Do not launch until resolved.");
+ }
+ busy=false;paint();
+}
+function report(){
+ const payload={project:"GREEN ION V12",test:"guided bench verification",flight_ready:false,
+  limits:"No real launch/landing, RF range, vibration, OTA rollback, power interruption or mechanical recovery verification.",
+  created:new Date().toISOString(),checks:evidence};
+ const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+ const url=URL.createObjectURL(blob),a=document.createElement("a");
+ a.href=url;a.download="green-ion-home-verification.json";a.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+node("homeStart").onclick=start;
+node("homeRun").onclick=run;
+node("homeNext").onclick=next;
+node("homeSkip").onclick=skip;
+node("homeFinish").onclick=finish;
+node("homeReport").onclick=report;
+setInterval(poll,1200);
+paint();
+})();
 </script>
 </body>
 </html>
