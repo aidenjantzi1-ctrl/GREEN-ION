@@ -2195,6 +2195,18 @@ node("homeNext").onclick=next;
 node("homeSkip").onclick=skip;
 node("homeFinish").onclick=finish;
 node("homeReport").onclick=report;
+// If the phone reloaded during a Wi-Fi dropout, recover the in-progress
+// session and offer explicit cleanup. Lost prior step results are NOT re-certified.
+request("status").then(s=>{
+ if(!active&&!busy&&s.home_test_active){
+  active=true;
+  step=(s.home_record_result&&s.home_record_result!=="IDLE")?7:0;
+  pending=step===7?"record":"";
+  setMessage("Reconnected to an existing home test. Earlier browser-only confirmations must be repeated. "+
+    (pending==="record"?"Recovering the ongoing temporary recording status.":"Finish this session to restore calibration."));
+  paint();
+ }
+}).catch(()=>{});
 setInterval(poll,1200);
 paint();
 })();
