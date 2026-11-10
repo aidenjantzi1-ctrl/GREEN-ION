@@ -2027,9 +2027,9 @@ async function request(path,method="GET"){
 function paint(){
  const item=here();
  node("homeStart").disabled=active||busy;
- node("homeRun").disabled=!active||busy||!item;
+ node("homeRun").disabled=!active||busy||!item||pending==="imu"||pending==="gps"||pending==="record";
  node("homeNext").disabled=!active||busy||!Object.prototype.hasOwnProperty.call(results,step);
- node("homeSkip").disabled=!active||busy||!item;
+ node("homeSkip").disabled=!active||busy||!item||pending==="record";
  node("homeFinish").disabled=!active;
  node("homeReport").disabled=evidence.length===0;
  node("homeConfirmLabel").style.display=active&&item&&item.confirm?"block":"none";
