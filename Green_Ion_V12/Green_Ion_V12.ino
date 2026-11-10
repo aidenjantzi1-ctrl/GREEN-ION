@@ -143,6 +143,9 @@ static uint8_t homeResult = 0;  // idle=0, running=1, pass=2, fail=3
 static uint16_t homeSamples = 0, homeValidSamples = 0;
 static uint32_t homeStartedMs = 0, homeMissedStart = 0, homeMissed = 0;
 static uint32_t homeRadioStartSent = 0, homeRadioStartFailures = 0;
+static uint8_t homeStepStatuses[9] = {}; // Persistent evidence codes (not tests in progress).
+static bool homeInterrupted = false;
+static bool homeSdVerified = false;
 float calibrationSamples[config::CALIBRATION_TARGET_SAMPLES];
 uint16_t calibrationWarmup = 0;
 uint16_t calibrationAttempts = 0;
@@ -1605,7 +1608,7 @@ static green_ion::preflight::Result currentPreflight() {
                         recorderMode == RECORDER_HOME_TEST;
   const green_ion::preflight::Input input = {
     state.sdOk, state.barometerOk, calibrated, monitoring, disabled,
-    recoveryPending > 0, orphanHomeFile || !homeCleanupOk,
+    recoveryPending > 0, orphanHomeFile || homeInterrupted || !homeCleanupOk,
     state.imuOk && imuRange32gVerified, gpsPositionCurrent(millis()),
     state.radioOk, sampleClock.missedPeriods() != 0,
     sensorLogFailures || checkpointFailures || metadataFailures || finalizationFailures,
@@ -1733,6 +1736,11 @@ static void sendDashboardStatus() {
   body += otaUploadInProgress ? "true" : "false";
   body += ",\"ota_available\":";
   body += esp_ota_get_next_update_partition(esp_ota_get_running_partition()) ? "true" : "false";
+  body += ",\"home_interrupted\":";
+  body += homeInterrupted ? "true" : "false";
+  body += ",\"home_steps\":\"";
+  for (uint8_t i = 0; i < 9; ++i) body += String(homeStepStatuses[i]);
+  body += "\"";
   body += ",\"home_test_active\":";
   body += recorderMode == RECORDER_HOME_TEST ? "true" : "false";
   body += ",\"home_record_result\":\"" +
@@ -1852,6 +1860,7 @@ static void runDashboardSdTest() {
        memcmp(pattern, readback, sizeof(pattern)) == 0;
   if (file) file.close();
   ok = ok && SD.remove(path);
+  if (recorderMode == RECORDER_HOME_TEST) homeSdVerified = ok;
   dashboardServer.send(ok ? 200 : 500, "application/json",
       ok ? "{\"success\":true,\"message\":\"SD write, read, verify and cleanup passed\"}"
          : "{\"success\":false,\"message\":\"SD write/read verification failed\"}");
@@ -1897,6 +1906,7 @@ static void initializeDashboard() {
   dashboardServer.on("/api/home/record", HTTP_POST, homeStartLog);
   dashboardServer.on("/api/home/radio", HTTP_POST, homeRadio);
   dashboardServer.on("/api/home/finish", HTTP_POST, homeFinish);
+  dashboardServer.on("/api/home/step", HTTP_POST, homeStoreStepResult);
   dashboardServer.on("/api/calibrate", HTTP_POST, []() {
     if (state.recording || recorderMode == RECORDER_RECORDING ||
         recorderMode == RECORDER_MAINTENANCE ||
@@ -2030,6 +2040,7 @@ void setup() {
   initializeSensors();
   loadFlightProfile();
   initializeStorage();
+  homeLoadProgress();
   recoverInterruptedLogs();
   resetCalibration(millis());
   initializeRadio();
