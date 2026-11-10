@@ -103,6 +103,16 @@ jobs:
             tests/cpp/test_v12_recording_failures.cpp \
             -o /tmp/test-v12-recording-failures
           /tmp/test-v12-recording-failures
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_preflight.cpp \
+            -o /tmp/test-v12-preflight
+          /tmp/test-v12-preflight
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v12_file_naming.cpp \
+            -o /tmp/test-v12-file-naming
+          /tmp/test-v12-file-naming
 
   compile-firmware:
     runs-on: ubuntu-latest

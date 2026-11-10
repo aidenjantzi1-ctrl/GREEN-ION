@@ -19,6 +19,9 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <esp_ota_ops.h>
+#include <Preferences.h>
+#include <GreenIonPreflight.h>
+#include <GreenIonFileNaming.h>
 #include <GreenIonProtocol.h>
 #include <GreenIonTelemetryQueue.h>
 #include <GreenIonRadioRecovery.h>
@@ -52,6 +55,11 @@ String sensorLogFilename;
 String checkpointFilenameA;
 String checkpointFilenameB;
 String metadataFilename;
+// User-selectable per-rocket metadata is written only to .TXT, never RKT4.
+String selectedRocket = ""; // Never assume which rocket is installed.
+String selectedMotor = "";
+uint32_t calibratedAtMs = 0;
+bool orphanHomeFile = false;
 WebServer dashboardServer(80);
 
 class SdFileSink : public green_ion::recorder::ByteSink {
@@ -136,6 +144,9 @@ static uint8_t homeResult = 0;  // idle=0, running=1, pass=2, fail=3
 static uint16_t homeSamples = 0, homeValidSamples = 0;
 static uint32_t homeStartedMs = 0, homeMissedStart = 0, homeMissed = 0;
 static uint32_t homeRadioStartSent = 0, homeRadioStartFailures = 0;
+static uint8_t homeStepStatuses[9] = {}; // Persistent evidence codes (not tests in progress).
+static bool homeInterrupted = false;
+static bool homeSdVerified = false;
 float calibrationSamples[config::CALIBRATION_TARGET_SAMPLES];
 uint16_t calibrationWarmup = 0;
 uint16_t calibrationAttempts = 0;
@@ -282,6 +293,9 @@ static void initializeSensors() {
 static void initializeStorage() {
   digitalWrite(config::PIN_LORA_CS, HIGH);
   state.sdOk = SD.begin(config::PIN_SD_CS, SPI);
+  orphanHomeFile = state.sdOk && SD.exists("/GIHOME.BIN");
+  if (orphanHomeFile)
+    Serial.println("[HOME] Interrupted temporary file found. Run home verification cleanup; do not consider preflight complete.");
 }
 
 static bool isV12JournalName(const String &name, const char *suffix) {
@@ -1120,6 +1134,7 @@ static void processCalibration(uint32_t nowMs, bool valid) {
   const bool watching = flightWatcher.begin({
       config::SENSOR_RATE_HZ, 0.0f, calibrationBaselinePa, calibrationNoiseM});
   recorderMode = watching ? RECORDER_WATCHING : RECORDER_FAULT;
+  if (watching) calibratedAtMs = nowMs;
   if (!watching) calibrationRetryAtMs = nowMs + config::CALIBRATION_RETRY_MS;
 }
 
@@ -1225,9 +1240,14 @@ static bool writeStartMetadata() {
     return false;
   }
   File metadataFile = SD.open(metadataFilename, FILE_WRITE);
-  const bool saved = metadataFile &&
+  bool saved = metadataFile &&
                      metadataFile.write(reinterpret_cast<const uint8_t *>(encoded),
                                         encodedBytes) == encodedBytes;
+  // Metadata extension; source RKT4/SEN bytes remain exactly unchanged.
+  if (saved) {
+    saved = metadataFile.print("rocket=" + selectedRocket + "\n") > 0 &&
+            metadataFile.print("motor=" + selectedMotor + "\n") > 0;
+  }
   if (metadataFile) {
     metadataFile.flush();
     metadataFile.close();
@@ -1313,7 +1333,9 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs) {
   for (uint16_t sequence = 0; sequence < 1000; ++sequence) {
     char candidate[14];
     snprintf(candidate, sizeof(candidate), "/V12D%03u.BIN", sequence);
-    if (!SD.exists(candidate)) {
+    const bool occupied = green_ion::storage::flightSequenceOccupied(
+      sequence, [](const char *path) { return SD.exists(path); });
+    if (!occupied) {
       logFilename = candidate;
       break;
     }
@@ -1516,6 +1538,83 @@ static uint16_t telemetryFlags(uint32_t ageMs) {
   return flags;
 }
 
+static bool validFlightProfileValue(const String &value, bool optional = false) {
+  if (value.length() > 24 || (!optional && value.isEmpty())) return false;
+  for (unsigned int i = 0; i < value.length(); ++i) {
+    const char ch = value[i];
+    const bool allowed = (ch >= 'A' && ch <= 'Z') ||
+        (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') ||
+        ch == ' ' || ch == '-' || ch == '_' || ch == '+' || ch == '.' || ch == '/';
+    if (!allowed) return false;
+  }
+  return true;
+}
+
+static void loadFlightProfile() {
+  Preferences preferences;
+  if (preferences.begin("gioflight", true)) {
+    const String rocket = preferences.getString("rocket", "");
+    const String motor = preferences.getString("motor", "");
+    if (validFlightProfileValue(rocket)) selectedRocket = rocket;
+    if (validFlightProfileValue(motor, true)) selectedMotor = motor;
+    preferences.end();
+  }
+}
+
+static void saveFlightProfile() {
+  if (state.recording || recorderCore.recording() || logFile || sensorLogFile ||
+      recorderMode == RECORDER_RECORDING || recorderMode == RECORDER_MAINTENANCE ||
+      recorderMode == RECORDER_HOME_TEST || otaUploadInProgress) {
+    dashboardServer.send(409, "application/json",
+      "{\"success\":false,\"message\":\"Cannot edit a profile during recording, a home test or firmware maintenance\"}");
+    return;
+  }
+  const String rocket = dashboardServer.arg("rocket");
+  const String motor = dashboardServer.arg("motor");
+  if (!validFlightProfileValue(rocket) || !validFlightProfileValue(motor, true)) {
+    dashboardServer.send(400, "application/json",
+      "{\"success\":false,\"message\":\"Use 1-24 safe characters for rocket and 0-24 for motor\"}");
+    return;
+  }
+  // Cancel watcher before flash/NVS work. Resume only after stationary recalibration.
+  flightWatcher.cancel();
+  recorderMode = RECORDER_CALIBRATING;
+  Preferences preferences;
+  if (!preferences.begin("gioflight", false)) {
+    resetCalibration(millis());
+    dashboardServer.send(500, "application/json",
+      "{\"success\":false,\"message\":\"Could not open persistent flight profile storage\"}");
+    return;
+  }
+  const bool storedRocket = preferences.putString("rocket", rocket) == rocket.length();
+  const bool storedMotor = preferences.putString("motor", motor) == motor.length();
+  const bool stored = storedRocket && storedMotor;
+  preferences.end();
+  if (stored) { selectedRocket = rocket; selectedMotor = motor; }
+  resetCalibration(millis());
+  dashboardServer.send(stored ? 200 : 500, "application/json",
+    stored ? "{\"success\":true,\"message\":\"Profile saved. Keep the Feather stationary during recalibration\"}" :
+             "{\"success\":false,\"message\":\"Profile storage failed; recalibration restarted\"}");
+}
+
+static green_ion::preflight::Result currentPreflight() {
+  const bool calibrated = isfinite(calibrationBaselinePa) && calibrationBaselinePa > 30000.0f &&
+                          isfinite(calibrationNoiseM) && calibrationNoiseM >= 0.0f;
+  const bool monitoring = recorderMode == RECORDER_WATCHING;
+  const bool disabled = recorderMode == RECORDER_MAINTENANCE ||
+                        recorderMode == RECORDER_HOME_TEST;
+  const green_ion::preflight::Input input = {
+    state.sdOk, state.barometerOk, calibrated, monitoring, disabled,
+    recoveryPending > 0, orphanHomeFile || homeInterrupted || !homeCleanupOk,
+    state.imuOk && imuRange32gVerified, gpsPositionCurrent(millis()),
+    state.radioOk, sampleClock.missedPeriods() != 0,
+    sensorLogFailures || checkpointFailures || metadataFailures || finalizationFailures,
+    calibratedAtMs == 0 || millis() - calibratedAtMs > 1800000UL,
+    validFlightProfileValue(selectedRocket), state.batteryMv
+  };
+  return green_ion::preflight::evaluate(input);
+}
+
 static void sendDashboardStatus() {
   const uint32_t age = gpsAgeMs(millis());
   const char *gpsStatus = !state.gpsHasPosition ? "missing" :
@@ -1617,6 +1716,15 @@ static void sendDashboardStatus() {
   body += ",\"sensor_recovery_issues\":" + String(sensorRecoveryIssues);
   body += ",\"recovery_pending\":" + String(recoveryPending);
   body += ",\"recovery_status\":\"" + recoveryStatus + "\"";
+  const auto preflight = currentPreflight();
+  body += ",\"preflight_state\":\"" + String(preflight.label) + "\"";
+  body += ",\"preflight_flags\":" + String(preflight.flags);
+  body += ",\"selected_rocket\":\"" + selectedRocket + "\"";
+  body += ",\"selected_motor\":\"" + selectedMotor + "\"";
+  body += ",\"calibration_age_s\":" +
+      String(calibratedAtMs ? (millis() - calibratedAtMs) / 1000UL : 0UL);
+  body += ",\"orphan_home_file\":";
+  body += orphanHomeFile ? "true" : "false";
   body += ",\"sample_rate_hz\":" + String(config::SENSOR_RATE_HZ);
   body += ",\"firmware_build\":\"" + String(__DATE__) + " " + String(__TIME__) + "\"";
   body += ",\"maintenance_mode\":";
@@ -1625,6 +1733,11 @@ static void sendDashboardStatus() {
   body += otaUploadInProgress ? "true" : "false";
   body += ",\"ota_available\":";
   body += esp_ota_get_next_update_partition(esp_ota_get_running_partition()) ? "true" : "false";
+  body += ",\"home_interrupted\":";
+  body += homeInterrupted ? "true" : "false";
+  body += ",\"home_steps\":\"";
+  for (uint8_t i = 0; i < 9; ++i) body += String(homeStepStatuses[i]);
+  body += "\"";
   body += ",\"home_test_active\":";
   body += recorderMode == RECORDER_HOME_TEST ? "true" : "false";
   body += ",\"home_record_result\":\"" +
@@ -1744,6 +1857,7 @@ static void runDashboardSdTest() {
        memcmp(pattern, readback, sizeof(pattern)) == 0;
   if (file) file.close();
   ok = ok && SD.remove(path);
+  if (recorderMode == RECORDER_HOME_TEST) homeSdVerified = ok;
   dashboardServer.send(ok ? 200 : 500, "application/json",
       ok ? "{\"success\":true,\"message\":\"SD write, read, verify and cleanup passed\"}"
          : "{\"success\":false,\"message\":\"SD write/read verification failed\"}");
@@ -1775,6 +1889,7 @@ static void initializeDashboard() {
         ".catch(()=>caches.match(e.request).then(r=>r||caches.match('/'))));});");
   });
   dashboardServer.on("/api/status", sendDashboardStatus);
+  dashboardServer.on("/api/profile", HTTP_POST, saveFlightProfile);
   dashboardServer.on("/api/maintenance", HTTP_POST, startFirmwareMaintenance);
   dashboardServer.on("/api/maintenance/exit", HTTP_POST, exitFirmwareMaintenance);
   dashboardServer.on("/api/update", HTTP_POST, finishFirmwareUpload, handleFirmwareUpload);
@@ -1788,6 +1903,7 @@ static void initializeDashboard() {
   dashboardServer.on("/api/home/record", HTTP_POST, homeStartLog);
   dashboardServer.on("/api/home/radio", HTTP_POST, homeRadio);
   dashboardServer.on("/api/home/finish", HTTP_POST, homeFinish);
+  dashboardServer.on("/api/home/step", HTTP_POST, homeStoreStepResult);
   dashboardServer.on("/api/calibrate", HTTP_POST, []() {
     if (state.recording || recorderMode == RECORDER_RECORDING ||
         recorderMode == RECORDER_MAINTENANCE ||
@@ -1919,7 +2035,9 @@ void setup() {
   initializeI2c();
   SPI.begin(config::PIN_SPI_SCK, config::PIN_SPI_MISO, config::PIN_SPI_MOSI);
   initializeSensors();
+  loadFlightProfile();
   initializeStorage();
+  homeLoadProgress();
   recoverInterruptedLogs();
   resetCalibration(millis());
   initializeRadio();

@@ -20,6 +20,11 @@ uint32_t invalidPackets = 0;
 uint32_t lastPacketMs = 0;
 uint32_t estimatedMissingPackets = 0;
 uint32_t lastSequence = 0;
+uint32_t lastUptimeMs = 0;
+uint32_t duplicatePackets = 0, outOfOrderPackets = 0, senderRestarts = 0;
+uint32_t receivedBenchPackets = 0;
+uint32_t lastStatusMs = 0;
+bool radioReady = false;
 bool haveLastSequence = false;
 bool humanReadable = false;
 char serialCommand[20] = {};
@@ -46,13 +51,21 @@ static void printScaledDegrees(int32_t value) {
 static void printTelemetry(const green_ion::TelemetryPacket &packet, int16_t rssi) {
   const bool current = green_ion::hasCurrentPosition(packet);
   const bool bench = green_ion::isBenchRadioPacket(packet);
+  if (haveLastSequence && packet.uptimeMs < lastUptimeMs) {
+    // Feather reboot: new sequence space, not millions of missing packets.
+    ++senderRestarts;
+    haveLastSequence = false;
+  }
   if (haveLastSequence) {
     const uint32_t gap = packet.sequence - lastSequence;
-    // A huge delta is a restart/out-of-order packet, not lost radio traffic.
-    if (gap > 1 && gap < 1000000UL) estimatedMissingPackets += gap - 1;
+    if (gap == 0) ++duplicatePackets;
+    else if (gap > 1 && gap < 1000000UL) estimatedMissingPackets += gap - 1;
+    else if (gap >= 1000000UL) ++outOfOrderPackets;
   }
   lastSequence = packet.sequence;
+  lastUptimeMs = packet.uptimeMs;
   haveLastSequence = true;
+  if (bench) ++receivedBenchPackets;
   if (green_ion::hasPosition(packet)) {
     haveLastPosition = true;
     lastLatitudeE7 = packet.latitudeE7;
@@ -111,6 +124,14 @@ static void printTelemetry(const green_ion::TelemetryPacket &packet, int16_t rss
   Serial.print(validPackets);
   Serial.print(F(",\"invalid_packets\":"));
   Serial.print(invalidPackets);
+  Serial.print(F(",\"bench_received\":"));
+  Serial.print(receivedBenchPackets);
+  Serial.print(F(",\"sender_restarts\":"));
+  Serial.print(senderRestarts);
+  Serial.print(F(",\"duplicates\":"));
+  Serial.print(duplicatePackets);
+  Serial.print(F(",\"out_of_order\":"));
+  Serial.print(outOfOrderPackets);
   Serial.print(F(",\"latitude\":"));
   if (green_ion::hasPosition(packet)) printScaledDegrees(packet.latitudeE7); else Serial.print(F("null"));
   Serial.print(F(",\"longitude\":"));
@@ -182,6 +203,7 @@ void setup() {
   radio.setSpreadingFactor(green_ion::radio_config::kSpreadingFactor);
   radio.setSignalBandwidth(green_ion::radio_config::kSignalBandwidthHz);
   radio.setCodingRate4(green_ion::radio_config::kCodingRateDenominator);
+  radioReady = true;
   Serial.print(F("{\"type\":\"receiver_status\",\"ok\":true,\"frequency_mhz\":"));
   Serial.print(green_ion::radio_config::kFrequencyMhz, 1);
   Serial.print(F(",\"bandwidth_hz\":"));
@@ -195,9 +217,25 @@ void setup() {
   Serial.println(F(",\"antenna_required\":true}"));
 }
 
+
+static void printReceiverHeartbeat(uint32_t nowMs) {
+  if (nowMs - lastStatusMs < 5000UL) return;
+  lastStatusMs = nowMs;
+  Serial.print(F("{\"type\":\"receiver_status\",\"ok\":"));
+  Serial.print(radioReady ? F("true") : F("false"));
+  Serial.print(F(",\"valid_packets\":")); Serial.print(validPackets);
+  Serial.print(F(",\"invalid_packets\":")); Serial.print(invalidPackets);
+  Serial.print(F(",\"estimated_missing_packets\":")); Serial.print(estimatedMissingPackets);
+  Serial.print(F(",\"bench_received\":")); Serial.print(receivedBenchPackets);
+  Serial.print(F(",\"last_packet_age_ms\":"));
+  if (validPackets) Serial.print(nowMs - lastPacketMs); else Serial.print(F("null"));
+  Serial.println(F("}"));
+}
+
 void loop() {
   handleSerialCommands();
-  if (!radio.available()) return;
+  printReceiverHeartbeat(millis());
+  if (!radioReady || !radio.available()) return;
   uint8_t buffer[RH_RF95_MAX_MESSAGE_LEN];
   uint8_t length = sizeof(buffer);
   if (!radio.recv(buffer, &length)) {
