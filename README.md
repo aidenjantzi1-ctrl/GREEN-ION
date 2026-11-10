@@ -145,6 +145,24 @@ Manual commands:
 
 The Uno does not control flight. The computer provides approximate received telemetry, last-known coordinates, and a CSV log; the primary data remains on microSD.
 
+## Full temporary home verification (Testing tab)
+
+Open **Testing → Full home verification — guided and temporary** on the Feather dashboard. This is a step-by-step real bench test. **Disconnect all rocket motors; never run it on a launch pad.**
+
+1. Inspect LiPo polarity, wiring, antennas, SD mounting, insulation and strain relief. Confirm this manual check.
+2. Read actual battery voltage, barometric pressure and stationary-calibration baseline; implausible values fail.
+3. Run the built-in five-second IMU test, keeping the Feather motionless.
+4. Run the 12-second GPS check outdoors. NMEA reception without a fresh position fix is **INCONCLUSIVE**.
+5. Perform a temporary SD write/read/compare/delete verification.
+6. With antennas connected, transmit five LoRa bench packets and manually confirm **all five packets were received on the Uno**. Sending alone does not prove receiving or range.
+7. With a protected LiPo installed, briefly unplug USB to check battery-only operation, then reconnect USB. This is a manually confirmed check.
+8. Run **30 seconds of actual BMP388 recording at 50 Hz**. Briefly disconnect the **phone's Wi-Fi**, then reconnect GREEN-ION-V12. The Feather writes reserved **/GIHOME.BIN**, checks the RKT4 header, bytes, timestamps, valid samples and missed sample periods, then deletes the test file. Wi-Fi disconnection is reported separately, and remains **not verified** if no disconnection was detected.
+9. Review physical mounting, balance and recovery clearance for both Green Eggs and So Long. Press **END & DELETE TEMP DATA** and leave the Feather still while automatic calibration restarts.
+
+The app shows the next instruction, results and progress while tests run. Use **MARK NOT VERIFIED** when a step cannot be completed; this is not a PASS. Download the **JSON test report** at the end. Ending the session removes only the reserved temporary test file; no V12D flight recordings are deleted. After a power interruption, starting a fresh session attempts to clean up that reserved file.
+
+**Limitations:** The bench test does not simulate real launch/staging/landing, verify recovery hardware, test LoRa range, prove power-loss recovery, check OTA rollback, certify sensor accuracy, or establish flight readiness. Hardware checks still require real devices and a documented review.
+
 ## Phone app — flight, home test, saved files
 
 - V12 calibrates while stationary after boot and **automatically watches for launch** when calibrated. There is no aircraft/airplane simulation test mode. **After one flight is saved, reboot/reset the Feather and recheck calibration before the next flight** (for example before switching from Green Eggs to So Long).
