@@ -21,6 +21,7 @@
 #include <esp_ota_ops.h>
 #include <Preferences.h>
 #include <GreenIonPreflight.h>
+#include <GreenIonFileNaming.h>
 #include <GreenIonProtocol.h>
 #include <GreenIonTelemetryQueue.h>
 #include <GreenIonRadioRecovery.h>
@@ -1332,13 +1333,8 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs) {
   for (uint16_t sequence = 0; sequence < 1000; ++sequence) {
     char candidate[14];
     snprintf(candidate, sizeof(candidate), "/V12D%03u.BIN", sequence);
-    bool occupied = false;
-    const char *suffixes[] = {".BIN", ".SEN", ".TXT", ".JRA", ".JRB", ".RCV"};
-    for (const char *suffix : suffixes) {
-      char sibling[14];
-      snprintf(sibling, sizeof(sibling), "/V12D%03u%s", sequence, suffix);
-      if (SD.exists(sibling)) { occupied = true; break; }
-    }
+    const bool occupied = green_ion::storage::flightSequenceOccupied(
+      sequence, [](const char *path) { return SD.exists(path); });
     if (!occupied) {
       logFilename = candidate;
       break;
