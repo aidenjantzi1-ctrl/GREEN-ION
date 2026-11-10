@@ -41,6 +41,7 @@ class Store:
     bench_packets: int = 0
     last_bench: dict | None = None
     received_packets: int = 0
+    telemetry_packets: int = 0
     inferred_missing: int = 0
     repeated_packets: int = 0
     out_of_order: int = 0
@@ -57,37 +58,42 @@ class Store:
             if info is not None:
                 self.receiver_info = info
 
+    def _observe_packet(self, row: dict) -> None:
+        """Call under lock for both telemetry and CRC-valid radio_bench frames."""
+        self.received_packets += 1
+        seq, uptime = row.get("sequence"), row.get("uptime_ms")
+        if isinstance(seq, int) and isinstance(uptime, int):
+            if self.last_uptime is not None and uptime < self.last_uptime:
+                self.resets += 1
+                self.last_seq = None
+            if self.last_seq is not None:
+                delta = (seq - self.last_seq) & 0xFFFFFFFF
+                if delta == 0:
+                    self.repeated_packets += 1
+                elif 1 < delta < 1000000:
+                    self.inferred_missing += delta - 1
+                elif delta >= 1000000:
+                    self.out_of_order += 1
+            self.last_seq, self.last_uptime = seq, uptime
+        rssi = row.get("rssi_dbm")
+        if isinstance(rssi, (int, float)) and math.isfinite(rssi):
+            self.avg_rssi = float(rssi) if self.avg_rssi is None else (
+                0.9 * self.avg_rssi + 0.1 * float(rssi)
+            )
+
     def bench(self, row: dict) -> None:
         with self.lock:
             self.bench_packets += 1
             self.last_bench = row
+            self._observe_packet(row)  # Avoid falsely counting bench packets as lost.
 
     def update(self, row: dict) -> None:
         now = time.monotonic()
         with self.lock:
             self.latest = dict(row)
             self.received_monotonic = now
-            self.received_packets += 1
-            seq = row.get("sequence")
-            uptime = row.get("uptime_ms")
-            if isinstance(seq, int) and isinstance(uptime, int):
-                if self.last_uptime is not None and uptime < self.last_uptime:
-                    self.resets += 1
-                    self.last_seq = None
-                if self.last_seq is not None:
-                    delta = (seq - self.last_seq) & 0xFFFFFFFF
-                    if delta == 0:
-                        self.repeated_packets += 1
-                    elif 1 < delta < 1000000:
-                        self.inferred_missing += delta - 1
-                    elif delta >= 1000000:
-                        self.out_of_order += 1
-                self.last_seq, self.last_uptime = seq, uptime
-            rssi = row.get("rssi_dbm")
-            if isinstance(rssi, (int, float)) and math.isfinite(rssi):
-                self.avg_rssi = float(rssi) if self.avg_rssi is None else (
-                    0.9 * self.avg_rssi + 0.1 * float(rssi)
-                )
+            self.telemetry_packets += 1
+            self._observe_packet(row)
             lat, lon = row.get("latitude"), row.get("longitude")
             # Received a stale last-known position != a fresh GPS acquisition.
             if (isinstance(lat, (int, float)) and isinstance(lon, (int, float))
@@ -120,6 +126,7 @@ class Store:
             row["bench_packets"] = self.bench_packets
             row["last_bench"] = self.last_bench
             row["packets_received"] = self.received_packets
+            row["telemetry_packets"] = self.telemetry_packets
             row["packets_missed_estimated"] = self.inferred_missing
             row["packets_repeated"] = self.repeated_packets
             row["packets_out_of_order"] = self.out_of_order
@@ -238,7 +245,7 @@ def serial_source(stop: threading.Event, port: str, log_path: Path) -> None:
                     if not line or not line.startswith("{"):
                         continue
                     try:
-                        row = json.loads(line)
+                        row = json.loads(line, parse_constant=lambda _value: None)
                     except json.JSONDecodeError:
                         continue
                     kind = row.get("type")
