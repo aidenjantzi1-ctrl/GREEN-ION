@@ -532,3 +532,39 @@ Use verifiable sources, keep data intact, make instructions actionable, and
 never exaggerate readiness. Project files + live source are the shared memory.
 
 END OF CHATGPT_TRANSFER.txt
+
+
+================================================================
+POST-TRANSFER IMPLEMENTATION UPDATE — V12 RELIABILITY SUITE
+================================================================
+
+This note supersedes any prior "planned/unimplemented" wording above for the
+following features, but the latest live main branch remains authoritative.
+
+- Home verification: 9 step result codes persist in Feather Preferences/NVS,
+  are independently classified for actual sensor tests, survive browser Wi-Fi
+  reconnection/reload, and flag a reboot-interrupted session for fresh testing
+  rather than silently resuming an unsafe temporary SD write. Confirmed manual
+  steps are not electronically verified.
+- Automatic preflight: GreenIonPreflight.h computes explicit BLOCKED,
+  CHECK_OPTIONAL and READY_FOR_REVIEW software advisories with an enumerated
+  bitmask. JSON report is an advisory, never permission to launch.
+- Flight protection: new-flight sequence allocation checks BIN, SEN, TXT,
+  two journal slots and RCV report siblings. Portable mock-SD tests verify
+  that orphaned companion files cannot be overwritten.
+- Flight profiles: pick Green Eggs, So Long or a custom name plus motor in
+  the Flight page. Save to Feather Preferences, append rocket/motor to the
+  matching per-flight TXT metadata, and restart stationary calibration.
+  No default rocket name is assumed; RKT4/SEN bytes are unchanged.
+- LoRa: Uno reports bench reception count, packet-gap/loss estimate,
+  duplicates, out-of-order packets, sender reboots and periodic heartbeat.
+- Windows ground station: serial auto-reconnect, receiver-status diagnostics,
+  GPS freshness/last-known semantics, signal quality/packet-loss statistics,
+  real bench frames counted without incorrectly treating them as lost,
+  and direct CSV download.
+- Python/C++/dashboard syntax source tests and CI workflow extended.
+- IMPORTANT: physical Feather/Uno/GPS/SD/LoRa/OTA/flight validation is still
+  outstanding. Software builds and simulation cannot close those checkboxes.
+
+For code continuation read latest README.md, docs/V12_TESTING.md and live
+CI results rather than assuming this handoff is newer than the source.
