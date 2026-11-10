@@ -41,9 +41,10 @@ class GroundStationLinkTests(unittest.TestCase):
         store = Store()
         store.update({"type": "telemetry", "sequence": 1, "uptime_ms": 1000,
                       "latitude": 33.7, "longitude": -117.7, "gps_status": "live"})
-        store.bench({"type": "radio_bench", "sequence": 2})
+        store.bench({"type": "radio_bench", "sequence": 2, "uptime_ms": 2000})
         self.assertEqual(store.snapshot()["bench_packets"], 1)
-        self.assertEqual(store.snapshot()["packets_received"], 1)
+        self.assertEqual(store.snapshot()["packets_received"], 2)
+        self.assertEqual(store.snapshot()["telemetry_packets"], 1)
         store.received_monotonic -= 4
         snap = store.snapshot()
         self.assertEqual(snap["link_status"], "stale")
@@ -52,6 +53,18 @@ class GroundStationLinkTests(unittest.TestCase):
         self.assertEqual(store.latest["gps_status"], "live")
         missing = Store().snapshot()
         self.assertEqual(missing["link_status"], "missing")
+
+    def test_bench_packets_do_not_create_fake_sequence_loss(self) -> None:
+        store = Store()
+        store.update({"type": "telemetry", "sequence": 11, "uptime_ms": 11000})
+        store.bench({"type": "radio_bench", "sequence": 12, "uptime_ms": 12000})
+        store.bench({"type": "radio_bench", "sequence": 13, "uptime_ms": 13000})
+        store.update({"type": "telemetry", "sequence": 14, "uptime_ms": 14000})
+        snap = store.snapshot()
+        self.assertEqual(snap["packets_received"], 4)
+        self.assertEqual(snap["telemetry_packets"], 2)
+        self.assertEqual(snap["bench_packets"], 2)
+        self.assertEqual(snap["packets_missed_estimated"], 0)
 
     def test_store_instances_have_independent_locks_and_state(self) -> None:
         first, second = Store(), Store()
