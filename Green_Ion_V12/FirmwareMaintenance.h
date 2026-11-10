@@ -39,6 +39,10 @@ static void startFirmwareMaintenance() {
     otaReply(409, false, "Firmware upload already in progress");
     return;
   }
+  if (recorderMode == RECORDER_HOME_TEST) {
+    otaReply(409, false, "Finish and clean up home verification first");
+    return;
+  }
   if (state.recording || recorderCore.recording() || logFile || sensorLogFile) {
     otaReply(409, false, "Active or incomplete flight file; finalize before maintenance");
     return;
