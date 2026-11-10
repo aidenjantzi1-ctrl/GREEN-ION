@@ -9,6 +9,86 @@ static void homeReply(int code, bool ok, const char *message) {
     ",\"message\":\"" + message + "\"}");
 }
 
+
+static void homeLoadProgress() {
+  Preferences prefs;
+  if (!prefs.begin("giohome", true)) return;
+  if (prefs.getBytesLength("steps") == sizeof(homeStepStatuses))
+    prefs.getBytes("steps", homeStepStatuses, sizeof(homeStepStatuses));
+  homeInterrupted = prefs.getBool("active", false);
+  prefs.end();
+  if (homeInterrupted) Serial.println("[HOME] Prior bench session interrupted. Re-run home test; inspect cleanup.");
+}
+
+static const char *homeStepName(uint8_t code) {
+  switch (code) {
+    case 1: return "PASS";
+    case 2: return "FAIL";
+    case 3: return "INCONCLUSIVE";
+    case 4: return "CONFIRMED";
+    case 5: return "NOT VERIFIED";
+    default: return "NOT RUN";
+  }
+}
+
+// Only completed steps are persisted. Measured steps are classified on-device.
+static void homeStoreStepResult() {
+  if (recorderMode != RECORDER_HOME_TEST || homeLogActive) {
+    homeReply(409, false, "Home verification not idle"); return;
+  }
+  const int step = dashboardServer.arg("step").toInt();
+  const String action = dashboardServer.arg("action");
+  if (step < 1 || step > 9 ||
+      (action != "measure" && action != "skip" && action != "confirm")) {
+    homeReply(400, false, "Invalid step or action"); return;
+  }
+  uint8_t code = 3;
+  if (action == "skip") code = 5;
+  else if (step == 1 || step == 7 || step == 9) {
+    if (action != "confirm") { homeReply(400, false, "Manual step requires confirmation"); return; }
+    code = 4;
+  } else if (step == 6) {
+    if (action != "confirm") { homeReply(400, false, "Actual Uno reception must be confirmed"); return; }
+    if (radioBenchPacketsSent - homeRadioStartSent < 5 ||
+        radioBenchPacketsRemaining ||
+        radioSendFailures != homeRadioStartFailures) {
+      homeReply(409, false, "Five clean Feather transmissions not completed"); return;
+    }
+    code = 4; // No receiver-side automatic proof: user-reported.
+  } else if (action != "measure") {
+    homeReply(400, false, "Measured step must be checked by firmware"); return;
+  } else if (step == 2) {
+    code = state.batteryMv >= 3500 && state.barometerOk &&
+      isfinite(state.pressurePa) && state.pressurePa >= 30000 &&
+      state.pressurePa <= 120000 &&
+      isfinite(calibrationBaselinePa) &&
+      calibrationBaselinePa >= 30000 && calibrationBaselinePa <= 120000 ? 1 : 2;
+  } else if (step == 3) {
+    const auto v = imuHardwareTest.result();
+    code = v == green_ion::bench::RESULT_PASS ? 1 :
+           v == green_ion::bench::RESULT_FAIL ? 2 : 3;
+  } else if (step == 4) {
+    const auto v = gpsHardwareTest.result();
+    code = v == green_ion::bench::RESULT_PASS ? 1 :
+           v == green_ion::bench::RESULT_FAIL ? 2 : 3;
+  } else if (step == 5) code = homeSdVerified ? 1 : 2;
+  else if (step == 8) {
+    if (homeResult < 2) { homeReply(409, false, "Wait for temporary recording verification"); return; }
+    code = homeResult == 3 || !homeCleanupOk ? 2 : homeWifiAbsent ? 1 : 3;
+  }
+  Preferences prefs;
+  if (!prefs.begin("giohome", false)) { homeReply(500, false, "NVS not available"); return; }
+  const uint8_t old = homeStepStatuses[step - 1];
+  homeStepStatuses[step - 1] = code;
+  const bool ok = prefs.putBytes("steps", homeStepStatuses, sizeof(homeStepStatuses)) ==
+                  sizeof(homeStepStatuses);
+  prefs.end();
+  if (!ok) { homeStepStatuses[step - 1] = old; homeReply(500, false, "NVS save failed"); return; }
+  dashboardServer.send(200, "application/json", String("{\"success\":true,\"result\":\"") +
+    homeStepName(code) + "\",\"step\":" + String(step) +
+    ",\"message\":\"Saved on Feather; manual checks remain user-confirmed\"}");
+}
+
 static bool homeIdle() {
   return recorderMode == RECORDER_HOME_TEST &&
     !state.recording && !recorderCore.recording() &&
@@ -53,6 +133,7 @@ static void homeVerifyFile() {
     f.close();
   }
   homeCleanupOk = SD.remove(HOME_TEST_PATH);
+  orphanHomeFile = !homeCleanupOk;
   good = good && homeCleanupOk && homeSamples >= 1400 &&
       homeValidSamples >= (static_cast<uint32_t>(homeSamples) * 9UL) / 10UL &&
       homeMissed <= 30;
@@ -76,6 +157,7 @@ static void homeCapture(uint32_t timestampUs, bool valid) {
     homeLogActive = false;
     homeCloseFile();
     homeCleanupOk = SD.remove(HOME_TEST_PATH);
+    orphanHomeFile = !homeCleanupOk;
     homeResult = 3;
     Serial.println("[HOME] Temporary recording failed; normal flight files were not touched.");
     return;
@@ -104,6 +186,15 @@ static void homeStart() {
       homeReply(500, false, "Unable to clean up prior interrupted home test"); return;
     }
   }
+  Preferences prefs;
+  if (!prefs.begin("giohome", false)) { homeReply(500, false, "Home session NVS unavailable"); return; }
+  uint8_t clean[sizeof(homeStepStatuses)] = {};
+  const bool stored = prefs.putBytes("steps", clean, sizeof(clean)) == sizeof(clean) &&
+                      prefs.putBool("active", true);
+  prefs.end();
+  if (!stored) { homeReply(500, false, "Home session NVS save failed"); return; }
+  memcpy(homeStepStatuses, clean, sizeof(clean));
+  homeInterrupted = false; orphanHomeFile = false; homeSdVerified = false;
   flightWatcher.cancel();
   recorderCore.resetBuffer();
   recorderMode = RECORDER_HOME_TEST;
@@ -140,6 +231,7 @@ static void homeStartLog() {
   if (!homeFile || homeFile.write(bytes, sizeof(bytes)) != sizeof(bytes)) {
     homeCloseFile();
     homeCleanupOk = SD.remove(HOME_TEST_PATH);
+    orphanHomeFile = !homeCleanupOk;
     homeResult = 3;
     homeReply(500, false, "Cannot write temporary test header"); return;
   }
@@ -174,11 +266,20 @@ static void homeFinish() {
     digitalWrite(config::PIN_LORA_CS, HIGH);
     homeCleanupOk = !SD.exists(HOME_TEST_PATH) || SD.remove(HOME_TEST_PATH);
   } else homeCleanupOk = false;
+  orphanHomeFile = !homeCleanupOk;
   if (homeResult == 1) homeResult = 3;
   radioBenchPacketsRemaining = 0;
+  Preferences prefs;
+  bool stored = false;
+  if (prefs.begin("giohome", false)) {
+    stored = prefs.putBool("active", !homeCleanupOk);
+    prefs.end();
+  }
+  homeInterrupted = !homeCleanupOk || !stored;
   resetCalibration(millis());
   Serial.println("[HOME] Session stopped. Stationary calibration restarting.");
-  homeReply(homeCleanupOk ? 200 : 500, homeCleanupOk,
+  homeReply(homeCleanupOk && !homeInterrupted ? 200 : 500,
+    homeCleanupOk && !homeInterrupted,
     homeCleanupOk ? "Temporary file deleted; recalibrating for flight" :
                     "Home test ended; inspect reserved GIHOME.BIN on SD card");
 }
