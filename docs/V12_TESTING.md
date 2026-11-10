@@ -42,6 +42,14 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Add optional human-readable Uno console summaries while retaining JSON telemetry; add V12 dashboard JavaScript syntax validation in host tests.
 - [ ] Validate OTA/rollback, power interruption and failed uploads on actual Feather hardware; control leases/configuration restore and other V11 UI features are not implemented in V12.
 
+## Guided temporary home test — code integrated, hardware untested
+
+- [x] Stepwise Testing-tab instructions; actual BMP388/battery status, existing IMU/GPS and SD diagnostics, manual Uno reception and battery-only confirmation, explicit PASS/FAIL/INCONCLUSIVE/NOT VERIFIED and JSON report.
+- [x] Isolated home mode cancels launch watching until explicit cleanup and stationary recalibration; firmware maintenance is blocked during home testing.
+- [x] Real 50 Hz SD recording for 30 seconds to reserved /GIHOME.BIN, RKT4 header and record verification, sample validity/timing check, cleanup; never saves or deletes a normal V12D flight file.
+- [x] Report loss of phone Wi-Fi separately from SD logging success; no false claim that RF receiver reception or real flight was simulated.
+- [ ] Complete full workflow on real Feather/Uno hardware, verify unexpected power removal, reserved-file recovery, GPS outdoors, SD behavior, and Wi-Fi dropout.
+
 ## Hardware-only tests — NOT TESTED
 
 - [ ] Confirm I2C discovery and addresses with all three devices connected.
