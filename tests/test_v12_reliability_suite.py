@@ -73,8 +73,10 @@ class FirmwareSourceContracts(unittest.TestCase):
         for token in ('"/api/profile"', '"gioflight"', '"rocket="',
                       '"motor="', 'selectedRocket', 'selectedMotor'):
             self.assertIn(token, self.fw)
+        naming = (ROOT / "libraries/GreenIonRecorder/src/GreenIonFileNaming.h").read_text()
         for extension in (".BIN", ".SEN", ".TXT", ".JRA", ".JRB", ".RCV"):
-            self.assertIn(f'"{extension}"', self.fw)
+            self.assertIn(f'"{extension}"', naming)
+        self.assertIn("flightSequenceOccupied(", self.fw)
         self.assertIn('if (!occupied)', self.fw)
         self.assertIn('rocketPreset', self.ui)
 
