@@ -44,13 +44,13 @@ are read-only and remain unchanged.
 
 ## Live link quality and reconnect behavior
 
-Start **LIVE** mode by entering the Uno's COM port in \`OPEN_GROUND_STATION.cmd\`. Python now automatically retries after USB/serial disconnection, shows actual Uno receiver status/error messages, counts \`radio_bench\` packets separately from \`telemetry\` packets, estimates sequence loss, duplicates, out-of-order packets and Feather reboots, and maintains an exponentially weighted received RSSI estimate.
+Start **LIVE** mode by entering the Uno's COM port in `OPEN_GROUND_STATION.cmd`. Python now automatically retries after USB/serial disconnection, shows actual Uno receiver status/error messages, counts `radio_bench` packets separately from `telemetry` packets, estimates sequence loss, duplicates, out-of-order packets and Feather reboots, and maintains an exponentially weighted received RSSI estimate.
 
-The receiver sends a status heartbeat about every five seconds. The dashboard shows receiver-side bench packet count: **Feather TX does not prove Uno RX**. Confirm five actual valid \`radio_bench\` packets on this computer before checking the corresponding manual home-test step. The loss percentage is a sequence-gap estimate, not a calibrated radio-range probability.
+The receiver sends a status heartbeat about every five seconds. The dashboard shows receiver-side bench packet count: **Feather TX does not prove Uno RX**. Confirm five actual valid `radio_bench` packets on this computer before checking the corresponding manual home-test step. The loss percentage is a sequence-gap estimate, not a calibrated radio-range probability.
 
 A current GPS fix must come from a fresh radio packet marked live. When LoRa packets stop, the computer downgrades displayed link/GPS status to stale and preserves last-known coordinates with an age; repeated stale positions do not reset the last-known timestamp.
 
-Click **Download telemetry CSV** in the web dashboard, or open \`http://127.0.0.1:8765/api/export\`. No CSV exists until actual telemetry has been received (or demo samples generated). Receiver bench markers and JSON status lines are deliberately excluded from the normal flight CSV.
+Click **Download telemetry CSV** in the web dashboard, or open `http://127.0.0.1:8765/api/export`. No CSV exists until actual telemetry has been received (or demo samples generated). Receiver bench markers and JSON status lines are deliberately excluded from the normal flight CSV.
 
 ### Known limits
 
