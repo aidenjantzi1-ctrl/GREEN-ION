@@ -55,7 +55,7 @@ String checkpointFilenameA;
 String checkpointFilenameB;
 String metadataFilename;
 // User-selectable per-rocket metadata is written only to .TXT, never RKT4.
-String selectedRocket = "Green Eggs";
+String selectedRocket = ""; // Never assume which rocket is installed.
 String selectedMotor = "";
 uint32_t calibratedAtMs = 0;
 bool orphanHomeFile = false;
@@ -1557,7 +1557,7 @@ static bool validFlightProfileValue(const String &value, bool optional = false) 
 static void loadFlightProfile() {
   Preferences preferences;
   if (preferences.begin("gioflight", true)) {
-    const String rocket = preferences.getString("rocket", "Green Eggs");
+    const String rocket = preferences.getString("rocket", "");
     const String motor = preferences.getString("motor", "");
     if (validFlightProfileValue(rocket)) selectedRocket = rocket;
     if (validFlightProfileValue(motor, true)) selectedMotor = motor;
@@ -1590,8 +1590,9 @@ static void saveFlightProfile() {
       "{\"success\":false,\"message\":\"Could not open persistent flight profile storage\"}");
     return;
   }
-  const bool stored = preferences.putString("rocket", rocket) > 0 &&
-                      preferences.putString("motor", motor) >= 0;
+  const bool storedRocket = preferences.putString("rocket", rocket) == rocket.length();
+  const bool storedMotor = preferences.putString("motor", motor) == motor.length();
+  const bool stored = storedRocket && storedMotor;
   preferences.end();
   if (stored) { selectedRocket = rocket; selectedMotor = motor; }
   resetCalibration(millis());
