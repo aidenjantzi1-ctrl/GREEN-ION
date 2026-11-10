@@ -298,6 +298,23 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 </section>
 
 <section id="flight" class="page">
+<div class="card" id="flightProfileCard">
+ <h2>Rocket flight profile</h2>
+ <p class="muted">Choose the rocket and motor on the bench BEFORE launching. Saves the selection on the Feather and in the flight .TXT metadata. Changing the profile restarts stationary calibration; never edit at the pad.</p>
+ <label for="rocketPreset">Rocket</label>
+ <select id="rocketPreset">
+  <option value="Green Eggs">Estes Green Eggs</option>
+  <option value="So Long">Estes Pro Series II So Long</option>
+  <option value="Custom">Another rocket</option>
+ </select>
+ <label for="rocketCustom">Custom rocket name (when selected)</label>
+ <input id="rocketCustom" type="text" maxlength="24" placeholder="Your rocket" disabled>
+ <label for="profileMotor">Motor designation (optional)</label>
+ <input id="profileMotor" type="text" maxlength="24" placeholder="Example: D12-5, F15-8">
+ <button id="saveFlightProfile" class="green">SAVE ROCKET PROFILE &amp; RECALIBRATE</button>
+ <div class="notice" id="flightProfileFeedback">Waiting for Feather profile...</div>
+</div>
+
  <div class="card"><h2>Automatic flight workflow</h2><p>V12 calibrates and watches automatically. It records RKT4 flight data and a synchronized IMU/GPS sensor file, then writes recovery evidence.</p><div class="row"><span>Active phase</span><strong id="flightPhase">IDLE</strong></div><div class="row"><span>Automatic label</span><strong id="missionIdentity">--</strong></div><div class="row"><span>Prebuffer</span><strong id="prebufferStatus">--</strong></div><div class="progress"><div id="prepareProgress"></div></div><div class="notice" id="prepareStatus">Run Prepare for Launch.</div></div>
 </section>
 
@@ -1782,6 +1799,67 @@ const v12Number=(value,digits=1,suffix="--")=>v12Finite(value)?Number(value).toF
 const v12FlightNames=["CALIBRATING","WATCHING FOR LAUNCH","RECORDING","LANDED / COMPLETE","RECORDER FAULT","BENCH MAINTENANCE — LAUNCH DETECTION OFF","HOME VERIFICATION — LAUNCH DETECTION OFF"];
 let v12Busy=false;
 
+
+const v12PreflightLabels=[
+ "SD card unavailable","BMP388 missing or unhealthy","Measured battery below 3.60 V",
+ "Calibration incomplete or invalid","Not watching for launch","Home test / OTA maintenance active",
+ "Interrupted flight recovery evidence needs review","Temporary home test cleanup or interrupted session",
+ "IMU missing or wrong ±32 g range","No current GPS fix","LoRa receiver link not verified (or radio unavailable)",
+ "Sampling periods were missed","Companion or metadata/checkpoint errors",
+ "Calibration older than 30 minutes","Flight profile unset"];
+function v12PreflightDetails(d){
+ const flags=Number(d.preflight_flags||0)>>>0;
+ const warnings=v12PreflightLabels.filter((label,i)=>(flags&(1<<i))!==0);
+ const first=warnings.slice(0,5).join(" · ");
+ return warnings.length?first+(warnings.length>5?" · +"+(warnings.length-5)+" more":""):
+    "All software checks currently satisfied. Physical mounting, range and flight readiness remain unverified.";
+}
+function v12SavePreflightReport(){
+ if(!state)return;
+ const d=state,report={type:"GREEN ION V12 preflight advisory",
+   captured:new Date().toISOString(),rocket:d.selected_rocket,motor:d.selected_motor,
+   advisory:d.preflight_state,flags:d.preflight_flags,warnings:v12PreflightDetails(d),
+   battery_v:d.battery_v,sd_ok:d.sd_ok,barometer_ok:d.barometer_ready,
+   imu_ok:d.imu_ok,gps_status:d.gps_status,radio_ok:d.radio_ok,
+   calibration_baseline_pa:d.calibration_baseline_pa,
+   calibration_age_s:d.calibration_age_s,missed_periods:d.missed_sample_periods,
+   hardware_approved:false,
+   disclaimer:"This is software evidence, not permission to launch; verify physical assembly and range safety."};
+ const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"});
+ const url=URL.createObjectURL(blob),link=document.createElement("a");
+ link.href=url;link.download="green-ion-v12-preflight.json";link.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function v12UpdateProfileUi(d){
+ if(!document.activeElement || !["rocketPreset","rocketCustom","profileMotor"].includes(document.activeElement.id)){
+  const rocket=String(d.selected_rocket||"Green Eggs");
+  const standard=rocket==="Green Eggs"||rocket==="So Long";
+  $("rocketPreset").value=standard?rocket:"Custom";
+  $("rocketCustom").value=standard?"":rocket;
+  $("profileMotor").value=d.selected_motor||"";
+ }
+ $("rocketCustom").disabled=$("rocketPreset").value!=="Custom";
+ $("saveFlightProfile").disabled=!!d.recording||!!d.home_test_active||
+     !!d.maintenance_mode||!!d.update_in_progress;
+ v12Set("flightProfileFeedback","Saved on Feather: "+(d.selected_rocket||"Unknown rocket")+
+     (d.selected_motor?" · "+d.selected_motor:" · motor not set")+
+     ". Profile changes restart calibration.");
+}
+async function v12SaveFlightProfile(){
+ const rocket=$("rocketPreset").value==="Custom"?
+    $("rocketCustom").value.trim():$("rocketPreset").value;
+ const motor=$("profileMotor").value.trim();
+ if(!rocket||rocket.length>24){v12Set("flightProfileFeedback","Enter a rocket name of 1–24 characters.");return;}
+ if(!confirm("Save profile for "+rocket+"? This restarts stationary calibration. Do not change profiles during launch preparation."))return;
+ $("saveFlightProfile").disabled=true;
+ try{
+  const result=await v12Fetch("profile","POST",{rocket,motor});
+  v12Set("flightProfileFeedback",result.message);
+  await v12Poll();
+ }catch(error){v12Set("flightProfileFeedback","Profile not saved: "+error.message);}
+ finally{$("saveFlightProfile").disabled=false;}
+}
+
 function v12ConfigureUi(){
  $('flight').append($('prepareRecordCard'),$('recorderHealthCard'));
  $('utilities').prepend($('controlAccessCard'));
@@ -1811,6 +1889,10 @@ function v12ConfigureUi(){
  $('installFirmware').onclick=v12InstallFirmware;
  $('rollbackFirmware').onclick=v12RollbackFirmware;
  $('exitMaintenance').onclick=v12ExitMaintenance;
+ $('rocketPreset').onchange=()=>{$("rocketCustom").disabled=$("rocketPreset").value!=="Custom";};
+ $('saveFlightProfile').onclick=v12SaveFlightProfile;
+ $('downloadPreflight').disabled=false;
+ $('downloadPreflight').onclick=v12SavePreflightReport;
  $('refresh').onclick=v12LoadFiles;
  $('fileSort').onchange=v12LoadFiles;
  $('savedGraphMetric').onchange=drawSavedGraph;
@@ -1843,12 +1925,14 @@ function v12Render(d){
   v12Set('temperature',v12Number(imperial&&v12Finite(d.imu_temperature_c)?Number(d.imu_temperature_c)*9/5+32:d.imu_temperature_c,1)+(imperial?' °F IMU':' °C IMU'));
  v12Set('batteryPercent',batteryPct.toFixed(0)+'%');v12Set('batteryVoltage',v12Number(battery,3)+' V');
   v12Set('speed',v12Number(imperial&&v12Finite(d.vertical_speed_mps)?Number(d.vertical_speed_mps)*3.28084:d.vertical_speed_mps,2)+(imperial?' ft/s':' m/s'));v12Set('peak',v12Number(imperial&&v12Finite(d.landing_peak_m)?Number(d.landing_peak_m)*3.28084:d.landing_peak_m,1)+(imperial?' ft':' m'));
- v12Set('flightState',phase);v12Set('flightPhase',phase);v12Set('missionIdentity','V12 autonomous recorder');
+ v12Set('flightState',phase);v12Set('flightPhase',phase);v12Set('missionIdentity',(d.selected_rocket||'V12 recorder')+(d.selected_motor?' · '+d.selected_motor:''));
  v12Set('prebufferStatus',String(d.prebuffer_records||0)+' buffered records');
  v12Set('prepareStatus',d.home_test_active?'Home verification: launch watching is OFF until end and recalibration.':d.maintenance_mode?'Firmware maintenance: launch watching is disabled until exit and calibration.':d.recording?'Flight logging is active. Dashboard loss cannot stop recording.':'V12 calibrates and watches for launch automatically after boot.');
  v12Set('feedback',d.recording?'Recording '+(d.log_file||'RKT4 file'):'Recorder is '+phase.toLowerCase()+'.');
- v12Set('preflightScore',d.home_test_active?'HOME TEST — LAUNCH WATCH OFF':d.maintenance_mode?'NOT ARMED — MAINTENANCE':d.sd_ok&&d.barometer_ready&&d.imu_ok?'READY':'CHECK');
- v12Set('preflightDetail','SD '+(d.sd_ok?'OK':'FAULT')+' · BMP388 '+(d.barometer_ready?'OK':'FAULT')+' · IMU '+(d.imu_ok?'OK':'FAULT')+' · GPS '+d.gps_status+' · radio '+(d.radio_ok?'OK':'optional/fault'));
+ v12Set('preflightScore',d.preflight_state||'CHECK');
+ if(d.home_interrupted)v12Set('homeInstructions','Previous home session was interrupted. Start a fresh session to clean temporary data and recheck.');
+ v12Set('preflightDetail',v12PreflightDetails(d));
+ v12UpdateProfileUi(d);
  v12Set('overviewSD',d.sd_ok?'MOUNTED':'UNAVAILABLE');v12Set('overviewSamples',String(d.prebuffer_records||0)+' prebuffered');v12Set('overviewFile',d.log_file||'Next V12D###.BIN');
  v12Set('recovery',d.recovery_status||'Not scanned');v12Set('missed',String(d.missed_sample_periods||0));v12Set('metadata',d.metadata_file||'--');
  v12Set('fieldBattery',batteryPct.toFixed(0)+'% · '+v12Number(battery,3)+' V');v12Set('fieldReadiness',d.recording?'RECORDING — SD has priority over dashboard':'AUTONOMOUS '+phase);
@@ -1863,7 +1947,7 @@ function v12Render(d){
  $('rollbackFirmware').disabled=!!d.recording||!!d.update_in_progress||!d.ota_available||!!d.maintenance_mode||!!d.home_test_active;
  v12Set('samples',String(d.prebuffer_records||0));v12Set('sampleRateStatus',String(d.sample_rate_hz||50)+' Hz configured');v12Set('sampleErrors',String(d.missed_sample_periods||0));
  v12Set('sdErrors',String((d.checkpoint_failures||0)+(d.sensor_log_failures||0)));v12Set('duration',d.recording?'Recording':'--');v12Set('filename',d.log_file||'--');
- v12Set('savedFlightLabel','Automatic V12 sequence');v12Set('savedMotorLabel','Not stored in V12 yet');v12Set('minimumPressure',v12Number(pressure,0)+' Pa');
+ v12Set('savedFlightLabel',d.selected_rocket||'Unknown');v12Set('savedMotorLabel',d.selected_motor||'Not selected');v12Set('minimumPressure',v12Number(pressure,0)+' Pa');
  v12Set('temperatureRange',v12Number(d.imu_temperature_c,1)+' °C current');v12Set('launched',Number(d.flight_state)>0?'YES / WATCHING':'NO');v12Set('finish',phase);
  v12Set('uptime',String(d.uptime_s||0)+' s');v12Set('error',Number(d.health)?'Health flags '+d.health:'None');
  v12Set('sysPct',batteryPct.toFixed(0)+'%');v12Set('sysV',v12Number(battery,3)+' V');v12Set('sysWarning',battery<3.5?'LOW':'NORMAL');
