@@ -47,7 +47,7 @@ class V14ImplementationTests(unittest.TestCase):
   self.assertIn("refreshHistoryAnalysis",module)
  def test_unique_html_ids_and_all_tab_panels(self):
   import re
-  ids=re.findall(r'\\bid="([^"]+)"',PAGE)
+  ids=re.findall(r'\bid="([^"]+)"',PAGE)
   self.assertEqual(len(ids),len(set(ids)),"Duplicate HTML ids can break tab or status rendering")
   for name in ("status","flight","field","testing","utilities","storage","system","connections","history","cloud","updates"):
    self.assertRegex(PAGE,rf'<section id="{name}" class="page(?: active)?"')
