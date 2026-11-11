@@ -1,15 +1,26 @@
 import {fileKind,safeFileName} from "./v14_utils.mjs";
-const DB="green-ion-v14-recordings",TABLE="files",MAX_SIZE=52428800;
+const DB="green-ion-v14-recordings",TABLE="files",META="file_meta",MAX_SIZE=52428800;
 const p=req=>new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});
 async function open(){
  return new Promise((resolve,reject)=>{
-  const req=indexedDB.open(DB,1);
+  const req=indexedDB.open(DB,2);
   req.onupgradeneeded=()=>{
     const db=req.result;
+    let table;
     if(!db.objectStoreNames.contains(TABLE)){
-      const table=db.createObjectStore(TABLE,{keyPath:"key"});
+      table=db.createObjectStore(TABLE,{keyPath:"key"});
       table.createIndex("checksum","checksum");
       table.createIndex("name","name");
+    }else table=req.transaction.objectStore(TABLE);
+    if(!db.objectStoreNames.contains(META)){
+      const summary=db.createObjectStore(META,{keyPath:"key"});
+      // Upgrade v1 in-place: keep all original BIN/SEN/TXT bytes unchanged.
+      const cursor=table.openCursor();
+      cursor.onsuccess=event=>{
+        const item=event.target.result;
+        if(item){const {key,checksum,name,kind,size,origin,createdAt}=item.value;
+          summary.put({key,checksum,name,kind,size,origin,createdAt});item.continue();}
+      };
     }
   };
   req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
@@ -24,13 +35,19 @@ export async function listLocalFiles(){
  try{return await p(db.transaction(TABLE).objectStore(TABLE).getAll());}
  finally{db.close();}
 }
+/** IndexedDB v2 index without reading full binary ArrayBuffers into the UI. */
+export async function listLocalMetadata(){
+ const db=await open();
+ try{return await p(db.transaction(META).objectStore(META).getAll());}
+ finally{db.close();}
+}
 export async function getLocalFile(key){
  const db=await open();
  try{return await p(db.transaction(TABLE).objectStore(TABLE).get(key));}
  finally{db.close();}
 }
 export async function hasLocalName(name,size){
- const files=await listLocalFiles();
+ const files=await listLocalMetadata();
  return files.some(f=>f.name===name && (size==null||f.size===size));
 }
 export async function saveLocalFile({name,bytes,origin="import",metadata={}}){
@@ -48,8 +65,9 @@ export async function saveLocalFile({name,bytes,origin="import",metadata={}}){
    metadata:metadata&&typeof metadata==="object"?metadata:{},createdAt:new Date().toISOString()};
  const db=await open();
  try{
-  const tx=db.transaction(TABLE,"readwrite");
+  const tx=db.transaction([TABLE,META],"readwrite");
   tx.objectStore(TABLE).put(record);
+  tx.objectStore(META).put({key,checksum,name:basename,kind,size:buffer.byteLength,origin,createdAt:record.createdAt});
   await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});
  }finally{db.close();}
  window.dispatchEvent(new CustomEvent("green-ion-flight-saved",{detail:{key,checksum,name:basename}}));
