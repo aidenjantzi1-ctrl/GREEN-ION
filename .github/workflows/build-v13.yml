@@ -1,0 +1,112 @@
+name: Build GREEN ION V13 and one ZIP download
+on:
+  push:
+    branches: [main, "v13/**"]
+    paths:
+      - "Green_Ion_V13/**"
+      - "Ground_Receiver/**"
+      - "Ground_Station/**"
+      - "libraries/**"
+      - "tests/**"
+      - ".github/workflows/build-v13.yml"
+      - "docs/V13_*"
+      - "README.md"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: All Python regressions
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: JavaScript syntax
+        run: node --check Ground_Station/v13_unified.js
+      - name: Python syntax
+        run: python3 -m py_compile Ground_Station/v13_bridge.py Ground_Station/ground_station.py
+  compile-firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Install boards
+        run: |
+          arduino-cli config init
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install arduino:avr
+      - name: Install firmware libraries
+        run: |
+          arduino-cli lib install "Adafruit BMP3XX Library"
+          arduino-cli lib install "Adafruit LSM6DS"
+          arduino-cli lib install "Adafruit GPS Library"
+          arduino-cli lib install "RadioHead"
+      - name: Compile Feather V13
+        run: arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --library libraries/GreenIonProtocol --library libraries/GreenIonRecorder --output-dir build/esp32 Green_Ion_V13
+      - name: Compile Arduino Uno receiver
+        run: arduino-cli compile --fqbn arduino:avr:uno --library libraries/GreenIonProtocol --output-dir build/uno Ground_Receiver
+      - uses: actions/upload-artifact@v4
+        with:
+          name: green-ion-v13-compiled-firmware
+          path: |
+            build/esp32/*.bin
+            build/uno/*.hex
+          if-no-files-found: error
+  one-download:
+    needs: [host-tests, compile-firmware]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: green-ion-v13-compiled-firmware
+          path: build
+      - name: Assemble GREEN_ION_V13_COMPLETE.zip
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from shutil import copy2, copytree
+          from zipfile import ZipFile, ZIP_DEFLATED
+          root = Path("release/GREEN_ION_V13")
+          root.mkdir(parents=True, exist_ok=True)
+          copy2("docs/V13_START_HERE.md", root / "START_HERE.md")
+          copy2("docs/V13_UPDATE_GUIDE.md", root / "HOW_TO_UPDATE.md")
+          copytree("Ground_Station", root / "Ground_Station", ignore=lambda d, n: {"logs", "__pycache__", ".gitignore"} & set(n))
+          copytree("Green_Ion_V13", root / "Feather_Firmware/Green_Ion_V13")
+          copytree("Ground_Receiver", root / "Uno_Receiver/Ground_Receiver")
+          copytree("libraries/GreenIonProtocol", root / "Arduino_Libraries/GreenIonProtocol")
+          copytree("libraries/GreenIonRecorder", root / "Arduino_Libraries/GreenIonRecorder")
+          feather = list(Path("build").rglob("Green_Ion_V13.ino.bin"))
+          uno = list(Path("build").rglob("Ground_Receiver.ino.hex"))
+          if not feather or not uno:
+              raise SystemExit("Firmware binaries missing; refusing incomplete ZIP")
+          (root / "READY_TO_UPLOAD/FEATHER").mkdir(parents=True)
+          (root / "READY_TO_UPLOAD/UNO").mkdir(parents=True)
+          copy2(feather[0], root / "READY_TO_UPLOAD/FEATHER" / feather[0].name)
+          copy2(uno[0], root / "READY_TO_UPLOAD/UNO" / uno[0].name)
+          with ZipFile("release/GREEN_ION_V13_COMPLETE.zip", "w", ZIP_DEFLATED, compresslevel=7) as archive:
+              for path in sorted(root.rglob("*")):
+                  if path.is_file():
+                      archive.write(path, path.relative_to("release"))
+          PY
+      - name: Upload one complete download
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREEN_ION_V13_COMPLETE
+          path: release/GREEN_ION_V13_COMPLETE.zip
+          if-no-files-found: error
+      - name: Publish V13 beta prerelease on first successful main build
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view v13.0.0-beta.1 >/dev/null 2>&1; then
+            gh release create v13.0.0-beta.1 release/GREEN_ION_V13_COMPLETE.zip \
+              --target "$GITHUB_SHA" --title "GREEN ION V13 beta 1 - One ZIP" \
+              --notes "V13 unified Wi-Fi/LoRa dashboard and update package. SOFTWARE BETA: hardware and flight testing required." \
+              --prerelease
+          else
+            echo "First beta exists; use the new package in this Actions run."
+          fi
