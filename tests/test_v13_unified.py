@@ -89,6 +89,18 @@ class UnifiedBridgeTests(unittest.TestCase):
         bridge.poll_once()
         self.assertEqual(bridge.unified_status(radio())["v13_source"], "wifi")
 
+    def test_proxy_denies_firmware_or_commands_when_wifi_is_unverified(self):
+        class Handler:
+            path = "/api/update?token=secret"
+            calls = []
+            def send_error(self, code, message):
+                self.calls.append((code, message))
+        bridge = FakeBridge()
+        request = Handler()
+        bridge.relay(request)
+        self.assertEqual(request.calls[0][0], 503)
+        self.assertIn("not currently verified", request.calls[0][1])
+
     def test_demo_never_masquerades_as_hardware(self):
         bridge = FakeBridge()
         self.assertEqual(bridge.link_status(radio(source="simulation"))["source"], "demo")

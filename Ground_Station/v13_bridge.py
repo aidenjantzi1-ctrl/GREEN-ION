@@ -174,6 +174,11 @@ class FeatherBridge:
         Browser requests arrive on localhost. No CORS changes, open proxy,
         redirect following or LoRa command fallback are permitted.
         """
+        # Never send a command or firmware image to an unverified IP when
+        # Windows has left the rocket AP and joined another network.
+        if self._wifi()[0] != "live":
+            handler.send_error(503, "Feather Wi-Fi is not currently verified")
+            return
         path = urlsplit(handler.path)
         if not path.path.startswith("/api/") or path.path.startswith("/api//") or "\\" in path.path:
             handler.send_error(404, "Not a Feather API path")
