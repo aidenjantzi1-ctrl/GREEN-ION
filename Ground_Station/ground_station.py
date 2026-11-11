@@ -26,6 +26,20 @@ import webbrowser
 ROOT = Path(__file__).resolve().parent
 LOG_DIR = ROOT / "logs"
 
+# Fixed columns survive optional fields, receiver reconnects and a mixture of
+# ordinary telemetry and bench-test packets. Original JSON is retained.
+LOG_COLUMNS = (
+    "received_utc", "source", "type", "protocol", "sequence", "uptime_ms",
+    "rssi_dbm", "altitude_m", "pressure_pa", "gps_altitude_m",
+    "acceleration_g", "acceleration_x_g", "acceleration_y_g",
+    "acceleration_z_g", "rotation_x_dps", "rotation_y_dps",
+    "rotation_z_dps", "speed_mps", "battery_v", "gps_fix_age_ms",
+    "gps_status", "satellites", "flight_state", "flags", "health",
+    "estimated_missing_packets", "valid_packets", "invalid_packets",
+    "bench_received", "sender_restarts", "duplicates", "out_of_order",
+    "latitude", "longitude", "last_position_age_ms", "raw_packet_json",
+)
+
 
 @dataclass
 class Store:
@@ -181,13 +195,20 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def write_log(row: dict, path: Path) -> None:
+    """Append a stable CSV row without discarding any packet fields.
+
+    Radio bench packets and telemetry have different key sets; deriving
+    a new column order per row would corrupt the exported CSV schema.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    exists = path.exists()
+    needs_header = not path.exists() or path.stat().st_size == 0
+    record = {column: row.get(column, "") for column in LOG_COLUMNS}
+    record["raw_packet_json"] = json.dumps(row, sort_keys=True, allow_nan=False)
     with path.open("a", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=sorted(row))
-        if not exists:
+        writer = csv.DictWriter(handle, fieldnames=LOG_COLUMNS)
+        if needs_header:
             writer.writeheader()
-        writer.writerow(row)
+        writer.writerow(record)
 
 
 def sample_source(stop: threading.Event, log_path: Path) -> None:
@@ -256,14 +277,22 @@ def serial_source(stop: threading.Event, port: str, log_path: Path) -> None:
                     elif kind == "receiver_error":
                         STORE.receiver("error", "Uno reported an invalid/CRC packet")
                     elif kind == "radio_bench":
+                        # Receiver-side evidence: never infer reception from sender TX.
+                        row["source"] = "radio"
+                        row["received_utc"] = datetime.now(timezone.utc).isoformat()
                         STORE.bench(row)
+                        try:
+                            write_log(row, log_path)
+                        except (OSError, ValueError) as error:
+                            STORE.receiver("error", f"CSV write failed: {error}")
+                            print(f"[LOG] Cannot write radio bench CSV: {error}")
                     elif kind == "telemetry":
                         row["source"] = "radio"
                         row["received_utc"] = datetime.now(timezone.utc).isoformat()
                         STORE.update(row)
                         try:
                             write_log(row, log_path)
-                        except OSError as error:
+                        except (OSError, ValueError) as error:
                             STORE.receiver("error", f"CSV write failed: {error}")
                             print(f"[LOG] Cannot write telemetry CSV: {error}")
         except (serial.SerialException, OSError) as error:
