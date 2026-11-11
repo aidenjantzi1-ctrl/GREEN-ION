@@ -1,9 +1,12 @@
 import {connectSerial,disconnectSerial,serialSupported} from "./v14_serial.mjs";
-import {saveLocalFile,listLocalFiles,hasLocalName,downloadFile,exportArchive,restoreArchive,importLegacyHistory} from "./v14_store.mjs";
+import {saveLocalFile,listLocalMetadata,getLocalFile,hasLocalName,downloadFile,exportArchive,restoreArchive,importLegacyHistory} from "./v14_store.mjs";
 import {initCloud,backupNow} from "./v14_cloud.mjs";
 import {initUpdates,checkUpdates} from "./v14_updates.mjs";
 import {initHistoryAnalysis,refreshHistoryAnalysis} from "./v14_analysis.mjs";
+import {initSensorHistory,refreshSensorHistory} from "./v14_sensor_history.mjs";
 import {APP_VERSION} from "./v14_utils.mjs";
+import {initPreferences} from "./v14_preferences.mjs";
+import {initSensorLab} from "./v14_sensor_lab.mjs";
 import {requiresFeather,initTabs} from "./v14_ui.mjs";
 const $=id=>document.getElementById(id),t=window.GREEN_ION_TRANSPORT;
 let importing=false,lastAutoImport=0,lastRadioAt=0,radioPackets=[];
@@ -41,17 +44,21 @@ function guardLiveControls(event){
  note("Feather Wi-Fi connection required for this hardware command. Saved flights and graphs remain available offline.");
 }
 async function renderHistory(){
- await refreshHistoryAnalysis();
+ await Promise.all([refreshHistoryAnalysis(),refreshSensorHistory()]);
  const target=$("v14HistoryList");target.replaceChildren();
  try{
-  const items=(await listLocalFiles()).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+  const items=(await listLocalMetadata()).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
   text("v14LocalCount",items.length+" original file(s) saved on this device.");
   if(!items.length){target.textContent="No local files yet. Import BIN/SEN/TXT or connect to Feather Wi-Fi after a flight.";return;}
   for(const f of items){
    const row=document.createElement("div");row.className="row";
    const label=document.createElement("span");label.textContent=f.name+" · "+(f.size/1024).toFixed(1)+" KB · "+f.origin;
    const button=document.createElement("button");button.className="secondary";button.textContent="Download";
-   button.onclick=()=>downloadFile(f);row.append(label,button);target.append(row);
+   button.onclick=async()=>{try{const original=await getLocalFile(f.key);
+    if(!original)throw Error("Original file missing");
+    downloadFile(original);
+   }catch(error){text("v14HistoryNotice","Download failed: "+error.message);}};
+   row.append(label,button);target.append(row);
   }
  }catch(e){target.textContent="History unavailable: "+e.message;}
 }
@@ -138,6 +145,8 @@ async function init(){
  document.querySelector("header small").textContent="Flight logger · V14 unified offline dashboard";
  text("v14AppBuild","Website "+APP_VERSION+" · Feather firmware may be V13 until updated");
  renderBrowserInfo();
+ initPreferences();
+ initSensorLab(t);
  initTabs(document.querySelector("nav.tabs"));
  $("v14SerialConnect").onclick=connectSerial;
  $("v14SerialDisconnect").onclick=disconnectSerial;
@@ -166,7 +175,7 @@ async function init(){
   }
   mode();
  });
- initHistoryAnalysis();initCloud();initUpdates();
+ initHistoryAnalysis();initSensorHistory();initCloud();initUpdates();
  try{const n=await importLegacyHistory();if(n)text("v14HistoryNotice","Imported "+n+" older V11-V13 recordings into V14 storage.");}
  catch{/* historical DB may not exist */}
  await renderHistory();mode();

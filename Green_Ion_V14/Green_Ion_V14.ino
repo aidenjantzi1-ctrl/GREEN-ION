@@ -686,6 +686,7 @@ static void serviceGps(uint32_t nowMs) {
   state.gpsMinute = gps.minute;
   state.gpsSecond = gps.seconds;
   state.gpsFixCurrent = gps.fix;
+  state.gpsFixQuality = gps.fixquality;
   if (state.gpsFixCurrent) {
     state.gpsHasPosition = true;
     state.lastGpsFixMs = nowMs;
@@ -693,6 +694,10 @@ static void serviceGps(uint32_t nowMs) {
     state.longitude = gps.longitudeDegrees;
     state.gpsAltitudeM = gps.altitude;
     state.gpsSpeedMps = gps.speed * 0.514444f;
+    state.gpsCourseDeg = isfinite(gps.angle) && state.gpsSpeedMps >= 0.75f
+                             ? gps.angle : NAN;  // Unreliable when stationary
+    state.gpsHdop = isfinite(gps.HDOP) && gps.HDOP > 0.0f ? gps.HDOP : NAN;
+    state.gpsGeoidSeparationM = isfinite(gps.geoidheight) ? gps.geoidheight : NAN;
   }
 }
 
@@ -1629,7 +1634,7 @@ static void sendDashboardStatus() {
     return isfinite(value) ? String(value, static_cast<unsigned int>(decimals)) : String("null");
   };
   String body;
-  body.reserve(1536);
+  body.reserve(2560);
   body += "{\"version\":14,\"recording\":";
   body += state.recording ? "true" : "false";
   body += ",\"uptime_s\":" + String(millis() / 1000UL);
@@ -1645,6 +1650,7 @@ static void sendDashboardStatus() {
   body += ",\"log_file\":\"" + logFilename + "\",\"pressure_pa\":";
   body += numberOrNull(state.pressurePa, 0);
   body += ",\"altitude_m\":" + numberOrNull(state.altitudeM, 2);
+  body += ",\"temperature_c\":" + numberOrNull(state.temperatureC, 2);
   body += ",\"acceleration_g\":" + numberOrNull(state.accelMagnitude / 9.80665f, 3);
   body += ",\"acceleration_x_g\":" + numberOrNull(state.accelX / 9.80665f, 3);
   body += ",\"acceleration_y_g\":" + numberOrNull(state.accelY / 9.80665f, 3);
@@ -1653,13 +1659,21 @@ static void sendDashboardStatus() {
   body += ",\"rotation_y_dps\":" + numberOrNull(state.gyroY * radiansToDegrees, 1);
   body += ",\"rotation_z_dps\":" + numberOrNull(state.gyroZ * radiansToDegrees, 1);
   body += ",\"imu_temperature_c\":" + numberOrNull(state.imuTemperatureC, 2);
+  body += ",\"imu_data_valid\":";
+  body += state.imuDataValid ? "true" : "false";
+  body += ",\"imu_read_failures\":" + String(state.imuReadFailures);
+  body += ",\"imu_consecutive_read_failures\":" + String(state.imuConsecutiveReadFailures);
   body += ",\"battery_v\":" + String(state.batteryMv / 1000.0f, 3);
+  body += ",\"battery_mv\":" + String(state.batteryMv);
   body += ",\"gps_status\":\"" + String(gpsStatus) + "\",\"satellites\":";
   body += String(state.satellites);
   body += ",\"gps_communication\":\"";
   body += state.lastGpsNmeaMs ? "ok" : "waiting";
   body += "\",\"gps_nmea_sentences\":" + String(state.gpsNmeaSentences);
   body += ",\"gps_parsed_sentences\":" + String(state.gpsParsedSentences);
+  body += ",\"gps_parse_failures\":" + String(state.gpsParseFailures);
+  body += ",\"gps_nmea_age_ms\":";
+  body += state.lastGpsNmeaMs ? String(millis() - state.lastGpsNmeaMs) : "null";
   body += ",\"gps_fix_age_ms\":" + String(age);
   body += ",\"latitude\":";
   body += state.gpsHasPosition ? String(state.latitude, 7) : String("null");
@@ -1667,6 +1681,10 @@ static void sendDashboardStatus() {
   body += state.gpsHasPosition ? String(state.longitude, 7) : String("null");
   body += ",\"gps_altitude_m\":" + numberOrNull(state.gpsAltitudeM, 2);
   body += ",\"gps_speed_mps\":" + numberOrNull(state.gpsSpeedMps, 2);
+  body += ",\"gps_course_deg\":" + numberOrNull(state.gpsCourseDeg, 1);
+  body += ",\"gps_hdop\":" + numberOrNull(state.gpsHdop, 2);
+  body += ",\"gps_geoid_separation_m\":" + numberOrNull(state.gpsGeoidSeparationM, 2);
+  body += ",\"gps_fix_quality\":" + String(state.gpsFixQuality);
   body += ",\"gps_utc_hour\":" + String(state.gpsHour);
   body += ",\"gps_utc_minute\":" + String(state.gpsMinute);
   body += ",\"gps_utc_second\":" + String(state.gpsSecond);
@@ -1760,6 +1778,8 @@ static void sendDashboardStatus() {
   body += ",\"home_radio_sent\":" + String(radioBenchPacketsSent - homeRadioStartSent);
   body += ",\"home_radio_remaining\":" + String(radioBenchPacketsRemaining);
   body += ",\"home_radio_failures\":" + String(radioSendFailures - homeRadioStartFailures);
+  body += ",\"radio_send_failures\":" + String(radioSendFailures);
+  body += ",\"radio_bench_packets_sent\":" + String(radioBenchPacketsSent);
   body += "}";
   dashboardServer.send(200, "application/json", body);
 }

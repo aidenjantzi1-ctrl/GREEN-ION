@@ -1,6 +1,6 @@
 # GREEN ION V14 — Quality and Validation Plan
 
-Current implementation: **V14 beta 3**. Software-tested; **NOT flight-certified**. A hardware launch requires supervised physical testing.
+Current implementation: **V14 beta 4**. Software-tested; **NOT flight-certified**. A hardware launch requires supervised physical testing.
 
 ## 1. Layout and accessibility
 
@@ -47,5 +47,5 @@ Do not label flight-ready, promise uninterrupted iOS local Wi-Fi access, or stat
 
 ## Shipping
 
-- Beta 3: card-layout polish, keyboard tabs, ID validation and local-vs-Feather controls.
+- Beta 4: multi-device CSS, optional live Sensor Lab and GIS1 CRC-backed historical IMU/GPS graphs, cloud progress and backoff, organized wiring/docs.
 - Release automatically through Actions after tests and successful board compilation. Main is the deploy branch; older releases remain available.

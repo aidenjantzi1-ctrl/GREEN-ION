@@ -1,6 +1,6 @@
 /* GREEN ION V14: all recorded flight analysis stays on the user's device.
  * Uses the existing RKT4 Web Worker; original BIN bytes are never changed. */
-import {getLocalFile,listLocalFiles} from "./v14_store.mjs";
+import {getLocalFile,listLocalMetadata} from "./v14_store.mjs";
 const $=id=>document.getElementById(id);
 const cache=new Map();
 let active=null,comparison=null;
@@ -131,7 +131,7 @@ async function compare(){
  }catch(e){status("Comparison failed: "+e.message);}
 }
 export async function refreshHistoryAnalysis(){
- const files=(await listLocalFiles()).filter(f=>f.kind==="BIN")
+ const files=(await listLocalMetadata()).filter(f=>f.kind==="BIN")
   .sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
  for(const id of ["v14AnalysisFlight","v14CompareFlight"]){
   const select=$(id),previous=select.value;

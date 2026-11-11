@@ -1,3 +1,14 @@
+# V14.0.0-beta.4 — Responsive sensors, private sync and organized documentation
+
+- Retained original blue tabs and classic flight workflow, with device-width adaptive CSS, optional compact and imperial modes.
+- Added read-only Sensor Lab for real BMP388, IMU, GPS, battery, LoRa, recorder and health metrics, including new firmware status fields.
+- Added offline CRC32-verified GIS1 SEN analysis with X/Y/Z acceleration, gyro, GPS, CSV, track GeoJSON and companion RKT4 header validation.
+- Improved Supabase cloud backup pagination, progress, exponential backoff, Data Saver behavior and verified restore.
+- Simplified README with direct links to soldering, sensor, device, cloud, improvements and development subsections. Archived prior README.
+- Still software beta: physical hardware, Safari and OTA testing required.
+
+---
+
 # V14.0.0-beta.3 — Dashboard layout and offline usability
 
 - Removed blank card-grid rows and doubled margins while preserving the full blue design, mobile/desktop tab structure and all existing telemetry.

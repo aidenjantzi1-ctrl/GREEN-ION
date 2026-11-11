@@ -323,8 +323,18 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  <h2>Live altitude history</h2>
  <canvas id="overviewGraph"></canvas>
 </div>
-</section>
 
+<div class="card" id="v14SensorLabCard">
+ <h2>Sensor Lab · complete live measurements</h2>
+ <p class="muted">Values from the Feather and Uno receiver, with missing measurements marked —. Barometric altitude and derived speed are estimates. The radio cannot transmit every sensor diagnostic.</p>
+ <p id="v14SensorSource" role="status">Waiting for hardware...</p>
+ <p id="v14SensorPeaks" class="muted">Session peaks unavailable.</p>
+ <div class="actions"><button class="secondary" id="v14SensorExport">Download sensor snapshot</button>
+ <button class="secondary" id="v14SensorResetPeaks">Reset session measurements</button></div>
+ <p class="muted" id="v14SensorExportStatus"></p>
+ <div id="v14SensorGroups" class="v14-sensor-groups"></div>
+</div>
+</section>
 <section id="flight" class="page">
 <div class="card" id="flightProfileCard">
  <h2>Rocket flight profile</h2>
@@ -663,8 +673,17 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <div class="row"><span>Last error</span>
    <strong id="error">--</strong></div>
  </div>
-</section>
 
+<div class="card" id="v14PreferencesCard">
+ <h2>Display and optional features</h2>
+ <p class="muted">Keep the original blue dashboard. Optional modules can be switched off without changing firmware, SD recordings or cloud data.</p>
+ <label class="v14-option"><input type="checkbox" id="v14PrefSensorLab" checked> Detailed Sensor Lab</label>
+ <label class="v14-option"><input type="checkbox" id="v14PrefSensorArchive" checked> Historical SEN IMU and GPS analysis</label>
+ <label class="v14-option"><input type="checkbox" id="v14PrefCloudAuto" checked> Automatic cloud sync</label>
+ <label class="v14-option"><input type="checkbox" id="v14PrefCompact"> Compact card spacing</label>
+ <label class="v14-option"><input type="checkbox" id="v14PrefImperial"> Feet, mph and °F in Sensor Lab</label>
+</div>
+</section>
 <section id="connections" class="page">
  <div class="card">
   <h2>Connections · Wi-Fi and Uno LoRa</h2>
@@ -698,7 +717,39 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  </div>
 
 
- <div class="card" id="v14OfflineAnalysisCard">
+ <div class="card" id="v14SensorArchiveCard">
+ <h2>Sensor recording analysis · IMU and GPS</h2>
+ <p class="muted">Read original GIS1 SEN files locally. Includes 3-axis acceleration, 3-axis gyroscope, GPS position, speed, altitude, satellites, timestamps and sample integrity. No upload is needed.</p>
+ <p id="v14SenAvailable" class="muted">Loading saved SEN files...</p>
+ <label>SEN sensor recording <select id="v14SenFlight"><option value="">Choose a SEN file</option></select></label>
+ <div class="actions"><button id="v14SenAnalyze">Analyze sensor file</button>
+  <button id="v14SenCsv" class="secondary" disabled>Export all sensor CSV</button>
+  <button id="v14SenGps" class="secondary" disabled>Export GPS track GeoJSON</button></div>
+ <p class="muted">GPS track export includes coordinates and should be kept private. It uses valid current GPS fixes only; no estimated location is invented.</p>
+ <label>Sensor measurement <select id="v14SenMetric">
+  <option value="accelerationG">Acceleration magnitude (g)</option>
+  <option value="accelerationXG">Acceleration X (g)</option>
+  <option value="accelerationYG">Acceleration Y (g)</option>
+  <option value="accelerationZG">Acceleration Z (g)</option>
+  <option value="gyroXDps">Gyroscope X (°/s)</option>
+  <option value="gyroYDps">Gyroscope Y (°/s)</option>
+  <option value="gyroZDps">Gyroscope Z (°/s)</option>
+  <option value="gpsAltitudeM">GPS altitude (m)</option>
+  <option value="gpsSpeedMps">GPS speed (m/s)</option>
+  <option value="satellites">Satellites</option>
+  <option value="gpsFixAgeMs">GPS fix age (ms)</option>
+  <option value="latitude">Latitude</option>
+  <option value="longitude">Longitude</option>
+ </select></label>
+ <canvas id="v14SenCanvas" width="920" height="300" aria-label="Historical IMU and GPS measurement graph"></canvas>
+ <label>Replay sensor timeline <input id="v14SenReplay" type="range" min="1" max="100" value="100"></label>
+ <p id="v14SenReplayLabel" class="muted">No sensor file selected.</p>
+ <p id="v14SenSummary" class="muted"></p>
+ <p id="v14SenWarnings" class="muted"></p>
+ <p id="v14SensorArchiveStatus" role="status">Choose a GIS1 SEN flight to analyze.</p>
+</div>
+
+<div class="card" id="v14OfflineAnalysisCard">
   <h2>Offline flight analysis and comparison</h2>
   <p class="muted">Choose an original RKT4 BIN from your saved flights. All calculations happen locally, even without the Feather or internet. Apogee, velocity, acceleration, G and flight phases are pressure-derived estimates.</p>
   <label>Saved flight <select id="v14AnalysisFlight"><option value="">Choose saved BIN</option></select></label>
@@ -741,6 +792,8 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
    <p>Signed in: <strong id="v14CloudIdentity">--</strong></p>
    <div class="actions"><button id="v14CloudBackup">Back up local recordings now</button><button class="secondary" id="v14CloudRestore">Restore cloud recordings</button><button class="secondary" id="v14CloudSignOut">Sign out</button></div>
    <p id="v14CloudCount" class="muted">Cloud files: checking...</p>
+   <p id="v14CloudProgress" class="muted" aria-live="polite">Waiting for sync</p>
+   <details><summary>Recent private cloud backups</summary><div id="v14CloudRecent"></div></details>
   </div>
   <p id="v14CloudStatus" role="status">Cloud is optional; waiting for account sign-in.</p>
  </div>
