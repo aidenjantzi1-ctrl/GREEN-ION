@@ -1,6 +1,6 @@
 # GREEN ION V14 — Unified Blue Website, LoRa and Cloud Backups
 
-**Status:** V14 software beta. Physical Feather/Uno, SD, battery, OTA, iPhone private-network and LoRa tests remain pending. GitHub compilation is not flight certification.
+**Status:** V14 software beta 2. Physical Feather/Uno, SD, battery, OTA, iPhone private-network and LoRa tests remain pending. GitHub compilation is not flight certification.
 
 **[Website project (Vercel)](https://vercel.com/aidenjantzi1-5859/green-ion)** · **[V14 setup guide](docs/V14_START_HERE.md)** · **[V14 architecture](docs/V14_ARCHITECTURE.md)** · **[Release downloads](https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases)**
 

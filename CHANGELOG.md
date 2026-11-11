@@ -1,3 +1,10 @@
+# V14.0.0-beta.2 — Offline analysis improvements
+
+- Added original RKT4 BIN analysis, complete offline altitude/velocity/acceleration/G/battery graphs, replay timeline, flight comparisons, CSV/JSON reports and Print / Save PDF to the History tab. All computed on device; original flight files unchanged.
+- Added regression tests for invalid RKT4 headers, original file preservation and offline analysis integration.
+
+---
+
 # V14.0.0-beta.1 — Unified blue website and private cloud backups
 
 - Preserved complete V13 blue dashboard layout/tabs, added browser Web Serial receive-only Uno LoRa, offline original file archive, private Supabase backups, GitHub update notifications, Feather V14 fallback firmware, PWA caching, Vercel deployment and CI artifacts.

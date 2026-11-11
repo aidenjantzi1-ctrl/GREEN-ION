@@ -37,3 +37,7 @@ Download the Feather **Green_Ion_V14.ino.bin** (not bootloader or merged images)
 ## Flight and compatibility
 
 RKT4 v2 BIN, GIS1 SEN, TXT and V12D### naming remain unchanged. No experimental radio, cloud, OTA or website feature may interfere with autonomous onboard recording. Until actual board tests pass, the release is a software beta, not a launch-ready endorsement.
+
+## Analyze and compare flights offline
+
+In **History**, import or select an original RKT4 BIN and select **Analyze saved flight**. The Web Worker calculates pressure-derived apogee, velocity, acceleration, G, flight phase estimates and the interactive timeline. Select a second BIN and **Compare flights** for overlaid charts and peak differences. CSV, JSON report and Print / Save PDF exports run without internet. The original recordings remain unchanged.
