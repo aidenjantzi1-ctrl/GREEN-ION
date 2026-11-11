@@ -65,7 +65,9 @@ class V12StructureTests(unittest.TestCase):
 
     def test_ground_station_opens_without_hardware_arguments(self):
         source = (ROOT / "Ground_Station" / "ground_station.py").read_text(encoding="utf-8")
-        self.assertIn('use_sample = args.sample or not args.port', source)
+        self.assertIn('use_sample = args.sample', source)
+        self.assertIn('threading.Thread(target=BRIDGE.run', source)
+        self.assertIn('if args.port or use_sample:', source)
         self.assertIn('webbrowser.open', source)
         self.assertNotIn('add_mutually_exclusive_group(required=True)', source)
 

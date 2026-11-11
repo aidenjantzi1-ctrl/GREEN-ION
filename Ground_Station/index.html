@@ -1597,8 +1597,7 @@ function safeHTML(v){return String(v??"—").replace(/[&<>"']/g,c=>({"&":"&amp;"
 function pdfRows(rows){return "<table>"+rows.map(([k,v])=>"<tr><th>"+safeHTML(k)+"</th><td>"+safeHTML(v)+"</td></tr>").join("")+"</table>";}
 function printableReport(title,body){
  const w=window.open("","_blank");if(!w){alert("Enable pop-ups for the printable report.");return;}
- w.document.open();w.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+safeHTML(title)+'</title><style>body{font:14px/1.5 system-ui,Arial;color:#172b40;max-width:800px;margin:25px auto;padding:0 16px}h1{font-size:24px}h2{font-size:18px;margin-top:24px}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #ddd;text-align:left}th{width:48%}img{max-width:100%;height:auto}.toolbar{background:#eef4f8;padding:12px}@media print{.toolbar{display:none}body{margin:0}table,img{break-inside:avoid}}</style></head><body><div class="toolbar"><button onclick="window.print()">PRINT / SAVE PDF</button> · On iPhone: Print, then share the preview to Files.</div><h1>'+safeHTML(title)+'</h1>'+body+'<p>Experimental barometric estimates. Not for flight-critical decisions.</p><script src="/v13_unified.js" defer></script>
-</body></html>');w.document.close();
+ w.document.open();w.document.write('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+safeHTML(title)+'</title><style>body{font:14px/1.5 system-ui,Arial;color:#172b40;max-width:800px;margin:25px auto;padding:0 16px}h1{font-size:24px}h2{font-size:18px;margin-top:24px}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #ddd;text-align:left}th{width:48%}img{max-width:100%;height:auto}.toolbar{background:#eef4f8;padding:12px}@media print{.toolbar{display:none}body{margin:0}table,img{break-inside:avoid}}</style></head><body><div class="toolbar"><button onclick="window.print()">PRINT / SAVE PDF</button> · On iPhone: Print, then share the preview to Files.</div><h1>'+safeHTML(title)+'</h1>'+body+'<p>Experimental barometric estimates. Not for flight-critical decisions.</p></body></html>');w.document.close();
 }
 function reportGraph(rows,column,title){
  const valid=rows.filter(r=>r[4]===1&&Number.isFinite(r[0])&&Number.isFinite(r[column]));
@@ -2348,5 +2347,6 @@ setInterval(poll,1200);
 paint();
 })();
 </script>
+<script src="/v13_unified.js" defer></script>
 </body>
 </html>
