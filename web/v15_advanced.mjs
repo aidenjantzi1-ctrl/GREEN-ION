@@ -85,8 +85,17 @@ export function initAdvanced(){
  window.addEventListener("green-ion-flight-saved",event=>{
   const name=event.detail?.name||"";
   if(!/\.(BIN|SEN)$/i.test(name))return;
+  // For completed flights, analyze the newly arrived BIN, not an older selected
+  // flight. A companion SEN arriving moments later upgrades the same report.
+  const stem=name.replace(/\.(BIN|SEN)$/i,"");
   clearTimeout(timer);
-  timer=setTimeout(async()=>{await refreshAdvancedList();await analyzeSelected({automatic:true});},2500);
+  timer=setTimeout(async()=>{
+   await refreshAdvancedList();
+   const choices=(await listLocalMetadata()).filter(x=>x.kind==="BIN");
+   const match=choices.find(x=>x.name.replace(/\.BIN$/i,"")===stem);
+   if(match)$("v15ReportFlight").value=match.key;
+   await analyzeSelected({automatic:true});
+  },2500);
  });
  window.addEventListener("green-ion-history-change",()=>refreshAdvancedList().catch(()=>{}));
  window.addEventListener("green-ion-link",()=>{
