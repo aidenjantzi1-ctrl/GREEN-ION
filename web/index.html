@@ -196,6 +196,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  <button data-tab="history">History</button>
  <button data-tab="cloud">Cloud</button>
  <button data-tab="updates">Updates</button>
+ <button data-tab="help">Help</button>
 </nav>
 
 <div class="v14-link-panel" aria-live="polite">
@@ -360,6 +361,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 <section id="field" class="page">
  <div class="card"><h2>FIELD MODE</h2><p class="muted">Large launch-day controls.</p>
   <div class="value big" id="fieldBattery">--</div><div class="notice" id="fieldReadiness">Connecting...</div>
+  <p class="muted" id="v15FieldBattery">Battery endurance estimate is not verified.</p>
   <button id="fieldPrepare" class="wide">1 · PREPARE FOR LAUNCH</button>
   <button id="fieldArm" class="wide green" style="display:none">AUTOMATIC WATCH</button>
   <button id="fieldStop" class="wide danger">STOP &amp; SAVE</button>
@@ -598,7 +600,17 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   power connected until the board restarts.</p>
  </div>
 
- <div class="card">
+ <div class="card" id="v15BatteryCard">
+ <h2>Battery endurance and recording forecast</h2>
+ <p class="muted">Voltage alone cannot predict LiPo remaining capacity. Enter measured operating current and tested capacity; calculations are deliberately rough and never certify flight safety. Battery below 3.60 V is NOT READY.</p>
+ <div class="row"><span>Latest measured battery</span><strong id="v15BatteryVoltage">No measurement</strong></div>
+ <label>Tested battery capacity (mAh) <input id="v15BatteryCapacity" type="number" min="1" max="20000" placeholder="Enter tested capacity"></label>
+ <label>Measured operating current (mA) <input id="v15BatteryDraw" type="number" min="1" max="5000" placeholder="Measure using current meter"></label>
+ <label>Required operation/recovery time (minutes) <input id="v15BatteryMinutes" type="number" min="1" max="1440" value="30"></label>
+ <div class="row"><span>Estimated recording endurance</span><strong id="v15BatteryRuntime">Unknown</strong></div>
+ <div class="notice" id="v15BatteryResult" role="status">Battery adequacy not verified.</div>
+</div>
+<div class="card">
   <h2>Power diagnostics</h2>
   <div class="row"><span>Battery estimate</span>
    <strong id="sysPct">--</strong></div>
@@ -706,6 +718,16 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <div class="actions"><button id="v14SerialConnect">Connect Arduino Uno</button><button id="v14SerialDisconnect" class="secondary">Disconnect Uno</button><button id="v14ReceiverExport" class="secondary">Export received LoRa CSV</button></div>
   <p id="v14SerialStatus" role="status">USB receiver not connected.</p>
  </div>
+<div class="card" id="v15LinkCard">
+ <h2>Live link diagnostics · Wi-Fi and LoRa together</h2>
+ <p class="muted">Receiver-side LoRa packet evidence is independent of full Feather Wi-Fi status. Packet gaps are estimates, not proof of successful SD recording.</p>
+ <div class="row"><span>Simultaneous links</span><strong id="v15LinkConcurrent">Checking...</strong></div>
+ <div class="row"><span>LoRa packets</span><strong id="v15LinkCounts">--</strong></div>
+ <div class="row"><span>Estimated loss</span><strong id="v15LinkLoss">--</strong></div>
+ <div class="row"><span>RSSI / SNR when available</span><strong id="v15LinkSignal">--</strong></div>
+ <div class="row"><span>Last radio packet</span><strong id="v15LinkLast">--</strong></div>
+ <div class="row"><span>Uno status</span><strong id="v15LinkReceiver">--</strong></div>
+</div>
 </section>
 <section id="recovery" class="page">
  <div class="card" id="v15RecoveryCard">
@@ -735,7 +757,14 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  </div>
 
 
- <div class="card" id="v14SensorArchiveCard">
+ <div class="card" id="v15LocalCard">
+ <h2>Windows computer archive · local first</h2>
+ <p class="muted">The blue dashboard saves checksum-verified originals to browser storage. When opened through OPEN_GROUND_STATION.cmd at 127.0.0.1:8765, finished files also mirror to your computer's GREEN_ION_Data/flights folder without internet. Recovery from disk never changes the rocket's SD card.</p>
+ <div class="actions"><button id="v15LocalRestore" class="secondary">Reconcile PC archive</button></div>
+ <p id="v15LocalStatus" class="muted" role="status">Checking Windows local archive...</p>
+</div>
+
+<div class="card" id="v14SensorArchiveCard">
  <h2>Sensor recording analysis · IMU and GPS</h2>
  <p class="muted">Read original GIS1 SEN files locally. Includes 3-axis acceleration, 3-axis gyroscope, GPS position, speed, altitude, satellites, timestamps and sample integrity. No upload is needed.</p>
  <p id="v14SenAvailable" class="muted">Loading saved SEN files...</p>
@@ -795,6 +824,16 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <p id="v14AnalysisWarnings" class="muted"></p>
   <p id="v14AnalysisStatus" role="status">Choose a saved flight to begin.</p>
  </div>
+<div class="card" id="v15ReportCard">
+ <h2>Advanced local analysis · automatic flight health report</h2>
+ <p class="muted">After the original BIN/SEN files arrive, analyze them on the computer in a separate Web Worker. No cloud or internet is necessary. Sensor readings, estimated motion, missing samples, CRC evidence and uncertainty remain distinct. The report is never launch authorization.</p>
+ <label>Completed flight <select id="v15ReportFlight"><option value="">Choose completed BIN</option></select></label>
+ <div class="actions"><button id="v15ReportRun">Analyze + health report</button><button id="v15ReportExport" class="secondary" disabled>Export health report JSON</button></div>
+ <p id="v15ReportLive" class="muted">LoRa gives only a preliminary landing indication; full report requires recovered SD originals.</p>
+ <div id="v15ReportSummary"></div>
+ <p id="v15ReportWarnings" class="muted"></p>
+ <p id="v15ReportStatus" role="status">Reports are generated locally and can be regenerated from the original files.</p>
+</div>
 </section>
 <section id="cloud" class="page">
  <div class="card">
@@ -827,6 +866,16 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  </div>
 </section>
 
+<section id="help" class="page">
+ <div class="card" id="v15HelpCard">
+  <h2>GREEN ION Help Assistant · works offline</h2>
+  <p class="muted">Ask where a feature is or how to perform a task. The built-in assistant searches verified dashboard instructions, shows steps and opens the relevant tab. It does not send rocket data to a cloud model.</p>
+  <label>What do you want to do? <input id="v15HelpSearch" type="search" placeholder="Example: how do I find my rocket or run preflight?"></label>
+  <div class="actions"><button id="v15HelpAsk">Look it up</button></div>
+  <p id="v15HelpStatus" role="status">Searchable offline instructions.</p>
+  <div id="v15HelpResults"></div>
+ </div>
+</section>
 </main>
 
 <div id="v14UpdateDialog" class="v14-update-dialog" role="dialog" aria-modal="true" aria-labelledby="v14UpdateTitle" hidden>
