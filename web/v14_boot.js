@@ -7,7 +7,7 @@ const nativeFetch=window.fetch.bind(window);
 const FEATHER="http://192.168.4.1";
 const local=location.hostname==="192.168.4.1" ||
   ((location.hostname==="localhost"||location.hostname==="127.0.0.1")&&location.port==="8765");
-const state={wifiAt:0,wifiVersion:null,radio:null,radioAt:0,lastPosition:null,lastPositionAt:0,radioError:"",lastStatus:null,lastStatusAt:0,bridge:local&&location.hostname!=="192.168.4.1"};
+const state={wifiAt:0,wifiVersion:null,radio:null,radioAt:0,lastPosition:null,lastPositionAt:0,radioError:"",lastStatus:null,lastWifiStatus:null,lastStatusAt:0,bridge:local&&location.hostname!=="192.168.4.1"};
 function wifiFresh(){return Date.now()-state.wifiAt<5500;}
 function radioFresh(){return !!state.radio && Date.now()-state.radioAt<4400;}
 function validPosition(lat,lon){return Number.isFinite(+lat)&&Number.isFinite(+lon)&&Math.abs(+lat)<=90&&Math.abs(+lon)<=180&&!(+lat===0&&+lon===0);}
@@ -76,7 +76,7 @@ async function interceptedFetch(input, options){
       if(verified && data.v13_source!=="lora" && data.v13_source!=="demo"){
         state.wifiAt=Date.now();
         state.wifiVersion=Number(data.version??13);
-        state.lastStatus=data;state.lastStatusAt=state.wifiAt;
+        state.lastStatus=data;state.lastWifiStatus=data;state.lastStatusAt=state.wifiAt;
       }else{
         state.wifiAt=0;
       }
