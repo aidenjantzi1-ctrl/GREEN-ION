@@ -45,6 +45,13 @@ class V14ImplementationTests(unittest.TestCase):
   module=(WEB/"v14_analysis.mjs").read_text(encoding="utf-8")
   self.assertIn("analysis-worker.mjs",module)
   self.assertIn("refreshHistoryAnalysis",module)
+ def test_unique_html_ids_and_all_tab_panels(self):
+  import re
+  ids=re.findall(r'\\bid="([^"]+)"',PAGE)
+  self.assertEqual(len(ids),len(set(ids)),"Duplicate HTML ids can break tab or status rendering")
+  for name in ("status","flight","field","testing","utilities","storage","system","connections","history","cloud","updates"):
+   self.assertRegex(PAGE,rf'<section id="{name}" class="page(?: active)?"')
+  self.assertIn('id="v14ConnectionNoticeDetail"',PAGE)
  def test_layout_has_no_grid_row_holes_and_tabs_are_accessible(self):
   css=(WEB/"v14_layout.css").read_text()
   self.assertIn("column-count:2",css)

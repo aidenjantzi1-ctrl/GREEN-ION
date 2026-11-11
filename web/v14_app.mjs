@@ -8,7 +8,7 @@ import {requiresFeather,initTabs} from "./v14_ui.mjs";
 const $=id=>document.getElementById(id),t=window.GREEN_ION_TRANSPORT;
 let importing=false,lastAutoImport=0,lastRadioAt=0,radioPackets=[];
 function text(id,value){if($(id))$(id).textContent=value;}
-function note(value){text("v14ConnectionNotice",value);}
+function note(value){text("v14ConnectionNotice",value);text("v14ConnectionNoticeDetail",value);}
 function formatAge(ms){return ms==null?"--":ms<1000?Math.round(ms)+" ms":(ms/1000).toFixed(1)+" s";}
 function mode(){
  const source=t.source(),packet=t.state.radio;
