@@ -147,6 +147,12 @@ Manual commands:
 
 The Uno does not control flight. The computer provides approximate received telemetry, last-known coordinates, and a CSV log; the primary data remains on microSD.
 
+## V12 reliability hardening (home tests and LoRa ground evidence)
+
+The guided home test now accepts IMU and GPS results **only from tests started during the current home session**. An earlier PASS cannot be reused. When starting a session, launch watching is cancelled **before** SD cleanup or nonvolatile-memory writes; failed setup restarts stationary calibration rather than leaving an uncertain launch-watch state.
+
+The Windows ground-station CSV now has **fixed columns** across normal telemetry and radio-bench packets. It includes the full original JSON in `raw_packet_json` so newer firmware fields are not lost. Receiver-side five-packet bench events are timestamped and saved to the same downloadable CSV, rather than disappearing when the ground station closes. A Feather TX count alone is still **not** proof of Uno reception.
+
 ## Full temporary home verification (Testing tab)
 
 Open **Testing → Full home verification — guided and temporary** on the Feather dashboard. This is a step-by-step real bench test. **Disconnect all rocket motors; never run it on a launch pad.**
