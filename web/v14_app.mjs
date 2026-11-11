@@ -187,6 +187,18 @@ async function init(){
  };
  $("v14RefreshLocal").onclick=renderHistory;
  $("v14OpenFeather").href="http://192.168.4.1/";
+ $("v15ConnectFeather").onclick=async()=>{
+  const button=$("v15ConnectFeather");
+  const status=$("v15ConnectGuide");
+  button.disabled=true;
+  status.textContent="Checking Feather at 192.168.4.1. Allow local network access if the browser prompts.";
+  try{
+   await t.probeFeather();
+   status.textContent="Verified Feather Wi-Fi connection. Live readings and controls are available while connected.";
+  }catch(e){
+   status.textContent="The hosted page cannot read the Feather: "+e.message+". Check its Wi-Fi, install the trusted-origin firmware update, and allow the browser's local network prompt. Safari may block HTTP access; use Open Feather directly, save original BIN/SEN files and import them in History.";
+  }finally{button.disabled=false;}
+ };
  document.addEventListener("click",guardLiveControls,true);
  document.addEventListener("click",downloadApiAnchor,true);
  window.addEventListener("green-ion-flight-saved",renderHistory);
