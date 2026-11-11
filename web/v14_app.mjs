@@ -14,8 +14,11 @@ function text(id,value){if($(id))$(id).textContent=value;}
 function note(value){text("v14ConnectionNotice",value);text("v14ConnectionNoticeDetail",value);}
 function formatAge(ms){return ms==null?"--":ms<1000?Math.round(ms)+" ms":(ms/1000).toFixed(1)+" s";}
 function mode(){
+ const wifi=t.wifiFresh();
+ if(wifiWasConnected&&!wifi){importSeen.clear();lastAutoImport=0;}
+ if(!wifiWasConnected&&wifi){importSeen.clear();lastAutoImport=0;}
+ wifiWasConnected=wifi;
  const source=t.source(),packet=t.state.radio;
- const wifi=source==="wifi";
  for(const id of ["v14WifiStatus","v14WifiStatusDetail"])text(id,"Feather Wi-Fi: "+(wifi?"LIVE":"NOT VERIFIED"));
  for(const id of ["v14LoraStatus","v14LoraStatusDetail"])text(id,"Uno/LoRa: "+(t.radioFresh()?"RECEIVING":"NO LIVE PACKETS"));
  for(const id of ["v14SourceStatus","v14SourceStatusDetail"])text(id,"Active source: "+(source==="wifi"?"FEATHER WI-FI":source==="lora"?"RECEIVE-ONLY LORA":"OFFLINE"));
@@ -89,36 +92,52 @@ async function exportReceiver(){
  document.body.append(anchor);anchor.click();anchor.remove();
  setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
+const importSeen=new Set();
+let wifiWasConnected=false;
 async function autoSaveOneCompletedFlight(){
- if(importing || !t.wifiFresh() || Date.now()-lastAutoImport<75000)return;
+ if(importing || !t.wifiFresh() || Date.now()-lastAutoImport<8000)return;
  lastAutoImport=Date.now();importing=true;
  try{
-  const status=await (await fetch("/api/status",{cache:"no-store"})).json();
-  if(status.recording||status.maintenance_mode||status.home_test_active||status.update_in_progress)return;
+  const statusResponse=await fetch("/api/status",{cache:"no-store"});
+  if(!statusResponse.ok)return;
+  const status=await statusResponse.json();
+  if(status.v13_source==="lora"||status.v13_source==="demo"||
+     status.recording||status.maintenance_mode||status.home_test_active||status.update_in_progress)return;
   const response=await fetch("/api/files",{cache:"no-store"});
   if(!response.ok)return;
   const result=await response.json(),files=Array.isArray(result.files)?result.files:[];
+  let saved=0;
   for(const file of files){
-   if(!/\.BIN$/i.test(file.name||"")||Number(file.size)>52428800)continue;
-   if(await hasLocalName(file.name,file.size))continue;
+   if(!t.wifiFresh())break;
+   if(!/\.BIN$/i.test(file.name||"")||Number(file.size)<32||Number(file.size)>52428800)continue;
+   const signature=file.name+":"+file.size;
+   if(importSeen.has(signature))continue;
    const url="/api/download?name="+encodeURIComponent(file.name);
    const bin=await fetch(url,{cache:"no-store"});
    if(!bin.ok)continue;
    const data=await bin.arrayBuffer();
-   await saveLocalFile({name:file.name,bytes:data,origin:"Feather SD completed flight"});
+   if(data.byteLength!==Number(file.size)){
+    text("v14HistoryNotice","Partial Feather transfer rejected: "+file.name+" (expected "+file.size+" bytes, received "+data.byteLength+")");
+    continue;
+   }
+   const result=await saveLocalFile({name:file.name,bytes:data,origin:"Feather SD completed flight"});
+   importSeen.add(signature);
    for(const [route,ext] of [["sensors","SEN"],["metadata","TXT"]]){
     const sibling=file.name.replace(/\.BIN$/i,"."+ext);
-    if(await hasLocalName(sibling))continue;
     try{
      const raw=await fetch("/api/"+route+"?name="+encodeURIComponent(file.name),{cache:"no-store"});
      if(!raw.ok)continue;
      const bytes=await raw.arrayBuffer();
-     if(bytes.byteLength)await saveLocalFile({name:sibling,bytes,origin:"Feather SD companion"});
-    }catch{/* older firmware may have no companion file */}
+     if(bytes.byteLength>0&&bytes.byteLength<=52428800)
+      await saveLocalFile({name:sibling,bytes,origin:"Feather SD companion"});
+    }catch{/* older firmware may not have this companion; keep BIN safe */}
    }
-   text("v14HistoryNotice","Saved completed flight "+file.name+" locally. Cloud backup will sync when internet is available.");
+   if(!result.duplicate)saved++;
+   if(saved>=4)break; // Short bounded batches; recorder remains higher priority.
+  }
+  if(saved){
+   text("v14HistoryNotice","Saved "+saved+" finished flight(s) with available companions locally. PC disk mirror and optional cloud sync run independently.");
    await renderHistory();
-   break; // One flight per pass: never interfere with recorder work.
   }
  }catch(e){text("v14HistoryNotice","Automatic SD import deferred: "+e.message);}
  finally{importing=false;}
