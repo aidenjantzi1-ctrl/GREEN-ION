@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import {createHash,webcrypto} from "node:crypto";
+import {createRequire} from "node:module";
 import {runInNewContext} from "node:vm";
-import {APP_VERSION,compareVersions,parseVersion,assetForRelease,receiverPacket,radioStatus,safeFileName,validCoordinate} from "../web/v14_utils.mjs";
+import {APP_VERSION,compareVersions,parseVersion,assetForRelease,releaseFirmwarePackage,checkFirmwareManifest,verifiedFirmwareBytes,receiverPacket,radioStatus,safeFileName,validCoordinate} from "../web/v14_utils.mjs";
 
 test("semantic version handling includes stable and beta precedence",()=>{
  assert.equal(APP_VERSION,"14.0.0-beta.4");
@@ -17,6 +19,78 @@ test("only official firmware release assets may be offered",()=>{
  assert.deepEqual(assetForRelease({tag_name:"v14.0.0-beta.1",assets:[good]}),good);
  assert.equal(assetForRelease({tag_name:"v14.0.0-beta.1",assets:[{...good,browser_download_url:"https://evil.example/malware.zip"}]}),null);
 });
+
+test("direct Feather update uses only the compiled app and matching SHA-256 release manifest",async()=>{
+ const tag="v14.0.0-beta.4";
+ const base="https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases/download/"+tag+"/";
+ const raw=new Uint8Array(200100);raw[0]=0xE9;raw[1]=0x06;
+ const hash=createHash("sha256").update(raw).digest("hex");
+ const image={name:"Green_Ion_V14.ino.bin",size:raw.byteLength,browser_download_url:base+"Green_Ion_V14.ino.bin"};
+ const sum={name:"SHA256_MANIFEST.json",browser_download_url:base+"SHA256_MANIFEST.json"};
+ const zip={name:"GREEN_ION_V14_COMPLETE.zip",browser_download_url:base+"GREEN_ION_V14_COMPLETE.zip"};
+ const release={tag_name:tag,assets:[zip,sum,image]};
+ const manifest={version:tag,board:"Adafruit Feather ESP32 V2",firmwareFormat:"ESP32 .ino.bin app image",
+  artifacts:{[image.name]:{size:raw.byteLength,sha256:hash}}};
+ assert.deepEqual(releaseFirmwarePackage(release),{image,manifest:sum});
+ assert.equal(assetForRelease(release),image,"never upload the ZIP");
+ assert.deepEqual(checkFirmwareManifest(release,manifest,image),{size:raw.byteLength,sha256:hash});
+ const called=[];
+ const fetchFile=async url=>{
+  called.push(url);
+  return url===sum.browser_download_url?
+   {ok:true,headers:new Headers(),text:async()=>JSON.stringify(manifest)}:
+   {ok:true,headers:new Headers({"content-length":String(raw.byteLength)}),
+    arrayBuffer:async()=>raw.buffer.slice(0)};
+ };
+ const result=await verifiedFirmwareBytes(release,fetchFile,webcrypto.subtle);
+ assert.equal(result.byteLength,raw.byteLength);
+ assert.deepEqual(called,[sum.browser_download_url,image.browser_download_url]);
+ await assert.rejects(()=>verifiedFirmwareBytes({...release,assets:[zip,image]},fetchFile,webcrypto.subtle),/manifest/);
+ await assert.rejects(()=>verifiedFirmwareBytes(release,async url=>
+  url===sum.browser_download_url?{ok:true,headers:new Headers(),
+   text:async()=>JSON.stringify({...manifest,board:"wrong ESP32 board"})}:
+  {ok:true,headers:new Headers(),arrayBuffer:async()=>raw.buffer},webcrypto.subtle),/invalid/);
+ await assert.rejects(()=>verifiedFirmwareBytes(release,async url=>
+  url===sum.browser_download_url?{ok:true,headers:new Headers(),
+   text:async()=>JSON.stringify(manifest)}:
+  {ok:true,headers:new Headers(),arrayBuffer:async()=>new Uint8Array(raw.byteLength).buffer},
+  webcrypto.subtle),/header/);
+ const mutated=raw.slice();mutated[2]=1;
+ await assert.rejects(()=>verifiedFirmwareBytes(release,async url=>
+  url===sum.browser_download_url?{ok:true,headers:new Headers(),
+   text:async()=>JSON.stringify(manifest)}:
+  {ok:true,headers:new Headers(),arrayBuffer:async()=>mutated.buffer},
+  webcrypto.subtle),/checksum/);
+});
+
+test("firmware release relay refuses unknown assets and unsafe HTTP methods",async()=>{
+ const require=createRequire(import.meta.url);
+ const handler=require("../web/api/firmware.js");
+ const reply=()=>{
+  const r={statusCode:200,headers:{},body:""};
+  return {
+   state:r,
+   setHeader:(key,value)=>{r.headers[key]=value;},
+   status:(code)=>{r.statusCode=code;return res;},
+  };
+ };
+ const invoke=async req=>{
+  const state={statusCode:200};
+  const res={
+   setHeader:()=>{},
+   status(code){state.statusCode=code;return this;},
+   end(text){state.body=text;return this;}
+  };
+  await handler(req,res);
+  return state;
+ };
+ assert.equal((await invoke({method:"POST",query:{tag:"v14.0.0-beta.4",name:"Green_Ion_V14.ino.bin"}})).statusCode,405);
+ for(const name of ["../../secret","GREEN_ION_V14_COMPLETE.zip","Feather_merged.bin"]){
+  assert.equal((await invoke({method:"GET",query:{tag:"v14.0.0-beta.4",name}})).statusCode,400);
+ }
+ assert.equal((await invoke({method:"GET",query:{tag:"v12.0.0-beta.1",name:"Green_Ion_V14.ino.bin"}})).statusCode,400);
+});
+
 test("serial radio packet validation and telemetry-only flags",()=>{
  assert.equal(receiverPacket({type:"control",altitude_m:1,battery_v:4}),null);
  assert.equal(receiverPacket({type:"telemetry",altitude_m:Infinity,battery_v:4}),null);

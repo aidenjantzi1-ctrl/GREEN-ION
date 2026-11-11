@@ -5,7 +5,7 @@ const root=dirname(fileURLToPath(import.meta.url)),output=join(root,"dist");
 await rm(output,{recursive:true,force:true});
 await mkdir(output,{recursive:true});
 for(const entry of await readdir(root,{withFileTypes:true})){
- if(entry.name==="dist"||entry.name==="build.mjs"||entry.name==="package.json")continue;
+ if(entry.name==="dist"||entry.name==="api"||entry.name==="build.mjs"||entry.name==="package.json")continue;
  await cp(join(root,entry.name),join(output,entry.name),{recursive:true});
 }
 const supabaseUrl=process.env.SUPABASE_URL||"";

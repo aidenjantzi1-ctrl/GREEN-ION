@@ -801,11 +801,11 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 <section id="updates" class="page">
  <div class="card">
   <h2>GitHub releases · Firmware and website</h2>
-  <p class="muted">GitHub Actions compiles and tests Feather and Uno firmware automatically. If a new V14 release is published, a dashboard dialog asks before downloading. No update is ever installed automatically.</p>
+  <p class="muted">Official releases can be transferred directly to the Feather on a stationary bench, when the browser can reach GitHub and verified Feather Wi-Fi. Installation requires separate confirmation, and manual download remains available.</p>
   <p id="v14AppBuild">Website version loading...</p>
   <p id="v14UpdateCheck">Checking official GitHub releases...</p>
   <div class="actions"><button id="v14CheckUpdates">Check for updates</button><a href="https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases" target="_blank" rel="noopener noreferrer">View GitHub releases</a></div>
-  <p class="muted">For Feather OTA: use a verified compiled <code>.ino.bin</code>, stop recording, connect stable USB power, enter maintenance on the bench and confirm installation. If the hosted browser cannot access local Wi-Fi, use the Feather's backup dashboard at 192.168.4.1. Keep V13 available for rollback.</p>
+  <p class="muted">For direct OTA, the official <code>Green_Ion_V14.ino.bin</code> must match the release SHA-256 manifest. Remove the motor, finish recording, use USB power and a charged LiPo. Browser network restrictions may require manual download and upload through the Feather dashboard at 192.168.4.1. Preserve your previous firmware for recovery.</p>
  </div>
 </section>
 
@@ -814,9 +814,9 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 <div id="v14UpdateDialog" class="v14-update-dialog" role="dialog" aria-modal="true" aria-labelledby="v14UpdateTitle" hidden>
  <div class="v14-update-card">
   <h2 id="v14UpdateTitle">New GREEN ION release available</h2>
-  <p>GitHub published <strong id="v14AvailableVersion">--</strong>. Download <strong id="v14AvailableAsset">--</strong> now?</p>
-  <p class="muted">Download only. Installation requires separate, safe bench confirmation.</p>
-  <div class="actions"><button id="v14DownloadUpdate">Download now</button><button id="v14UpdateLater" class="secondary">Later</button><button id="v14OpenRelease" class="secondary">Release details</button></div>
+  <p>GitHub published <strong id="v14AvailableVersion">--</strong>. Download verified <strong id="v14AvailableAsset">--</strong> directly to the Feather?</p>
+  <p class="muted">Bench only: remove motors, stop recordings, connect USB power and charged LiPo. Separate installation confirmation is required; the browser needs both GitHub access and verified Feather Wi-Fi.</p><p id="v14UpdateAction" class="muted" role="status" aria-live="polite">Checking update availability.</p>
+  <div class="actions"><button id="v14DownloadUpdate">Download now</button><button id="v14UpdateLater" class="secondary">Later</button><button id="v14ManualDownload" class="secondary">Download file manually</button><button id="v14OpenRelease" class="secondary">Release details</button></div>
  </div>
 </div>
 
@@ -2213,8 +2213,8 @@ async function v12RollbackFirmware() {
    notice(error.message,false);
  }
 }
-async function v12InstallFirmware() {
- const file=$('firmwareFile').files[0];
+async function v12InstallFirmware(fileOverride=null) {
+  const file=fileOverride instanceof File ? fileOverride : $('firmwareFile').files[0];
  if(!file||!file.name.toLowerCase().endsWith('.ino.bin')){
    v12Set('updateFeedback','Choose the main Feather file ending in .ino.bin from a successful build.');
    return;
@@ -2252,11 +2252,15 @@ async function v12InstallFirmware() {
    v12Set('firmwarePercent','100%');
    v12Set('updateFeedback',result.message+'. Wait for GREEN-ION-V13 Wi-Fi, verify build, then rerun all bench tests.');
    v12Set('connection','RESTARTING');
+    return true;
  }catch(error){
    v12Set('updateFeedback','Update failed: '+error.message+'. Launch detection remains OFF in maintenance; exit or restart before flight.');
    notice(error.message,false);
+    return false;
  }finally{v12Busy=false;}
 }
+
+window.greenIonInstallFirmwareFile=file=>v12InstallFirmware(file);
 
 async function v12ShowFlight(name){selectedFlight=name;flightMeta={file:name};v12Set('flightSummaryStatus','Loading and validating '+name+'...');$('flightSummaryDetails').replaceChildren();await loadSavedGraph(name);if(loadedFlightName===name){const valid=savedFlightSeries.filter(r=>r[4]===1),peak=valid.length?Math.max(...valid.map(r=>r[5]).filter(Number.isFinite)):NaN,duration=savedFlightSeries.length?savedFlightSeries[savedFlightSeries.length-1][0]:0;v12Set('flightSummaryStatus',name+' · RKT4 v2 decoded in this browser');for(const [label,value] of [['Samples',savedFlightSeries.length],['Valid samples',valid.length],['Duration',duration.toFixed(2)+' s'],['Peak barometric altitude',v12Number(peak,2)+' m']]){const row=document.createElement('div');row.className='row';row.innerHTML='<span>'+label+'</span><strong>'+value+'</strong>';$('flightSummaryDetails').appendChild(row);}}}
 async function v12LoadFiles(){try{const result=await v12Fetch('files');v12Set('storageUsed',bytes(result.used)+' / '+bytes(result.total));v12Set('sdFreeSpace',bytes(Math.max(0,result.total-result.used)));v12Set('fileCount',String(result.files.length));const list=$('fileList');list.replaceChildren();let files=result.files.slice();const sort=$('fileSort').value;files.sort((a,b)=>sort==='old'?a.name.localeCompare(b.name):sort==='size'?b.size-a.size:b.name.localeCompare(a.name));if(!files.length){list.textContent='No completed V12 RKT4 recordings yet.';return;}for(const file of files){const row=document.createElement('div');row.className='file';const label=document.createElement('span');label.textContent=file.name+' · '+bytes(file.size);const actions=document.createElement('span');const view=document.createElement('button');view.textContent='VIEW / GRAPH';view.onclick=()=>v12ShowFlight(file.name);const bin=document.createElement('button');bin.textContent='BIN';bin.onclick=()=>location.href=window.greenIonApiUrl('/api/download?name='+encodeURIComponent(file.name));const csv=document.createElement('button');csv.textContent='CSV';csv.onclick=async()=>{await v12ShowFlight(file.name);if(loadedFlightName===file.name)downloadRowsCsv(file.name,savedFlightSeries);};const sen=document.createElement('button');sen.textContent='SEN';sen.title='Full-resolution IMU/GPS companion log';sen.onclick=()=>location.href=window.greenIonApiUrl('/api/sensors?name='+encodeURIComponent(file.name));const txt=document.createElement('button');txt.textContent='TXT';txt.onclick=()=>location.href=window.greenIonApiUrl('/api/metadata?name='+encodeURIComponent(file.name));actions.append(view,bin,sen,csv,txt);row.append(label,actions);list.appendChild(row);}if(!selectedFlight)await v12ShowFlight(files[0].name);}catch(error){v12Set('fileList','Cannot list recordings: '+error.message);}}

@@ -115,5 +115,15 @@ class V14ImplementationTests(unittest.TestCase):
   self.assertIn("Green_Ion_V14",ci)
   self.assertIn("arduino-cli compile",ci)
   self.assertIn("GREEN_ION_V14_COMPLETE.zip",ci)
+  self.assertIn('shutil.copytree("Green_Ion_V14"',ci)
+  self.assertIn('shutil.copytree("libraries/GreenIonRecorder"',ci)
+  self.assertIn('shutil.copytree("libraries/GreenIonProtocol"',ci)
+ def test_complete_feather_binary_contains_local_dashboard_and_headers(self):
+  for header in ("Config.h","SensorState.h","Dashboard.h","FirmwareMaintenance.h","HomeVerification.h"):
+   self.assertIn('#include "'+header+'"',FIRMWARE)
+  self.assertIn('dashboardServer.on("/api/update"',FIRMWARE)
+  self.assertIn('id="v14ManualDownload"',PAGE)
+  self.assertIn('greenIonInstallFirmwareFile',PAGE)
+  self.assertTrue((WEB/"api/firmware.js").exists())
 
 if __name__=="__main__":unittest.main()

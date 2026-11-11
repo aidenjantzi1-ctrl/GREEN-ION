@@ -34,9 +34,56 @@ export function safeFirmwareAsset(asset, releaseTag) {
 export function assetForRelease(release) {
   if(!release || !Array.isArray(release.assets) || !parseVersion(release.tag_name))return null;
   const approved=release.assets.filter(a=>safeFirmwareAsset(a,release.tag_name));
-  return approved.find(a=>a.name==="GREEN_ION_V14_COMPLETE.zip") ||
-    approved.find(a=>a.name==="Green_Ion_V14.ino.bin") || null;
+  // Direct Feather OTA needs the application image, never a ZIP or merged image.
+  return approved.find(a=>a.name==="Green_Ion_V14.ino.bin") ||
+    approved.find(a=>a.name==="GREEN_ION_V14_COMPLETE.zip") || null;
 }
+
+export function releaseFirmwarePackage(release) {
+  const image=Array.isArray(release?.assets)?release.assets.find(a=>
+    a.name==="Green_Ion_V14.ino.bin" && safeFirmwareAsset(a,release.tag_name)):null;
+  const manifest=Array.isArray(release?.assets)?release.assets.find(a=>
+    a.name==="SHA256_MANIFEST.json" && safeFirmwareAsset(a,release.tag_name)):null;
+  return image && manifest ? {image,manifest} : null;
+}
+export function checkFirmwareManifest(release, manifest, image) {
+  const entry=manifest?.artifacts?.[image.name];
+  const expectedSize=Number(entry?.size);
+  if(manifest?.version!==release.tag_name ||
+     manifest?.board!=="Adafruit Feather ESP32 V2" ||
+     manifest?.firmwareFormat!=="ESP32 .ino.bin app image" ||
+     !Number.isSafeInteger(expectedSize) || expectedSize<200000 || expectedSize>8388608 ||
+     !/^[a-fA-F0-9]{64}$/.test(entry?.sha256||"") ||
+     (Number.isSafeInteger(image.size)&&image.size!==expectedSize))
+    throw Error("Release manifest is missing, incompatible, or invalid");
+  return {size:expectedSize,sha256:entry.sha256.toLowerCase()};
+}
+export async function verifiedFirmwareBytes(release, fetchFile, subtle) {
+  const packageInfo=releaseFirmwarePackage(release);
+  if(!packageInfo)throw Error("Official Feather binary and SHA-256 manifest are both required");
+  if(!subtle?.digest)throw Error("SHA-256 verification is unavailable in this browser");
+  const get=async url=>{
+    const response=await fetchFile(url,{cache:"no-store"});
+    if(!response.ok)throw Error("Official firmware download failed (HTTP "+response.status+")");
+    const length=Number(response.headers?.get?.("content-length")||0);
+    if(length>8388608)throw Error("Firmware download is unexpectedly large");
+    return response;
+  };
+  const manifestResponse=await get(packageInfo.manifest.browser_download_url);
+  const manifestText=await manifestResponse.text();
+  if(manifestText.length>200000)throw Error("Release manifest is unexpectedly large");
+  const manifest=JSON.parse(manifestText);
+  const expected=checkFirmwareManifest(release,manifest,packageInfo.image);
+  const imageResponse=await get(packageInfo.image.browser_download_url);
+  const bytes=await imageResponse.arrayBuffer();
+  if(bytes.byteLength!==expected.size || new Uint8Array(bytes)[0]!==0xE9)
+    throw Error("Firmware image length or ESP32 application header is invalid");
+  const digest=await subtle.digest("SHA-256",bytes);
+  const hash=[...new Uint8Array(digest)].map(v=>v.toString(16).padStart(2,"0")).join("");
+  if(hash!==expected.sha256)throw Error("Firmware SHA-256 checksum does not match the official release");
+  return bytes;
+}
+
 export function fileKind(name) {
   const match=/\.([A-Za-z]{3})$/.exec(String(name||""));
   const kind=match?match[1].toUpperCase():"";
