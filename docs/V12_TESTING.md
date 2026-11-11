@@ -42,6 +42,14 @@ Evidence is reported in five separate levels: source inspection, automated host 
 - [x] Add optional human-readable Uno console summaries while retaining JSON telemetry; add V12 dashboard JavaScript syntax validation in host tests.
 - [ ] Validate OTA/rollback, power interruption and failed uploads on actual Feather hardware; control leases/configuration restore and other V11 UI features are not implemented in V12.
 
+## Follow-up software hardening
+
+- [x] Home-session IMU/GPS PASS cannot be recorded from a previous bench session: the Feather requires a newly started and completed measurement.
+- [x] Cancel launch watching before home-test SD cleanup or NVS persistence. On setup failure, restart stationary calibration.
+- [x] Use a fixed Windows ground-station CSV header for mixed radio bench and telemetry events; preserve full original JSON and log actual Uno bench reception.
+- [x] Add host regression tests for CSV schema, receiver proof storage and fresh home-test status gates.
+- [ ] Prove the new guards, temp cleanup and receiver CSV on assembled Feather/Uno hardware. Compilation and simulated host tests do not count as physical verification.
+
 ## Guided temporary home test — code integrated, hardware untested
 
 - [x] Stepwise Testing-tab instructions; actual BMP388/battery status, existing IMU/GPS and SD diagnostics, manual Uno reception and battery-only confirmation, explicit PASS/FAIL/INCONCLUSIVE/NOT VERIFIED and JSON report.
