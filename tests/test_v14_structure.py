@@ -81,6 +81,15 @@ class V14ImplementationTests(unittest.TestCase):
   sw=(WEB/"service-worker.js").read_text()
   self.assertIn("analysis/gis1.mjs",sw)
   self.assertIn("v14_sensor_history.mjs",sw)
+ def test_main_readme_is_a_navigation_hub(self):
+  readme=(ROOT/"README.md").read_text()
+  self.assertLess(len(readme),6000)
+  for page in ("V14_WIRING_SOLDER.md","V14_SENSOR_CAPABILITIES.md",
+      "V14_DEVICES.md","V14_CLOUD.md","V14_IMPROVEMENT_PLAN.md",
+      "V14_DEVELOPMENT.md","V14_QUALITY_PLAN.md"):
+   self.assertIn(page,readme)
+   self.assertTrue((ROOT/"docs"/page).exists())
+  self.assertTrue((ROOT/"Past_Versions/V13_README_ARCHIVE.md").exists())
  def test_windows_usb_remains_receive_only(self):
   receiver=(WEB/"v14_serial.mjs").read_text()
   self.assertIn("navigator.serial.requestPort",receiver)

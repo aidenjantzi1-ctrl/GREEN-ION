@@ -12,7 +12,7 @@ MAINTENANCE = (ROOT / "Green_Ion_V12" / "FirmwareMaintenance.h").read_text(encod
 DASHBOARD = (ROOT / "Green_Ion_V12" / "Dashboard.h").read_text(encoding="utf-8")
 RECEIVER = (ROOT / "Ground_Receiver" / "Ground_Receiver.ino").read_text(encoding="utf-8")
 LAUNCHER = (ROOT / "Ground_Station" / "OPEN_GROUND_STATION.cmd").read_text(encoding="utf-8")
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+README = (ROOT / "Past_Versions" / "V13_README_ARCHIVE.md").read_text(encoding="utf-8")
 
 
 class V12OtaReadinessTests(unittest.TestCase):

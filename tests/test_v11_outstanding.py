@@ -6,7 +6,7 @@ INO=(ROOT/'Past_Versions/Green_Ion_V11/Green_Ion_V11.ino').read_text(encoding='u
 DASH=(ROOT/'Past_Versions/Green_Ion_V11/Dashboard.h').read_text(encoding='utf-8')
 ADV=(ROOT/'web/advanced.mjs').read_text(encoding='utf-8')
 DB=(ROOT/'web/history-db.mjs').read_text(encoding='utf-8')
-README=(ROOT/'README.md').read_text(encoding='utf-8')
+README=(ROOT/'Past_Versions/V13_README_ARCHIVE.md').read_text(encoding='utf-8')
 
 class OutstandingTests(unittest.TestCase):
  def test_minimal_feather_keeps_raw_and_moves_exports(self):
