@@ -30,7 +30,7 @@ jobs:
       - name: Python regression suite
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
       - name: Node browser tests
-        run: node --test tests/v14_browser.test.mjs tests/v14_analysis.test.mjs tests/v14_ui.test.mjs tests/v14_sensor.test.mjs tests/v14_gis1.test.mjs
+        run: node --test tests/v14_browser.test.mjs tests/v14_analysis.test.mjs tests/v14_ui.test.mjs tests/v14_sensor.test.mjs tests/v14_gis1.test.mjs tests/v15_features.test.mjs
       - name: JavaScript syntax verification
         run: |
           for f in web/*.mjs web/analysis/*.mjs web/v14_boot.js web/service-worker.js web/build.mjs; do
@@ -47,6 +47,11 @@ jobs:
           grep -q 'data-tab="testing"' web/dist/index.html
           grep -q 'data-tab="cloud"' web/dist/index.html
           grep -q 'data-tab="updates"' web/dist/index.html
+          grep -q 'data-tab="recovery"' web/dist/index.html
+          grep -q 'data-tab="help"' web/dist/index.html
+          grep -q 'id="homeAuto"' web/dist/index.html
+          test -s web/dist/v15_report_worker.mjs
+          test -s web/dist/v15_help.mjs
           grep -q 'id="v14SensorLabCard"' web/dist/index.html
           grep -q 'id="v14SensorArchiveCard"' web/dist/index.html
           test -s web/dist/sensor-worker.mjs
