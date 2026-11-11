@@ -30,10 +30,10 @@ jobs:
       - name: Python regression suite
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
       - name: Node browser tests
-        run: node --test tests/v14_browser.test.mjs tests/v14_analysis.test.mjs tests/v14_ui.test.mjs tests/v14_sensor.test.mjs
+        run: node --test tests/v14_browser.test.mjs tests/v14_analysis.test.mjs tests/v14_ui.test.mjs tests/v14_sensor.test.mjs tests/v14_gis1.test.mjs
       - name: JavaScript syntax verification
         run: |
-          for f in web/*.mjs web/v14_boot.js web/service-worker.js web/build.mjs; do
+          for f in web/*.mjs web/analysis/*.mjs web/v14_boot.js web/service-worker.js web/build.mjs; do
             node --check "$f"
           done
           node --check Ground_Station/v13_unified.js
@@ -47,6 +47,10 @@ jobs:
           grep -q 'data-tab="testing"' web/dist/index.html
           grep -q 'data-tab="cloud"' web/dist/index.html
           grep -q 'data-tab="updates"' web/dist/index.html
+          grep -q 'id="v14SensorLabCard"' web/dist/index.html
+          grep -q 'id="v14SensorArchiveCard"' web/dist/index.html
+          test -s web/dist/sensor-worker.mjs
+          test -s web/dist/analysis/gis1.mjs
           grep -q 'GREEN ION V14' web/dist/index.html
       - uses: actions/upload-artifact@v4
         with:
@@ -146,9 +150,9 @@ jobs:
         run: |
           if ! gh release view v14.0.0-beta.4 >/dev/null 2>&1; then
             gh release create v14.0.0-beta.4 release/* \
-              --target "$GITHUB_SHA" --title "GREEN ION V14 beta 1 — unified blue website" \
-              --notes "Offline PWA, desktop Uno/LoRa, private Supabase backups, Github update prompt and V14 Feather firmware. SOFTWARE BETA; physical hardware, browser local-network and OTA validation still required." \
+              --target "$GITHUB_SHA" --title "GREEN ION V14 beta 4 — adaptive dashboard and complete sensor tools" \
+              --notes "Preserves the blue V14 dashboard. Adds responsive layouts, Sensor Lab, GIS1 IMU/GPS history, CRC verification, optional features, robust Supabase backup progress/retries, updated wiring/docs. SOFTWARE BETA: physical hardware, iPhone private-network and OTA validation remain required." \
               --prerelease
           else
-            echo "V14 beta 1 already exists; use the newest successful Actions artifact for subsequent changes."
+            echo "V14 beta 4 already exists; use the newest successful Actions artifact for subsequent changes."
           fi

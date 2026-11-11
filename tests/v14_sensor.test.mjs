@@ -28,6 +28,7 @@ test("imperial conversion is optional and does not modify raw readings",()=>{
 test("feature flags can be turned off independently with default preserved",()=>{
  assert.equal(DEFAULTS.sensorLab,true);
  assert.equal(DEFAULTS.cloudAuto,true);
+ assert.equal(DEFAULTS.sensorArchive,true);
  const before=getPreferences();
  try{
    setPreference("sensorLab",false);
