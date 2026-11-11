@@ -40,6 +40,15 @@ class GroundCsvEvidenceTests(unittest.TestCase):
             self.assertEqual(json.loads(rows[0]["raw_packet_json"]), telemetry)
             self.assertEqual(json.loads(rows[1]["raw_packet_json"]), bench)
 
+    def test_raw_packet_can_include_extra_future_fields(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "future.csv"
+            packet = {"type": "radio_bench", "sequence": 9, "future": [1, 2, 3]}
+            write_log(packet, path)
+            with path.open(newline="", encoding="utf-8") as handle:
+                row = next(csv.DictReader(handle))
+            self.assertEqual(json.loads(row["raw_packet_json"])["future"], [1, 2, 3])
+
     def test_empty_existing_file_gets_header(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "empty.csv"
