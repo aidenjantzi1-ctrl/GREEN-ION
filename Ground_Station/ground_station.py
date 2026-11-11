@@ -77,18 +77,33 @@ class Store:
         self.received_packets += 1
         seq, uptime = row.get("sequence"), row.get("uptime_ms")
         if isinstance(seq, int) and isinstance(uptime, int):
-            if self.last_uptime is not None and uptime < self.last_uptime:
+            # A late packet can have an older uptime. Treat a substantial
+            # uptime drop paired with a fresh low sequence as a reboot;
+            # otherwise classify old sequence numbers as out-of-order.
+            restarted = (
+                self.last_uptime is not None
+                and self.last_seq is not None
+                and uptime < self.last_uptime
+                and self.last_uptime - uptime >= 1000
+                and seq <= 5
+                and seq < self.last_seq
+            )
+            if restarted:
                 self.resets += 1
                 self.last_seq = None
+            advance = True
             if self.last_seq is not None:
                 delta = (seq - self.last_seq) & 0xFFFFFFFF
                 if delta == 0:
                     self.repeated_packets += 1
+                    advance = False
                 elif 1 < delta < 1000000:
                     self.inferred_missing += delta - 1
                 elif delta >= 1000000:
                     self.out_of_order += 1
-            self.last_seq, self.last_uptime = seq, uptime
+                    advance = False
+            if advance:
+                self.last_seq, self.last_uptime = seq, uptime
         rssi = row.get("rssi_dbm")
         if isinstance(rssi, (int, float)) and math.isfinite(rssi):
             self.avg_rssi = float(rssi) if self.avg_rssi is None else (
