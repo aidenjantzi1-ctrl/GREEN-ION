@@ -1,8 +1,8 @@
 # GREEN ION V14 — Unified Blue Website, LoRa and Cloud Backups
 
-**Status:** V14 software beta 2. Physical Feather/Uno, SD, battery, OTA, iPhone private-network and LoRa tests remain pending. GitHub compilation is not flight certification.
+**Status:** V14 software beta 3. Physical Feather/Uno, SD, battery, OTA, iPhone private-network and LoRa tests remain pending. GitHub compilation is not flight certification.
 
-**[Website project (Vercel)](https://vercel.com/aidenjantzi1-5859/green-ion)** · **[V14 setup guide](docs/V14_START_HERE.md)** · **[V14 architecture](docs/V14_ARCHITECTURE.md)** · **[Release downloads](https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases)**
+**[Live blue dashboard](https://green-ion-beta.vercel.app/)** · **[Quality and validation plan](docs/V14_QUALITY_PLAN.md)** · **[Website project (Vercel)](https://vercel.com/aidenjantzi1-5859/green-ion)** · **[V14 setup guide](docs/V14_START_HERE.md)** · **[V14 architecture](docs/V14_ARCHITECTURE.md)** · **[Release downloads](https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases)**
 
 The original V13 blue dashboard design, Status/Flight/Field/Testing/Utilities/Storage/System tabs and Feather local 192.168.4.1 fallback are retained. V14 adds a hosted installable offline PWA, Windows Chrome/Edge Uno USB LoRa receive-only support, IndexedDB original BIN/SEN/TXT history, private Supabase backups, and a dashboard GitHub update prompt that **asks before downloading**. The rocket records independently, with no cloud flight controls.
 
