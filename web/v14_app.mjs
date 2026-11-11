@@ -4,10 +4,11 @@ import {initCloud,backupNow} from "./v14_cloud.mjs";
 import {initUpdates,checkUpdates} from "./v14_updates.mjs";
 import {initHistoryAnalysis,refreshHistoryAnalysis} from "./v14_analysis.mjs";
 import {APP_VERSION} from "./v14_utils.mjs";
+import {requiresFeather,initTabs} from "./v14_ui.mjs";
 const $=id=>document.getElementById(id),t=window.GREEN_ION_TRANSPORT;
 let importing=false,lastAutoImport=0,lastRadioAt=0,radioPackets=[];
 function text(id,value){if($(id))$(id).textContent=value;}
-function note(value){text("v14ConnectionNotice",value);}
+function note(value){text("v14ConnectionNotice",value);text("v14ConnectionNoticeDetail",value);}
 function formatAge(ms){return ms==null?"--":ms<1000?Math.round(ms)+" ms":(ms/1000).toFixed(1)+" s";}
 function mode(){
  const source=t.source(),packet=t.state.radio;
@@ -33,12 +34,11 @@ function mode(){
 }
 function guardLiveControls(event){
  const button=event.target.closest?.("button");
- if(!button||t.wifiFresh()||button.closest("nav.tabs")||button.closest("#v14UpdateDialog"))return;
- if(button.closest("#flight, #field, #testing, #utilities, #storage, #system, #status") &&
-  !button.closest("#history,#cloud,#updates,#connections")){
-  event.preventDefault();event.stopImmediatePropagation();
-  note("Feather control unavailable without verified Wi-Fi. The Uno/LoRa connection cannot control or download from the rocket.");
- }
+ if(!button || t.wifiFresh() || !requiresFeather(button.id))return;
+ // Only block commands requiring hardware. Offline graphs, saved-flight
+ // analysis, CSV/PDF export, theme and tab navigation remain usable.
+ event.preventDefault();event.stopImmediatePropagation();
+ note("Feather Wi-Fi connection required for this hardware command. Saved flights and graphs remain available offline.");
 }
 async function renderHistory(){
  await refreshHistoryAnalysis();
@@ -138,6 +138,7 @@ async function init(){
  document.querySelector("header small").textContent="Flight logger · V14 unified offline dashboard";
  text("v14AppBuild","Website "+APP_VERSION+" · Feather firmware may be V13 until updated");
  renderBrowserInfo();
+ initTabs(document.querySelector("nav.tabs"));
  $("v14SerialConnect").onclick=connectSerial;
  $("v14SerialDisconnect").onclick=disconnectSerial;
  $("v14SerialDisconnect").disabled=true;

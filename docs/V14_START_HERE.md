@@ -41,3 +41,7 @@ RKT4 v2 BIN, GIS1 SEN, TXT and V12D### naming remain unchanged. No experimental 
 ## Analyze and compare flights offline
 
 In **History**, import or select an original RKT4 BIN and select **Analyze saved flight**. The Web Worker calculates pressure-derived apogee, velocity, acceleration, G, flight phase estimates and the interactive timeline. Select a second BIN and **Compare flights** for overlaid charts and peak differences. CSV, JSON report and Print / Save PDF exports run without internet. The original recordings remain unchanged.
+
+## V14 beta 3 — cleaner dashboard
+
+The original blue colors and Status, Flight, Field, Testing, Utilities, Storage and System tabs are preserved. On desktop, cards now stack independently in two columns instead of reserving an empty grid row beneath every short card; on phones, cards remain one column. The tabs scroll horizontally and support arrow-key navigation. Graphs, PDF/CSV exports and History remain available even when the Feather is disconnected. Firmware commands still require verified Feather Wi-Fi.

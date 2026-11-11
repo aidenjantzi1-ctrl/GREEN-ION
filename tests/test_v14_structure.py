@@ -15,7 +15,7 @@ class V14ImplementationTests(unittest.TestCase):
    self.assertIn('id="'+id+'"',PAGE,id)
  def test_v14_installable_assets(self):
   for name in ("build.mjs","v14_boot.js","v14_app.mjs","v14_cloud.mjs","v14_serial.mjs",
-    "v14_updates.mjs","v14_store.mjs","v14_analysis.mjs","v14_utils.mjs","service-worker.js","manifest.webmanifest"):
+    "v14_updates.mjs","v14_store.mjs","v14_analysis.mjs","v14_ui.mjs","v14_layout.css","v14_utils.mjs","service-worker.js","manifest.webmanifest"):
    self.assertTrue((WEB/name).is_file(),name)
   worker=(WEB/"service-worker.js").read_text()
   self.assertIn('url.pathname.startsWith("/api/")',worker)
@@ -45,6 +45,22 @@ class V14ImplementationTests(unittest.TestCase):
   module=(WEB/"v14_analysis.mjs").read_text(encoding="utf-8")
   self.assertIn("analysis-worker.mjs",module)
   self.assertIn("refreshHistoryAnalysis",module)
+ def test_unique_html_ids_and_all_tab_panels(self):
+  import re
+  ids=re.findall(r'\bid="([^"]+)"',PAGE)
+  self.assertEqual(len(ids),len(set(ids)),"Duplicate HTML ids can break tab or status rendering")
+  for name in ("status","flight","field","testing","utilities","storage","system","connections","history","cloud","updates"):
+   self.assertRegex(PAGE,rf'<section id="{name}" class="page(?: active)?"')
+  self.assertIn('id="v14ConnectionNoticeDetail"',PAGE)
+ def test_layout_has_no_grid_row_holes_and_tabs_are_accessible(self):
+  css=(WEB/"v14_layout.css").read_text()
+  self.assertIn("column-count:2",css)
+  self.assertIn("break-inside:avoid-column",css)
+  self.assertIn("scroll-snap-type:x proximity",css)
+  self.assertIn('v14_layout.css',PAGE)
+  ui=(WEB/"v14_ui.mjs").read_text()
+  self.assertIn('aria-selected',ui)
+  self.assertIn('FEATHER_CONTROLS',ui)
  def test_windows_usb_remains_receive_only(self):
   receiver=(WEB/"v14_serial.mjs").read_text()
   self.assertIn("navigator.serial.requestPort",receiver)
