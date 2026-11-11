@@ -1892,6 +1892,32 @@ static void runDashboardSdTest() {
 #include "FirmwareMaintenance.h"
 
 static void initializeDashboard() {
+  // Only the production GREEN ION dashboard may read/control the Feather from
+  // another web origin. Never enable wildcard CORS: telemetry contains GPS,
+  // and some API endpoints can change recorder state.
+  // This is browser-origin defense, NOT authentication on the Feather AP.
+  const char *requestHeaders[] = {"Origin", "Access-Control-Request-Private-Network"};
+  dashboardServer.collectHeaders(requestHeaders, 2);
+  dashboardServer.addMiddleware([](WebServer &server, Middleware::Callback next) -> bool {
+    const String origin = server.header("Origin");
+    // Preserve same-origin Feather dashboard, as well as native bridge calls.
+    if (origin.isEmpty() || origin == "http://192.168.4.1") return next();
+    if (origin != "https://green-ion-beta.vercel.app") {
+      server.send(403, "application/json",
+                  "{\"success\":false,\"message\":\"Untrusted website origin\"}");
+      return true;
+    }
+    server.sendHeader("Access-Control-Allow-Origin", "https://green-ion-beta.vercel.app");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+    server.sendHeader("Access-Control-Allow-Private-Network", "true");
+    server.sendHeader("Vary", "Origin");
+    if (server.method() == HTTP_OPTIONS) {
+      server.send(204, "text/plain", "");
+      return true;
+    }
+    return next();
+  });
   WiFi.mode(WIFI_AP);
   WiFi.softAP(config::DASHBOARD_SSID, config::DASHBOARD_PASSWORD);
   dashboardServer.on("/", []() {

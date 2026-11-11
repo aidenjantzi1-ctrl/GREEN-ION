@@ -569,7 +569,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <p class="muted"><strong>V13 flight functions:</strong> automatic calibration, launch watching, RKT4/IMU/GPS recording, SD verification, recovery, and offline analysis. OTA and rollback work only in explicit bench maintenance mode. Editable sample-rate/mission labels, manual RGB effects, configuration restore, and deep sleep remain unavailable; their controls are disabled.</p>
  </div>
  <div class="card"><h2>Help and connection</h2>
-  <details open><summary>Connect from a phone, iPad or computer</summary><p>Connect to <strong>GREEN-ION-V13</strong> Wi-Fi and open <strong>http://192.168.4.1</strong>. This local Wi-Fi does not provide internet access; remain connected to use the recorder.</p></details>
+  <details open><summary>Connect from a phone, iPad or computer</summary><p>Connect to the configured <strong>GREEN ION Feather</strong> Wi-Fi and open <strong>http://192.168.4.1</strong>. This local Wi-Fi does not provide internet access; remain connected to use the recorder.</p></details>
   <details><summary>Buttons disabled or view-only?</summary><p>When one device is connected, it receives control automatically. With multiple viewers, use <strong>Take Control</strong> under Utilities. Recording or arming temporarily disables some settings.</p></details>
   <details><summary>SD testing or download trouble?</summary><p>Finish recording and disarm, then run <strong>Detect &amp; Test SD Card</strong> under Storage. The check uses only a temporary file. Download saved recordings after logging ends.</p></details>
   <details><summary>Updating the firmware</summary><p>Only update on the bench with a charged LiPo, stable USB power, and no active recording. Entering maintenance disables launch detection. Select the main <strong>.ino.bin</strong> file from a successful GitHub Actions build. Recalibrate and perform all ground tests after a restart.</p></details>
@@ -709,6 +709,8 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <div class="row"><span>Radio signal</span><strong id="v14PacketStatus">--</strong></div>
   <div class="row"><span>GPS</span><strong id="v14GpsStatus">--</strong></div>
   <p id="v14ConnectionNoticeDetail" role="status" class="muted"></p>
+  <div class="actions"><button id="v15ConnectFeather" class="secondary">Connect to Feather Wi-Fi</button><a href="http://192.168.4.1/" target="_blank" rel="noopener noreferrer">Open Feather directly</a></div>
+  <p id="v15ConnectGuide" class="muted" role="status">Hosted V15: connect this device to the GREEN ION Wi-Fi, then choose Connect. If your browser asks for local network access, allow it. This requires updated Feather firmware with trusted-origin support; Safari may block direct HTTPS-to-HTTP communication. If blocked, open the Feather dashboard and download BIN/SEN files there, then import them into V15 History.</p>
   <p class="muted">The website stays on this device. The Feather's independent recorder and its local blue dashboard operate without internet. The Uno is a receive-only radio link; it cannot arm, stop, download or update the rocket.</p>
   <p><a id="v14OpenFeather" href="http://192.168.4.1/">Open Feather's local backup dashboard (192.168.4.1)</a></p>
  </div>
@@ -839,6 +841,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  <div class="card">
   <h2>Private Supabase cloud backups</h2>
   <p class="muted">Original recordings remain on this device first. Sign in to enable private, checksum-verified cloud backups and restore between devices. Uploads automatically retry when internet returns. Never required for recording or tests.</p>
+  <p class="muted">Phone and computer: the Feather's own Wi-Fi has no internet. Cloud login/upload needs a separate internet route (for example, a phone that maintains working cellular data while on Feather Wi-Fi), or you can reconnect to internet and reopen this tab to sync queued files. Safari may require downloading directly from the Feather and importing the files in History.</p>
   <div id="v14CloudLogin">
    <label>Email <input type="email" id="v14CloudEmail" autocomplete="username" placeholder="Email for your cloud account"></label>
    <label>Password <input type="password" id="v14CloudPassword" autocomplete="current-password" placeholder="Password"></label>
