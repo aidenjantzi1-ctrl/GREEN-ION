@@ -64,10 +64,18 @@ static void homeStoreStepResult() {
       isfinite(calibrationBaselinePa) &&
       calibrationBaselinePa >= 30000 && calibrationBaselinePa <= 120000 ? 1 : 2;
   } else if (step == 3) {
+    if (!homeImuTestStarted || imuHardwareTest.running()) {
+      homeReply(409, false, "Run and finish a fresh IMU test in this home session");
+      return;
+    }
     const auto v = imuHardwareTest.result();
     code = v == green_ion::bench::RESULT_PASS ? 1 :
            v == green_ion::bench::RESULT_FAIL ? 2 : 3;
   } else if (step == 4) {
+    if (!homeGpsTestStarted || gpsHardwareTest.running()) {
+      homeReply(409, false, "Run and finish a fresh GPS test in this home session");
+      return;
+    }
     const auto v = gpsHardwareTest.result();
     code = v == green_ion::bench::RESULT_PASS ? 1 :
            v == green_ion::bench::RESULT_FAIL ? 2 : 3;
@@ -195,6 +203,7 @@ static void homeStart() {
   if (!stored) { homeReply(500, false, "Home session NVS save failed"); return; }
   memcpy(homeStepStatuses, clean, sizeof(clean));
   homeInterrupted = false; orphanHomeFile = false; homeSdVerified = false;
+  homeImuTestStarted = false; homeGpsTestStarted = false;
   flightWatcher.cancel();
   recorderCore.resetBuffer();
   recorderMode = RECORDER_HOME_TEST;
