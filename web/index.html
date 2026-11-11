@@ -695,6 +695,36 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <p id="v14HistoryNotice" role="status" class="muted"></p>
   <div id="v14HistoryList"></div>
  </div>
+
+
+ <div class="card" id="v14OfflineAnalysisCard">
+  <h2>Offline flight analysis and comparison</h2>
+  <p class="muted">Choose an original RKT4 BIN from your saved flights. All calculations happen locally, even without the Feather or internet. Apogee, velocity, acceleration, G and flight phases are pressure-derived estimates.</p>
+  <label>Saved flight <select id="v14AnalysisFlight"><option value="">Choose saved BIN</option></select></label>
+  <div class="actions">
+   <button id="v14Analyze">Analyze saved flight</button>
+   <button id="v14ExportCsv" class="secondary">Export CSV</button>
+   <button id="v14ExportReport" class="secondary">Export report JSON</button>
+   <button id="v14PrintReport" class="secondary">Print / Save PDF</button>
+  </div>
+  <label>Second flight <select id="v14CompareFlight"><option value="">Choose another BIN</option></select></label>
+  <button id="v14Compare" class="secondary">Compare flights</button>
+  <label>Graph metric <select id="v14GraphMetric">
+   <option value="altitudeM">Altitude</option>
+   <option value="velocityMps">Vertical velocity</option>
+   <option value="accelerationMps2">Acceleration</option>
+   <option value="estimatedVerticalG">Estimated G</option>
+   <option value="pressurePa">Pressure</option>
+   <option value="batteryMv">Battery</option>
+  </select></label>
+  <canvas id="v14AnalysisCanvas" width="920" height="300" aria-label="Offline flight chart"></canvas>
+  <label>Replay timeline <input type="range" min="1" max="100" value="100" id="v14Replay"></label>
+  <p id="v14ReplayTime" class="muted">No flight selected</p>
+  <div id="v14AnalysisSummary"></div>
+  <p id="v14CompareSummary" class="muted"></p>
+  <p id="v14AnalysisWarnings" class="muted"></p>
+  <p id="v14AnalysisStatus" role="status">Choose a saved flight to begin.</p>
+ </div>
 </section>
 <section id="cloud" class="page">
  <div class="card">
