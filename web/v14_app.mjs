@@ -4,6 +4,8 @@ import {initCloud,backupNow} from "./v14_cloud.mjs";
 import {initUpdates,checkUpdates} from "./v14_updates.mjs";
 import {initHistoryAnalysis,refreshHistoryAnalysis} from "./v14_analysis.mjs";
 import {APP_VERSION} from "./v14_utils.mjs";
+import {initPreferences} from "./v14_preferences.mjs";
+import {initSensorLab} from "./v14_sensor_lab.mjs";
 import {requiresFeather,initTabs} from "./v14_ui.mjs";
 const $=id=>document.getElementById(id),t=window.GREEN_ION_TRANSPORT;
 let importing=false,lastAutoImport=0,lastRadioAt=0,radioPackets=[];
@@ -138,6 +140,8 @@ async function init(){
  document.querySelector("header small").textContent="Flight logger · V14 unified offline dashboard";
  text("v14AppBuild","Website "+APP_VERSION+" · Feather firmware may be V13 until updated");
  renderBrowserInfo();
+ initPreferences();
+ initSensorLab(t);
  initTabs(document.querySelector("nav.tabs"));
  $("v14SerialConnect").onclick=connectSerial;
  $("v14SerialDisconnect").onclick=disconnectSerial;

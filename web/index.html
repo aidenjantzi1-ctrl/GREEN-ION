@@ -323,8 +323,18 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  <h2>Live altitude history</h2>
  <canvas id="overviewGraph"></canvas>
 </div>
-</section>
 
+<div class="card" id="v14SensorLabCard">
+ <h2>Sensor Lab · complete live measurements</h2>
+ <p class="muted">Values from the Feather and Uno receiver, with missing measurements marked —. Barometric altitude and derived speed are estimates. The radio cannot transmit every sensor diagnostic.</p>
+ <p id="v14SensorSource" role="status">Waiting for hardware...</p>
+ <p id="v14SensorPeaks" class="muted">Session peaks unavailable.</p>
+ <div class="actions"><button class="secondary" id="v14SensorExport">Download sensor snapshot</button>
+ <button class="secondary" id="v14SensorResetPeaks">Reset session measurements</button></div>
+ <p class="muted" id="v14SensorExportStatus"></p>
+ <div id="v14SensorGroups" class="v14-sensor-groups"></div>
+</div>
+</section>
 <section id="flight" class="page">
 <div class="card" id="flightProfileCard">
  <h2>Rocket flight profile</h2>
@@ -663,8 +673,16 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <div class="row"><span>Last error</span>
    <strong id="error">--</strong></div>
  </div>
-</section>
 
+<div class="card" id="v14PreferencesCard">
+ <h2>Display and optional features</h2>
+ <p class="muted">Keep the original blue dashboard. Optional modules can be switched off without changing firmware, SD recordings or cloud data.</p>
+ <label class="v14-option"><input type="checkbox" id="v14PrefSensorLab" checked> Detailed Sensor Lab</label>
+ <label class="v14-option"><input type="checkbox" id="v14PrefCloudAuto" checked> Automatic cloud sync</label>
+ <label class="v14-option"><input type="checkbox" id="v14PrefCompact"> Compact card spacing</label>
+ <label class="v14-option"><input type="checkbox" id="v14PrefImperial"> Feet, mph and °F in Sensor Lab</label>
+</div>
+</section>
 <section id="connections" class="page">
  <div class="card">
   <h2>Connections · Wi-Fi and Uno LoRa</h2>

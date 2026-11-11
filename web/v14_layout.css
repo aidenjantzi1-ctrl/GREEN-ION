@@ -92,3 +92,35 @@ main > header, main > .tabs, main > .v14-link-panel { max-width:100%; }
  .page .card{box-shadow:none!important;border-color:#888;}
  body{background:white;color:black;}
 }
+
+/* Optional Sensor Lab uses the same dark-blue palette as every legacy card. */
+.v14-sensor-groups{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:12px;}
+.v14-sensor-group{border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+.v14-sensor-group>summary{cursor:pointer;background:#223b52;padding:12px;font-weight:700;}
+.v14-sensor-rows{padding:3px 12px 8px;}
+.v14-sensor-rows .row{padding:7px 0;font-size:13px;gap:8px;}
+.v14-sensor-rows strong{font-variant-numeric:tabular-nums;max-width:60%;}
+.v14-sensor-rows strong[data-available="false"]{color:var(--muted);font-weight:400;}
+body.sunlight .v14-sensor-group>summary{background:#e3edf5;color:#172b40;}
+.v14-option{display:flex;gap:10px;align-items:center;padding:9px 0;cursor:pointer;}
+.v14-option input[type=checkbox]{width:20px;height:20px;flex:0 0 auto;accent-color:var(--blue);}
+body[data-compact="true"] .page .card{padding:12px;margin-bottom:9px!important;}
+body[data-compact="true"] .page .row{padding:7px 0;}
+body[data-compact="true"] .page .actions{gap:7px;}
+@media(min-width:1100px){
+ #v14SensorLabCard{column-span:all;display:block!important;}
+ .v14-sensor-groups{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media(min-width:900px) and (max-width:1099px){
+ #status.page.active,#flight.page.active,#field.page.active,#testing.page.active,
+ #utilities.page.active,#storage.page.active,#system.page.active,
+ #connections.page.active,#history.page.active,#cloud.page.active,#updates.page.active{column-count:1;}
+}
+@media(max-width:420px){
+ .page .actions{grid-template-columns:minmax(0,1fr);}
+ main{padding-left:max(10px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right));}
+}
+@media(max-height:470px) and (orientation:landscape){.tabs{position:relative;}}
+@media(prefers-reduced-motion:reduce){
+ *,*::before,*::after{scroll-behavior:auto!important;transition-duration:0.01ms!important;animation-duration:0.01ms!important;}
+}
