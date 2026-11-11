@@ -1,10 +1,12 @@
 # GREEN ION — Rocket Flight Recorder
 
-**Current hardware firmware: V14 Beta 4. V15 local-first dashboard and Windows ground station are a software candidate; physical validation pending.**
+**Current application: V15 Beta 1 — published to `main` and Vercel production. Feather/Uno hardware firmware: V14 generation. Physical flight validation is still pending.**
 
 [**Open the blue flight dashboard**](https://green-ion-beta.vercel.app/) · [**Download V14 releases**](https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases) · [**Automated tests**](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/workflows/build-v14.yml)
 
 GREEN ION records a rocket's pressure, motion, GPS and battery measurements using the **Adafruit Feather ESP32 V2**. It records flight data independently on an SD card. A Windows PC, iPhone or iPad can open the **same original blue dashboard and tabs**. Windows can also receive **Uno USB / LoRa** telemetry; the phone works without LoRa.
+
+[**V15 release overview and version history**](VERSIONS.md) · [**V15 local-first setup**](docs/V15_LOCAL_FIRST.md)
 
 ## Choose a guide
 
