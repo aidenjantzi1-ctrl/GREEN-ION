@@ -3,7 +3,7 @@ export const FEATHER_CONTROLS = new Set([
  "prepareAll","fieldPrepare","fieldArm","fieldStop","armWatch","stop","calibrate","testCalibrate",
  "homeStart","homeRun","homeNext","homeSkip","homeFinish","testImu","testGps",
  "testAllSensors","groundtest","sdtest","refresh","downloadEverything","scanIntegrity",
- "installFirmware","rollbackFirmware","exitMaintenance","restoreConfig","shutdown",
+ "installFirmware","v14DownloadUpdate","rollbackFirmware","exitMaintenance","restoreConfig","shutdown",
  "saveFlightProfile","ledoff","ledauto","takeControl","releaseControl","control",
  "start","testCalibrate","reconnect","testRadio"
 ]);
