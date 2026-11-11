@@ -2377,7 +2377,7 @@ async function start(){
 async function run(){
  if(!active||busy||!here())return;
  const item=here(),kind=item.kind;
- if(item.confirm&&!node("homeConfirm").checked){
+ if(item.confirm&&!node("homeConfirm").checked && !(kind==="radio"&&!radioStarted)){
   setMessage("Complete the instructed physical check and tick the confirmation box first.");return;
  }
  busy=true;paint();
