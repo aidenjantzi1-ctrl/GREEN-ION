@@ -192,9 +192,11 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  <button data-tab="storage">Storage</button>
  <button data-tab="system">System</button>
  <button data-tab="connections">Connections</button>
+ <button data-tab="recovery">Recovery</button>
  <button data-tab="history">History</button>
  <button data-tab="cloud">Cloud</button>
  <button data-tab="updates">Updates</button>
+ <button data-tab="help">Help</button>
 </nav>
 
 <div class="v14-link-panel" aria-live="polite">
@@ -312,7 +314,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  <div class="row"><span>SD card</span><strong id="overviewSD">--</strong></div>
  <div class="row"><span>Recorded samples</span><strong id="overviewSamples">--</strong></div>
  <div class="row"><span>Current file</span><strong id="overviewFile">--</strong></div>
- <div class="row"><span>Recovery</span><strong id="recovery">--</strong></div>
+ <div class="row"><span>Recovery</span><strong id="recoveryHealth">--</strong></div>
  <div class="row"><span>Missed sample periods</span><strong id="missed">--</strong></div>
  <div class="row"><span>Metadata file</span><strong id="metadata">--</strong></div>
  <button id="openFlightStats" class="secondary" style="width:100%">OPEN SAVED FLIGHTS AND REPORTS</button>
@@ -359,6 +361,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 <section id="field" class="page">
  <div class="card"><h2>FIELD MODE</h2><p class="muted">Large launch-day controls.</p>
   <div class="value big" id="fieldBattery">--</div><div class="notice" id="fieldReadiness">Connecting...</div>
+  <p class="muted" id="v15FieldBattery">Battery endurance estimate is not verified.</p>
   <button id="fieldPrepare" class="wide">1 · PREPARE FOR LAUNCH</button>
   <button id="fieldArm" class="wide green" style="display:none">AUTOMATIC WATCH</button>
   <button id="fieldStop" class="wide danger">STOP &amp; SAVE</button>
@@ -377,13 +380,15 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <label id="homeConfirmLabel" style="display:none"><input id="homeConfirm" type="checkbox"><span id="homeConfirmText">I completed the physical check.</span></label>
   <div class="row"><span>Result</span><strong id="homeStepStatus">NOT RUN</strong></div>
   <div class="actions">
-   <button id="homeStart" class="green">START FULL HOME TEST</button>
+   <button id="homeAuto" class="green">RUN FULL PREFLIGHT · ONE BUTTON</button>
+   <button id="homeStart" class="secondary">GUIDED STEP-BY-STEP TEST</button>
    <button id="homeRun" disabled>RUN / CONFIRM THIS STEP</button>
    <button id="homeNext" disabled>NEXT STEP</button>
    <button id="homeSkip" class="secondary" disabled>MARK NOT VERIFIED</button>
    <button id="homeFinish" class="danger" disabled>END &amp; DELETE TEMP DATA</button>
   </div>
   <div class="notice" id="homeSummary">PASS describes only the check performed, not the entire rocket's flight readiness.</div>
+  <div class="notice" id="homeAutoStatus" role="status" aria-live="polite">One-button mode performs measurable checks automatically. Physical checks require separate inspection; missing receiver evidence is NOT VERIFIED.</div>
   <button id="homeReport" class="secondary" disabled>DOWNLOAD JSON TEST REPORT</button>
  </div>
 
@@ -595,7 +600,17 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   power connected until the board restarts.</p>
  </div>
 
- <div class="card">
+ <div class="card" id="v15BatteryCard">
+ <h2>Battery endurance and recording forecast</h2>
+ <p class="muted">Voltage alone cannot predict LiPo remaining capacity. Enter measured operating current and tested capacity; calculations are deliberately rough and never certify flight safety. Battery below 3.60 V is NOT READY.</p>
+ <div class="row"><span>Latest measured battery</span><strong id="v15BatteryVoltage">No measurement</strong></div>
+ <label>Tested battery capacity (mAh) <input id="v15BatteryCapacity" type="number" min="1" max="20000" placeholder="Enter tested capacity"></label>
+ <label>Measured operating current (mA) <input id="v15BatteryDraw" type="number" min="1" max="5000" placeholder="Measure using current meter"></label>
+ <label>Required operation/recovery time (minutes) <input id="v15BatteryMinutes" type="number" min="1" max="1440" value="30"></label>
+ <div class="row"><span>Estimated recording endurance</span><strong id="v15BatteryRuntime">Unknown</strong></div>
+ <div class="notice" id="v15BatteryResult" role="status">Battery adequacy not verified.</div>
+</div>
+<div class="card">
   <h2>Power diagnostics</h2>
   <div class="row"><span>Battery estimate</span>
    <strong id="sysPct">--</strong></div>
@@ -703,6 +718,31 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <div class="actions"><button id="v14SerialConnect">Connect Arduino Uno</button><button id="v14SerialDisconnect" class="secondary">Disconnect Uno</button><button id="v14ReceiverExport" class="secondary">Export received LoRa CSV</button></div>
   <p id="v14SerialStatus" role="status">USB receiver not connected.</p>
  </div>
+<div class="card" id="v15LinkCard">
+ <h2>Live link diagnostics · Wi-Fi and LoRa together</h2>
+ <p class="muted">Receiver-side LoRa packet evidence is independent of full Feather Wi-Fi status. Packet gaps are estimates, not proof of successful SD recording.</p>
+ <div class="row"><span>Simultaneous links</span><strong id="v15LinkConcurrent">Checking...</strong></div>
+ <div class="row"><span>LoRa packets</span><strong id="v15LinkCounts">--</strong></div>
+ <div class="row"><span>Estimated loss</span><strong id="v15LinkLoss">--</strong></div>
+ <div class="row"><span>RSSI / SNR when available</span><strong id="v15LinkSignal">--</strong></div>
+ <div class="row"><span>Last radio packet</span><strong id="v15LinkLast">--</strong></div>
+ <div class="row"><span>Uno status</span><strong id="v15LinkReceiver">--</strong></div>
+</div>
+</section>
+<section id="recovery" class="page">
+ <div class="card" id="v15RecoveryCard">
+  <h2>Recovery · Locate your rocket</h2>
+  <p class="muted">Uses only actual received GPS fixes from Feather Wi-Fi or Uno/LoRa. Last known GPS is not a guaranteed landing location. Location persists on this browser offline.</p>
+  <div class="row"><span>Last GPS coordinates</span><strong id="v15RecoveryFix">No confirmed GPS fix</strong></div>
+  <div class="row"><span>Fix origin and timestamp</span><strong id="v15RecoverySource">Unknown</strong></div>
+  <div class="row"><span>Position age</span><strong id="v15RecoveryAge">Unknown</strong></div>
+  <div class="row"><span>Radio link</span><strong id="v15RecoveryRadio">No fresh packets</strong></div>
+  <div class="row"><span>Recovery status</span><strong id="v15RecoveryPhase">Not confirmed</strong></div>
+  <canvas id="v15RecoveryTrack" width="920" height="300" aria-label="Offline schematic of observed GPS fixes, not a terrain map"></canvas>
+  <p class="muted" id="v15RecoveryPoints">No GPS points yet</p>
+  <div class="actions"><a id="v15RecoveryNavigate" target="_blank" rel="noopener noreferrer" aria-disabled="true">Map link available after GPS fix</a><button class="secondary" id="v15RecoveryClear">Clear saved positions</button></div>
+  <p class="muted">If internet is unavailable, write down the coordinates or use a pre-downloaded offline navigation app. Never rely on predicted landing positions as measured fixes.</p>
+ </div>
 </section>
 <section id="history" class="page">
  <div class="card">
@@ -717,7 +757,14 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  </div>
 
 
- <div class="card" id="v14SensorArchiveCard">
+ <div class="card" id="v15LocalCard">
+ <h2>Windows computer archive · local first</h2>
+ <p class="muted">The blue dashboard saves checksum-verified originals to browser storage. When opened through OPEN_GROUND_STATION.cmd at 127.0.0.1:8765, finished files also mirror to your computer's GREEN_ION_Data/flights folder without internet. Recovery from disk never changes the rocket's SD card.</p>
+ <div class="actions"><button id="v15LocalRestore" class="secondary">Reconcile PC archive</button></div>
+ <p id="v15LocalStatus" class="muted" role="status">Checking Windows local archive...</p>
+</div>
+
+<div class="card" id="v14SensorArchiveCard">
  <h2>Sensor recording analysis · IMU and GPS</h2>
  <p class="muted">Read original GIS1 SEN files locally. Includes 3-axis acceleration, 3-axis gyroscope, GPS position, speed, altitude, satellites, timestamps and sample integrity. No upload is needed.</p>
  <p id="v14SenAvailable" class="muted">Loading saved SEN files...</p>
@@ -777,6 +824,16 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <p id="v14AnalysisWarnings" class="muted"></p>
   <p id="v14AnalysisStatus" role="status">Choose a saved flight to begin.</p>
  </div>
+<div class="card" id="v15ReportCard">
+ <h2>Advanced local analysis · automatic flight health report</h2>
+ <p class="muted">After the original BIN/SEN files arrive, analyze them on the computer in a separate Web Worker. No cloud or internet is necessary. Sensor readings, estimated motion, missing samples, CRC evidence and uncertainty remain distinct. The report is never launch authorization.</p>
+ <label>Completed flight <select id="v15ReportFlight"><option value="">Choose completed BIN</option></select></label>
+ <div class="actions"><button id="v15ReportRun">Analyze + health report</button><button id="v15ReportExport" class="secondary" disabled>Export health report JSON</button></div>
+ <p id="v15ReportLive" class="muted">LoRa gives only a preliminary landing indication; full report requires recovered SD originals.</p>
+ <div id="v15ReportSummary"></div>
+ <p id="v15ReportWarnings" class="muted"></p>
+ <p id="v15ReportStatus" role="status">Reports are generated locally and can be regenerated from the original files.</p>
+</div>
 </section>
 <section id="cloud" class="page">
  <div class="card">
@@ -809,6 +866,16 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  </div>
 </section>
 
+<section id="help" class="page">
+ <div class="card" id="v15HelpCard">
+  <h2>GREEN ION Help Assistant · works offline</h2>
+  <p class="muted">Ask where a feature is or how to perform a task. The built-in assistant searches verified dashboard instructions, shows steps and opens the relevant tab. It does not send rocket data to a cloud model.</p>
+  <label>What do you want to do? <input id="v15HelpSearch" type="search" placeholder="Example: how do I find my rocket or run preflight?"></label>
+  <div class="actions"><button id="v15HelpAsk">Look it up</button></div>
+  <p id="v15HelpStatus" role="status">Searchable offline instructions.</p>
+  <div id="v15HelpResults"></div>
+ </div>
+</section>
 </main>
 
 <div id="v14UpdateDialog" class="v14-update-dialog" role="dialog" aria-modal="true" aria-labelledby="v14UpdateTitle" hidden>
@@ -2118,7 +2185,7 @@ function v12Render(d){
  v12Set('preflightDetail',v12PreflightDetails(d));
  v12UpdateProfileUi(d);
  v12Set('overviewSD',d.sd_ok?'MOUNTED':'UNAVAILABLE');v12Set('overviewSamples',String(d.prebuffer_records||0)+' prebuffered');v12Set('overviewFile',d.log_file||'Next V12D###.BIN');
- v12Set('recovery',d.recovery_status||'Not scanned');v12Set('missed',String(d.missed_sample_periods||0));v12Set('metadata',d.metadata_file||'--');
+ v12Set('recoveryHealth',d.recovery_status||'Not scanned');v12Set('missed',String(d.missed_sample_periods||0));v12Set('metadata',d.metadata_file||'--');
  v12Set('fieldBattery',batteryPct.toFixed(0)+'% · '+v12Number(battery,3)+' V');v12Set('fieldReadiness',d.recording?'RECORDING — SD has priority over dashboard':'AUTONOMOUS '+phase);
  v12Set('sdMounted',d.sd_ok?'YES':'NO');v12Set('sdReady',d.sd_ok?'READY':'NOT READY');v12Set('sdStatus',d.sd_ok?'SD mounted; recording path available.':'SD unavailable; inspect card and wiring.');
  v12Set('storageWriteErrors',String((d.checkpoint_failures||0)+(d.metadata_failures||0)+(d.finalization_failures||0)));
@@ -2307,7 +2374,7 @@ const steps=[
  {title:"8. Temporary 50 Hz recording + Wi-Fi disconnect",guide:"Press Run for 30 seconds of real pressure samples. Briefly disconnect PHONE Wi-Fi for at least five seconds, rejoin GREEN-ION-V13 and watch the result. Do not remove Feather power. The test verifies the RKT4 data and deletes /GIHOME.BIN.",kind:"record"},
  {title:"9. Final physical readiness review",guide:"Check the payload's secure mount, balance and recovery clearance for Green Eggs and So Long separately. RF range, hardware power-loss recovery, OTA/rollback, launch and landing detection, and flight conditions are NOT tested by this routine.",kind:"manual",confirm:"I reviewed remaining physical and range tests; I understand bench PASS is not flight approval."}
 ];
-let active=false,step=-1,busy=false,pending="",results={},evidence=[],radioStarted=false,message="";
+let active=false,step=-1,busy=false,pending="",results={},evidence=[],radioStarted=false,message="",autoRunning=false;
 const here=()=>steps[step];
 const setMessage=text=>{message=text;node("homeInstructions").textContent=text;};
 async function request(path,method="GET"){
@@ -2319,6 +2386,7 @@ async function request(path,method="GET"){
 function paint(){
  const item=here();
  node("homeStart").disabled=active||busy;
+ node("homeAuto").disabled=active||busy||autoRunning;
  node("homeRun").disabled=!active||busy||!item||pending==="imu"||pending==="gps"||pending==="record";
  node("homeNext").disabled=!active||busy||!Object.prototype.hasOwnProperty.call(results,step);
  node("homeSkip").disabled=!active||busy||!item||pending==="record";
@@ -2374,7 +2442,7 @@ async function start(){
 async function run(){
  if(!active||busy||!here())return;
  const item=here(),kind=item.kind;
- if(item.confirm&&!node("homeConfirm").checked){
+ if(item.confirm&&!node("homeConfirm").checked && !(kind==="radio"&&!radioStarted)){
   setMessage("Complete the instructed physical check and tick the confirmation box first.");return;
  }
  busy=true;paint();
@@ -2498,7 +2566,72 @@ function report(){
  a.href=url;a.download="green-ion-home-verification.json";a.click();
  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
+// One-button preflight reuses firmware's real test endpoints and stored evidence.
+// It never self-confirms physical work or receiver packets that were not seen.
+async function autoPreflight(){
+ if(active||busy||autoRunning)return;
+ if(!confirm("BENCH PREFLIGHT: remove every rocket motor, secure the payload, attach both LoRa antennas and power safely. Automated checks take about one minute. Physical inspections are NOT automatically approved. Start?"))return;
+ autoRunning=true;
+ const feedback=value=>node("homeAutoStatus").textContent=value;
+ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+ async function awaitStep(index,deadlineMs){
+  const until=Date.now()+deadlineMs;
+  while(Date.now()<until){
+   if(!active)throw Error("Home test session ended unexpectedly");
+   if(Object.prototype.hasOwnProperty.call(results,index))return results[index];
+   await sleep(600);
+  }
+  throw Error("Timed out at "+steps[index].title+". Use guided checks to diagnose it");
+ }
+ try{
+  feedback("Preparing real Feather bench session...");
+  await start();
+  if(!active)throw Error("Firmware did not start home verification");
+  for(let index=0;index<steps.length;index++){
+   if(!active||step!==index)throw Error("Test step changed or was cancelled");
+   const item=steps[index];
+   feedback("Checking "+(index+1)+"/"+steps.length+": "+item.title);
+   if(item.kind==="manual"){
+    await skip(); // No fabricated confirmation of physical checks.
+   }else if(item.kind==="radio"){
+    const evidenceStart=Number(window.GREEN_ION_RADIO_EVIDENCE?.benchCount||0);
+    await run(); // Queues five real Feather RF packets, never radio commands.
+    let sent=false,received=false;
+    for(let n=0;n<24;n++){
+     const st=await request("status");
+     sent=Number(st.home_radio_sent)>=5 && Number(st.home_radio_remaining)===0 &&
+       Number(st.home_radio_failures)===0;
+     received=Number(window.GREEN_ION_RADIO_EVIDENCE?.benchCount||0)-evidenceStart>=5;
+     if(sent&&received)break;
+     await sleep(600);
+    }
+    if(sent&&received){
+     node("homeConfirm").checked=true;
+     await run(); // Firmware checks the five transmitter packets too.
+    }else{
+     await skip();
+     feedback("LoRa transmitter/Uno reception not jointly verified; recorded as NOT VERIFIED.");
+    }
+   }else{
+    await run();
+   }
+   await awaitStep(index,item.kind==="record"?60000:30000);
+   if(index<steps.length-1)next();
+  }
+  await finish();
+  const counts=Object.values(results);
+  const fails=counts.filter(v=>v==="FAIL").length;
+  const unverified=counts.filter(v=>v!=="PASS"&&v!=="CONFIRMED").length;
+  feedback(fails?"NOT READY: "+fails+" measured check(s) failed. Inspect the report.":unverified?
+    "CAUTION: measured checks completed, but "+unverified+" physical/receiver checks remain unverified. Check the report and complete guided inspections.":
+    "MEASURED CHECKS PASS. Complete separate mechanical, range, battery and launch safety verification; software is not flight authorization.");
+ }catch(error){
+  feedback("AUTOMATED PREFLIGHT INCOMPLETE: "+error.message+". Finish/exit the home session before launch.");
+  if(active)try{await finish();}catch{/* never claim cleanup succeeded */}
+ }finally{autoRunning=false;paint();}
+}
 node("homeStart").onclick=start;
+node("homeAuto").onclick=autoPreflight;
 node("homeRun").onclick=run;
 node("homeNext").onclick=next;
 node("homeSkip").onclick=skip;

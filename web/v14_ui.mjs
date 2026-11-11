@@ -1,7 +1,7 @@
 /* Explicit local-vs-hardware actions and accessible tab navigation. */
 export const FEATHER_CONTROLS = new Set([
  "prepareAll","fieldPrepare","fieldArm","fieldStop","armWatch","stop","calibrate","testCalibrate",
- "homeStart","homeRun","homeNext","homeSkip","homeFinish","testImu","testGps",
+ "homeAuto","homeStart","homeRun","homeNext","homeSkip","homeFinish","testImu","testGps",
  "testAllSensors","groundtest","sdtest","refresh","downloadEverything","scanIntegrity",
  "installFirmware","v14DownloadUpdate","rollbackFirmware","exitMaintenance","restoreConfig","shutdown",
  "saveFlightProfile","ledoff","ledauto","takeControl","releaseControl","control",

@@ -3,9 +3,11 @@ setlocal
 cd /d "%~dp0"
 echo.
 echo ==============================================
-echo  GREEN ION V13 - ONE UNIFIED GROUND STATION
+echo  GREEN ION V15 - LOCAL-FIRST BLUE DASHBOARD
 echo ==============================================
-echo Join the Feather Wi-Fi network on your computer first.
+echo Join GREEN-ION-V14 Feather Wi-Fi when you need live rocket data.
+echo The blue dashboard runs at http://127.0.0.1:8765 without internet.
+echo Verified flights save locally under GREEN_ION_Data\flights.
 echo Connect Uno by USB for LoRa backup; close Arduino Serial Monitor.
 echo.
 set /p "UNO_PORT=Uno COM port (example COM5), Enter for Wi-Fi only, or DEMO: "

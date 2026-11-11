@@ -1,6 +1,6 @@
 # GREEN ION — Rocket Flight Recorder
 
-**Current: V14 Beta 4 (software beta, physical testing pending).**
+**Current hardware firmware: V14 Beta 4. V15 local-first dashboard and Windows ground station are a software candidate; physical validation pending.**
 
 [**Open the blue flight dashboard**](https://green-ion-beta.vercel.app/) · [**Download V14 releases**](https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases) · [**Automated tests**](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/workflows/build-v14.yml)
 
@@ -10,6 +10,8 @@ GREEN ION records a rocket's pressure, motion, GPS and battery measurements usin
 
 | What you want | Where to go |
 |---|---|
+| **Launch pad: one-button preflight, Recovery, offline PC archive, cloud sync, health reports and Help** | [**V15 Local-First Guide**](docs/V15_LOCAL_FIRST.md) |
+| **Future 3D flight and digital twin (plan only)** | [3D + Digital Twin Plan](docs/V15_3D_TWIN_PLAN.md) |
 | Start the website and use the blue tabs | [Start Here](docs/V14_START_HERE.md) |
 | **What to solder and exactly where** | [**Wiring & Soldering**](docs/V14_WIRING_SOLDER.md) |
 | Every BMP388, IMU, GPS, battery and radio measurement | [Sensor Capabilities & Recorded Formats](docs/V14_SENSOR_CAPABILITIES.md) |
@@ -22,11 +24,13 @@ GREEN ION records a rocket's pressure, motion, GPS and battery measurements usin
 
 ## Dashboard
 
-The original **Status, Flight, Field, Testing, Utilities, Storage and System** tabs remain. **Connections, History, Cloud and Updates** add optional Windows LoRa, offline RKT4/GIS1 analysis, private Supabase backups and user-confirmed GitHub update downloads.
+The original **Status, Flight, Field, Testing, Utilities, Storage and System** tabs remain. **Connections, Recovery, History, Cloud, Updates and Help** add optional Windows LoRa, offline RKT4/GIS1 analysis, private Supabase backups and user-confirmed GitHub update downloads.
 
 You can disable **Sensor Lab, historical SEN analysis, automatic cloud uploads, compact spacing or imperial display** in System without changing the onboard recorder. Original BIN/SEN/TXT files, checksum-verified restore, plots, comparison, replay and manually exported GPS GeoJSON work offline.
 
 **Hardware commands:** Use the Feather's Wi-Fi and local **http://192.168.4.1** backup dashboard when direct connection from the hosted HTTPS website is blocked. The iPhone website cannot read Uno USB serial. Downloads from GitHub **never flash automatically**; bench-only firmware OTA requires separate confirmation.
+
+**Windows local server:** Run `Ground_Station/OPEN_GROUND_STATION.cmd` for the current blue localhost dashboard with Feather Wi-Fi, Uno LoRa, automatic SHA-256 computer archives and optional signed-in cloud backup when internet returns. Firmware RKT4/GIS1 formats remain unchanged.
 
 ## Software vs hardware validation
 

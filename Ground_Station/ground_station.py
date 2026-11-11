@@ -17,7 +17,9 @@ from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 import json
 import math
-from urllib.parse import urlsplit, unquote
+import hashlib
+import re
+from urllib.parse import urlsplit, unquote, parse_qs
 from pathlib import Path
 import shutil
 import os
@@ -30,6 +32,17 @@ ROOT = Path(__file__).resolve().parent
 # Never put new logs inside a replaceable downloaded app folder.
 LOG_DIR = Path(os.environ.get("GREEN_ION_DATA_DIR", str(Path.home() / "GREEN_ION_Data"))) / "logs"
 BRIDGE = FeatherBridge()
+# The current blue PWA is served from source checkout or release ZIP.
+STATIC_ROOT = ROOT.parent / "web" if (ROOT.parent / "web/index.html").exists() else ROOT.parent / "Website"
+DATA_ROOT = Path(os.environ.get("GREEN_ION_DATA_DIR", str(Path.home() / "GREEN_ION_Data")))
+FLIGHT_DIR = DATA_ROOT / "flights"
+SAFE_NAME = re.compile(r"[A-Za-z0-9_.-]{1,176}\.(?:BIN|SEN|TXT)", re.IGNORECASE)
+SAFE_HASH = re.compile(r"[0-9a-f]{64}")
+# This is a PUBLISHABLE browser key, not a service role credential.
+PUBLIC_CLOUD = {
+    "supabaseUrl": os.environ.get("SUPABASE_URL", "https://bqvvtbnjthbiqyljmzfx.supabase.co"),
+    "supabaseKey": os.environ.get("SUPABASE_PUBLISHABLE_KEY", "sb_publishable_m8GYtLRB9LKT2bPzxVMESA_yhlgIAZR"),
+}
 
 
 # Fixed columns survive optional fields, receiver reconnects and a mixture of
@@ -176,18 +189,143 @@ STORE = Store()
 
 
 class Handler(SimpleHTTPRequestHandler):
+    def _safe_request(self) -> bool:
+        # Prevent DNS-rebinding attacks; only loopback browser pages use this server.
+        host = (self.headers.get("Host") or "").split(":")[0].lower()
+        origin = self.headers.get("Origin")
+        port = self.server.server_address[1]
+        allowed = (f"http://127.0.0.1:{port}", f"http://localhost:{port}")
+        if host not in ("127.0.0.1", "localhost") or (origin and origin not in allowed):
+            self.send_error(403, "Only same-origin local browser access is allowed")
+            return False
+        return True
+
+    def _local_file_info(self):
+        query = parse_qs(urlsplit(self.path).query)
+        name = query.get("name", [""])[0]
+        return name if SAFE_NAME.fullmatch(name) and "/" not in name and "\\" not in name else None
+
+    def _local_save(self):
+        if not self._safe_request():
+            return
+        name = self._local_file_info()
+        checksum = (self.headers.get("X-Green-Ion-SHA256") or "").lower()
+        try:
+            length = int(self.headers.get("Content-Length", "-1"))
+        except ValueError:
+            length = -1
+        if name is None or SAFE_HASH.fullmatch(checksum) is None or not (0 < length <= 52428800):
+            self.send_error(400, "Invalid flight file, SHA-256 or byte length")
+            return
+        body = self.rfile.read(length)
+        if len(body) != length or hashlib.sha256(body).hexdigest() != checksum:
+            self.send_error(422, "Flight bytes or SHA-256 do not match")
+            return
+        FLIGHT_DIR.mkdir(parents=True, exist_ok=True)
+        kind = name.rsplit(".", 1)[1].lower()
+        target = FLIGHT_DIR / (checksum + "." + kind)
+        duplicate = target.exists()
+        if not duplicate:
+            try:
+                # Exclusive create; never overwrite or erase an original.
+                with target.open("xb") as stream:
+                    stream.write(body)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+            except FileExistsError:
+                duplicate = True
+            except OSError:
+                target.unlink(missing_ok=True)
+                raise
+        meta = FLIGHT_DIR / (checksum + "." + kind + ".json")
+        if not meta.exists():
+            try:
+                with meta.open("x", encoding="utf-8") as stream:
+                    json.dump({"name": name, "sha256": checksum, "size": length, "kind": kind.upper()}, stream)
+            except FileExistsError:
+                pass
+        self._json({"success": True, "name": name, "sha256": checksum, "duplicate": duplicate})
+
+    def _local_files(self):
+        out = []
+        if FLIGHT_DIR.exists():
+            for meta in sorted(FLIGHT_DIR.glob("*.json"))[:10000]:
+                try:
+                    entry = json.loads(meta.read_text(encoding="utf-8"))
+                    checksum = entry.get("sha256", "")
+                    name = entry.get("name", "")
+                    kind = entry.get("kind", "")
+                    path = FLIGHT_DIR / (checksum + "." + kind.lower())
+                    if (SAFE_HASH.fullmatch(checksum) and SAFE_NAME.fullmatch(name) and
+                            kind in ("BIN", "SEN", "TXT") and path.is_file() and
+                            path.stat().st_size == entry.get("size")):
+                        out.append(entry)
+                except (OSError, ValueError, TypeError):
+                    continue
+        self._json({"files": out})
+
+    def _local_read(self):
+        query = parse_qs(urlsplit(self.path).query)
+        sha = query.get("sha256", [""])[0].lower()
+        kind = query.get("kind", [""])[0].lower()
+        if not SAFE_HASH.fullmatch(sha) or kind not in ("bin", "sen", "txt"):
+            self.send_error(400, "Invalid content-addressed file")
+            return
+        file = FLIGHT_DIR / (sha + "." + kind)
+        if not file.is_file() or file.stat().st_size > 52428800:
+            self.send_error(404, "Local flight not found")
+            return
+        body = file.read_bytes()
+        if hashlib.sha256(body).hexdigest() != sha:
+            self.send_error(409, "Stored flight checksum mismatch")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_POST(self) -> None:
-        if self.path.startswith("/api/"):
+        if not self._safe_request():
+            return
+        if urlsplit(self.path).path == "/api/local/save":
+            try:
+                self._local_save()
+            except OSError:
+                self.send_error(507, "Local flight archive write failed")
+        elif self.path.startswith("/api/"):
             BRIDGE.relay(self)
         else:
             self.send_error(404)
 
     def translate_path(self, path: str) -> str:
         relative = unquote(urlsplit(path).path).lstrip("/") or "index.html"
-        requested = (ROOT / relative).resolve()
-        return str(requested if requested.is_relative_to(ROOT) else ROOT / "index.html")
+        if relative == "radio.html":
+            return str(ROOT / "radio.html")
+        requested = (STATIC_ROOT / relative).resolve()
+        return str(requested if requested.is_relative_to(STATIC_ROOT.resolve()) else STATIC_ROOT / "index.html")
 
     def do_GET(self) -> None:
+        if not self._safe_request():
+            return
+        path = urlsplit(self.path).path
+        if path == "/config.js":
+            body = ("window.GREEN_ION_CONFIG = Object.freeze(" +
+                    json.dumps(PUBLIC_CLOUD) + ");\n").encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/javascript; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if path == "/api/local/files":
+            self._local_files()
+            return
+        if path == "/api/local/file":
+            self._local_read()
+            return
         if self.path == "/api/status":
             data = BRIDGE.unified_status(STORE.snapshot())
             if data is None:
@@ -343,7 +481,7 @@ def serial_source(stop: threading.Event, port: str, log_path: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="GREEN ION V13 unified Wi-Fi and LoRa ground station")
+    parser = argparse.ArgumentParser(description="GREEN ION local-first blue dashboard, Feather Wi-Fi and Uno LoRa")
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--sample", action="store_true", help="use simulated rocket telemetry")
     source.add_argument("--port", help="Arduino Uno serial port, for example COM5")
@@ -351,6 +489,10 @@ def main() -> None:
     parser.add_argument("--http-port", type=int, default=8765)
     parser.add_argument("--no-browser", action="store_true", help="do not open the dashboard automatically")
     args = parser.parse_args()
+    if args.listen not in ("127.0.0.1", "localhost"):
+        raise SystemExit("For security, the ground station may listen only on loopback")
+    if not (STATIC_ROOT / "index.html").is_file():
+        raise SystemExit("Current blue dashboard not found next to Ground_Station (web/ or Website/)")
 
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     log_path = LOG_DIR / f"telemetry-{timestamp}.csv"
@@ -387,10 +529,11 @@ def main() -> None:
                 webbrowser.open(url)
             return
         raise
-    print(f"GREEN ION ground station: {url}")
+    print(f"GREEN ION local-first blue dashboard: {url}")
+    print(f"Automatic computer flight archive: {FLIGHT_DIR}")
     print("Mode: SIMULATED DATA — NOT HARDWARE" if use_sample else
           f"Mode: Feather Wi-Fi + {('Uno radio on ' + args.port) if args.port else 'no Uno port (Wi-Fi only)'}")
-    print("Feather Wi-Fi: http://192.168.4.1 (computer must join GREEN-ION-V13 or compatible AP)")
+    print("Feather Wi-Fi: http://192.168.4.1 (join GREEN-ION-V14 or compatible AP)")
     print(f"Telemetry log: {log_path}")
     print("Keep this window open while using the website. Press Ctrl+C to stop.")
     if not args.no_browser:
