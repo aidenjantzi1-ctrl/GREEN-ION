@@ -90,6 +90,14 @@ class V14ImplementationTests(unittest.TestCase):
    self.assertIn(page,readme)
    self.assertTrue((ROOT/"docs"/page).exists())
   self.assertTrue((ROOT/"Past_Versions/V13_README_ARCHIVE.md").exists())
+ def test_fast_indexeddb_metadata_migration(self):
+  store=(WEB/"v14_store.mjs").read_text()
+  self.assertIn("indexedDB.open(DB,2)",store)
+  self.assertIn("listLocalMetadata()",store)
+  self.assertIn("table.openCursor()",store)
+  self.assertIn("db.transaction([TABLE,META]",store)
+  for name in ("v14_app.mjs","v14_analysis.mjs","v14_sensor_history.mjs","v14_cloud.mjs"):
+   self.assertIn("listLocalMetadata", (WEB/name).read_text())
  def test_windows_usb_remains_receive_only(self):
   receiver=(WEB/"v14_serial.mjs").read_text()
   self.assertIn("navigator.serial.requestPort",receiver)

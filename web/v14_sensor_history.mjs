@@ -1,5 +1,5 @@
 /* Optional GIS1 historical sensor chart: local Web Worker and manual exports only. */
-import {getLocalFile,listLocalFiles} from "./v14_store.mjs";
+import {getLocalFile,listLocalMetadata} from "./v14_store.mjs";
 import {SENSOR_GRAPH_METRICS,crc32} from "./analysis/gis1.mjs";
 import {preference,onPreferences} from "./v14_preferences.mjs";
 const $=id=>document.getElementById(id);
@@ -58,7 +58,7 @@ function draw(){
 export async function refreshSensorHistory(){
  const node=$("v14SenFlight");if(!node)return;
  const existing=node.value;
- const files=(await listLocalFiles()).filter(f=>f.kind==="SEN")
+ const files=(await listLocalMetadata()).filter(f=>f.kind==="SEN")
   .sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
  node.replaceChildren();
  const blank=document.createElement("option");blank.value="";blank.textContent="Choose a SEN sensor recording";
@@ -76,8 +76,9 @@ async function analyze(){
  note("Verifying GIS1 CRC32 records in an offline worker...");
  try{
   const record=await getLocalFile(key),data=await parseRecord(record);
-  const files=await listLocalFiles(),name=record.name.replace(/\.sen$/i,".BIN");
-  const companion=files.find(f=>f.kind==="BIN"&&f.name.toUpperCase()===name.toUpperCase());
+  const files=await listLocalMetadata(),name=record.name.replace(/\.sen$/i,".BIN");
+  const companionMeta=files.find(f=>f.kind==="BIN"&&f.name.toUpperCase()===name.toUpperCase());
+  const companion=companionMeta?await getLocalFile(companionMeta.key):null;
   let match="No matching BIN imported (sensor data remains usable).";
   if(companion){
    const prefix=new Uint8Array(companion.bytes).subarray(0,32);

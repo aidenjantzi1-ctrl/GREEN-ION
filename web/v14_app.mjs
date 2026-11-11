@@ -1,5 +1,5 @@
 import {connectSerial,disconnectSerial,serialSupported} from "./v14_serial.mjs";
-import {saveLocalFile,listLocalFiles,hasLocalName,downloadFile,exportArchive,restoreArchive,importLegacyHistory} from "./v14_store.mjs";
+import {saveLocalFile,listLocalMetadata,getLocalFile,hasLocalName,downloadFile,exportArchive,restoreArchive,importLegacyHistory} from "./v14_store.mjs";
 import {initCloud,backupNow} from "./v14_cloud.mjs";
 import {initUpdates,checkUpdates} from "./v14_updates.mjs";
 import {initHistoryAnalysis,refreshHistoryAnalysis} from "./v14_analysis.mjs";
@@ -47,14 +47,18 @@ async function renderHistory(){
  await Promise.all([refreshHistoryAnalysis(),refreshSensorHistory()]);
  const target=$("v14HistoryList");target.replaceChildren();
  try{
-  const items=(await listLocalFiles()).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+  const items=(await listLocalMetadata()).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
   text("v14LocalCount",items.length+" original file(s) saved on this device.");
   if(!items.length){target.textContent="No local files yet. Import BIN/SEN/TXT or connect to Feather Wi-Fi after a flight.";return;}
   for(const f of items){
    const row=document.createElement("div");row.className="row";
    const label=document.createElement("span");label.textContent=f.name+" · "+(f.size/1024).toFixed(1)+" KB · "+f.origin;
    const button=document.createElement("button");button.className="secondary";button.textContent="Download";
-   button.onclick=()=>downloadFile(f);row.append(label,button);target.append(row);
+   button.onclick=async()=>{try{const original=await getLocalFile(f.key);
+    if(!original)throw Error("Original file missing");
+    downloadFile(original);
+   }catch(error){text("v14HistoryNotice","Download failed: "+error.message);}};
+   row.append(label,button);target.append(row);
   }
  }catch(e){target.textContent="History unavailable: "+e.message;}
 }

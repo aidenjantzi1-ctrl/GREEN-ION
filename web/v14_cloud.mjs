@@ -1,6 +1,6 @@
 /* Optional offline-first Supabase Auth + private Storage sync. No secret credentials.
    The rocket and local IndexedDB never depend on cloud availability. */
-import {listLocalFiles,getLocalFile,saveLocalFile,digest} from "./v14_store.mjs";
+import {listLocalMetadata,getLocalFile,saveLocalFile,digest} from "./v14_store.mjs";
 import {safeFileName,fileKind} from "./v14_utils.mjs";
 import {preference,onPreferences} from "./v14_preferences.mjs";
 const cfg=window.GREEN_ION_CONFIG||{};
@@ -149,11 +149,13 @@ export async function backupNow({automatic=false}={}){
  try{
   const account=await user(),remote=await listCloudFiles();
   const existing=new Set(remote.map(f=>f.checksum));
-  const files=await listLocalFiles();
+  const files=await listLocalMetadata();
   const pending=files.filter(f=>!existing.has(f.checksum));
   detail(pending.length+" file(s) awaiting backup · "+existing.size+" already in cloud");
   let uploaded=0;
-  for(const file of pending){
+  for(const summary of pending){
+   const file=await getLocalFile(summary.key);
+   if(!file)throw Error("Local original missing: "+summary.name);
    if(!session)throw Error("Cloud session ended");
    if(file.size>MAX_FILE_BYTES||file.size<1)throw Error("File size not accepted: "+file.name);
    const storagePath=account.id+"/"+file.checksum+"."+file.kind.toLowerCase();
