@@ -1,3 +1,24 @@
-const CACHE="green-ion-v11-offline-3";const FILES=["./","./index.html","./manifest.webmanifest","./icon.svg","./advanced.mjs","./history-db.mjs","./analysis/rkt4.mjs","./analysis-worker.mjs"];
-self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES))));self.addEventListener("fetch",e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));
-
+/* Only cache same-origin app assets, never sensor endpoints, auth or cloud data. */
+const VERSION="green-ion-v14-offline-1";
+const ASSETS=["./","./index.html","./config.js","./manifest.webmanifest","./icon.svg",
+ "./v14_boot.js","./v14_app.mjs","./v14_utils.mjs","./v14_serial.mjs",
+ "./v14_store.mjs","./v14_cloud.mjs","./v14_updates.mjs",
+ "./history-db.mjs","./analysis-worker.mjs","./analysis/rkt4.mjs"];
+self.addEventListener("install",event=>{
+ event.waitUntil(caches.open(VERSION).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
+});
+self.addEventListener("activate",event=>{
+ event.waitUntil(caches.keys().then(names=>Promise.all(names.filter(name=>name.startsWith("green-ion-")&&name!==VERSION).map(name=>caches.delete(name))))
+  .then(()=>self.clients.claim()));
+});
+self.addEventListener("fetch",event=>{
+ const request=event.request,url=new URL(request.url);
+ if(request.method!=="GET"||url.origin!==self.location.origin||url.pathname.startsWith("/api/"))return;
+ event.respondWith(fetch(request).then(async response=>{
+  if(response.ok){const cache=await caches.open(VERSION);cache.put(request,response.clone()).catch(()=>{});}
+  return response;
+ }).catch(async()=>{
+  const cache=await caches.open(VERSION);
+  return await cache.match(request)||((request.mode==="navigate")?await cache.match("./index.html"):Response.error());
+ }));
+});
