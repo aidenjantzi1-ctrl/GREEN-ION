@@ -314,7 +314,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  <div class="row"><span>SD card</span><strong id="overviewSD">--</strong></div>
  <div class="row"><span>Recorded samples</span><strong id="overviewSamples">--</strong></div>
  <div class="row"><span>Current file</span><strong id="overviewFile">--</strong></div>
- <div class="row"><span>Recovery</span><strong id="recovery">--</strong></div>
+ <div class="row"><span>Recovery</span><strong id="recoveryHealth">--</strong></div>
  <div class="row"><span>Missed sample periods</span><strong id="missed">--</strong></div>
  <div class="row"><span>Metadata file</span><strong id="metadata">--</strong></div>
  <button id="openFlightStats" class="secondary" style="width:100%">OPEN SAVED FLIGHTS AND REPORTS</button>
@@ -2185,7 +2185,7 @@ function v12Render(d){
  v12Set('preflightDetail',v12PreflightDetails(d));
  v12UpdateProfileUi(d);
  v12Set('overviewSD',d.sd_ok?'MOUNTED':'UNAVAILABLE');v12Set('overviewSamples',String(d.prebuffer_records||0)+' prebuffered');v12Set('overviewFile',d.log_file||'Next V12D###.BIN');
- v12Set('recovery',d.recovery_status||'Not scanned');v12Set('missed',String(d.missed_sample_periods||0));v12Set('metadata',d.metadata_file||'--');
+ v12Set('recoveryHealth',d.recovery_status||'Not scanned');v12Set('missed',String(d.missed_sample_periods||0));v12Set('metadata',d.metadata_file||'--');
  v12Set('fieldBattery',batteryPct.toFixed(0)+'% · '+v12Number(battery,3)+' V');v12Set('fieldReadiness',d.recording?'RECORDING — SD has priority over dashboard':'AUTONOMOUS '+phase);
  v12Set('sdMounted',d.sd_ok?'YES':'NO');v12Set('sdReady',d.sd_ok?'READY':'NOT READY');v12Set('sdStatus',d.sd_ok?'SD mounted; recording path available.':'SD unavailable; inspect card and wiring.');
  v12Set('storageWriteErrors',String((d.checkpoint_failures||0)+(d.metadata_failures||0)+(d.finalization_failures||0)));
