@@ -377,13 +377,15 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <label id="homeConfirmLabel" style="display:none"><input id="homeConfirm" type="checkbox"><span id="homeConfirmText">I completed the physical check.</span></label>
   <div class="row"><span>Result</span><strong id="homeStepStatus">NOT RUN</strong></div>
   <div class="actions">
-   <button id="homeStart" class="green">START FULL HOME TEST</button>
+   <button id="homeAuto" class="green">RUN FULL PREFLIGHT · ONE BUTTON</button>
+   <button id="homeStart" class="secondary">GUIDED STEP-BY-STEP TEST</button>
    <button id="homeRun" disabled>RUN / CONFIRM THIS STEP</button>
    <button id="homeNext" disabled>NEXT STEP</button>
    <button id="homeSkip" class="secondary" disabled>MARK NOT VERIFIED</button>
    <button id="homeFinish" class="danger" disabled>END &amp; DELETE TEMP DATA</button>
   </div>
   <div class="notice" id="homeSummary">PASS describes only the check performed, not the entire rocket's flight readiness.</div>
+  <div class="notice" id="homeAutoStatus" role="status" aria-live="polite">One-button mode performs measurable checks automatically. Physical checks require separate inspection; missing receiver evidence is NOT VERIFIED.</div>
   <button id="homeReport" class="secondary" disabled>DOWNLOAD JSON TEST REPORT</button>
  </div>
 
@@ -2307,7 +2309,7 @@ const steps=[
  {title:"8. Temporary 50 Hz recording + Wi-Fi disconnect",guide:"Press Run for 30 seconds of real pressure samples. Briefly disconnect PHONE Wi-Fi for at least five seconds, rejoin GREEN-ION-V13 and watch the result. Do not remove Feather power. The test verifies the RKT4 data and deletes /GIHOME.BIN.",kind:"record"},
  {title:"9. Final physical readiness review",guide:"Check the payload's secure mount, balance and recovery clearance for Green Eggs and So Long separately. RF range, hardware power-loss recovery, OTA/rollback, launch and landing detection, and flight conditions are NOT tested by this routine.",kind:"manual",confirm:"I reviewed remaining physical and range tests; I understand bench PASS is not flight approval."}
 ];
-let active=false,step=-1,busy=false,pending="",results={},evidence=[],radioStarted=false,message="";
+let active=false,step=-1,busy=false,pending="",results={},evidence=[],radioStarted=false,message="",autoRunning=false;
 const here=()=>steps[step];
 const setMessage=text=>{message=text;node("homeInstructions").textContent=text;};
 async function request(path,method="GET"){
@@ -2319,6 +2321,7 @@ async function request(path,method="GET"){
 function paint(){
  const item=here();
  node("homeStart").disabled=active||busy;
+ node("homeAuto").disabled=active||busy||autoRunning;
  node("homeRun").disabled=!active||busy||!item||pending==="imu"||pending==="gps"||pending==="record";
  node("homeNext").disabled=!active||busy||!Object.prototype.hasOwnProperty.call(results,step);
  node("homeSkip").disabled=!active||busy||!item||pending==="record";
@@ -2498,7 +2501,72 @@ function report(){
  a.href=url;a.download="green-ion-home-verification.json";a.click();
  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
+// One-button preflight reuses firmware's real test endpoints and stored evidence.
+// It never self-confirms physical work or receiver packets that were not seen.
+async function autoPreflight(){
+ if(active||busy||autoRunning)return;
+ if(!confirm("BENCH PREFLIGHT: remove every rocket motor, secure the payload, attach both LoRa antennas and power safely. Automated checks take about one minute. Physical inspections are NOT automatically approved. Start?"))return;
+ autoRunning=true;
+ const feedback=value=>node("homeAutoStatus").textContent=value;
+ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+ async function awaitStep(index,deadlineMs){
+  const until=Date.now()+deadlineMs;
+  while(Date.now()<until){
+   if(!active)throw Error("Home test session ended unexpectedly");
+   if(Object.prototype.hasOwnProperty.call(results,index))return results[index];
+   await sleep(600);
+  }
+  throw Error("Timed out at "+steps[index].title+". Use guided checks to diagnose it");
+ }
+ try{
+  feedback("Preparing real Feather bench session...");
+  await start();
+  if(!active)throw Error("Firmware did not start home verification");
+  for(let index=0;index<steps.length;index++){
+   if(!active||step!==index)throw Error("Test step changed or was cancelled");
+   const item=steps[index];
+   feedback("Checking "+(index+1)+"/"+steps.length+": "+item.title);
+   if(item.kind==="manual"){
+    await skip(); // No fabricated confirmation of physical checks.
+   }else if(item.kind==="radio"){
+    const evidenceStart=Number(window.GREEN_ION_RADIO_EVIDENCE?.benchCount||0);
+    await run(); // Queues five real Feather RF packets, never radio commands.
+    let sent=false,received=false;
+    for(let n=0;n<24;n++){
+     const st=await request("status");
+     sent=Number(st.home_radio_sent)>=5 && Number(st.home_radio_remaining)===0 &&
+       Number(st.home_radio_failures)===0;
+     received=Number(window.GREEN_ION_RADIO_EVIDENCE?.benchCount||0)-evidenceStart>=5;
+     if(sent&&received)break;
+     await sleep(600);
+    }
+    if(sent&&received){
+     node("homeConfirm").checked=true;
+     await run(); // Firmware checks the five transmitter packets too.
+    }else{
+     await skip();
+     feedback("LoRa transmitter/Uno reception not jointly verified; recorded as NOT VERIFIED.");
+    }
+   }else{
+    await run();
+   }
+   await awaitStep(index,item.kind==="record"?60000:30000);
+   if(index<steps.length-1)next();
+  }
+  await finish();
+  const counts=Object.values(results);
+  const fails=counts.filter(v=>v==="FAIL").length;
+  const unverified=counts.filter(v=>v!=="PASS"&&v!=="CONFIRMED").length;
+  feedback(fails?"NOT READY: "+fails+" measured check(s) failed. Inspect the report.":unverified?
+    "CAUTION: measured checks completed, but "+unverified+" physical/receiver checks remain unverified. Check the report and complete guided inspections.":
+    "MEASURED CHECKS PASS. Complete separate mechanical, range, battery and launch safety verification; software is not flight authorization.");
+ }catch(error){
+  feedback("AUTOMATED PREFLIGHT INCOMPLETE: "+error.message+". Finish/exit the home session before launch.");
+  if(active)try{await finish();}catch{/* never claim cleanup succeeded */}
+ }finally{autoRunning=false;paint();}
+}
 node("homeStart").onclick=start;
+node("homeAuto").onclick=autoPreflight;
 node("homeRun").onclick=run;
 node("homeNext").onclick=next;
 node("homeSkip").onclick=skip;
