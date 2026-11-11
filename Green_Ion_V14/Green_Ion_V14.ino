@@ -686,6 +686,7 @@ static void serviceGps(uint32_t nowMs) {
   state.gpsMinute = gps.minute;
   state.gpsSecond = gps.seconds;
   state.gpsFixCurrent = gps.fix;
+  state.gpsFixQuality = gps.fixquality;
   if (state.gpsFixCurrent) {
     state.gpsHasPosition = true;
     state.lastGpsFixMs = nowMs;
@@ -693,6 +694,10 @@ static void serviceGps(uint32_t nowMs) {
     state.longitude = gps.longitudeDegrees;
     state.gpsAltitudeM = gps.altitude;
     state.gpsSpeedMps = gps.speed * 0.514444f;
+    state.gpsCourseDeg = isfinite(gps.angle) && state.gpsSpeedMps >= 0.75f
+                             ? gps.angle : NAN;  // Unreliable when stationary
+    state.gpsHdop = isfinite(gps.HDOP) && gps.HDOP > 0.0f ? gps.HDOP : NAN;
+    state.gpsGeoidSeparationM = isfinite(gps.geoidheight) ? gps.geoidheight : NAN;
   }
 }
 
@@ -1676,6 +1681,10 @@ static void sendDashboardStatus() {
   body += state.gpsHasPosition ? String(state.longitude, 7) : String("null");
   body += ",\"gps_altitude_m\":" + numberOrNull(state.gpsAltitudeM, 2);
   body += ",\"gps_speed_mps\":" + numberOrNull(state.gpsSpeedMps, 2);
+  body += ",\"gps_course_deg\":" + numberOrNull(state.gpsCourseDeg, 1);
+  body += ",\"gps_hdop\":" + numberOrNull(state.gpsHdop, 2);
+  body += ",\"gps_geoid_separation_m\":" + numberOrNull(state.gpsGeoidSeparationM, 2);
+  body += ",\"gps_fix_quality\":" + String(state.gpsFixQuality);
   body += ",\"gps_utc_hour\":" + String(state.gpsHour);
   body += ",\"gps_utc_minute\":" + String(state.gpsMinute);
   body += ",\"gps_utc_second\":" + String(state.gpsSecond);

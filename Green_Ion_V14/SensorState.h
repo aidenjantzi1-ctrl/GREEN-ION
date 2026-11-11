@@ -40,6 +40,11 @@ struct SensorState {
   double longitude = 0.0;
   float gpsAltitudeM = NAN;
   float gpsSpeedMps = NAN;
+  float gpsCourseDeg = NAN;       // RMC ground-track course, not a compass heading
+  float gpsHdop = NAN;            // Horizontal dilution of precision, not meter accuracy
+  float gpsGeoidSeparationM = NAN;// GGA geoid/WGS84 separation
+  uint8_t gpsFixQuality = 0;     // GGA reported fix quality
+
   uint8_t satellites = 0;
   uint8_t gpsHour = 0;
   uint8_t gpsMinute = 0;

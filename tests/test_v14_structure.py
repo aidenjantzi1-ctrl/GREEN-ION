@@ -98,6 +98,13 @@ class V14ImplementationTests(unittest.TestCase):
   self.assertIn("db.transaction([TABLE,META]",store)
   for name in ("v14_app.mjs","v14_analysis.mjs","v14_sensor_history.mjs","v14_cloud.mjs"):
    self.assertIn("listLocalMetadata", (WEB/name).read_text())
+ def test_expanded_gps_without_claiming_compass(self):
+  for key in ("gps_course_deg","gps_hdop","gps_fix_quality","gps_geoid_separation_m"):
+   self.assertIn(key,FIRMWARE)
+   self.assertIn(key,(WEB/"v14_sensor_catalog.mjs").read_text())
+  self.assertIn("state.gpsSpeedMps >= 0.75f",FIRMWARE)
+  self.assertIn("gps.fixquality",FIRMWARE)
+  self.assertIn("gps.HDOP",FIRMWARE)
  def test_windows_usb_remains_receive_only(self):
   receiver=(WEB/"v14_serial.mjs").read_text()
   self.assertIn("navigator.serial.requestPort",receiver)
