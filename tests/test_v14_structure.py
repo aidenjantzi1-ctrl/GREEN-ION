@@ -33,6 +33,7 @@ class V14ImplementationTests(unittest.TestCase):
   self.assertNotIn("service_role",cloud)
   updates=(WEB/"v14_updates.mjs").read_text()
   self.assertIn("v14DownloadUpdate",updates)
+  self.assertIn("green-ion-v14-last-notified-release",updates)
   self.assertIn("v14UpdateLater",updates)
   self.assertNotIn("window.location.reload()",updates)
  def test_offline_flight_analysis_and_comparison(self):

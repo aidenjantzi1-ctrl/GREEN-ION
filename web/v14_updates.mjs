@@ -7,16 +7,24 @@ function releaseList(payload){
  return Array.isArray(payload)?payload.filter(r=>!r.draft && /^v14\./.test(r.tag_name||"") && !!assetForRelease(r))
    .sort((a,b)=>compareVersions(b.tag_name,a.tag_name)||0):[];
 }
+// Notify once per published release, including firmware releases where the
+// website was automatically deployed before the user visited.
+const notifiedKey="green-ion-v14-last-notified-release";
+let notifiedInSession=null;
 function releaseReady(release){
  if(!release)return false;
- const appNewer=compareVersions(release.tag_name,APP_VERSION)===1;
- const featherVersion=t.state.wifiVersion;
- const featherNewer=featherVersion!=null && Number(featherVersion)<14;
- return appNewer||featherNewer;
+ // Avoid showing older artifacts during the brief period between a new
+ // website deployment and the publication of its matching GitHub release.
+ if(compareVersions(release.tag_name,APP_VERSION)<0)return false;
+ let previouslyNotified=notifiedInSession;
+ try{previouslyNotified=previouslyNotified||localStorage.getItem(notifiedKey);}catch{}
+ return !previouslyNotified||compareVersions(release.tag_name,previouslyNotified)>0;
 }
 function showUpdate(release){
  const asset=assetForRelease(release);if(!asset)return;
  active={release,asset};
+ notifiedInSession=release.tag_name;
+ try{localStorage.setItem(notifiedKey,release.tag_name);}catch{}
  setText("v14AvailableVersion",release.tag_name);
  setText("v14AvailableAsset",asset.name);
  el("v14UpdateDialog").hidden=false;
