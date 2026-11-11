@@ -3,7 +3,7 @@
 import {getLocalFile,listLocalMetadata,saveLocalFile,digest} from "./v14_store.mjs";
 const t=window.GREEN_ION_TRANSPORT;
 const $=id=>document.getElementById(id);
-let mirroring=new Set(),reconciling=false;
+let mirroring=new Set(),reconciling=false,backlogOffset=0;
 function note(msg){if($("v15LocalStatus"))$("v15LocalStatus").textContent=msg;}
 export async function mirrorFile(key){
  if(!t.localBridge||mirroring.has(key))return;
@@ -50,6 +50,13 @@ export async function reconcileLocal({limit=6}={}){
  }catch(e){note("PC archive sync deferred: "+e.message);}
  finally{reconciling=false;}
 }
+async function mirrorBacklog(){
+ if(!t.localBridge)return;
+ const files=await listLocalMetadata();
+ if(backlogOffset>=files.length)return;
+ for(const item of files.slice(backlogOffset,backlogOffset+4))await mirrorFile(item.key);
+ backlogOffset+=4;
+}
 export function initLocalArchive(){
  if(!t.localBridge){
   note("Browser storage active. For automatic Windows disk copies, launch OPEN_GROUND_STATION.cmd.");
@@ -58,5 +65,7 @@ export function initLocalArchive(){
  window.addEventListener("green-ion-flight-saved",e=>mirrorFile(e.detail?.key).catch(()=>{}));
  $("v15LocalRestore").onclick=()=>reconcileLocal({limit:50});
  reconcileLocal().catch(()=>{});
+ setTimeout(()=>mirrorBacklog().catch(()=>{}),2500);
+ setInterval(()=>mirrorBacklog().catch(()=>{}),12000);
  setInterval(()=>reconcileLocal().catch(()=>{}),30000);
 }
