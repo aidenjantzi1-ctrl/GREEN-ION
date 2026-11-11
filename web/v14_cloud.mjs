@@ -1,4 +1,4 @@
-/* Supabase Auth + RLS-protected private backup. No service_role key in browser. */
+/* Supabase Auth + RLS-protected private backup. Uses only a public project key and user-scoped JWTs. */
 import {listLocalFiles,saveLocalFile,digest} from "./v14_store.mjs";
 import {safeFileName,fileKind} from "./v14_utils.mjs";
 const cfg=window.GREEN_ION_CONFIG||{};

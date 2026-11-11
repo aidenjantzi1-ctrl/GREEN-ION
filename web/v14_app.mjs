@@ -11,9 +11,9 @@ function formatAge(ms){return ms==null?"--":ms<1000?Math.round(ms)+" ms":(ms/100
 function mode(){
  const source=t.source(),packet=t.state.radio;
  const wifi=source==="wifi";
- text("v14WifiStatus","Feather Wi-Fi: "+(wifi?"LIVE":"NOT VERIFIED"));
- text("v14LoraStatus","Uno/LoRa: "+(t.radioFresh()?"RECEIVING":"NO LIVE PACKETS"));
- text("v14SourceStatus","Active source: "+(source==="wifi"?"FEATHER WI-FI":source==="lora"?"RECEIVE-ONLY LORA":"OFFLINE"));
+ for(const id of ["v14WifiStatus","v14WifiStatusDetail"])text(id,"Feather Wi-Fi: "+(wifi?"LIVE":"NOT VERIFIED"));
+ for(const id of ["v14LoraStatus","v14LoraStatusDetail"])text(id,"Uno/LoRa: "+(t.radioFresh()?"RECEIVING":"NO LIVE PACKETS"));
+ for(const id of ["v14SourceStatus","v14SourceStatusDetail"])text(id,"Active source: "+(source==="wifi"?"FEATHER WI-FI":source==="lora"?"RECEIVE-ONLY LORA":"OFFLINE"));
  text("v14PacketStatus","Radio age: "+formatAge(t.state.radioAt?Date.now()-t.state.radioAt:null)+" · RSSI: "+(packet?.rssi_dbm??"--")+" dBm");
  const pos=t.lastPosition(),age=t.positionAge();
  text("v14GpsStatus",pos?"Last valid GPS: "+pos[0].toFixed(6)+", "+pos[1].toFixed(6)+" · "+formatAge(age)+" old":"Last valid GPS: not received");

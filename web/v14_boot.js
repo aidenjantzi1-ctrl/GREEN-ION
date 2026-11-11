@@ -74,7 +74,7 @@ async function interceptedFetch(input, options){
       );
       if(verified && data.v13_source!=="lora" && data.v13_source!=="demo"){
         state.wifiAt=Date.now();
-        state.wifiVersion=data.version??null;
+        state.wifiVersion=Number(data.version??13);
       }else{
         state.wifiAt=0;
       }
