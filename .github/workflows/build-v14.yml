@@ -1,0 +1,154 @@
+name: GREEN ION V14 - verify, compile and release
+on:
+  push:
+    branches: [main, "v14/**"]
+    paths:
+      - "web/**"
+      - "Green_Ion_V14/**"
+      - "Ground_Receiver/**"
+      - "libraries/**"
+      - "tests/**"
+      - ".github/workflows/build-v14.yml"
+      - "docs/V14_*"
+      - "README.md"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SUPABASE_URL: https://bqvvtbnjthbiqyljmzfx.supabase.co
+  SUPABASE_PUBLISHABLE_KEY: sb_publishable_m8GYtLRB9LKT2bPzxVMESA_yhlgIAZR
+
+jobs:
+  app-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python regression suite
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Node browser tests
+        run: node --test tests/v14_browser.test.mjs
+      - name: JavaScript syntax verification
+        run: |
+          for f in web/*.mjs web/v14_boot.js web/service-worker.js web/build.mjs; do
+            node --check "$f"
+          done
+          node --check Ground_Station/v13_unified.js
+      - name: Build the installable blue website
+        run: node web/build.mjs
+      - name: Validate hosted site assets
+        run: |
+          test -s web/dist/index.html
+          test -s web/dist/config.js
+          test -s web/dist/service-worker.js
+          grep -q 'data-tab="testing"' web/dist/index.html
+          grep -q 'data-tab="cloud"' web/dist/index.html
+          grep -q 'data-tab="updates"' web/dist/index.html
+          grep -q 'GREEN ION V14' web/dist/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: green-ion-v14-web
+          path: web/dist/
+          if-no-files-found: error
+
+  firmware-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Install board cores
+        run: |
+          arduino-cli config init
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install arduino:avr
+      - name: Install required firmware libraries
+        run: |
+          arduino-cli lib install "Adafruit BMP3XX Library"
+          arduino-cli lib install "Adafruit LSM6DS"
+          arduino-cli lib install "Adafruit GPS Library"
+          arduino-cli lib install "RadioHead"
+      - name: Compile Feather ESP32 V2 from source
+        run: arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --library libraries/GreenIonProtocol --library libraries/GreenIonRecorder --output-dir build/feather Green_Ion_V14
+      - name: Compile Arduino Uno receiver from source
+        run: arduino-cli compile --fqbn arduino:avr:uno --library libraries/GreenIonProtocol --output-dir build/uno Ground_Receiver
+      - uses: actions/upload-artifact@v4
+        with:
+          name: green-ion-v14-firmware
+          path: |
+            build/feather/*.bin
+            build/uno/*.hex
+          if-no-files-found: error
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [app-tests, firmware-build]
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: green-ion-v14-firmware
+          path: build
+      - uses: actions/download-artifact@v4
+        with:
+          name: green-ion-v14-web
+          path: built-web
+      - name: Assemble one download and SHA256 manifest
+        run: |
+          python3 - <<'PY'
+          import json,hashlib,shutil
+          from pathlib import Path
+          from zipfile import ZipFile,ZIP_DEFLATED
+          release=Path("release");release.mkdir(exist_ok=True)
+          folder=Path("release-package/GREEN_ION_V14");folder.mkdir(parents=True,exist_ok=True)
+          shutil.copytree("built-web",folder/"Website",dirs_exist_ok=True)
+          shutil.copytree("Green_Ion_V14",folder/"Feather_Firmware/Green_Ion_V14")
+          shutil.copytree("Ground_Receiver",folder/"Uno_Receiver/Ground_Receiver")
+          shutil.copytree("libraries/GreenIonProtocol",folder/"Arduino_Libraries/GreenIonProtocol")
+          shutil.copytree("libraries/GreenIonRecorder",folder/"Arduino_Libraries/GreenIonRecorder")
+          shutil.copytree("Ground_Station",folder/"Windows_V13_Bridge",ignore=shutil.ignore_patterns("logs","__pycache__"))
+          shutil.copy2("docs/V14_START_HERE.md",folder/"START_HERE.md")
+          feather=list(Path("build").rglob("Green_Ion_V14.ino.bin"))
+          uno=list(Path("build").rglob("Ground_Receiver.ino.hex"))
+          if len(feather)!=1 or len(uno)!=1:raise SystemExit("Required compiled firmware missing")
+          (folder/"READY_TO_UPLOAD").mkdir(parents=True)
+          for origin in (feather[0],uno[0]):
+            shutil.copy2(origin,folder/"READY_TO_UPLOAD"/origin.name)
+            shutil.copy2(origin,release/origin.name)
+          zipfile=release/"GREEN_ION_V14_COMPLETE.zip"
+          with ZipFile(zipfile,"w",ZIP_DEFLATED,compresslevel=7) as z:
+            for file in sorted(folder.rglob("*")):
+              if file.is_file():z.write(file,file.relative_to(folder.parent))
+          manifest={"version":"v14.0.0-beta.1","board":"Adafruit Feather ESP32 V2","firmwareFormat":"ESP32 .ino.bin app image",
+            "artifacts":{f.name:{"sha256":hashlib.sha256(f.read_bytes()).hexdigest(),"size":f.stat().st_size}
+              for f in [zipfile,release/feather[0].name,release/uno[0].name]}}
+          (release/"SHA256_MANIFEST.json").write_text(json.dumps(manifest,indent=2)+"\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GREEN_ION_V14_COMPLETE
+          path: |
+            release/GREEN_ION_V14_COMPLETE.zip
+            release/Green_Ion_V14.ino.bin
+            release/Ground_Receiver.ino.hex
+            release/SHA256_MANIFEST.json
+          if-no-files-found: error
+      - name: Publish V14 beta release after successful tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view v14.0.0-beta.1 >/dev/null 2>&1; then
+            gh release create v14.0.0-beta.1 release/* \
+              --target "$GITHUB_SHA" --title "GREEN ION V14 beta 1 — unified blue website" \
+              --notes "Offline PWA, desktop Uno/LoRa, private Supabase backups, Github update prompt and V14 Feather firmware. SOFTWARE BETA; physical hardware, browser local-network and OTA validation still required." \
+              --prerelease
+          else
+            echo "V14 beta 1 already exists; use the newest successful Actions artifact for subsequent changes."
+          fi
