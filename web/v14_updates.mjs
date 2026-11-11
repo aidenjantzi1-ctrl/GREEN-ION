@@ -93,7 +93,16 @@ async function installReleaseOnFeather(){
   // A download click never silently flashes. Reconfirmation occurs immediately before
   // maintenance and upload in the existing Feather updater.
   feedback("Retrieving official Feather firmware and SHA-256 manifest from GitHub...");
-  const bytes=await verifiedFirmwareBytes(choice.release,t.nativeFetch,crypto.subtle);
+  // Vercel relays only named official release assets to avoid GitHub CDN CORS.
+  // It never proxies commands to the Feather; OTA still requires local Wi-Fi.
+  const relay=async(url,options)=>{
+   const name=url===pkg.image.browser_download_url?pkg.image.name:
+    url===pkg.manifest.browser_download_url?pkg.manifest.name:null;
+   if(!name)throw Error("Refusing unknown release asset");
+   const endpoint="/api/firmware?tag="+encodeURIComponent(choice.release.tag_name)+"&name="+encodeURIComponent(name);
+   return t.nativeFetch(endpoint,options);
+  };
+  const bytes=await verifiedFirmwareBytes(choice.release,relay,crypto.subtle);
   feedback("Verified "+bytes.byteLength+" bytes against the official SHA-256 manifest. Rechecking Feather...");
   await currentFeatherStatus();
   const file=new File([bytes],pkg.image.name,{type:"application/octet-stream"});
