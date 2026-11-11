@@ -1917,7 +1917,8 @@ function v12Render(d){
  v12Set('connection',d.v13_source==='lora'?'● LORA TRACKING':d.v13_source==='demo'?'● DEMO DATA':'● V13 WI-FI ONLINE');$('connection').style.color=d.v13_source==='lora'?'#ffdd88':'#72e5ab';
  const altitude=d.relative_altitude_m,pressure=d.pressure_pa,battery=Number(d.battery_v);
  const batteryPct=Math.max(0,Math.min(100,(battery-3.3)/(4.2-3.3)*100));
- const phase=v12FlightNames[Number(d.recorder_mode)]||'UNKNOWN';
+ const v13RadioPhases=['BOOT','IDLE','ARMED','ASCENT','COAST','DESCENT','LANDED','RECOVERY'];
+ const phase=(d.v13_source==='lora'||d.v13_source==='demo')?'LoRa: '+(v13RadioPhases[Number(d.flight_state)]||'UNKNOWN'):(v12FlightNames[Number(d.recorder_mode)]||'UNKNOWN');
   v12Set('altitude',v12Number(imperial&&v12Finite(altitude)?Number(altitude)*3.28084:altitude,2)+(imperial?' ft':' m'));v12Set('altitudeNote','Barometric altitude from calibrated BMP388');
   v12Set('pressure',v12Number(imperial&&v12Finite(pressure)?Number(pressure)/3386.389:pressure,imperial?3:0)+(imperial?' inHg':' Pa'));v12Set('psi',v12Finite(pressure)?(Number(pressure)/6894.757).toFixed(3)+' PSI absolute':'--');
   v12Set('temperature',v12Number(imperial&&v12Finite(d.imu_temperature_c)?Number(d.imu_temperature_c)*9/5+32:d.imu_temperature_c,1)+(imperial?' °F IMU':' °C IMU'));
@@ -1926,7 +1927,7 @@ function v12Render(d){
  v12Set('flightState',phase);v12Set('flightPhase',phase);v12Set('missionIdentity',(d.selected_rocket||'V13 recorder')+(d.selected_motor?' · '+d.selected_motor:''));
  v12Set('prebufferStatus',String(d.prebuffer_records||0)+' buffered records');
  v12Set('prepareStatus',d.home_test_active?'Home verification: launch watching is OFF until end and recalibration.':d.maintenance_mode?'Firmware maintenance: launch watching is disabled until exit and calibration.':d.recording?'Flight logging is active. Dashboard loss cannot stop recording.':'V13 calibrates and watches for launch automatically after boot.');
- v12Set('feedback',d.recording?'Recording '+(d.log_file||'RKT4 file'):'Recorder is '+phase.toLowerCase()+'.');
+ v12Set('feedback',d.v13_source==='lora'?'Received LoRa telemetry only; SD recorder status is unknown until Wi-Fi returns.':d.v13_source==='demo'?'SIMULATED telemetry; not real hardware.':d.recording?'Recording '+(d.log_file||'RKT4 file'):'Recorder is '+phase.toLowerCase()+'.');
  v12Set('preflightScore',d.preflight_state||'CHECK');
  if(d.home_interrupted)v12Set('homeInstructions','Previous home session was interrupted. Start a fresh session to clean temporary data and recheck.');
  v12Set('preflightDetail',v12PreflightDetails(d));
