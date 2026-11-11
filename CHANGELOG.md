@@ -1,3 +1,15 @@
+# V15 local-first software candidate — November 11, 2026
+
+- Implemented one-button automatic real-sensor bench preflight, with no fabricated physical confirmations.
+- Added blue Recovery tab with observed GPS fixes, source/freshness, offline schematic and map navigation.
+- Added local Web Worker advanced RKT4/GIS1 flight analysis and automatic integrity-aware health reports.
+- Served the current blue PWA on the Windows loopback ground station; mirrored immutable finished flight files into a SHA-256-verified computer archive; preserved existing Uno/Feather parallel links.
+- Added battery endurance planning (requires tested battery capacity and measured current), receiver-side LoRa link metrics and offline searchable Help Assistant.
+- Retained automatic opt-in Supabase backup retry when internet is available and account is signed in.
+- **No changes to Feather/Uno firmware or RKT4/GIS1 formats.** Actual launch, RF range, battery, OTA and physical hardware tests pending. 3D flight and digital twin remain planned only.
+
+---
+
 # V14.0.0-beta.4 — Responsive sensors, private sync and organized documentation
 
 - Retained original blue tabs and classic flight workflow, with device-width adaptive CSS, optional compact and imperial modes.
