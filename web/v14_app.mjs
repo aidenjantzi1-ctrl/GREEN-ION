@@ -2,6 +2,7 @@ import {connectSerial,disconnectSerial,serialSupported} from "./v14_serial.mjs";
 import {saveLocalFile,listLocalFiles,hasLocalName,downloadFile,exportArchive,restoreArchive,importLegacyHistory} from "./v14_store.mjs";
 import {initCloud,backupNow} from "./v14_cloud.mjs";
 import {initUpdates,checkUpdates} from "./v14_updates.mjs";
+import {initHistoryAnalysis,refreshHistoryAnalysis} from "./v14_analysis.mjs";
 import {APP_VERSION} from "./v14_utils.mjs";
 const $=id=>document.getElementById(id),t=window.GREEN_ION_TRANSPORT;
 let importing=false,lastAutoImport=0,lastRadioAt=0,radioPackets=[];
@@ -40,6 +41,7 @@ function guardLiveControls(event){
  }
 }
 async function renderHistory(){
+ await refreshHistoryAnalysis();
  const target=$("v14HistoryList");target.replaceChildren();
  try{
   const items=(await listLocalFiles()).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
@@ -163,7 +165,7 @@ async function init(){
   }
   mode();
  });
- initCloud();initUpdates();
+ initHistoryAnalysis();initCloud();initUpdates();
  try{const n=await importLegacyHistory();if(n)text("v14HistoryNotice","Imported "+n+" older V11-V13 recordings into V14 storage.");}
  catch{/* historical DB may not exist */}
  await renderHistory();mode();

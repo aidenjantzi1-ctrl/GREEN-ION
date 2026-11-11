@@ -15,7 +15,7 @@ class V14ImplementationTests(unittest.TestCase):
    self.assertIn('id="'+id+'"',PAGE,id)
  def test_v14_installable_assets(self):
   for name in ("build.mjs","v14_boot.js","v14_app.mjs","v14_cloud.mjs","v14_serial.mjs",
-    "v14_updates.mjs","v14_store.mjs","v14_utils.mjs","service-worker.js","manifest.webmanifest"):
+    "v14_updates.mjs","v14_store.mjs","v14_analysis.mjs","v14_utils.mjs","service-worker.js","manifest.webmanifest"):
    self.assertTrue((WEB/name).is_file(),name)
   worker=(WEB/"service-worker.js").read_text()
   self.assertIn('url.pathname.startsWith("/api/")',worker)
@@ -33,8 +33,18 @@ class V14ImplementationTests(unittest.TestCase):
   self.assertNotIn("service_role",cloud)
   updates=(WEB/"v14_updates.mjs").read_text()
   self.assertIn("v14DownloadUpdate",updates)
+  self.assertIn("green-ion-v14-last-notified-release",updates)
   self.assertIn("v14UpdateLater",updates)
   self.assertNotIn("window.location.reload()",updates)
+ def test_offline_flight_analysis_and_comparison(self):
+  self.assertIn('id="v14OfflineAnalysisCard"',PAGE)
+  self.assertIn('id="v14AnalysisCanvas"',PAGE)
+  self.assertIn('id="v14CompareFlight"',PAGE)
+  self.assertIn('id="v14ExportCsv"',PAGE)
+  self.assertIn('id="v14PrintReport"',PAGE)
+  module=(WEB/"v14_analysis.mjs").read_text(encoding="utf-8")
+  self.assertIn("analysis-worker.mjs",module)
+  self.assertIn("refreshHistoryAnalysis",module)
  def test_windows_usb_remains_receive_only(self):
   receiver=(WEB/"v14_serial.mjs").read_text()
   self.assertIn("navigator.serial.requestPort",receiver)
