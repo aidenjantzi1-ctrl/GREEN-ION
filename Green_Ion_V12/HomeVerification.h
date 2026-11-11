@@ -188,25 +188,36 @@ static void homeStart() {
   if (recorderMode == RECORDER_CALIBRATING) {
     homeReply(409, false, "Keep Feather stationary until calibration completes"); return;
   }
+  // Stop launch detection BEFORE SD cleanup or NVS writes can block the
+  // sample loop. On any setup failure, restart calibration rather than
+  // silently resuming an old watcher state.
+  flightWatcher.cancel();
+  recorderMode = RECORDER_HOME_TEST;
+  recorderCore.resetBuffer();
   if (state.sdOk) {
     digitalWrite(config::PIN_LORA_CS, HIGH);
     if (SD.exists(HOME_TEST_PATH) && !SD.remove(HOME_TEST_PATH)) {
+      orphanHomeFile = true;
+      resetCalibration(millis());
       homeReply(500, false, "Unable to clean up prior interrupted home test"); return;
     }
   }
   Preferences prefs;
-  if (!prefs.begin("giohome", false)) { homeReply(500, false, "Home session NVS unavailable"); return; }
+  if (!prefs.begin("giohome", false)) {
+    resetCalibration(millis());
+    homeReply(500, false, "Home session NVS unavailable"); return;
+  }
   uint8_t clean[sizeof(homeStepStatuses)] = {};
   const bool stored = prefs.putBytes("steps", clean, sizeof(clean)) == sizeof(clean) &&
                       prefs.putBool("active", true);
   prefs.end();
-  if (!stored) { homeReply(500, false, "Home session NVS save failed"); return; }
+  if (!stored) {
+    resetCalibration(millis());
+    homeReply(500, false, "Home session NVS save failed"); return;
+  }
   memcpy(homeStepStatuses, clean, sizeof(clean));
   homeInterrupted = false; orphanHomeFile = false; homeSdVerified = false;
   homeImuTestStarted = false; homeGpsTestStarted = false;
-  flightWatcher.cancel();
-  recorderCore.resetBuffer();
-  recorderMode = RECORDER_HOME_TEST;
   flightState = green_ion::STATE_IDLE;
   homeLogActive = homeWifiSeen = homeWifiAbsent = false;
   homeCleanupOk = true; homeResult = 0;
