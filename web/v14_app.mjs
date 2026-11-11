@@ -5,6 +5,12 @@ import {initUpdates,checkUpdates} from "./v14_updates.mjs";
 import {initHistoryAnalysis,refreshHistoryAnalysis} from "./v14_analysis.mjs";
 import {initSensorHistory,refreshSensorHistory} from "./v14_sensor_history.mjs";
 import {APP_VERSION} from "./v14_utils.mjs";
+import {initRecovery} from "./v15_recovery.mjs";
+import {initAdvanced} from "./v15_advanced.mjs";
+import {initLocalArchive} from "./v15_local.mjs";
+import {initBattery} from "./v15_battery.mjs";
+import {initLink} from "./v15_link.mjs";
+import {initHelp} from "./v15_help.mjs";
 import {initPreferences} from "./v14_preferences.mjs";
 import {initSensorLab} from "./v14_sensor_lab.mjs";
 import {requiresFeather,initTabs} from "./v14_ui.mjs";
@@ -161,7 +167,7 @@ function renderBrowserInfo(){
   "Web Serial is unavailable in this browser. Feather Wi-Fi and saved files still work.");
 }
 async function init(){
- document.querySelector("header small").textContent="Flight logger · V14 unified offline dashboard";
+ document.querySelector("header small").textContent="Flight logger · V15 local-first operations";
  text("v14AppBuild","Website "+APP_VERSION+" · Feather firmware may be V13 until updated");
  renderBrowserInfo();
  initPreferences();
@@ -194,7 +200,7 @@ async function init(){
   }
   mode();
  });
- initHistoryAnalysis();initSensorHistory();initCloud();initUpdates();
+ initHistoryAnalysis();initSensorHistory();initRecovery();initLink();initBattery();initLocalArchive();initAdvanced();initHelp();initCloud();initUpdates();
  try{const n=await importLegacyHistory();if(n)text("v14HistoryNotice","Imported "+n+" older V11-V13 recordings into V14 storage.");}
  catch{/* historical DB may not exist */}
  await renderHistory();mode();
