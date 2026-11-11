@@ -131,3 +131,8 @@ body[data-compact="true"] .page .actions{gap:7px;}
 #v14SensorArchiveCard .actions button{min-width:0;}
 @media(min-width:900px){#v14SensorArchiveCard{column-span:all;display:block!important;}}
 @container(max-width:420px){#v14SensorArchiveCard .actions{grid-template-columns:minmax(0,1fr);}}
+
+/* V15 additions preserve the existing dark-blue palette and card layout. */
+#v15RecoveryTrack{max-width:100%;height:auto;border-radius:8px}
+.v15-help-highlight{outline:3px solid #7bdbff;outline-offset:4px;transition:outline-color .3s}
+#v15HelpResults>.card{margin-block:12px}
