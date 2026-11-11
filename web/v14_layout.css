@@ -1,0 +1,94 @@
+/* V14.0.0-beta.3 layout: preserve V11/V13 dark-blue visual language. */
+:root { color-scheme:dark; }
+body.sunlight { color-scheme:light; }
+main { width:100%; min-width:0; }
+main > header, main > .tabs, main > .v14-link-panel { max-width:100%; }
+.tabs {
+ position:sticky; top:0; z-index:25;
+ display:flex; align-items:center; flex-wrap:nowrap;
+ gap:7px; overflow-x:auto; overflow-y:hidden;
+ padding:9px 1px 11px; margin-bottom:14px;
+ background:var(--bg);
+ scrollbar-width:thin; -webkit-overflow-scrolling:touch;
+ scroll-snap-type:x proximity;
+}
+.tabs button {
+ flex:0 0 auto; min-width:92px; width:auto; max-width:none;
+ white-space:nowrap; min-height:44px; padding:9px 13px;
+ border:1px solid var(--line); border-radius:10px;
+ scroll-snap-align:start;
+}
+.tabs button.active,
+.tabs button[aria-selected="true"] {
+ border-color:var(--blue);
+ box-shadow:inset 0 -3px 0 var(--blue);
+}
+.tabs button:focus-visible {outline:3px solid var(--green);outline-offset:-3px;}
+.page,.page * {min-width:0;}
+.page .card, .page .metric { overflow-wrap:break-word; }
+.page .card {margin-bottom:14px;}
+.page .card > :first-child {margin-top:0;}
+.page .card > :last-child {margin-bottom:0;}
+.page label {max-width:100%; overflow-wrap:anywhere;}
+.page input, .page select, .page button {max-width:100%;}
+.page .actions {align-items:start;}
+.page .actions > button, .page .actions > a {min-width:0;white-space:normal;}
+.page canvas {display:block;max-width:100%;height:auto;min-height:160px;}
+.page .row {align-items:flex-start;gap:12px;}
+.page .row strong {min-width:0;overflow-wrap:anywhere;max-width:62%;}
+.v14-link-panel {
+ display:flex; align-items:center; flex-wrap:wrap; column-gap:14px; row-gap:4px;
+ margin:0 0 14px; padding:11px 14px;
+}
+.v14-link-panel strong {margin:0;font-size:12px;line-height:1.5;}
+.v14-link-panel p {flex:1 1 100%;margin:0;line-height:1.45;font-size:12px;}
+#v14AnalysisCanvas {width:100%;height:auto;min-height:0;aspect-ratio:920/300;}
+#v14OfflineAnalysisCard {overflow:hidden;}
+#v14OfflineAnalysisCard .actions {grid-template-columns:repeat(2,minmax(0,1fr));}
+.v14-update-card {max-height:min(90dvh,760px);overflow-y:auto;}
+@media (min-width:900px) {
+ /* CSS grid created empty horizontal bands beneath shorter cards. Newspaper
+    columns independently stack cards, removing those visible dead spaces. */
+ #status.page.active, #flight.page.active, #field.page.active,
+ #testing.page.active, #utilities.page.active, #storage.page.active,
+ #system.page.active, #connections.page.active, #history.page.active,
+ #cloud.page.active, #updates.page.active {
+  display:block; column-count:2; column-gap:16px; column-fill:balance;
+ }
+ #status.page.active > .card, #flight.page.active > .card,
+ #field.page.active > .card, #testing.page.active > .card,
+ #utilities.page.active > .card, #storage.page.active > .card,
+ #system.page.active > .card, #connections.page.active > .card,
+ #history.page.active > .card, #cloud.page.active > .card,
+ #updates.page.active > .card {
+  display:inline-block; vertical-align:top; width:100%;
+  margin:0 0 16px !important; break-inside:avoid-column;
+ }
+ #status.page.active > .metrics, #storage.page.active > #flightSummaryCard,
+ #history.page.active > #v14OfflineAnalysisCard {
+  column-span:all; display:block; width:100%; break-inside:avoid;
+ }
+ #status.page.active > .metrics {display:grid; margin:0 0 16px;}
+ #history.page.active > #v14OfflineAnalysisCard,
+ #storage.page.active > #flightSummaryCard {margin:0 0 16px !important;}
+}
+@media (max-width:899px) {
+ .page.active {display:block;}
+ .page .card {margin-bottom:14px;}
+ .tabs button {min-width:105px;}
+ .v14-link-panel{padding:10px 12px;}
+}
+@media (max-width:520px) {
+ .page .actions {grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
+ .tabs button {min-width:92px;padding-inline:11px;}
+ .v14-link-panel {gap:4px 10px;}
+ .v14-link-panel strong {font-size:11px;}
+ .page .row strong {max-width:58%;}
+}
+@media print {
+ .tabs,.v14-link-panel,.actions,.v14-update-dialog,#v14CloudLogin {display:none!important;}
+ .page.active{display:block!important;column-count:1!important;}
+ .page.active>.card{width:100%!important;display:block!important;break-inside:avoid;}
+ .page .card{box-shadow:none!important;border-color:#888;}
+ body{background:white;color:black;}
+}

@@ -5,7 +5,7 @@ import {runInNewContext} from "node:vm";
 import {APP_VERSION,compareVersions,parseVersion,assetForRelease,receiverPacket,radioStatus,safeFileName,validCoordinate} from "../web/v14_utils.mjs";
 
 test("semantic version handling includes stable and beta precedence",()=>{
- assert.equal(APP_VERSION,"14.0.0-beta.2");
+ assert.equal(APP_VERSION,"14.0.0-beta.3");
  assert.equal(compareVersions("v14.0.0-beta.1","v13.9.9"),1);
  assert.equal(compareVersions("v14.0.0","v14.0.0-beta.2"),1);
  assert.equal(compareVersions("v14.0.0-beta.2","v14.0.0-beta.1"),1);

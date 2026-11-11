@@ -1,3 +1,12 @@
+# V14.0.0-beta.3 — Dashboard layout and offline usability
+
+- Removed blank card-grid rows and doubled margins while preserving the full blue design, mobile/desktop tab structure and all existing telemetry.
+- Improved tabs with horizontal scrolling, keyboard navigation and accessible selection state.
+- Fixed offline hardware-control guard so saved graphs, CSV/PDF reports, local history and appearance controls remain usable without the Feather.
+- Added layout/interaction regression tests and offline caching of the new stylesheet and UI module.
+
+---
+
 # V14.0.0-beta.2 — Offline analysis improvements
 
 - Added original RKT4 BIN analysis, complete offline altitude/velocity/acceleration/G/battery graphs, replay timeline, flight comparisons, CSV/JSON reports and Print / Save PDF to the History tab. All computed on device; original flight files unchanged.

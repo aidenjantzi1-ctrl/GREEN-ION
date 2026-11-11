@@ -1,7 +1,7 @@
 /* Only cache same-origin app assets, never sensor endpoints, auth or cloud data. */
-const VERSION="green-ion-v14-offline-2";
+const VERSION="green-ion-v14-offline-3";
 const ASSETS=["./","./index.html","./config.js","./manifest.webmanifest","./icon.svg",
- "./v14_boot.js","./v14_app.mjs","./v14_utils.mjs","./v14_serial.mjs",
+ "./v14_boot.js","./v14_layout.css","./v14_ui.mjs","./v14_app.mjs","./v14_utils.mjs","./v14_serial.mjs",
  "./v14_store.mjs","./v14_analysis.mjs","./v14_cloud.mjs","./v14_updates.mjs",
  "./history-db.mjs","./analysis-worker.mjs","./analysis/rkt4.mjs"];
 self.addEventListener("install",event=>{
