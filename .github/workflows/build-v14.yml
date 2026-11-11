@@ -137,7 +137,7 @@ jobs:
           with ZipFile(zipfile,"w",ZIP_DEFLATED,compresslevel=7) as z:
             for file in sorted(folder.rglob("*")):
               if file.is_file():z.write(file,file.relative_to(folder.parent))
-          manifest={"version":"v14.0.0-beta.4","board":"Adafruit Feather ESP32 V2","firmwareFormat":"ESP32 .ino.bin app image",
+          manifest={"version":"v14.0.0-beta.5","board":"Adafruit Feather ESP32 V2","firmwareFormat":"ESP32 .ino.bin app image",
             "artifacts":{f.name:{"sha256":hashlib.sha256(f.read_bytes()).hexdigest(),"size":f.stat().st_size}
               for f in [zipfile,release/feather[0].name,release/uno[0].name]}}
           (release/"SHA256_MANIFEST.json").write_text(json.dumps(manifest,indent=2)+"\n")
@@ -155,11 +155,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if ! gh release view v14.0.0-beta.4 >/dev/null 2>&1; then
-            gh release create v14.0.0-beta.4 release/* \
-              --target "$GITHUB_SHA" --title "GREEN ION V14 beta 4 — adaptive dashboard and complete sensor tools" \
-              --notes "Preserves the blue V14 dashboard. Adds responsive layouts, Sensor Lab, GIS1 IMU/GPS history, CRC verification, optional features, robust Supabase backup progress/retries, updated wiring/docs. SOFTWARE BETA: physical hardware, iPhone private-network and OTA validation remain required." \
+          if ! gh release view v14.0.0-beta.5 >/dev/null 2>&1; then
+            gh release create v14.0.0-beta.5 release/* \
+              --target "$GITHUB_SHA" --title "GREEN ION V14 beta 5 — trusted V15 hosted access" \
+              --notes "Adds origin-restricted CORS and preflight handling to let the hosted GREEN ION V15 dashboard communicate with Feather from compatible Chromium browsers with Local Network Access permission. Safari direct access is not guaranteed. No physical hardware or OTA verification; bench-test with motors removed before launch." \
               --prerelease
           else
-            echo "V14 beta 4 already exists; use the newest successful Actions artifact for subsequent changes."
+            echo "V14 beta 5 already exists; use the newest successful Actions artifact for subsequent changes."
           fi
