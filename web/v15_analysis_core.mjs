@@ -3,7 +3,7 @@
 import {parseRkt4,analyzeFlight} from "./analysis/rkt4.mjs";
 import {parseGis1} from "./analysis/gis1.mjs";
 const finite=v=>Number.isFinite(v);
-function finiteMax(values){const arr=values.filter(finite);return arr.length?Math.max(...arr):null;}
+function finiteMax(values){let max=null;for(const v of values)if(finite(v))max=max===null?v:Math.max(max,v);return max;}
 export function analyzeOriginals(binBytes,senBytes=null,{name="flight",checksum=null}={}){
  const parsed=parseRkt4(binBytes),analysis=analyzeFlight(parsed);
  const rows=analysis.samples,valid=rows.filter(r=>r.valid&&finite(r.pressurePa)&&r.pressurePa>0);
@@ -33,7 +33,9 @@ export function analyzeOriginals(binBytes,senBytes=null,{name="flight",checksum=
  if(nonMonotonic)warnings.push(nonMonotonic+" non-increasing timestamps");
  let sensor=null;
  if(senBytes){
-  const sen=parseGis1(senBytes),lastFix=[...sen.samples].reverse().find(x=>x.gpsCurrent&&x.latitude!==null);
+  const sen=parseGis1(senBytes);
+  let lastFix=null;
+  for(let i=sen.samples.length-1;i>=0;i--){if(sen.samples[i].gpsCurrent&&sen.samples[i].latitude!==null){lastFix=sen.samples[i];break;}}
   sensor={
    format:"GIS1",fileVerifiedPrefixRecords:sen.decoded,totalRecords:sen.count,
    crc32ValidatedPrefix:sen.invalidIndex===null,
@@ -59,7 +61,7 @@ export function analyzeOriginals(binBytes,senBytes=null,{name="flight",checksum=
    peakPressureDerivedAccelerationMps2:maxPressureAccel,
    detectedPhases:analysis.phases},
   sensors:sensor,dataCompletenessScore:quality,
-  evidenceStatus:parsed.trailingBytes||nonMonotonic||sensor?.invalidIndex!==null?"REVIEW":"ANALYZED",
+  evidenceStatus:parsed.trailingBytes||nonMonotonic||sensor?.crc32ValidatedPrefix===false?"REVIEW":"ANALYZED",
   warnings,
   limitations:"Completeness score evaluates file integrity and samples, NOT sensor accuracy or launch safety. Pressure-derived speed, acceleration and phases are estimates. GIS1 measured acceleration is not automatically earth-frame motion. GPS gives observed fixes only."
  };
