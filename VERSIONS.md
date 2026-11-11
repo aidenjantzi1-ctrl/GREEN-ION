@@ -1,3 +1,9 @@
+# V14.0.0-beta.4
+
+Original dark-blue tabs + adaptive multi-device dashboard, optional sensor/recording diagnostics, GIS1 offline IMU/GPS history, private Supabase cloud sync, concise README with soldering and sensor guides. Hardware validation pending. [Start](README.md) · [Soldering](docs/V14_WIRING_SOLDER.md) · [Cloud](docs/V14_CLOUD.md).
+
+---
+
 ## V14 (software beta)
 
 Full blue hosted PWA with original tabs, offline/phone support, Windows Uno/LoRa, optional private Supabase backups, GitHub update prompts, compiled firmware and Feather local fallback. See [V14 start](docs/V14_START_HERE.md). Hardware and iPhone browser connectivity validation pending.
