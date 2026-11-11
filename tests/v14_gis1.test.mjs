@@ -33,7 +33,7 @@ test("CRC32 agrees with standard golden vector and GIS1 v1 validates",()=>{
  assert.ok(Math.abs(p.samples[0].gyroXDps-5.72958)<0.001);
  assert.ok(SENSOR_GRAPH_METRICS.gpsAltitudeM);
  assert.deepEqual(data,original,"decoder must not modify raw input");
- assert.match(sensorCsv(p),/gyroXDps,gpsCurrent/);
+ assert.match(sensorCsv(p),/gyroXDps,gyroYDps,gyroZDps,gpsCurrent/);
 });
 test("GIS1 refuses damaged header; corrupt record only returns validated prefix",()=>{
  const file=fixture();file[3]=0;
