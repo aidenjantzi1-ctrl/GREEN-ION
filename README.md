@@ -1,3 +1,17 @@
+# GREEN ION V14 — Unified Blue Website, LoRa and Cloud Backups
+
+**Status:** V14 software beta. Physical Feather/Uno, SD, battery, OTA, iPhone private-network and LoRa tests remain pending. GitHub compilation is not flight certification.
+
+**[Website project (Vercel)](https://vercel.com/aidenjantzi1-5859/green-ion)** · **[V14 setup guide](docs/V14_START_HERE.md)** · **[V14 architecture](docs/V14_ARCHITECTURE.md)** · **[Release downloads](https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases)**
+
+The original V13 blue dashboard design, Status/Flight/Field/Testing/Utilities/Storage/System tabs and Feather local 192.168.4.1 fallback are retained. V14 adds a hosted installable offline PWA, Windows Chrome/Edge Uno USB LoRa receive-only support, IndexedDB original BIN/SEN/TXT history, private Supabase backups, and a dashboard GitHub update prompt that **asks before downloading**. The rocket records independently, with no cloud flight controls.
+
+GitHub Actions builds both .ino sketches automatically. The original V12/V13 code, RKT4/GIS1 and V12D file naming are intentionally preserved for compatibility. iPhone Safari cannot read ordinary Arduino Uno USB serial from a website; the phone remains Wi-Fi-only. Hosted HTTPS to local Feather HTTP may be blocked by browser privacy protections; the Feather-hosted dashboard always remains available when its AP can be reached.
+
+**Current source:** [website](web/) · [Feather V14](Green_Ion_V14/) · [Uno receiver](Ground_Receiver/) · [past versions](Past_Versions/) · [V14 GitHub Actions](.github/workflows/build-v14.yml)
+
+---
+
 # GREEN ION V13 — Unified Wi-Fi + LoRa Rocket Flight Recorder
 
 **Status: V13 software beta; real Feather/Uno wiring, radio and rocket flight validation pending.** Automated tests and firmware compilation do not approve a launch. No ignition, staging or deployment control is provided.

@@ -1,13 +1,11 @@
-# GREEN ION Past Versions
+# GREEN ION Historical Versions
 
-This folder contains every Green Ion version that is not the current release.
+Past versions remain retrievable, with an emphasis on preserving recovery options and original recordings.
 
-- `V1` through `V7` contain historical records where original firmware was not preserved.
-- `Green_Ion_V8` through `Green_Ion_V9` contain preserved firmware snapshots.
-- The current release remains at the repository root so it is easy to find and compile.
+- **V10 and V11:** source folders under this directory.
+- **V11 offline analyzer:** V11_Offline_Analyzer.html (historical source snapshot; use its original Git tag/release for working asset paths).
+- **V12:** Green_Ion_V12/ retained at repository root for historical validation contracts and hardware rollback.
+- **V13:** Green_Ion_V13/ retained at repository root and downloadable as v13.0.0-beta.1. The corresponding Git tag preserves its exact build.
+- **V14:** Green_Ion_V14/ is the current development firmware; latest blue PWA source is web/.
 
-## Future release rule
-
-Before adding a new root-level firmware folder, move the formerly current firmware folder here without modifying its contents. Update `README.md`, `CHANGELOG.md`, `VERSIONS.md`, tests, and the GitHub Actions workflow to point to the new root-level release.
-
-Archived releases are retained for reference. Use the root-level firmware for new installations.
+Older firmware sources are intentionally retained in place until V14 has been tested on physical hardware. A cosmetic move must not break older build tools or recovery paths.

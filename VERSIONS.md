@@ -1,3 +1,9 @@
+## V14 (software beta)
+
+Full blue hosted PWA with original tabs, offline/phone support, Windows Uno/LoRa, optional private Supabase backups, GitHub update prompts, compiled firmware and Feather local fallback. See [V14 start](docs/V14_START_HERE.md). Hardware and iPhone browser connectivity validation pending.
+
+---
+
 ## V13 (software beta)
 
 Unified Windows ground station at 127.0.0.1:8765 with full Feather dashboard, automatic Wi-Fi/LoRa telemetry failover, downloadable one-ZIP GitHub package and independent telemetry logs. New Feather sketch folder Green_Ion_V13; existing V12D### BIN/SEN/TXT file naming is deliberately retained. Hardware and flight validation pending.

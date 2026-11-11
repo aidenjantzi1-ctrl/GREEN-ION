@@ -1,3 +1,11 @@
+# V14.0.0-beta.1 — Unified blue website and private cloud backups
+
+- Preserved complete V13 blue dashboard layout/tabs, added browser Web Serial receive-only Uno LoRa, offline original file archive, private Supabase backups, GitHub update notifications, Feather V14 fallback firmware, PWA caching, Vercel deployment and CI artifacts.
+- All original V12D### BIN/SEN/TXT formats, previous firmware sources and release tags remain supported.
+- Software beta; real hardware and browser local-network validation required.
+
+---
+
 ## GREEN ION V13 beta — Unified dashboard and easy downloads (2026-11-11)
 
 - Added Feather Wi-Fi + Uno LoRa integrated Windows dashboard based on the existing blue Feather UI.
