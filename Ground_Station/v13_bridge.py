@@ -190,6 +190,7 @@ class FeatherBridge:
         body = handler.rfile.read(size) if size else None
         upstream = path.path + ("?" + path.query if path.query else "")
         conn = HTTPConnection(self.host, self.port, timeout=8.0 if handler.command == "POST" else 3.0)
+        headers_sent = False
         try:
             headers = {"Connection": "close"}
             if handler.headers.get("Content-Type"):
@@ -204,6 +205,7 @@ class FeatherBridge:
             handler.send_header("Cache-Control", "no-store")
             handler.send_header("Connection", "close")
             handler.end_headers()
+            headers_sent = True
             while True:
                 chunk = response.read(64 * 1024)
                 if not chunk:
@@ -212,7 +214,7 @@ class FeatherBridge:
         except (OSError, TimeoutError, HTTPException) as error:
             # If headers were sent, the browser sees a network error on this
             # connection; do not attempt to append a second HTTP response.
-            if not getattr(handler, "_headers_buffer", None) and getattr(handler, "wfile", None):
+            if headers_sent:
                 handler.close_connection = True
             else:
                 handler.send_error(503, "Feather Wi-Fi unavailable: " + str(error)[:120])
