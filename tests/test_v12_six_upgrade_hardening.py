@@ -10,7 +10,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "Ground_Station"))
-from ground_station import LOG_COLUMNS, write_log  # noqa: E402
+from ground_station import LOG_COLUMNS, Store, write_log  # noqa: E402
 
 
 class GroundCsvEvidenceTests(unittest.TestCase):
@@ -60,6 +60,32 @@ class GroundCsvEvidenceTests(unittest.TestCase):
             self.assertEqual(rows[0]["sequence"], "5")
 
 
+class ReceiverSequenceTests(unittest.TestCase):
+    def test_late_or_duplicate_packet_does_not_inflate_missing_count(self):
+        store = Store()
+        store.update({"sequence": 100, "uptime_ms": 100000, "type": "telemetry"})
+        store.update({"sequence": 101, "uptime_ms": 101000, "type": "telemetry"})
+        # Delayed frame has an older timestamp: this is not a sender reboot.
+        store.update({"sequence": 99, "uptime_ms": 99000, "type": "telemetry"})
+        store.update({"sequence": 102, "uptime_ms": 102000, "type": "telemetry"})
+        store.update({"sequence": 102, "uptime_ms": 102000, "type": "telemetry"})
+        store.update({"sequence": 103, "uptime_ms": 103000, "type": "telemetry"})
+        result = store.snapshot()
+        self.assertEqual(result["packets_out_of_order"], 1)
+        self.assertEqual(result["packets_repeated"], 1)
+        self.assertEqual(result["packets_missed_estimated"], 0)
+        self.assertEqual(result["sender_resets"], 0)
+
+    def test_sender_reboot_detected_without_impossible_packet_loss(self):
+        store = Store()
+        store.update({"sequence": 100, "uptime_ms": 100000, "type": "telemetry"})
+        store.update({"sequence": 0, "uptime_ms": 500, "type": "telemetry"})
+        store.update({"sequence": 1, "uptime_ms": 1500, "type": "telemetry"})
+        result = store.snapshot()
+        self.assertEqual(result["sender_resets"], 1)
+        self.assertEqual(result["packets_missed_estimated"], 0)
+
+
 class FreshHomeSessionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -86,6 +112,12 @@ class FreshHomeSessionTests(unittest.TestCase):
         self.assertLess(start.index("flightWatcher.cancel()"),
                         start.index('prefs.begin("giohome", false)'))
         self.assertIn("resetCalibration(millis())", start)
+
+    def test_uno_preserves_packet_high_watermark(self):
+        uno = (ROOT / "Ground_Receiver/Ground_Receiver.ino").read_text()
+        self.assertIn("bool advanceSequence = true;", uno)
+        self.assertIn("if (advanceSequence)", uno)
+        self.assertIn("lastUptimeMs - packet.uptimeMs >= 1000UL", uno)
 
     def test_receiver_side_bench_packets_exported(self):
         source = self.station.split('elif kind == "radio_bench":', 1)[1].split(
