@@ -43,7 +43,8 @@ export function fileKind(name) {
   return ["BIN","SEN","TXT"].includes(kind)?kind:null;
 }
 export function safeFileName(name) {
-  const base=String(name||"").replace(/.*[\\/]/,"").trim();
+  const base=String(name||"").trim();
+  if(base.includes("/")||base.includes("\\"))throw Error("Path separators are not allowed in recording names");
   if(!fileKind(base) || !/^[A-Za-z0-9_.-]{1,180}$/.test(base))throw Error("File name must be a simple BIN, SEN or TXT name");
   return base;
 }
