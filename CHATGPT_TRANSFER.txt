@@ -568,3 +568,23 @@ following features, but the latest live main branch remains authoritative.
 
 For code continuation read latest README.md, docs/V12_TESTING.md and live
 CI results rather than assuming this handoff is newer than the source.
+
+================================================================
+POST-IMPLEMENTATION HARDENING — HOME/LoRa/COMPUTER
+================================================================
+
+The main V12 six-feature suite described above is now implemented. Later
+hardening requires newly started and completed IMU/GPS measurements within
+the active home session before the Feather persists a PASS. It cancels the
+launch watcher BEFORE SD cleanup/NVS writes; failures restart calibration.
+
+The Windows ground station now exports mixed receiver-side radio bench events
+and live telemetry with stable CSV columns, time-of-receipt and an additional
+raw_packet_json field that preserves all original/future packet attributes.
+Five transmit packets from the Feather alone are not proof of Uno reception.
+
+Regression tests for these edge cases are in
+tests/test_v12_six_upgrade_hardening.py. The full feature release checklist
+is docs/V12_SIX_FEATURE_VALIDATION.md. Hardware and flight tests remain
+unperformed unless the latest testing log contains actual measured evidence.
+
