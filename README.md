@@ -27,7 +27,7 @@ V13 preserves the V12 RKT4 v2, GIS1 and **V12D###.BIN / .SEN / .TXT** storage fo
 
 ---
 
-# V12 engineering reference (retained for existing hardware and recordings)
+# GREEN ION V12 — Engineering reference (retained for existing hardware and recordings)
 
 GREEN ION is a model-rocket flight recorder. An **Adafruit Feather ESP32 V2** in the rocket records barometer and synchronized IMU/GPS data to microSD, serves a local phone dashboard, and optionally sends LoRa radio packets to a separate **Arduino Uno R3** receiver connected to a Windows laptop.
 
