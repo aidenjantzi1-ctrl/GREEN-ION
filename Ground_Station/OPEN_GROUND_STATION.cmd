@@ -2,44 +2,37 @@
 setlocal
 cd /d "%~dp0"
 echo.
-echo ============================================
-echo  GREEN ION V12 - COMPUTER GROUND STATION
-echo ============================================
-echo Connect the Arduino Uno receiver to the computer by USB.
-echo Find its COM port in Windows Device Manager ^> Ports.
+echo ==============================================
+echo  GREEN ION V13 - ONE UNIFIED GROUND STATION
+echo ==============================================
+echo Join the Feather Wi-Fi network on your computer first.
+echo Connect Uno by USB for LoRa backup; close Arduino Serial Monitor.
 echo.
-set /p "UNO_PORT=UNO COM port (example COM5), or Enter for DEMO data: "
-
+set /p "UNO_PORT=Uno COM port (example COM5), Enter for Wi-Fi only, or DEMO: "
 where py >nul 2>nul
 if %errorlevel%==0 goto use_py
 where python >nul 2>nul
 if %errorlevel%==0 goto use_python
-
-echo [ERROR] Python 3 not found. Install Python 3 and try again.
+echo [ERROR] Python 3 not found. Install Python 3.
 pause
 exit /b 1
-
 :use_py
-if defined UNO_PORT (
-  py -3 ground_station.py --port "%UNO_PORT%"
-) else (
-  py -3 ground_station.py --sample
-)
-goto done
-
+set "PYTHON_EXE=py -3"
+goto launch
 :use_python
-if defined UNO_PORT (
-  python ground_station.py --port "%UNO_PORT%"
+set "PYTHON_EXE=python"
+:launch
+if /i "%UNO_PORT%"=="DEMO" (
+  %PYTHON_EXE% ground_station.py --sample
+) else if defined UNO_PORT (
+  %PYTHON_EXE% ground_station.py --port "%UNO_PORT%"
 ) else (
-  python ground_station.py --sample
+  %PYTHON_EXE% ground_station.py
 )
-goto done
-
-:done
 if errorlevel 1 (
-  echo.
-  echo [ERROR] Ground station could not start. Check COM port and pyserial.
-  echo Install pyserial with: py -3 -m pip install pyserial
-  pause
+ echo.
+ echo [ERROR] Check Python, COM port and pyserial.
+ echo Uno mode: py -3 -m pip install pyserial
+ pause
 )
 endlocal
