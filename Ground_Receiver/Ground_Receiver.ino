@@ -51,20 +51,30 @@ static void printScaledDegrees(int32_t value) {
 static void printTelemetry(const green_ion::TelemetryPacket &packet, int16_t rssi) {
   const bool current = green_ion::hasCurrentPosition(packet);
   const bool bench = green_ion::isBenchRadioPacket(packet);
-  if (haveLastSequence && packet.uptimeMs < lastUptimeMs) {
-    // Feather reboot: new sequence space, not millions of missing packets.
+  if (haveLastSequence && packet.uptimeMs < lastUptimeMs &&
+      lastUptimeMs - packet.uptimeMs >= 1000UL &&
+      packet.sequence <= 5 && packet.sequence < lastSequence) {
+    // Corroborated sender reboot: low new sequence AND substantive uptime drop.
     ++senderRestarts;
     haveLastSequence = false;
   }
+  bool advanceSequence = true;
   if (haveLastSequence) {
     const uint32_t gap = packet.sequence - lastSequence;
-    if (gap == 0) ++duplicatePackets;
+    if (gap == 0) { ++duplicatePackets; advanceSequence = false; }
     else if (gap > 1 && gap < 1000000UL) estimatedMissingPackets += gap - 1;
-    else if (gap >= 1000000UL) ++outOfOrderPackets;
+    else if (gap >= 1000000UL) {
+      ++outOfOrderPackets;
+      advanceSequence = false;
+    }
   }
-  lastSequence = packet.sequence;
-  lastUptimeMs = packet.uptimeMs;
-  haveLastSequence = true;
+  // Duplicates and late packets must not move the sequence high-watermark
+  // backwards or create imaginary missing packets on the following frame.
+  if (advanceSequence) {
+    lastSequence = packet.sequence;
+    lastUptimeMs = packet.uptimeMs;
+    haveLastSequence = true;
+  }
   if (bench) ++receivedBenchPackets;
   if (green_ion::hasPosition(packet)) {
     haveLastPosition = true;
