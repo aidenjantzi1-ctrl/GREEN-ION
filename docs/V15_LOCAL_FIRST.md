@@ -4,14 +4,14 @@
 
 ## Start the Windows launch-pad dashboard
 
-1. Use Python 3 on Windows. To receive Uno LoRa by USB, install \`py -3 -m pip install pyserial\`.
+1. Use Python 3 on Windows. To receive Uno LoRa by USB, install `py -3 -m pip install pyserial`.
 2. Plug the Arduino Uno into the computer using USB and close Arduino Serial Monitor.
-3. Connect Windows Wi-Fi to the Feather's \`GREEN-ION-V14\` network; its local address is \`192.168.4.1\`. **This network has no internet.**
-4. Run \`Ground_Station/OPEN_GROUND_STATION.cmd\` and enter the real Uno COM port, e.g. \`COM5\` (or Enter for Wi-Fi only).
-5. The launcher opens \`http://127.0.0.1:8765\`. It serves the **current blue web dashboard**, not the older V13 HTML, over a loopback-only Python server. A launch does not require internet.
-6. Keep the launcher and browser open. Receiver packets are stored in CSV under \`%USERPROFILE%\GREEN_ION_Data\logs\`. When a completed flight is retrieved, verified originals are stored in browser IndexedDB **and** in \`%USERPROFILE%\GREEN_ION_Data\flights\`, each by SHA-256 with an original-name metadata record.
+3. Connect Windows Wi-Fi to the Feather's `GREEN-ION-V14` network; its local address is `192.168.4.1`. **This network has no internet.**
+4. Run `Ground_Station/OPEN_GROUND_STATION.cmd` and enter the real Uno COM port, e.g. `COM5` (or Enter for Wi-Fi only).
+5. The launcher opens `http://127.0.0.1:8765`. It serves the **current blue web dashboard**, not the older V13 HTML, over a loopback-only Python server. A launch does not require internet.
+6. Keep the launcher and browser open. Receiver packets are stored in CSV under `%USERPROFILE%\GREEN_ION_Data\logs`. When a completed flight is retrieved, verified originals are stored in browser IndexedDB **and** in `%USERPROFILE%\GREEN_ION_Data\flights`, each by SHA-256 with an original-name metadata record.
 
-\`Ground_Station/ground_station.py\` polls the Feather's fixed local HTTP address and the Uno USB independently. Wi-Fi data wins while fresh, but LoRa telemetry remains available when Wi-Fi disappears. Wi-Fi must reconnect before complete SD BIN/SEN/TXT recordings can be retrieved. The cloud cannot send rocket commands. The Uno is receive-only.
+`Ground_Station/ground_station.py` polls the Feather's fixed local HTTP address and the Uno USB independently. Wi-Fi data wins while fresh, but LoRa telemetry remains available when Wi-Fi disappears. Wi-Fi must reconnect before complete SD BIN/SEN/TXT recordings can be retrieved. The cloud cannot send rocket commands. The Uno is receive-only.
 
 If a browser-installed version is already open, reload the new localhost page once so the service worker caches the V15 modules.
 
