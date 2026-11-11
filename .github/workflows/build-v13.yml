@@ -6,11 +6,11 @@ on:
       - "Green_Ion_V13/**"
       - "Ground_Receiver/**"
       - "Ground_Station/**"
-      - "libraries/**"
-      - "tests/**"
+      - "libraries/GreenIonProtocol/**"
+      - "libraries/GreenIonRecorder/**"
+      - "tests/test_v13_*.py"
       - ".github/workflows/build-v13.yml"
       - "docs/V13_*"
-      - "README.md"
   workflow_dispatch:
 permissions:
   contents: write

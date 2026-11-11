@@ -6,8 +6,8 @@ on:
     paths:
       - "Past_Versions/Green_Ion_V11/Green_Ion_V11.ino"
       - "Past_Versions/Green_Ion_V11/Dashboard.h"
-      - "web/**"
-      - "tests/**"
+      - "Past_Versions/V11_Offline_Analyzer.html"
+      - "tests/test_v11_*.py"
       - ".github/workflows/build-firmware.yml"
   workflow_dispatch:
 
