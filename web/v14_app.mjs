@@ -3,6 +3,7 @@ import {saveLocalFile,listLocalFiles,hasLocalName,downloadFile,exportArchive,res
 import {initCloud,backupNow} from "./v14_cloud.mjs";
 import {initUpdates,checkUpdates} from "./v14_updates.mjs";
 import {initHistoryAnalysis,refreshHistoryAnalysis} from "./v14_analysis.mjs";
+import {initSensorHistory,refreshSensorHistory} from "./v14_sensor_history.mjs";
 import {APP_VERSION} from "./v14_utils.mjs";
 import {initPreferences} from "./v14_preferences.mjs";
 import {initSensorLab} from "./v14_sensor_lab.mjs";
@@ -43,7 +44,7 @@ function guardLiveControls(event){
  note("Feather Wi-Fi connection required for this hardware command. Saved flights and graphs remain available offline.");
 }
 async function renderHistory(){
- await refreshHistoryAnalysis();
+ await Promise.all([refreshHistoryAnalysis(),refreshSensorHistory()]);
  const target=$("v14HistoryList");target.replaceChildren();
  try{
   const items=(await listLocalFiles()).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
@@ -170,7 +171,7 @@ async function init(){
   }
   mode();
  });
- initHistoryAnalysis();initCloud();initUpdates();
+ initHistoryAnalysis();initSensorHistory();initCloud();initUpdates();
  try{const n=await importLegacyHistory();if(n)text("v14HistoryNotice","Imported "+n+" older V11-V13 recordings into V14 storage.");}
  catch{/* historical DB may not exist */}
  await renderHistory();mode();

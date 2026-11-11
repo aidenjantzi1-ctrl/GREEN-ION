@@ -124,3 +124,10 @@ body[data-compact="true"] .page .actions{gap:7px;}
 @media(prefers-reduced-motion:reduce){
  *,*::before,*::after{scroll-behavior:auto!important;transition-duration:0.01ms!important;animation-duration:0.01ms!important;}
 }
+
+/* Original blue historical sensor chart, responsive independently of page width. */
+#v14SensorArchiveCard canvas{width:100%;height:auto;aspect-ratio:920/300;}
+#v14SensorArchiveCard .actions{container-type:inline-size;}
+#v14SensorArchiveCard .actions button{min-width:0;}
+@media(min-width:900px){#v14SensorArchiveCard{column-span:all;display:block!important;}}
+@container(max-width:420px){#v14SensorArchiveCard .actions{grid-template-columns:minmax(0,1fr);}}

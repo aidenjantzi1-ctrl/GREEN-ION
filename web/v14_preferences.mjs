@@ -1,6 +1,6 @@
 /* GREEN ION optional features. Removing this module restores default features. */
 const KEY="green-ion-v14-preferences";
-export const DEFAULTS=Object.freeze({sensorLab:true,cloudAuto:true,compact:false,imperial:false});
+export const DEFAULTS=Object.freeze({sensorLab:true,sensorArchive:true,cloudAuto:true,compact:false,imperial:false});
 const listeners=new Set();
 function read(){
   try{
@@ -26,7 +26,7 @@ export function applyPreferences(doc=document){
   const lab=doc.getElementById("v14SensorLabCard");
   if(lab)lab.hidden=!p.sensorLab;
   for(const [key,id] of Object.entries({
-    sensorLab:"v14PrefSensorLab",cloudAuto:"v14PrefCloudAuto",
+    sensorLab:"v14PrefSensorLab",sensorArchive:"v14PrefSensorArchive",cloudAuto:"v14PrefCloudAuto",
     compact:"v14PrefCompact",imperial:"v14PrefImperial"
   })){
     const input=doc.getElementById(id);if(input)input.checked=p[key];
@@ -34,7 +34,7 @@ export function applyPreferences(doc=document){
 }
 export function initPreferences(doc=document){
   const map={
-    v14PrefSensorLab:"sensorLab",v14PrefCloudAuto:"cloudAuto",
+    v14PrefSensorLab:"sensorLab",v14PrefSensorArchive:"sensorArchive",v14PrefCloudAuto:"cloudAuto",
     v14PrefCompact:"compact",v14PrefImperial:"imperial"
   };
   for(const [id,key] of Object.entries(map)){
