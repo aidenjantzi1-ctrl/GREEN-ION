@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {createHash,webcrypto} from "node:crypto";
+import {createRequire} from "node:module";
 import {runInNewContext} from "node:vm";
 import {APP_VERSION,compareVersions,parseVersion,assetForRelease,releaseFirmwarePackage,checkFirmwareManifest,verifiedFirmwareBytes,receiverPacket,radioStatus,safeFileName,validCoordinate} from "../web/v14_utils.mjs";
 
@@ -60,6 +61,34 @@ test("direct Feather update uses only the compiled app and matching SHA-256 rele
    text:async()=>JSON.stringify(manifest)}:
   {ok:true,headers:new Headers(),arrayBuffer:async()=>mutated.buffer},
   webcrypto.subtle),/checksum/);
+});
+
+test("firmware release relay refuses unknown assets and unsafe HTTP methods",async()=>{
+ const require=createRequire(import.meta.url);
+ const handler=require("../web/api/firmware.js");
+ const reply=()=>{
+  const r={statusCode:200,headers:{},body:""};
+  return {
+   state:r,
+   setHeader:(key,value)=>{r.headers[key]=value;},
+   status:(code)=>{r.statusCode=code;return res;},
+  };
+ };
+ const invoke=async req=>{
+  const state={statusCode:200};
+  const res={
+   setHeader:()=>{},
+   status(code){state.statusCode=code;return this;},
+   end(text){state.body=text;return this;}
+  };
+  await handler(req,res);
+  return state;
+ };
+ assert.equal((await invoke({method:"POST",query:{tag:"v14.0.0-beta.4",name:"Green_Ion_V14.ino.bin"}})).statusCode,405);
+ for(const name of ["../../secret","GREEN_ION_V14_COMPLETE.zip","Feather_merged.bin"]){
+  assert.equal((await invoke({method:"GET",query:{tag:"v14.0.0-beta.4",name}})).statusCode,400);
+ }
+ assert.equal((await invoke({method:"GET",query:{tag:"v12.0.0-beta.1",name:"Green_Ion_V14.ino.bin"}})).statusCode,400);
 });
 
 test("serial radio packet validation and telemetry-only flags",()=>{
