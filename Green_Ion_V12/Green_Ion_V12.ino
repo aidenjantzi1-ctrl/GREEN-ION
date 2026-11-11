@@ -147,6 +147,9 @@ static uint32_t homeRadioStartSent = 0, homeRadioStartFailures = 0;
 static uint8_t homeStepStatuses[9] = {}; // Persistent evidence codes (not tests in progress).
 static bool homeInterrupted = false;
 static bool homeSdVerified = false;
+// Prevent stale IMU/GPS results from prior sessions being certified as new.
+static bool homeImuTestStarted = false;
+static bool homeGpsTestStarted = false;
 float calibrationSamples[config::CALIBRATION_TARGET_SAMPLES];
 uint16_t calibrationWarmup = 0;
 uint16_t calibrationAttempts = 0;
@@ -789,6 +792,7 @@ static void startRequestedHardwareTests(uint32_t nowMs) {
       if (!state.imuOk) healthBits |= green_ion::HEALTH_IMU_INIT_ERROR;
     }
     imuHardwareTest.begin(nowMs, state.imuOk, imuRange32gVerified);
+    if (recorderMode == RECORDER_HOME_TEST) homeImuTestStarted = true;
     imuHardwareTestReported = false;
   }
 
@@ -804,6 +808,7 @@ static void startRequestedHardwareTests(uint32_t nowMs) {
     }
     gpsHardwareTest.begin(nowMs, state.gpsOk, state.gpsNmeaSentences,
                           state.gpsParsedSentences);
+    if (recorderMode == RECORDER_HOME_TEST) homeGpsTestStarted = true;
     gpsHardwareTestReported = false;
   }
 }
