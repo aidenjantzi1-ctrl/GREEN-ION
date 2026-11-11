@@ -19,12 +19,18 @@ import json
 import math
 from urllib.parse import urlsplit, unquote
 from pathlib import Path
+import shutil
+import os
 import threading
 import time
 import webbrowser
+from v13_bridge import FeatherBridge
 
 ROOT = Path(__file__).resolve().parent
-LOG_DIR = ROOT / "logs"
+# Never put new logs inside a replaceable downloaded app folder.
+LOG_DIR = Path(os.environ.get("GREEN_ION_DATA_DIR", str(Path.home() / "GREEN_ION_Data"))) / "logs"
+BRIDGE = FeatherBridge()
+
 
 # Fixed columns survive optional fields, receiver reconnects and a mixture of
 # ordinary telemetry and bench-test packets. Original JSON is retained.
@@ -170,12 +176,31 @@ STORE = Store()
 
 
 class Handler(SimpleHTTPRequestHandler):
+    def do_POST(self) -> None:
+        if self.path.startswith("/api/"):
+            BRIDGE.relay(self)
+        else:
+            self.send_error(404)
+
     def translate_path(self, path: str) -> str:
         relative = unquote(urlsplit(path).path).lstrip("/") or "index.html"
         requested = (ROOT / relative).resolve()
         return str(requested if requested.is_relative_to(ROOT) else ROOT / "index.html")
 
     def do_GET(self) -> None:
+        if self.path == "/api/status":
+            data = BRIDGE.unified_status(STORE.snapshot())
+            if data is None:
+                self._json({"success": False, "message": "No live Wi-Fi or LoRa telemetry"}, 503)
+            else:
+                self._json(data)
+            return
+        if self.path == "/api/ground-link":
+            self._json(BRIDGE.link_status(STORE.snapshot()))
+            return
+        if self.path.startswith("/api/") and self.path not in ("/api/telemetry", "/api/export"):
+            BRIDGE.relay(self)
+            return
         if self.path == "/api/telemetry":
             self._json(STORE.snapshot())
             return
@@ -196,9 +221,9 @@ class Handler(SimpleHTTPRequestHandler):
             return
         super().do_GET()
 
-    def _json(self, result: dict) -> None:
+    def _json(self, result: dict, status: int = 200) -> None:
         body = json.dumps(result, allow_nan=False).encode()
-        self.send_response(200)
+        self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
@@ -318,7 +343,7 @@ def serial_source(stop: threading.Event, port: str, log_path: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="GREEN ION V12 local ground station")
+    parser = argparse.ArgumentParser(description="GREEN ION V13 unified Wi-Fi and LoRa ground station")
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--sample", action="store_true", help="use simulated rocket telemetry")
     source.add_argument("--port", help="Arduino Uno serial port, for example COM5")
@@ -330,17 +355,27 @@ def main() -> None:
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     log_path = LOG_DIR / f"telemetry-{timestamp}.csv"
     stop = threading.Event()
-    use_sample = args.sample or not args.port
+    use_sample = args.sample
     target = sample_source if use_sample else serial_source
     target_args = (stop, log_path) if use_sample else (stop, args.port, log_path)
     STORE.log_path = log_path
-    if not use_sample:
+    # Preserve any older Ground_Station/logs after an in-place update.
+    for older in (ROOT / "logs").glob("*.csv"):
+        try:
+            LOG_DIR.mkdir(parents=True, exist_ok=True)
+            destination = LOG_DIR / older.name
+            if not destination.exists():
+                shutil.copy2(older, destination)
+        except OSError as error:
+            print(f"[LOG] Cannot preserve older log {older.name}: {error}")
+    if args.port and not use_sample:
         try:
             import serial  # noqa: F401
         except ImportError as error:
             raise SystemExit("Live Uno mode requires pyserial: py -3 -m pip install pyserial") from error
-    worker = threading.Thread(target=target, args=target_args, daemon=True)
-    worker.start()
+    if args.port or use_sample:
+        threading.Thread(target=target, args=target_args, daemon=True).start()
+    threading.Thread(target=BRIDGE.run, args=(stop,), daemon=True).start()
     url = f"http://{args.listen}:{args.http_port}"
     try:
         server = ThreadingHTTPServer((args.listen, args.http_port), Handler)
@@ -353,7 +388,9 @@ def main() -> None:
             return
         raise
     print(f"GREEN ION ground station: {url}")
-    print("Mode: SIMULATED DATA — NOT HARDWARE" if use_sample else f"Mode: radio receiver on {args.port}")
+    print("Mode: SIMULATED DATA — NOT HARDWARE" if use_sample else
+          f"Mode: Feather Wi-Fi + {('Uno radio on ' + args.port) if args.port else 'no Uno port (Wi-Fi only)'}")
+    print("Feather Wi-Fi: http://192.168.4.1 (computer must join GREEN-ION-V13 or compatible AP)")
     print(f"Telemetry log: {log_path}")
     print("Keep this window open while using the website. Press Ctrl+C to stop.")
     if not args.no_browser:

@@ -1,3 +1,11 @@
+## GREEN ION V13 beta — Unified dashboard and easy downloads (2026-11-11)
+
+- Added Feather Wi-Fi + Uno LoRa integrated Windows dashboard based on the existing blue Feather UI.
+- Added connection-aware Wi-Fi status and LoRa fallback, receiver packet freshness, GPS last-known location, and explicit offline state.
+- Added V13 Feather sketch while retaining V12D###, RKT4 v2, GIS1, profile/preflight and flight recorder behavior.
+- Added isolated computer logs, one ZIP download workflow with compiled firmware, libraries and replacement instructions.
+- Pending: successful V13 CI confirmation, real hardware bench/reconnect, antenna/range and flight verification.
+
 # Green Ion changelog
 
 Every known or referenced version from **V1 through V10** is listed here. See [VERSIONS.md](VERSIONS.md) for the complete archive index and exact preserved sketch links.

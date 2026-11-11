@@ -1,3 +1,7 @@
+## V13 (software beta)
+
+Unified Windows ground station at 127.0.0.1:8765 with full Feather dashboard, automatic Wi-Fi/LoRa telemetry failover, downloadable one-ZIP GitHub package and independent telemetry logs. New Feather sketch folder Green_Ion_V13; existing V12D### BIN/SEN/TXT file naming is deliberately retained. Hardware and flight validation pending.
+
 # Green Ion — Complete Version Archive
 
 This index records every known or referenced Green Ion version, starting with V1. **Historical placeholder folders do not contain source and must not be used as firmware.** V10 is the latest standalone snapshot.

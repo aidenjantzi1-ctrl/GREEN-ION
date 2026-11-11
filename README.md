@@ -1,4 +1,33 @@
-# GREEN ION V12 — Rocket Flight Recorder and Recovery Receiver
+# GREEN ION V13 — Unified Wi-Fi + LoRa Rocket Flight Recorder
+
+**Status: V13 software beta; real Feather/Uno wiring, radio and rocket flight validation pending.** Automated tests and firmware compilation do not approve a launch. No ignition, staging or deployment control is provided.
+
+## DOWNLOAD THE COMPLETE V13 PACKAGE
+
+**[One ZIP download — GREEN ION V13 Releases](https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases)**
+
+Download **GREEN_ION_V13_COMPLETE.zip** from the V13 beta release after its successful main-branch build. During development, open the latest successful [V13 Actions run](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/workflows/build-v13.yml) and select the **GREEN_ION_V13_COMPLETE** artifact (GitHub sign-in may be required).
+
+**[Start here](docs/V13_START_HERE.md)** · **[How to update V11/V12 safely](docs/V13_UPDATE_GUIDE.md)** · **[V13 technical plan](docs/V13_IMPLEMENTATION_PLAN.md)**
+
+Extract the ZIP to one folder. **Double-click Ground_Station/OPEN_GROUND_STATION.cmd** on Windows. Press Enter for Wi-Fi-only, or enter your Uno COM port for simultaneous Wi-Fi and LoRa. The computer's full blue Feather dashboard opens at **http://127.0.0.1:8765/**.
+
+| State | Windows app shows |
+|---|---|
+| Feather Wi-Fi available | Full Feather dashboard and all existing Wi-Fi controls, testing, SD downloads, bench OTA |
+| Feather Wi-Fi lost; Uno/LoRa live | Received radio altitude, acceleration, rotation, GPS, battery and signal quality; Wi-Fi-only controls unavailable |
+| Both links lost | STALE measurements, last-known LoRa GPS and its age, no false live data |
+| Feather Wi-Fi restored | Full dashboard and controls automatically return (Windows may need manual Wi-Fi reconnect) |
+
+The Feather's direct **http://192.168.4.1** dashboard also remains usable independently for phone/iPad. The Uno is connected to the laptop by USB, **not** wired to the rocket Feather.
+
+**V13 Feather source:** [Green_Ion_V13](Green_Ion_V13/) · **Uno source:** [Ground_Receiver](Ground_Receiver/) · **Windows app:** [Ground_Station](Ground_Station/) · **V12 reference:** [Green_Ion_V12](Green_Ion_V12/) · **Earlier versions:** [Past_Versions](Past_Versions/)
+
+V13 preserves the V12 RKT4 v2, GIS1 and **V12D###.BIN / .SEN / .TXT** storage formats. New PC CSV logs are stored outside the downloaded folder under your user profile.
+
+---
+
+# GREEN ION V12 — Engineering reference (retained for existing hardware and recordings)
 
 GREEN ION is a model-rocket flight recorder. An **Adafruit Feather ESP32 V2** in the rocket records barometer and synchronized IMU/GPS data to microSD, serves a local phone dashboard, and optionally sends LoRa radio packets to a separate **Arduino Uno R3** receiver connected to a Windows laptop.
 
