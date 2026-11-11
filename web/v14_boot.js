@@ -64,7 +64,12 @@ async function interceptedFetch(input, options){
   }
   try{
     const url=local?path:FEATHER+path;
-    const response=await nativeFetch(url,options);
+    // Chromium's Local Network Access permission can allow an HTTPS dashboard
+    // to access a private-IP Feather. Safari may still block HTTP mixed content.
+    const requestOptions=!local
+      ?{...options,targetAddressSpace:"local",cache:options?.cache||"no-store"}
+      :options;
+    const response=await nativeFetch(url,requestOptions);
     if(isStatus){
       if(!response.ok)throw Error("Feather status unavailable");
       const data=await response.clone().json();
@@ -100,7 +105,13 @@ window.GREEN_ION_TRANSPORT={
   nativeFetch,localBridge:state.bridge,
   lastPosition:()=>state.lastPosition,
   positionAge:()=>state.lastPosition?Date.now()-state.lastPositionAt:null,
-  statusFromRadio:radioData
+  statusFromRadio:radioData,
+  probeFeather:async()=> {
+    const response=await interceptedFetch("/api/status",{cache:"no-store"});
+    if(!response.ok)throw Error("Feather status HTTP "+response.status);
+    if(!wifiFresh())throw Error("No verified Feather Wi-Fi status");
+    return await response.json();
+  }
 };
 window.greenIonApiUrl=window.GREEN_ION_TRANSPORT.apiUrl;
 window.fetch=interceptedFetch;
