@@ -192,6 +192,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  <button data-tab="storage">Storage</button>
  <button data-tab="system">System</button>
  <button data-tab="connections">Connections</button>
+ <button data-tab="recovery">Recovery</button>
  <button data-tab="history">History</button>
  <button data-tab="cloud">Cloud</button>
  <button data-tab="updates">Updates</button>
@@ -704,6 +705,21 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <p class="muted">Chrome or Edge on Windows: plug in the Arduino Uno, close Arduino Serial Monitor, then select its USB serial port. iPhone/iPad Safari does not support this connection.</p>
   <div class="actions"><button id="v14SerialConnect">Connect Arduino Uno</button><button id="v14SerialDisconnect" class="secondary">Disconnect Uno</button><button id="v14ReceiverExport" class="secondary">Export received LoRa CSV</button></div>
   <p id="v14SerialStatus" role="status">USB receiver not connected.</p>
+ </div>
+</section>
+<section id="recovery" class="page">
+ <div class="card" id="v15RecoveryCard">
+  <h2>Recovery · Locate your rocket</h2>
+  <p class="muted">Uses only actual received GPS fixes from Feather Wi-Fi or Uno/LoRa. Last known GPS is not a guaranteed landing location. Location persists on this browser offline.</p>
+  <div class="row"><span>Last GPS coordinates</span><strong id="v15RecoveryFix">No confirmed GPS fix</strong></div>
+  <div class="row"><span>Fix origin and timestamp</span><strong id="v15RecoverySource">Unknown</strong></div>
+  <div class="row"><span>Position age</span><strong id="v15RecoveryAge">Unknown</strong></div>
+  <div class="row"><span>Radio link</span><strong id="v15RecoveryRadio">No fresh packets</strong></div>
+  <div class="row"><span>Recovery status</span><strong id="v15RecoveryPhase">Not confirmed</strong></div>
+  <canvas id="v15RecoveryTrack" width="920" height="300" aria-label="Offline schematic of observed GPS fixes, not a terrain map"></canvas>
+  <p class="muted" id="v15RecoveryPoints">No GPS points yet</p>
+  <div class="actions"><a id="v15RecoveryNavigate" target="_blank" rel="noopener noreferrer" aria-disabled="true">Map link available after GPS fix</a><button class="secondary" id="v15RecoveryClear">Clear saved positions</button></div>
+  <p class="muted">If internet is unavailable, write down the coordinates or use a pre-downloaded offline navigation app. Never rely on predicted landing positions as measured fixes.</p>
  </div>
 </section>
 <section id="history" class="page">
