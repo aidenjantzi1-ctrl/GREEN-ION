@@ -1,3 +1,13 @@
+# V15 Beta 1 — Local-first dashboard and Windows ground station (published)
+
+**Current application release: V15 Beta 1.** Merged into GitHub `main` and deployed to Vercel production. Includes one-button bench preflight, new Recovery and Help tabs, offline advanced RKT4/GIS1 analysis and health reports, computer-based SHA-256 flight archiving, optional cloud retry when internet returns, battery forecasts, and combined Wi-Fi/LoRa diagnostics. The original dark-blue layout and existing flight formats are preserved.
+
+**Important firmware distinction:** the Feather ESP32 V2 and Uno firmware remain the V14 generation. V15 is an application/ground-station release, not a newly flashed V15 firmware image. Do not use the website version as proof that Feather hardware was updated or bench-tested.
+
+[Open V15 website](https://green-ion-beta.vercel.app/) · [V15 local-first setup guide](docs/V15_LOCAL_FIRST.md) · [V15 3D and digital twin plan (not yet implemented)](docs/V15_3D_TWIN_PLAN.md) · [Merged V15 PR #28](https://github.com/aidenjantzi1-ctrl/GREEN-ION/pull/28)
+
+---
+
 # V14.0.0-beta.4
 
 Original dark-blue tabs + adaptive multi-device dashboard, optional sensor/recording diagnostics, GIS1 offline IMU/GPS history, private Supabase cloud sync, concise README with soldering and sensor guides. Hardware validation pending. [Start](README.md) · [Soldering](docs/V14_WIRING_SOLDER.md) · [Cloud](docs/V14_CLOUD.md).
