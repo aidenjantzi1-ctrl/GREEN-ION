@@ -1914,7 +1914,7 @@ async function v12Fetch(path,method='GET',body=null){
 
 function v12Render(d){
  state=d;connectedOnce=true;
- v12Set('connection','● V12 ONLINE');$('connection').style.color='#72e5ab';
+ v12Set('connection',d.v13_source==='lora'?'● LORA TRACKING':d.v13_source==='demo'?'● DEMO DATA':'● V13 WI-FI ONLINE');$('connection').style.color=d.v13_source==='lora'?'#ffdd88':'#72e5ab';
  const altitude=d.relative_altitude_m,pressure=d.pressure_pa,battery=Number(d.battery_v);
  const batteryPct=Math.max(0,Math.min(100,(battery-3.3)/(4.2-3.3)*100));
  const phase=v12FlightNames[Number(d.recorder_mode)]||'UNKNOWN';
@@ -1938,7 +1938,7 @@ function v12Render(d){
  v12Set('storageWriteErrors',String((d.checkpoint_failures||0)+(d.metadata_failures||0)+(d.finalization_failures||0)));
  v12Set('integrityStatus',d.recovery_status||'Not scanned');v12Set('recoveredFlights',String(d.recovered_logs||0));v12Set('recoveredSamples',String(d.recovered_records||0));
  v12Set('storageMissed',String(d.missed_sample_periods||0));v12Set('flushHeartbeat',d.recording?'ACTIVE':'IDLE');v12Set('maximumFlush','Bounded periodic flush');
- v12Set('firmwareBuild','V12 · '+(d.firmware_build||'unknown build'));v12Set('recordingLimitStatus','Automatic landing / firmware policy');
+ v12Set('firmwareBuild','V13 · '+(d.firmware_build||'unknown build'));v12Set('recordingLimitStatus','Automatic landing / firmware policy');
  v12Set('maintenanceStatus',d.maintenance_mode?'MAINTENANCE ACTIVE: launch detection OFF. Reboot or exit and recalibrate before flight.':d.ota_available?'OTA slot available; enter maintenance from this dashboard to install or roll back.':'OTA partition unavailable. Use USB to install firmware with OTA partitions.');
  $('exitMaintenance').disabled=!d.maintenance_mode;
  $('installFirmware').disabled=!!d.recording||!!d.update_in_progress||!d.ota_available||!!d.maintenance_mode||!!d.home_test_active;

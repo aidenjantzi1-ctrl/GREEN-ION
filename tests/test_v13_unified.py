@@ -114,6 +114,8 @@ class UiAndPackageTests(unittest.TestCase):
         self.assertIn('id="rocketPreset"', page)
         self.assertIn('id="fileList"', page)
         self.assertIn("/v13_unified.js", page)
+        self.assertIn("LORA TRACKING", page)
+        self.assertIn("V13 WI-FI ONLINE", page)
         js = (ROOT / "Ground_Station/v13_unified.js").read_text(encoding="utf-8")
         self.assertIn("v13LinkPanel", js)
         self.assertIn("v13-wifi-unavailable", js)
