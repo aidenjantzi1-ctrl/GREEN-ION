@@ -168,7 +168,7 @@ function renderBrowserInfo(){
 }
 async function init(){
  document.querySelector("header small").textContent="Flight logger · V15 local-first operations";
- text("v14AppBuild","Website "+APP_VERSION+" · Feather firmware may be V13 until updated");
+ text("v14AppBuild","Website V15 local-first beta 1 · Feather firmware channel "+APP_VERSION+" (check actual installed build in System)");
  renderBrowserInfo();
  initPreferences();
  initSensorLab(t);
