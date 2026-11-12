@@ -8,6 +8,7 @@ on:
       - "Ground_Receiver/**"
       - "Ground_Station/**"
       - "tools/build_v16_windows_package.py"
+      - "tools/assemble_v16_release.py"
       - "START_GREEN_ION.cmd"
       - "UPDATE_GREEN_ION.cmd"
       - "ROLLBACK_GREEN_ION.cmd"
@@ -177,6 +178,59 @@ jobs:
           path: |
             build/feather/*.bin
             build/uno/*.hex
+          if-no-files-found: error
+
+  v16-release-smoke:
+    needs: [app-tests, firmware-build, windows-package]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: green-ion-v14-web
+          path: built-web
+      - uses: actions/download-artifact@v4
+        with:
+          name: green-ion-v14-firmware
+          path: built-firmware
+      - uses: actions/download-artifact@v4
+        with:
+          name: GREEN_ION_V16_WINDOWS
+          path: windows-release
+      - name: Assemble V16 release assets without publishing
+        run: |
+          python3 tools/assemble_v16_release.py \
+            --web built-web \
+            --firmware built-firmware \
+            --windows windows-release \
+            --output v16-release-smoke \
+            --tag "ci-smoke" \
+            --commit "$GITHUB_SHA"
+      - name: Validate V16 release bundle
+        run: |
+          test -s v16-release-smoke/GREEN_ION_V16_WINDOWS.zip
+          test -s v16-release-smoke/GREEN_ION_V16_WEB.zip
+          test -s v16-release-smoke/Green_Ion_V14.ino.bin
+          test -s v16-release-smoke/Ground_Receiver.ino.hex
+          test -s v16-release-smoke/SHA256_MANIFEST.json
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("v16-release-smoke")
+          manifest=json.loads((root/"SHA256_MANIFEST.json").read_text())
+          assert manifest["schema"]=="GREEN-ION-V16-RELEASE-1"
+          assert manifest["safety"]["loraReceiveOnly"] is True
+          assert manifest["safety"]["autonomousSdRecorderPreserved"] is True
+          for name,item in manifest["artifacts"].items():
+              path=root/name
+              assert path.is_file(), name
+              assert hashlib.sha256(path.read_bytes()).hexdigest()==item["sha256"], name
+              assert path.stat().st_size==item["size"], name
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GREEN_ION_V16_RELEASE_SMOKE
+          path: v16-release-smoke/
           if-no-files-found: error
 
   release:
