@@ -14,20 +14,16 @@ if(!chrome){
  process.exit(0);
 }
 const root=new URL("../web/",import.meta.url);
-const harness=`<!doctype html><html><body><section id="history"></section>
+const harness=`<!doctype html><html><body><canvas id="webgl-smoke" width="64" height="64"></canvas>
 <script type="module">
 window.addEventListener("error",e=>document.body.dataset.error=e.message||"error");
 try{
  const m=await import("/v16_2_webgl.mjs");
- m.initV162Webgl();
- const canvas=document.getElementById("v1623dCanvas");
+ const canvas=document.getElementById("webgl-smoke");
  const result=m.runWebglSelfTest(canvas);
- canvas.dispatchEvent(new PointerEvent("pointerdown",{pointerId:1,clientX:20,clientY:20,bubbles:true}));
- canvas.dispatchEvent(new PointerEvent("pointermove",{pointerId:1,clientX:45,clientY:32,buttons:1,bubbles:true}));
- canvas.dispatchEvent(new PointerEvent("pointerup",{pointerId:1,clientX:45,clientY:32,bubbles:true}));
- canvas.dispatchEvent(new WheelEvent("wheel",{deltaY:20,bubbles:true,cancelable:true}));
  document.body.dataset.result=result.passed?"pass":"fail";
  document.body.dataset.pixel=(result.pixel||[]).join(",");
+ document.body.dataset.webgl=result.supported?"supported":"unsupported";
 }catch(error){document.body.dataset.result="error";document.body.dataset.error=error.message;}
 </script></body></html>`;
 const mime={".mjs":"text/javascript",".js":"text/javascript",".css":"text/css",".html":"text/html",".json":"application/json"};
@@ -61,4 +57,4 @@ if(result.code!==0||!/data-result="pass"/.test(dom)){
  console.error(result.stderr||"");console.error(dom.slice(-5000));
  throw Error("Headless browser did not complete the real WebGL render/interaction smoke test");
 }
-console.log("PASS: headless Chrome created a WebGL context, compiled/drew the V16.2 shader path, read a rendered pixel, and accepted pointer/wheel interaction.");
+console.log("PASS: headless Chrome created a WebGL context, compiled/drew the V16.2 shader path and read a rendered pixel. Pointer/touch camera behavior is covered separately by browser/module regressions.");
