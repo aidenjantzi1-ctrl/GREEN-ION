@@ -11,6 +11,7 @@ import {initLocalArchive} from "./v15_local.mjs";
 import {initBattery} from "./v15_battery.mjs";
 import {initLink} from "./v15_link.mjs";
 import {initHelp} from "./v15_help.mjs";
+import {initMission} from "./v16_mission.mjs";
 import {initPreferences} from "./v14_preferences.mjs";
 import {initSensorLab} from "./v14_sensor_lab.mjs";
 import {requiresFeather,initTabs} from "./v14_ui.mjs";
@@ -119,6 +120,7 @@ async function autoSaveOneCompletedFlight(){
    const signature=file.name+":"+file.size;
    if(importSeen.has(signature))continue;
    const url="/api/download?name="+encodeURIComponent(file.name);
+   window.dispatchEvent(new CustomEvent("green-ion-v16-download-start",{detail:{name:file.name,size:Number(file.size)||null}}));
    const bin=await fetch(url,{cache:"no-store"});
    if(!bin.ok)continue;
    const data=await bin.arrayBuffer();
@@ -212,7 +214,7 @@ async function init(){
   }
   mode();
  });
- initHistoryAnalysis();initSensorHistory();initRecovery();initLink();initBattery();initLocalArchive();initAdvanced();initHelp();initCloud();initUpdates();
+ initHistoryAnalysis();initSensorHistory();initRecovery();initLink();initMission();initBattery();initLocalArchive();initAdvanced();initHelp();initCloud();initUpdates();
  try{const n=await importLegacyHistory();if(n)text("v14HistoryNotice","Imported "+n+" older V11-V13 recordings into V14 storage.");}
  catch{/* historical DB may not exist */}
  await renderHistory();mode();
