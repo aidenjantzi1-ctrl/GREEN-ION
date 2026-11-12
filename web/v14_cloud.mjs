@@ -9,10 +9,22 @@ const key=String(cfg.supabaseKey||"");
 const enabled=/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(url)&&key.startsWith("sb_publishable_");
 const SESSION_KEY="green-ion-v14-cloud-session",BUCKET="green-ion-flights";
 const PAGE_SIZE=250,MAX_REMOTE_FILES=10000,MAX_FILE_BYTES=52428800;
-let session=null,busy=false,refreshing=null,failures=0,retryAt=0,lastCompletedAt=0;
+const V16_STATE_KEY="green-ion-v16-cloud-state";
+let session=null,busy=false,refreshing=null,failures=0,retryAt=0,lastCompletedAt=0,pendingCount=0;
 const $=id=>document.getElementById(id);
 const message=text=>{if($("v14CloudStatus"))$("v14CloudStatus").textContent=text;};
 const detail=text=>{if($("v14CloudProgress"))$("v14CloudProgress").textContent=text;};
+function setCloudState(status,extra={}){
+ const value={
+  schema:"GREEN-ION-V16-CLOUD-1",status,
+  signed_in:!!session,online:!!navigator.onLine,busy,
+  failures,retry_at:retryAt||null,last_success_at:lastCompletedAt||null,
+  pending_count:pendingCount,...extra,updated_at:new Date().toISOString()
+ };
+ try{localStorage.setItem(V16_STATE_KEY,JSON.stringify(value));}catch{}
+ window.dispatchEvent(new CustomEvent("green-ion-v16-cloud-state",{detail:value}));
+ return value;
+}
 function loadSession(){
  try{const obj=JSON.parse(localStorage.getItem(SESSION_KEY)||"null");
    session=obj?.access_token&&obj?.refresh_token?obj:null;}catch{session=null;}
@@ -93,10 +105,11 @@ export async function signIn(email,password,signup=false){
  return !!data.access_token;
 }
 export async function signOut(){
- remember(null);failures=0;retryAt=0;
+ remember(null);failures=0;retryAt=0;pendingCount=0;
  renderAccount();
  message("Signed out. Existing local flights were not changed.");
  detail("No cloud session");
+ setCloudState("SIGNED_OUT");
 }
 export async function listCloudFiles(){
  const all=[];
@@ -143,7 +156,7 @@ function scheduleRetry(){
 export async function backupNow({automatic=false}={}){
  if(busy||!session)return;
  if(automatic&&(!canAutoSync()||Date.now()<retryAt))return;
- if(!navigator.onLine){message("Offline. Local recordings are queued until internet returns.");return;}
+ if(!navigator.onLine){message("Offline. Local recordings are queued until internet returns.");setCloudState("OFFLINE");return;}
  busy=true;
  message("Checking private cloud backups...");
  try{
@@ -151,6 +164,8 @@ export async function backupNow({automatic=false}={}){
   const existing=new Set(remote.map(f=>f.checksum));
   const files=await listLocalMetadata();
   const pending=files.filter(f=>!existing.has(f.checksum));
+  pendingCount=pending.length;
+  setCloudState(pending.length?"PENDING":"SYNCED",{remote_count:existing.size});
   detail(pending.length+" file(s) awaiting backup · "+existing.size+" already in cloud");
   let uploaded=0;
   for(const summary of pending){
@@ -181,14 +196,16 @@ export async function backupNow({automatic=false}={}){
    });
    uploaded++;existing.add(file.checksum);
   }
-  failures=0;retryAt=0;lastCompletedAt=Date.now();
+  failures=0;retryAt=0;lastCompletedAt=Date.now();pendingCount=0;
+  setCloudState("SYNCED",{uploaded,local_count:files.length});
   message("Cloud backup complete: "+uploaded+" uploaded, "+(files.length-uploaded)+" already stored.");
   detail("Last successful sync: "+new Date(lastCompletedAt).toLocaleString());
   await refreshCloudList();
  }catch(e){
   message("Cloud sync paused: "+e.message+". Original files remain stored on this device.");
   scheduleRetry();
- }finally{busy=false;}
+  setCloudState("RETRYING",{error:String(e.message||e).slice(0,180)});
+ }finally{busy=false;setCloudState(pendingCount?"PENDING":lastCompletedAt?"SYNCED":"IDLE");}
 }
 export async function restoreCloud(){
  if(busy||!session)return;
@@ -216,13 +233,15 @@ export async function restoreCloud(){
   }
   message("Cloud restore complete: "+restored+" files restored, "+skipped+" duplicates skipped.");
   detail("All downloaded originals verified using SHA-256.");
+  setCloudState("SYNCED",{restored,skipped});
   window.dispatchEvent(new Event("green-ion-history-change"));
- }catch(e){message("Cloud restore stopped safely: "+e.message+". No existing recording was overwritten.");}
+ }catch(e){message("Cloud restore stopped safely: "+e.message+". No existing recording was overwritten.");setCloudState("ERROR",{error:String(e.message||e).slice(0,180)});}
  finally{busy=false;}
 }
 export function initCloud(){
  loadSession();renderAccount();
- if(!enabled){message("Cloud configuration unavailable. Offline storage still works.");return;}
+ if(!enabled){message("Cloud configuration unavailable. Offline storage still works.");setCloudState("UNAVAILABLE");return;}
+ setCloudState(session?"IDLE":"SIGNED_OUT");
  $("v14CloudSubmit").onclick=async()=>{
   const email=$("v14CloudEmail").value.trim(),password=$("v14CloudPassword").value;
   if(!email||!password){message("Enter account email and password.");return;}

@@ -1,6 +1,6 @@
 # GREEN ION — Rocket Flight Recorder
 
-**Current application development: V16 Phase 4 — five-tab interface. Feather/Uno hardware firmware remains the V14 generation. Physical flight validation is still pending.**
+**Current application development: V16 Phase 5 — verified local data and optional cloud backup. Feather/Uno hardware firmware remains the V14 generation. Physical flight validation is still pending.**
 
 **Hosted V16 application / V14 firmware Wi-Fi connection:** compatible Chromium browsers can connect to the Feather after its trusted-origin firmware update and local network permission. Safari/iPhone uses the direct Feather dashboard plus History import and cloud sync after internet returns. [Phone/computer setup and limitations](docs/V15_HOSTED_PHONE_CONNECTION.md).
 
@@ -8,7 +8,7 @@
 
 GREEN ION records a rocket's pressure, motion, GPS and battery measurements using the **Adafruit Feather ESP32 V2**. It records flight data independently on an SD card. A Windows PC, iPhone or iPad can open the **same original blue dashboard and tabs**. Windows can also receive **Uno USB / LoRa** telemetry; the phone works without LoRa.
 
-[**V16 implementation checklist**](docs/V16_IMPLEMENTATION_CHECKLIST.md) · [**V16 five-tab interface**](docs/V16_PHASE4_FIVE_TAB_INTERFACE.md) · [**V16 Phase 3 Mission Workflow**](docs/V16_PHASE3_MISSION_WORKFLOW.md) · [**Phase 2 Unified Telemetry**](docs/V16_PHASE2_UNIFIED_TELEMETRY.md) · [**Phase 1 Windows reliability**](docs/V16_PHASE1_WINDOWS_RELIABILITY.md) · [**Version history**](VERSIONS.md)
+[**V16 implementation checklist**](docs/V16_IMPLEMENTATION_CHECKLIST.md) · [**V16 five-tab interface**](docs/V16_PHASE4_FIVE_TAB_INTERFACE.md) · [**V16 data/cloud integrity**](docs/V16_PHASE5_DATA_CLOUD.md) · [**V16 Phase 3 Mission Workflow**](docs/V16_PHASE3_MISSION_WORKFLOW.md) · [**Phase 2 Unified Telemetry**](docs/V16_PHASE2_UNIFIED_TELEMETRY.md) · [**Phase 1 Windows reliability**](docs/V16_PHASE1_WINDOWS_RELIABILITY.md) · [**Version history**](VERSIONS.md)
 
 ## Choose a guide
 

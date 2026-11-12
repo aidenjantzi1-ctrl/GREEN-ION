@@ -1,3 +1,11 @@
+# V16 development — Phase 5 data and cloud
+
+Phase 5 makes immutable local BIN/SEN/TXT originals easier to verify and group, adds exportable package manifests, and exposes explicit optional-cloud sync state. Local browser/disk originals remain authoritative; Supabase is backup only and never gates recording, recovery or analysis.
+
+[Phase 5 data/cloud](docs/V16_PHASE5_DATA_CLOUD.md) · [V16 checklist](docs/V16_IMPLEMENTATION_CHECKLIST.md)
+
+---
+
 # V16 development — Phase 4 five-tab interface
 
 Phase 4 replaces the intermediate navigation shell with the approved five top-level destinations: **Dashboard, Flight, Flights & Analysis, Testing, and Settings & Advanced**. Mission-critical information stays visible while detailed telemetry, radio diagnostics, cloud, updates and troubleshooting are grouped into expandable advanced sections.

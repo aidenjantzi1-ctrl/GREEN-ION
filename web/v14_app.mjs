@@ -16,6 +16,7 @@ import {initLayout} from "./v16_layout.mjs";
 import {initPreferences} from "./v14_preferences.mjs";
 import {initSensorLab} from "./v14_sensor_lab.mjs";
 import {initV16Navigation} from "./v16_navigation.mjs";
+import {initV16Data} from "./v16_data.mjs";
 import {requiresFeather,initTabs} from "./v14_ui.mjs";
 const $=id=>document.getElementById(id),t=window.GREEN_ION_TRANSPORT;
 let importing=false,lastAutoImport=0,lastRadioAt=0,radioPackets=[];
@@ -185,6 +186,7 @@ async function init(){
  initSensorLab(t);
  initTabs(document.querySelector("nav.tabs"));
  initV16Navigation();
+ initV16Data();
  $("v14SerialConnect").onclick=connectSerial;
  $("v14SerialDisconnect").onclick=disconnectSerial;
  $("v14SerialDisconnect").disabled=true;

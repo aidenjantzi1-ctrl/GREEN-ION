@@ -43,8 +43,8 @@ test("internal shortcuts route through visible V16 destinations",()=>{
  assert.match(app,/initV16Navigation\(\)/);
 });
 
-test("offline cache contains both Phase 4 layout and navigation",()=>{
+test("offline cache retains both Phase 4 layout and navigation across later phases",()=>{
  assert.match(sw,/v16_layout\.mjs/);
  assert.match(sw,/v16_navigation\.mjs/);
- assert.match(sw,/phase4-five-tab-interface/);
+ assert.match(sw,/green-ion-v16-/);
 });
