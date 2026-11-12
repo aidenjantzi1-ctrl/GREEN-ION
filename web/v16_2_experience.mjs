@@ -52,7 +52,7 @@ function injectProfile(){
   '<label>Body diameter (cm)<input id="v162ProfileDiameter" type="number" min=".5" max="100" step=".1" placeholder="Optional"></label>'+
   '<label>Recovery type<select id="v162ProfileRecovery"><option value="">Not specified</option><option>Parachute</option><option>Streamer</option><option>Other</option></select></label>'+
   '<label>Sensor nose direction<select id="v162ProfileMount"><option value="+Z">+Z (default)</option><option value="-Z">-Z</option><option value="+X">+X</option><option value="-X">-X</option><option value="+Y">+Y</option><option value="-Y">-Y</option></select></label>'+
-  '<label>Recording rate<select id="v162ProfileRate"><option>10</option><option>25</option><option selected>50</option></select></label></div>'+
+  '<label>Recording rate<select id="v162ProfileRate"><option selected>50</option></select><small class="muted">V16.2 Feather recorder is fixed at the validated 50 Hz cadence.</small></label></div>'+
   '<div class="actions"><button id="v162ProfileSave">Save profile & apply labels</button><button id="v162ProfileLocal" class="secondary">Save display profile only</button></div>'+
   '<p id="v162ProfileStatus" class="muted" role="status"></p>';
  target.append(card);fillProfile();
