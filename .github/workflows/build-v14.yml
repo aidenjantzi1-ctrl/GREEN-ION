@@ -14,6 +14,7 @@ on:
       - "libraries/**"
       - "tests/**"
       - ".github/workflows/build-v14.yml"
+      - ".github/workflows/release-v16.yml"
       - "docs/V14_*"
       - "docs/V16_*"
       - "README.md"
