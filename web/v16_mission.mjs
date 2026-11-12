@@ -33,6 +33,7 @@ export function newMission(now=Date.now(),id=null){
    complete:false,measured_failures:0,blocking_unverified:0,
    manual_unverified:0,physical_confirmed:false,error:""
   },
+  expected_flight_file:null,
   flight_file:null,
   report_quality:null,
   gps_status:"missing",
@@ -81,6 +82,7 @@ function applyFlightEvidence(mission,data,now){
  mission.gps_status=cleanText(data.readings?.gps_status?.value||"missing",20);
  mission.rocket=cleanText(data.identity?.rocket,40)||mission.rocket;
  mission.motor=cleanText(data.identity?.motor,30)||mission.motor;
+ mission.expected_flight_file=cleanText(data.identity?.mission_file_id,180)||mission.expected_flight_file;
  if(mission.gps_status!=="live"&&["ASCENT","DESCENT","LANDED","RECOVERY"].includes(mission.state))
   warning(mission,"GPS is not live; recovery will use the last confirmed fix.",now);
  const phase=flightStateFromTelemetry(data);
@@ -117,6 +119,7 @@ export function reduceMission(current,event,now=Date.now()){
  if(type==="RESET_MISSION")return newMission(now);
 
  if(type==="PREFLIGHT_RESULT"){
+  if(!["PREFLIGHT","ERROR"].includes(mission.state))return mission;
   mission.preflight={
    complete:!!detail.complete,
    measured_failures:Math.max(0,Number(detail.fails)||0),
@@ -156,15 +159,25 @@ export function reduceMission(current,event,now=Date.now()){
  if(type==="TELEMETRY")return applyFlightEvidence(mission,detail,now);
 
  if(type==="DOWNLOAD_START"&&["LANDED","RECOVERY","DOWNLOADING"].includes(mission.state)){
-  mission.flight_file=cleanText(detail.name,180)||mission.flight_file;
+  const name=cleanText(detail.name,180);
+  if(mission.expected_flight_file&&name&&name.toLowerCase()!==mission.expected_flight_file.toLowerCase())
+   return warning(mission,"Ignored unrelated archived flight transfer: "+name,now);
+  mission.flight_file=name||mission.flight_file;
   return addTransition(mission,"DOWNLOADING",type,"Completed flight retrieval started after landing.",now);
  }
  if(type==="FLIGHT_SAVED"&&/\.BIN$/i.test(String(detail.name||"")) &&
     ["LANDED","RECOVERY","DOWNLOADING","ANALYZING"].includes(mission.state)){
-  mission.flight_file=cleanText(detail.name,180);
+  const name=cleanText(detail.name,180);
+  const expected=mission.expected_flight_file||mission.flight_file;
+  if(!expected||name.toLowerCase()!==expected.toLowerCase())
+   return warning(mission,"Saved BIN does not match this mission's expected flight file: "+name,now);
+  mission.flight_file=name;
   return addTransition(mission,"ANALYZING",type,"Checksum-preserved BIN is available locally for analysis.",now);
  }
  if(type==="REPORT_COMPLETE"&&mission.state==="ANALYZING"){
+  const name=cleanText(detail.name,180);
+  if(mission.flight_file&&name&&name.toLowerCase()!==mission.flight_file.toLowerCase())
+   return warning(mission,"Ignored postflight report for a different recording: "+name,now);
   mission.report_quality=Number.isFinite(Number(detail.quality))?Number(detail.quality):null;
   return addTransition(mission,"COMPLETE",type,"Local postflight analysis completed.",now);
  }
