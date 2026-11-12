@@ -110,6 +110,13 @@ static void homeCloseFile() {
 static void homeVerifyFile() {
   if (!homeLogActive) return;
   homeLogActive = false;
+  SdSpiScope bus;
+  if (!bus) {
+    homeResult = 3;
+    homeCleanupOk = false;
+    Serial.println("[HOME] Shared SPI busy while verifying temporary recording.");
+    return;
+  }
   homeCloseFile();
   homeMissed = sampleClock.missedPeriods() - homeMissedStart;
   bool good = false;
@@ -160,8 +167,8 @@ static void homeCapture(uint32_t timestampUs, bool valid) {
   const green_ion::rkt4::Record record = {
     timestampUs, state.pressurePa, state.temperatureC, state.batteryMv, valid};
   green_ion::rkt4::encodeRecord(bytes, record);
-  digitalWrite(config::PIN_LORA_CS, HIGH);
-  if (!homeFile || homeFile.write(bytes, sizeof(bytes)) != sizeof(bytes)) {
+  SdSpiScope bus;
+  if (!bus || !homeFile || homeFile.write(bytes, sizeof(bytes)) != sizeof(bytes)) {
     homeLogActive = false;
     homeCloseFile();
     homeCleanupOk = SD.remove(HOME_TEST_PATH);
@@ -195,7 +202,11 @@ static void homeStart() {
   recorderMode = RECORDER_HOME_TEST;
   recorderCore.resetBuffer();
   if (state.sdOk) {
-    digitalWrite(config::PIN_LORA_CS, HIGH);
+    SdSpiScope bus;
+    if (!bus) {
+      resetCalibration(millis());
+      homeReply(503, false, "Shared SPI busy; retry home test after current operation"); return;
+    }
     if (SD.exists(HOME_TEST_PATH) && !SD.remove(HOME_TEST_PATH)) {
       orphanHomeFile = true;
       resetCalibration(millis());
@@ -235,7 +246,10 @@ static void homeStartLog() {
   if (!state.sdOk) {
     homeReply(503, false, "SD card missing"); return;
   }
-  digitalWrite(config::PIN_LORA_CS, HIGH);
+  SdSpiScope bus;
+  if (!bus) {
+    homeReply(503, false, "Shared SPI busy; retry temporary recording"); return;
+  }
   if (SD.exists(HOME_TEST_PATH)) {
     homeReply(409, false, "Reserved test file exists; end session to clean it"); return;
   }
@@ -260,8 +274,17 @@ static void homeStartLog() {
   homeMissed = 0; homeWifiSeen = homeWifiAbsent = false;
   homeResult = 1; homeLogActive = true; homeCleanupOk = false;
   homeStartedMs = millis();
-  Serial.println("[HOME] Recording 30 seconds at 50 Hz. Disconnect and reconnect phone Wi-Fi; leave Feather powered.");
-  homeReply(202, true, "30-second real-sensor test started; disconnect then reconnect Wi-Fi");
+  // Exercise the real shared SPI architecture during the 50 Hz temporary
+  // recording. Radio remains optional: missing radio evidence never fabricates
+  // a PASS and never prevents the SD recorder from being tested.
+  homeRadioStartSent = radioBenchPacketsSent;
+  homeRadioStartFailures = radioSendFailures;
+  if (state.radioOk) {
+    radioBenchPacketsRemaining = config::HOME_CONCURRENT_RADIO_PACKETS;
+    lastTelemetryMs = homeStartedMs - config::TELEMETRY_INTERVAL_MS;
+  }
+  Serial.println("[HOME] Recording 30 seconds at 50 Hz while bounded LoRa bench telemetry is scheduled. Disconnect/reconnect phone Wi-Fi; leave Feather powered.");
+  homeReply(202, true, "30-second 50 Hz SD + optional LoRa shared-SPI stress test started");
 }
 
 static void homeRadio() {
@@ -283,8 +306,8 @@ static void homeFinish() {
   homeLogActive = false;
   homeCloseFile();
   if (state.sdOk) {
-    digitalWrite(config::PIN_LORA_CS, HIGH);
-    homeCleanupOk = !SD.exists(HOME_TEST_PATH) || SD.remove(HOME_TEST_PATH);
+    SdSpiScope bus;
+    homeCleanupOk = bus && (!SD.exists(HOME_TEST_PATH) || SD.remove(HOME_TEST_PATH));
   } else homeCleanupOk = false;
   orphanHomeFile = !homeCleanupOk;
   if (homeResult == 1) homeResult = 3;
