@@ -24,6 +24,7 @@ from urllib.parse import urlsplit, unquote, parse_qs
 from pathlib import Path
 import shutil
 import os
+import platform
 import threading
 import time
 import webbrowser
@@ -45,6 +46,15 @@ SAFE_HASH = re.compile(r"[0-9a-f]{64}")
 PUBLIC_CLOUD = {
     "supabaseUrl": os.environ.get("SUPABASE_URL", "https://bqvvtbnjthbiqyljmzfx.supabase.co"),
     "supabaseKey": os.environ.get("SUPABASE_PUBLISHABLE_KEY", "sb_publishable_m8GYtLRB9LKT2bPzxVMESA_yhlgIAZR"),
+}
+try:
+    APP_INFO = json.loads((ROOT / "version.json").read_text(encoding="utf-8"))
+except (OSError, ValueError, TypeError):
+    APP_INFO = {"schema": "GREEN-ION-V16-WINDOWS-1", "version": "unknown", "channel": "unknown"}
+RUNTIME = {
+    "started_utc": datetime.now(timezone.utc).isoformat(),
+    "receiver_port": None,
+    "mode": "starting",
 }
 
 
@@ -383,6 +393,23 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        if path == "/api/app/health":
+            self._json({
+                "schema": "GREEN-ION-V16-WINDOWS-HEALTH-1",
+                "version": APP_INFO.get("version"),
+                "channel": APP_INFO.get("channel"),
+                "python": platform.python_version(),
+                "platform": platform.platform(),
+                "data_root": str(DATA_ROOT),
+                "flight_archive": str(FLIGHT_DIR),
+                "static_root": str(STATIC_ROOT),
+                "receiver_port": RUNTIME.get("receiver_port"),
+                "mode": RUNTIME.get("mode"),
+                "started_utc": RUNTIME.get("started_utc"),
+                "update_script_available": (ROOT / "Update-GreenIon.ps1").is_file(),
+                "user_data_outside_app": True,
+            })
+            return
         if path == "/api/local/files":
             self._local_files()
             return
@@ -619,6 +646,8 @@ def main() -> None:
     target = sample_source if use_sample else serial_source
     target_args = (stop, log_path) if use_sample else (stop, selected_port, log_path)
     STORE.log_path = log_path
+    RUNTIME["receiver_port"] = selected_port
+    RUNTIME["mode"] = "simulation" if use_sample else ("wifi+lora" if selected_port else "wifi-only")
     # Preserve any older Ground_Station/logs after an in-place update.
     for older in (ROOT / "logs").glob("*.csv"):
         try:
@@ -647,7 +676,7 @@ def main() -> None:
                 webbrowser.open(url)
             return
         raise
-    print(f"GREEN ION local-first blue dashboard: {url}")
+    print(f"GREEN ION V16 Windows Ground Station {APP_INFO.get('version', 'unknown')}: {url}")
     print(f"Automatic computer flight archive: {FLIGHT_DIR}")
     print("Mode: SIMULATED DATA — NOT HARDWARE" if use_sample else
           f"Mode: Feather Wi-Fi + {('Uno radio on ' + selected_port) if selected_port else 'no Uno port (Wi-Fi only)'}")
