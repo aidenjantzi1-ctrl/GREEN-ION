@@ -500,6 +500,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <button id="downloadEverything" class="secondary">DOWNLOAD SELECTED FLIGHT PACKAGE</button>
   <button id="scanIntegrity" class="secondary">SCAN SELECTED FILE</button>
   <div class="notice" id="integrityScanResult">Select a flight to scan.</div>
+  <div class="notice" id="sdDeleteFeedback">Deleting here removes the selected flight package from the Feather SD card only. Browser, Windows, and cloud backups are not deleted.</div>
   <label for="fileSort">Sort recordings</label>
   <select id="fileSort"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="size">Largest first</option></select>
   <div id="fileList"></div>
@@ -1669,37 +1670,43 @@ async function loadFiles() {
    };
 
    const rm=document.createElement("button");
-   rm.textContent="Delete";
+   rm.textContent="Delete from SD";
    rm.className="danger";
+   const deleteBlocked=!!state?.recording||!!state?.home_test_active||
+    !!state?.maintenance_mode||!!state?.update_in_progress;
+   rm.disabled=deleteBlocked;
+   rm.title=deleteBlocked?"Finish recording/testing/maintenance before deleting":"Delete this flight package from Feather SD only";
    rm.onclick=async()=>{
-    if(!confirm("Delete "+f.name+"?"))return;
+    const warning="Delete "+f.name+" from the Feather SD card?\n\n"+
+     "This removes its BIN plus matching SEN/TXT/recovery files from the Feather only. "+
+     "Browser, Windows, and cloud backups are not deleted.\n\n"+
+     "If launch watching is active, GREEN ION will restart stationary calibration.";
+    if(!confirm(warning))return;
+    rm.disabled=true;
+    $("sdDeleteFeedback").textContent="Deleting "+f.name+" from Feather SD...";
     try {
-     await api("delete?name="+
-      encodeURIComponent(f.name),"POST");
-     selectedFlight="";loadedFlightName="";savedFlightSeries=[];flightPhases=[];flightMeta={};graphRequestId++;
-     $("flightSummaryDetails").replaceChildren();
-     $("flightSummaryStatus").textContent="Refreshing after deletion...";
-     $("flightPhases").textContent="No flight selected.";
-     $("flightConfidenceTimeline").textContent="No flight selected.";
-     $("flightPerformance").textContent="No flight selected.";
-     $("savedGraphStatus").textContent="No flight selected.";
+     const result=await api("delete?name="+encodeURIComponent(f.name)+
+      "&confirm="+encodeURIComponent(f.name),"POST");
+     if(!result.success||result.verified!==true)throw Error(result.message||"Delete was not verified");
+     $("sdDeleteFeedback").textContent=result.message+" · "+result.deleted_files+" file(s) removed and verified absent.";
+     if(selectedFlight===f.name){
+      selectedFlight="";loadedFlightName="";savedFlightSeries=[];flightPhases=[];flightMeta={};graphRequestId++;
+      $("flightSummaryDetails").replaceChildren();
+      $("flightSummaryStatus").textContent="Flight removed from Feather SD. Local backups, if any, remain available.";
+      $("flightPhases").textContent="No Feather flight selected.";
+      $("flightConfidenceTimeline").textContent="No Feather flight selected.";
+      $("flightPerformance").textContent="No Feather flight selected.";
+      $("savedGraphStatus").textContent="No Feather flight selected.";
+     }
      await loadFiles();
      await poll();
-    }catch(err){alert(err.message)}
+    }catch(err){
+     $("sdDeleteFeedback").textContent="Delete failed safely: "+err.message;
+     rm.disabled=false;
+    }
    };
 
-   const protect=document.createElement("button");
-   protect.textContent=f.protected?"Unprotect":"Protect";
-   protect.className="secondary";
-   protect.onclick=async()=>{try{await api("protect?name="+encodeURIComponent(f.name)+"&value="+(f.protected?"0":"1"),"POST");await loadFiles();}catch(err){alert(err.message)}};
-
-   const note=document.createElement("button");
-   note.textContent="Add note";
-   note.onclick=async()=>{const value=prompt("Recovery or flight note for "+f.name+":");if(!value)return;try{await api("note?name="+encodeURIComponent(f.name)+"&note="+encodeURIComponent(value),"POST");await showFlightStats(f.name);}catch(err){alert(err.message)}};
-
-   rm.disabled=!!f.protected;
-   rm.title=f.protected?"Unprotect before deleting":"Delete this flight";
-   actions.append(summary,dl,csv,txt,protect,note,rm);
+   actions.append(summary,dl,csv,txt,rm);
    row.append(text,actions);
    list.appendChild(row);
   }
