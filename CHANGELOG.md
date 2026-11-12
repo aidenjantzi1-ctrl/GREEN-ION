@@ -1,3 +1,15 @@
+# V16 Phase 1 — Windows reliability — November 11, 2026
+
+- Added explicit Connected, Delayed, Reconnecting and Disconnected Feather Wi-Fi states with last-success age and diagnostics.
+- Coalesced simultaneous browser status polling so duplicate dashboard callers share one request.
+- Changed background Feather polling to defer during active transfers instead of treating local request contention as a Wi-Fi failure.
+- Preserved last-known Feather status as visibly stale while keeping commands blocked until fresh verification returns.
+- Added V16 Windows reliability regressions, including simulated one-hour operation, short interruptions, prolonged loss, reconnect and stale-state safety.
+- Bumped the offline cache so installed clients receive the reliability changes.
+- **No Feather/Uno firmware, RKT4 v2, GIS1 or autonomous recording format changes. Physical hardware validation remains pending.**
+
+---
+
 # V15 local-first software candidate — November 11, 2026
 
 - Implemented one-button automatic real-sensor bench preflight, with no fabricated physical confirmations.
