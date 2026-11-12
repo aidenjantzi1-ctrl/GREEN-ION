@@ -10,6 +10,7 @@ on:
       - "tools/build_v16_windows_package.py"
       - "START_GREEN_ION.cmd"
       - "UPDATE_GREEN_ION.cmd"
+      - "ROLLBACK_GREEN_ION.cmd"
       - "libraries/**"
       - "tests/**"
       - ".github/workflows/build-v14.yml"
@@ -35,7 +36,7 @@ jobs:
       - name: Python regression suite
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
       - name: Node browser tests
-        run: node --test tests/v14_browser.test.mjs tests/v14_analysis.test.mjs tests/v14_ui.test.mjs tests/v14_sensor.test.mjs tests/v14_gis1.test.mjs tests/v15_features.test.mjs tests/v15_hosted_link.test.mjs tests/v16_windows_reliability.test.mjs tests/v16_unified_telemetry.test.mjs tests/v16_mission.test.mjs tests/v16_navigation.test.mjs tests/v16_layout.test.mjs tests/v16_data_cloud.test.mjs tests/v16_visualization.test.mjs tests/v16_validation.test.mjs
+        run: node --test tests/v14_browser.test.mjs tests/v14_analysis.test.mjs tests/v14_ui.test.mjs tests/v14_sensor.test.mjs tests/v14_gis1.test.mjs tests/v15_features.test.mjs tests/v15_hosted_link.test.mjs tests/v16_windows_reliability.test.mjs tests/v16_unified_telemetry.test.mjs tests/v16_mission.test.mjs tests/v16_navigation.test.mjs tests/v16_layout.test.mjs tests/v16_data_cloud.test.mjs tests/v16_visualization.test.mjs tests/v16_validation.test.mjs tests/v16_1_improvements.test.mjs
       - name: JavaScript syntax verification
         run: |
           for f in web/*.mjs web/analysis/*.mjs web/v14_boot.js web/service-worker.js web/build.mjs; do
@@ -62,6 +63,9 @@ jobs:
           test -s web/dist/v16_runtime.mjs
           test -s web/dist/v16_visualization.mjs
           test -s web/dist/v16_validation.mjs
+          test -s web/dist/v16_1_diagnostics.mjs
+          test -s web/dist/v16_1_guided_test.mjs
+          test -s web/dist/v16_1_analysis_core.mjs
           grep -q 'id="homeAuto"' web/dist/index.html
           grep -q 'id="v15ConnectFeather"' web/dist/index.html
           grep -q 'GREEN ION V16' web/dist/index.html
@@ -96,6 +100,9 @@ jobs:
           $errors = $null
           [void][System.Management.Automation.Language.Parser]::ParseFile("Ground_Station/Update-GreenIon.ps1",[ref]$null,[ref]$errors)
           if ($errors.Count) { $errors | Format-List | Out-String | Write-Error; exit 1 }
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("Ground_Station/Rollback-GreenIon.ps1",[ref]$null,[ref]$errors)
+          if ($errors.Count) { $errors | Format-List | Out-String | Write-Error; exit 1 }
       - name: Build V16 Windows package
         run: python3 tools/build_v16_windows_package.py --website built-web --output windows-release --commit "$GITHUB_SHA"
       - name: Validate Windows package
@@ -116,9 +123,11 @@ jobs:
           required={
             "GREEN_ION_V16_WINDOWS/START_GREEN_ION.cmd",
             "GREEN_ION_V16_WINDOWS/UPDATE_GREEN_ION.cmd",
+            "GREEN_ION_V16_WINDOWS/ROLLBACK_GREEN_ION.cmd",
             "GREEN_ION_V16_WINDOWS/Ground_Station/ground_station.py",
             "GREEN_ION_V16_WINDOWS/Ground_Station/Start-GreenIon.ps1",
             "GREEN_ION_V16_WINDOWS/Ground_Station/Update-GreenIon.ps1",
+            "GREEN_ION_V16_WINDOWS/Ground_Station/Rollback-GreenIon.ps1",
             "GREEN_ION_V16_WINDOWS/Ground_Station/version.json",
             "GREEN_ION_V16_WINDOWS/web/index.html",
           }
@@ -127,6 +136,7 @@ jobs:
           m=json.loads((root/"GREEN_ION_V16_WINDOWS_MANIFEST.json").read_text())
           assert m["zipSha256"]==expected
           assert m["safety"]["preservesUserData"] is True
+          assert m["safety"]["rollbackRetainsPriorApp"] is True
           PY
       - uses: actions/upload-artifact@v4
         with:
