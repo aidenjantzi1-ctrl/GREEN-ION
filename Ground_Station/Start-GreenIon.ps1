@@ -74,5 +74,6 @@ Write-Host ""
 
 $LaunchArgs = @((Join-Path $Here "ground_station.py"))
 if ($WifiOnly) { $LaunchArgs += "--wifi-only" }
-& $PythonExe @PythonPrefix @Args
+if ($GroundStationArgs) { $LaunchArgs += $GroundStationArgs }
+& $PythonExe @PythonPrefix @LaunchArgs
 exit $LASTEXITCODE
