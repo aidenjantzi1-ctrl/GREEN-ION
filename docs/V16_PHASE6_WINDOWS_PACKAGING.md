@@ -58,11 +58,11 @@ When a package is available, the PowerShell updater:
 5. extracts to a temporary directory;
 6. verifies required GREEN ION files;
 7. installs side-by-side under `%LOCALAPPDATA%\GREEN_ION\App\<tag>-<sha12>`;
-8. updates a small `current.txt` pointer only after validation.
+8. saves the previously selected complete app as `previous.txt` when appropriate;\n9. updates `current.txt` only after validation.
 
-It does **not** delete or migrate `GREEN_ION_Data`.
+It does **not** delete or migrate `GREEN_ION_Data`. `ROLLBACK_GREEN_ION.cmd` validates the previous app package and swaps only the current/previous pointers.
 
-An existing content-addressed package directory is never deleted or replaced. A currently running server is not forcibly killed. The verified package becomes active the next time the launcher is started.
+Release notes are shown before installation. An existing content-addressed package directory is never deleted or replaced. A currently running server is not forcibly killed. The verified package becomes active the next time the launcher is started.
 
 ## Runtime diagnostics
 
