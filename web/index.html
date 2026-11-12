@@ -2573,19 +2573,41 @@ function next(){
  step++;pending="";radioStarted=false;node("homeConfirm").checked=false;setMessage(here().guide);paint();
 }
 function skip(){if(!active||busy||pending==="record")return;save("NOT VERIFIED","This check was skipped. It has not passed.");}
+function missionPreflightDetail(error=""){
+ const complete=Object.keys(results).length===steps.length&&!error;
+ const fails=Object.values(results).filter(v=>v==="FAIL").length;
+ let blocking=0,manual=0;
+ steps.forEach((item,index)=>{
+  const result=results[index];
+  const verified=result==="PASS"||result==="CONFIRMED";
+  if(verified)return;
+  if(item.kind==="manual")manual++;else blocking++;
+ });
+ return {
+  complete,fails,blocking_unverified:blocking,manual_unverified:manual,
+  error:String(error||"").slice(0,180),results:{...results},
+  evidence:evidence.slice(-30)
+ };
+}
+function emitMissionPreflight(error=""){
+ window.dispatchEvent(new CustomEvent("green-ion-v16-preflight",{detail:missionPreflightDetail(error)}));
+}
 async function finish(){
  if(!active)return;
  busy=true;paint();
+ let cleanupError="";
  try{
   const r=await request("home/finish","POST");
   active=false;step=-1;pending="";
   evidence.push({event:"session ended",cleanup:r.message,at:new Date().toISOString()});
   setMessage(r.message+". Hold Feather still while recalibrating. Verify WATCHING FOR LAUNCH before flight.");
  }catch(e){
+  cleanupError=e.message;
   active=false;step=-1;pending="";
   evidence.push({event:"cleanup not verified",error:e.message});
   setMessage("Cleanup could not be confirmed: "+e.message+". Inspect GIHOME.BIN manually. Do not launch until resolved.");
  }
+ emitMissionPreflight(cleanupError);
  busy=false;paint();
 }
 function report(){
@@ -2659,6 +2681,7 @@ async function autoPreflight(){
  }catch(error){
   feedback("AUTOMATED PREFLIGHT INCOMPLETE: "+error.message+". Finish/exit the home session before launch.");
   if(active)try{await finish();}catch{/* never claim cleanup succeeded */}
+  else emitMissionPreflight(error.message);
  }finally{autoRunning=false;paint();}
 }
 node("homeStart").onclick=start;
