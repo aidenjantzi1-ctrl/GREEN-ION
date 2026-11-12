@@ -67,7 +67,9 @@ class V12StructureTests(unittest.TestCase):
         source = (ROOT / "Ground_Station" / "ground_station.py").read_text(encoding="utf-8")
         self.assertIn('use_sample = args.sample', source)
         self.assertIn('threading.Thread(target=BRIDGE.run', source)
-        self.assertIn('if args.port or use_sample:', source)
+        self.assertIn('discover_serial_port()', source)
+        self.assertIn('if selected_port or use_sample:', source)
+        self.assertIn('"--wifi-only"', source)
         self.assertIn('webbrowser.open', source)
         self.assertNotIn('add_mutually_exclusive_group(required=True)', source)
 
