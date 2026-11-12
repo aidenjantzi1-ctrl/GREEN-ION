@@ -54,6 +54,13 @@ function groupChildren(source,title,id){
 function organizeDashboard(){
  const target=$("status");if(!target)return;
  const advanced=details("Detailed live telemetry & graphs","v16DashboardDetails",false);
+ const metrics=target.querySelector(".metrics");
+ if(metrics){
+  const cards=Array.from(metrics.children);
+  // Keep launch-day Dashboard concise: altitude, battery, vertical speed and
+  // peak stay visible; environment/raw detail lives behind one disclosure.
+  for(const card of cards.slice(4))advanced.append(card);
+ }
  for(const id of ["graphOptionsCard","altGraphCard","pressureGraphCard","tempGraphCard","v14SensorLabCard"]){
   const node=$(id);if(node)advanced.append(node);
  }
@@ -119,6 +126,8 @@ export function initLayout(){
  }
  const prepare=$("v16DashboardPrepare");
  if(prepare)prepare.onclick=()=>openV16Tab("flight",{scrollId:"v16MissionCard"});
+ const finder=$("v161DashboardFind");
+ if(finder)finder.onclick=()=>openV16Tab("recovery",{scrollId:"v15RecoveryCard"});
  window.addEventListener("green-ion-v16-mission",renderSummary);
  window.addEventListener("green-ion-v16-telemetry",renderSummary);
  window.addEventListener("green-ion-link",renderSummary);
