@@ -110,14 +110,17 @@ class V14ImplementationTests(unittest.TestCase):
   self.assertIn("navigator.serial.requestPort",receiver)
   self.assertIn("baudRate:115200",receiver)
   self.assertNotIn(".write(",receiver)
- def test_github_automatically_builds_firmware(self):
+ def test_github_automatically_builds_current_firmware_and_verified_source_release(self):
   ci=(ROOT/".github/workflows/build-v14.yml").read_text()
-  self.assertIn("Green_Ion_V14",ci)
+  assembler=(ROOT/"tools/assemble_v16_release.py").read_text()
+  self.assertIn("Green_Ion_V16_2",ci)
+  self.assertIn("Ground_Receiver_V16_2",ci)
   self.assertIn("arduino-cli compile",ci)
-  self.assertIn("GREEN_ION_V14_COMPLETE.zip",ci)
-  self.assertIn('shutil.copytree("Green_Ion_V14"',ci)
-  self.assertIn('shutil.copytree("libraries/GreenIonRecorder"',ci)
-  self.assertIn('shutil.copytree("libraries/GreenIonProtocol"',ci)
+  self.assertIn("GREEN_ION_V16_2_SOURCE.zip",ci)
+  self.assertIn('"Green_Ion_V16_2"',assembler)
+  self.assertIn('"Ground_Receiver_V16_2"',assembler)
+  self.assertIn('"libraries/GreenIonRecorder"',assembler)
+  self.assertIn('"libraries/GreenIonProtocol"',assembler)
  def test_complete_feather_binary_contains_local_dashboard_and_headers(self):
   for header in ("Config.h","SensorState.h","Dashboard.h","FirmwareMaintenance.h","HomeVerification.h"):
    self.assertIn('#include "'+header+'"',FIRMWARE)
