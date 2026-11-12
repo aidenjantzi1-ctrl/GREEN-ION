@@ -25,12 +25,16 @@
 
 # V16 Phase 5 — Data and cloud — November 11, 2026
 
-- Grouped immutable BIN/SEN/TXT originals into flight packages with completeness and collision status.
+- Grouped immutable BIN/SEN/TXT originals into one flight-library entry with optional-companion and collision status.
+- Fixed flight-extension grouping so only real .BIN/.SEN/.TXT suffixes are stripped.
 - Added local SHA-256 reread verification and an exportable package manifest.
-- Added explicit optional-cloud states: signed out, unavailable, offline, idle, pending, retrying, synced and error.
+- Added a persistent bounded Feather-transfer journal with partial-byte rejection, retry backoff and browser-restart recovery.
+- Added explicit per-file cloud queue/sync/retry/restore/error state instead of allowing finalizers to erase real failures.
+- Kept Supabase backup retry-safe at file granularity by skipping checksums already stored remotely.
 - Kept local browser/disk originals authoritative; cloud never gates recording, recovery or analysis.
-- Preserved checksum deduplication and checksum-verified cloud restore.
-- Added data/cloud regression coverage and refreshed offline assets.
+- Preserved checksum-verified, non-overwriting cloud restore.
+- Read-only audited the connected GREEN ION Supabase RLS, table grants and private storage bucket.
+- Expanded data/transfer/cloud regression coverage and refreshed offline assets.
 
 ---
 
