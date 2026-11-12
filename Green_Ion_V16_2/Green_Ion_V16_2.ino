@@ -1932,6 +1932,12 @@ static void deleteDashboardFlight() {
   }
 
   const String binPath = "/" + name;
+  const String base = name.substring(0, 7);
+  const bool hasJournal = SD.exists(String("/") + base + ".JRA") ||
+                          SD.exists(String("/") + base + ".JRB");
+  const bool hasRecovery = SD.exists(String("/") + base + ".RCV");
+  const bool hasMetadata = SD.exists(String("/") + base + ".TXT");
+  const bool recordingComplete = hasMetadata && !hasJournal && !hasRecovery;
   digitalWrite(config::PIN_LORA_CS, HIGH);
   if (!SD.exists(binPath)) {
     dashboardServer.send(404, "application/json",
@@ -1946,7 +1952,13 @@ static void deleteDashboardFlight() {
       recorderMode == RECORDER_WATCHING || recorderMode == RECORDER_CALIBRATING;
   if (restartCalibration) flightWatcher.cancel();
 
-  const String base = name.substring(0, 7);
+  if (!recordingComplete) {
+    dashboardServer.send(409, "application/json",
+      "{\"success\":false,\"message\":\"Only flights with clean completion metadata can be deleted in V16.2; retain interrupted/recovery evidence for review\"}");
+    if (restartCalibration) resetCalibration(millis());
+    return;
+  }
+
   static const char *companions[] = {".SEN", ".TXT", ".JRA", ".JRB", ".RCV"};
   uint8_t removed = 0;
   String failed = "";
@@ -2018,7 +2030,19 @@ static void sendDashboardFiles() {
       if (!entry.isDirectory() && dashboardFlightFilename(name, ".BIN")) {
         if (!first) body += ',';
         first = false;
-        body += "{\"name\":\"" + name + "\",\"size\":" + String(entry.size()) + "}";
+        const String base = name.substring(0, 7);
+        const bool hasSen = SD.exists(String("/") + base + ".SEN");
+        const bool hasTxt = SD.exists(String("/") + base + ".TXT");
+        const bool hasJournal = SD.exists(String("/") + base + ".JRA") ||
+                                SD.exists(String("/") + base + ".JRB");
+        const bool hasRecovery = SD.exists(String("/") + base + ".RCV");
+        body += "{\"name\":\"" + name + "\",\"size\":" + String(entry.size());
+        body += ",\"has_sen\":" + String(hasSen ? "true" : "false");
+        body += ",\"has_txt\":" + String(hasTxt ? "true" : "false");
+        body += ",\"recording_complete\":" + String(hasTxt && !hasJournal && !hasRecovery ? "true" : "false");
+        body += ",\"recovery_state\":\"";
+        body += hasJournal ? "PENDING" : (hasRecovery ? "INTERRUPTED_RECOVERED" : (hasTxt ? "COMPLETE" : "UNKNOWN"));
+        body += "\"}";
       }
       entry.close();
       entry = root.openNextFile();
