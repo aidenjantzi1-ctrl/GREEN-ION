@@ -1,20 +1,22 @@
 # GREEN ION — Rocket Flight Recorder
 
-**Current application: V15 Beta 1 — published to `main` and Vercel production. Feather/Uno hardware firmware: V14 generation. Physical flight validation is still pending.**
+**Current application development: V16 Phase 1 — Windows reliability. Feather/Uno hardware firmware remains the V14 generation. Physical flight validation is still pending.**
 
-**Hosted V15 Wi-Fi connection:** compatible Chromium browsers can connect to the Feather after its trusted-origin firmware update and local network permission. Safari/iPhone uses the direct Feather dashboard plus History import and cloud sync after internet returns. [Phone/computer setup and limitations](docs/V15_HOSTED_PHONE_CONNECTION.md).
+**Hosted V16 application / V14 firmware Wi-Fi connection:** compatible Chromium browsers can connect to the Feather after its trusted-origin firmware update and local network permission. Safari/iPhone uses the direct Feather dashboard plus History import and cloud sync after internet returns. [Phone/computer setup and limitations](docs/V15_HOSTED_PHONE_CONNECTION.md).
 
 [**Open the blue flight dashboard**](https://green-ion-beta.vercel.app/) · [**Download V14 releases**](https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases) · [**Automated tests**](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/workflows/build-v14.yml)
 
 GREEN ION records a rocket's pressure, motion, GPS and battery measurements using the **Adafruit Feather ESP32 V2**. It records flight data independently on an SD card. A Windows PC, iPhone or iPad can open the **same original blue dashboard and tabs**. Windows can also receive **Uno USB / LoRa** telemetry; the phone works without LoRa.
 
-[**V15 release overview and version history**](VERSIONS.md) · [**V15 local-first setup**](docs/V15_LOCAL_FIRST.md)
+[**V16 implementation checklist**](docs/V16_IMPLEMENTATION_CHECKLIST.md) · [**V16 Phase 1 Windows reliability**](docs/V16_PHASE1_WINDOWS_RELIABILITY.md) · [**Version history**](VERSIONS.md)
 
 ## Choose a guide
 
 | What you want | Where to go |
 |---|---|
-| **Launch pad: one-button preflight, Recovery, offline PC archive, cloud sync, health reports and Help** | [**V15 Local-First Guide**](docs/V15_LOCAL_FIRST.md) |
+| **Current V16 development status and phase order** | [**V16 Implementation Checklist**](docs/V16_IMPLEMENTATION_CHECKLIST.md) |
+| **Windows connection reliability changes** | [**V16 Phase 1 Reliability**](docs/V16_PHASE1_WINDOWS_RELIABILITY.md) |
+| **Existing launch pad workflow: preflight, Recovery, archive, cloud sync and Help** | [**V15 Local-First Guide**](docs/V15_LOCAL_FIRST.md) |
 | **Future 3D flight and digital twin (plan only)** | [3D + Digital Twin Plan](docs/V15_3D_TWIN_PLAN.md) |
 | Start the website and use the blue tabs | [Start Here](docs/V14_START_HERE.md) |
 | **What to solder and exactly where** | [**Wiring & Soldering**](docs/V14_WIRING_SOLDER.md) |
