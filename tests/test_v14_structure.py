@@ -15,7 +15,7 @@ class V14ImplementationTests(unittest.TestCase):
    self.assertIn('id="'+id+'"',PAGE,id)
  def test_v14_installable_assets(self):
   for name in ("build.mjs","v14_boot.js","v14_app.mjs","v14_cloud.mjs","v14_serial.mjs",
-    "v14_updates.mjs","v14_store.mjs","v14_analysis.mjs","v14_ui.mjs","v14_layout.css","v14_preferences.mjs","v14_sensor_catalog.mjs","v14_sensor_lab.mjs","v14_sensor_history.mjs","sensor-worker.mjs","v14_utils.mjs","service-worker.js","manifest.webmanifest"):
+    "v14_updates.mjs","v14_store.mjs","v14_analysis.mjs","v14_ui.mjs","v14_layout.css","v14_preferences.mjs","v14_sensor_catalog.mjs","v14_sensor_lab.mjs","v14_sensor_history.mjs","sensor-worker.mjs","v14_utils.mjs","v16_layout.mjs","v16_navigation.mjs","v16_mission.mjs","v16_telemetry.mjs","service-worker.js","manifest.webmanifest"):
    self.assertTrue((WEB/name).is_file(),name)
   worker=(WEB/"service-worker.js").read_text()
   self.assertIn('url.pathname.startsWith("/api/")',worker)
