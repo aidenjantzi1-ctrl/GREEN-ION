@@ -25,6 +25,13 @@ if (-not $Release) {
 
 $Tag = [string]$Release.tag_name
 Write-Host "[UPDATE] Latest official Windows package: $Tag"
+if ($Release.name) { Write-Host "[UPDATE] Release: $($Release.name)" }
+if ($Release.published_at) { Write-Host "[UPDATE] Published: $($Release.published_at)" }
+if ($Release.body) {
+  $Notes = ([string]$Release.body -replace '[\r\n]+',' ' -replace '\s+',' ').Trim()
+  if ($Notes.Length -gt 420) { $Notes = $Notes.Substring(0,420) + "..." }
+  Write-Host "[UPDATE] Notes: $Notes"
+}
 Write-Host "[UPDATE] This installed package reports: $($Version.version)"
 if ($CheckOnly) { exit 0 }
 
