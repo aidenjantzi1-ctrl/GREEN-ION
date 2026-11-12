@@ -1,6 +1,6 @@
 # GREEN ION — Rocket Flight Recorder
 
-**Current application: V16.1 RC1 — reliability + simplicity.** The original blue five-tab layout is preserved. Automatic reconnects, guided testing, Google Maps recovery, stronger analysis, searchable flight library, reversible Windows updates and verified V16 release automation are added on top of V16. Feather/Uno hardware firmware remains the V14 generation. Real hardware/flight validation is still pending.
+**Current application: V16.1 RC2 — safe SD management + reliability.** The original blue five-tab layout is preserved. RC2 adds verified Feather-Wi-Fi flight deletion, removes stale storage controls, hardens SD access during critical operations, and improves Flights & Analysis layout on top of the RC1 reliability work. Feather/Uno hardware firmware remains the V14 generation. Real hardware/flight validation is still pending.
 
 **Hosted V16 application / V14 firmware Wi-Fi connection:** compatible Chromium browsers can connect to the Feather after its trusted-origin firmware update and local network permission. Safari/iPhone uses the direct Feather dashboard plus History import and cloud sync after internet returns. [Phone/computer setup and limitations](docs/V15_HOSTED_PHONE_CONNECTION.md).
 
@@ -39,7 +39,7 @@ Optional Sensor Lab, SEN analysis, cloud backup and display settings live under 
 
 **Hardware commands:** Use the Feather's Wi-Fi and local **http://192.168.4.1** backup dashboard when direct connection from the hosted HTTPS website is blocked. The iPhone website cannot read Uno USB serial. Downloads from GitHub **never flash automatically**; bench-only firmware OTA requires separate confirmation.
 
-**Windows local server:** Run `START_GREEN_ION.cmd` for the current blue localhost dashboard with Feather Wi-Fi, Uno LoRa, automatic SHA-256 computer archives and optional signed-in cloud backup when internet returns. Firmware RKT4/GIS1 formats remain unchanged.
+**Windows local server:** Run `START_GREEN_ION.cmd` for the current blue localhost dashboard with Feather Wi-Fi, Uno LoRa, automatic SHA-256 computer archives and optional signed-in cloud backup when internet returns. Under Flights & Analysis, **Delete from SD** removes only the selected Feather SD flight package; local Windows/browser/cloud copies are left alone. Firmware RKT4/GIS1 formats remain unchanged.
 
 ## Software vs hardware validation
 
