@@ -1,3 +1,17 @@
+# V16 Phase 3 — Mission workflow — November 11, 2026
+
+- Added a persistent mission state machine from preflight through recovery, download, analysis and completion.
+- Integrated the existing full preflight as structured evidence instead of duplicating sensor tests.
+- Kept measured failures and missing receiver evidence non-overridable; physical checks require separate explicit confirmation.
+- Made fresh unified Feather/LoRa flight-state evidence authoritative for ascent, descent, landed and recovery transitions.
+- Added GPS-missing recovery warnings without interfering with autonomous SD recording.
+- Bound postflight transfer/save/report events to the current mission filename when known and ignore unrelated archived flights.
+- Restore active browser sessions as INTERRUPTED rather than pretending continuity; fresh telemetry can restore the real phase.
+- Added exportable, bounded mission evidence/transition history and offline help.
+- **No ignition/deployment controls were added. Browser mission state is advisory; Feather flight detection and recording remain autonomous.**
+
+---
+
 # V16 Phase 2 — Unified telemetry — November 11, 2026
 
 - Added one source-aware `/api/v16/telemetry` contract spanning independent Feather Wi-Fi and receive-only LoRa links.
