@@ -70,14 +70,19 @@ V16 is the next application/ground-station generation after V15 Beta 1. Feather 
   - [x] Cache both V16 layout/navigation modules for offline updates.
   - [x] Add strict regression coverage that fails if visible navigation stops being exactly five tabs.
 - [x] **Phase 5 — Data and cloud**
-  - [x] Group immutable BIN/SEN/TXT siblings into source-aware flight packages.
-  - [x] Surface missing companions and checksum collisions without overwriting originals.
+  - [x] Keep Feather SD → verified browser originals → Windows disk mirror → optional cloud as the priority order.
+  - [x] Group BIN/SEN/TXT into one flight entry without requiring optional companions.
+  - [x] Detect same-flight/same-kind checksum collisions without overwriting originals.
   - [x] Add local SHA-256 reread verification and exportable package manifest.
-  - [x] Keep local browser/disk originals authoritative.
-  - [x] Expose explicit cloud states: signed out, unavailable, offline, idle, pending, retrying, synced and error.
-  - [x] Preserve optional Supabase retry/dedup/verified restore behavior.
+  - [x] Persist a bounded Feather transfer journal with partial-transfer rejection and exponential retry.
+  - [x] Resume completed Feather transfers safely across browser restarts.
+  - [x] Expose signed-out / unavailable / offline / pending / syncing / retrying / synced / restoring / error cloud states.
+  - [x] Persist per-file cloud checksum status and attempt count.
+  - [x] Resume cloud backup at file granularity by skipping checksums already stored.
+  - [x] Keep cloud restore byte-size/SHA-256 verified and non-overwriting.
+  - [x] Read-only audit the connected Supabase table, bucket, grants and owner-scoped RLS.
   - [x] Ensure cloud availability never gates recording, recovery or local analysis.
-  - [x] Add package/cloud regression coverage.
+  - [x] Add package/transfer/cloud regression coverage.
 - [x] **Phase 6 — Windows packaging and updates**
   - [x] Add one-click START_GREEN_ION.cmd with no normal COM-port prompt.
   - [x] Auto-detect Python 3.10+ and an unambiguous Arduino Uno.
