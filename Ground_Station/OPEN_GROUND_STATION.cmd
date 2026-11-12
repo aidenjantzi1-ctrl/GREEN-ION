@@ -3,14 +3,14 @@ setlocal
 cd /d "%~dp0"
 echo.
 echo ==============================================
-echo  GREEN ION V15 - LOCAL-FIRST BLUE DASHBOARD
+echo  GREEN ION V16 - WINDOWS GROUND STATION
 echo ==============================================
+echo The dashboard runs at http://127.0.0.1:8765 without internet.
 echo Join GREEN-ION-V14 Feather Wi-Fi when you need live rocket data.
-echo The blue dashboard runs at http://127.0.0.1:8765 without internet.
-echo Verified flights save locally under GREEN_ION_Data\flights.
-echo Connect Uno by USB for LoRa backup; close Arduino Serial Monitor.
+echo Finished flights save under GREEN_ION_Data\flights.
+echo The app auto-detects a recognizable Arduino Uno USB receiver when possible.
+echo Close Arduino Serial Monitor before starting.
 echo.
-set /p "UNO_PORT=Uno COM port (example COM5), Enter for Wi-Fi only, or DEMO: "
 where py >nul 2>nul
 if %errorlevel%==0 goto use_py
 where python >nul 2>nul
@@ -18,23 +18,26 @@ if %errorlevel%==0 goto use_python
 echo [ERROR] Python 3 not found. Install Python 3.
 pause
 exit /b 1
+
 :use_py
 set "PYTHON_EXE=py -3"
 goto launch
+
 :use_python
 set "PYTHON_EXE=python"
+
 :launch
-if /i "%UNO_PORT%"=="DEMO" (
+if /i "%~1"=="DEMO" (
   %PYTHON_EXE% ground_station.py --sample
-) else if defined UNO_PORT (
-  %PYTHON_EXE% ground_station.py --port "%UNO_PORT%"
 ) else (
-  %PYTHON_EXE% ground_station.py
+  %PYTHON_EXE% ground_station.py %*
 )
 if errorlevel 1 (
  echo.
- echo [ERROR] Check Python, COM port and pyserial.
+ echo [ERROR] Check Python and optional Uno USB support.
  echo Uno mode: py -3 -m pip install pyserial
+ echo Manual Uno selection: OPEN_GROUND_STATION.cmd --port COM5
+ echo Wi-Fi only: OPEN_GROUND_STATION.cmd --wifi-only
  pause
 )
 endlocal
