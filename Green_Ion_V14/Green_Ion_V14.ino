@@ -1889,9 +1889,9 @@ static void deleteDashboardFlight() {
 }
 
 static void sendDashboardFiles() {
-  if (state.recording) {
+  if (dashboardSdDeleteBlocked()) {
     dashboardServer.send(409, "application/json",
-                         "{\"success\":false,\"message\":\"Recording is active; SD browsing is deferred\"}");
+                         "{\"success\":false,\"message\":\"SD browsing is deferred during recording, home testing or firmware maintenance\"}");
     return;
   }
   if (!state.sdOk) {
@@ -1924,9 +1924,9 @@ static void sendDashboardFiles() {
 }
 
 static void sendDashboardDownload(bool metadata, bool sensors = false) {
-  if (state.recording) {
+  if (dashboardSdDeleteBlocked()) {
     dashboardServer.send(409, "application/json",
-                         "{\"success\":false,\"message\":\"Recording is active; downloads are deferred\"}");
+                         "{\"success\":false,\"message\":\"Downloads are deferred during recording, home testing or firmware maintenance\"}");
     return;
   }
   String name = dashboardServer.arg("name");
