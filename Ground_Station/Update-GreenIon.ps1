@@ -1,0 +1,61 @@
+param([switch]$CheckOnly)
+$ErrorActionPreference = "Stop"
+$Here = Split-Path -Parent $MyInvocation.MyCommand.Path
+$Version = Get-Content (Join-Path $Here "version.json") -Raw | ConvertFrom-Json
+$Repo = "aidenjantzi1-ctrl/GREEN-ION"
+$Api = "https://api.github.com/repos/$Repo/releases?per_page=20"
+$StateRoot = Join-Path $env:LOCALAPPDATA "GREEN_ION"
+$AppRoot = Join-Path $StateRoot "App"
+$CurrentFile = Join-Path $StateRoot "current.txt"
+New-Item -ItemType Directory -Force -Path $AppRoot | Out-Null
+
+Write-Host "[UPDATE] Checking official GREEN ION V16 GitHub releases..."
+$Headers = @{ "Accept"="application/vnd.github+json"; "User-Agent"="GREEN-ION-V16-Updater" }
+$Releases = Invoke-RestMethod -Uri $Api -Headers $Headers -Method Get
+$Release = $Releases | Where-Object {
+  -not $_.draft -and $_.tag_name -match '^v16\.' -and
+  ($_.assets.name -contains "GREEN_ION_V16_WINDOWS.zip") -and
+  ($_.assets.name -contains "GREEN_ION_V16_WINDOWS.sha256")
+} | Select-Object -First 1
+if (-not $Release) {
+  Write-Host "[UPDATE] No official V16 Windows release package is published yet."
+  exit 0
+}
+
+$Tag = [string]$Release.tag_name
+Write-Host "[UPDATE] Latest official Windows package: $Tag"
+Write-Host "[UPDATE] This installed package reports: $($Version.version)"
+if ($CheckOnly) { exit 0 }
+
+$ZipAsset = $Release.assets | Where-Object name -eq "GREEN_ION_V16_WINDOWS.zip" | Select-Object -First 1
+$ShaAsset = $Release.assets | Where-Object name -eq "GREEN_ION_V16_WINDOWS.sha256" | Select-Object -First 1
+$TempRoot = Join-Path $env:TEMP ("green-ion-update-" + [guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Force -Path $TempRoot | Out-Null
+try {
+  $Zip = Join-Path $TempRoot "GREEN_ION_V16_WINDOWS.zip"
+  $Sha = Join-Path $TempRoot "GREEN_ION_V16_WINDOWS.sha256"
+  Invoke-WebRequest -Uri $ZipAsset.browser_download_url -Headers $Headers -OutFile $Zip
+  Invoke-WebRequest -Uri $ShaAsset.browser_download_url -Headers $Headers -OutFile $Sha
+  $Expected = ((Get-Content $Sha -Raw) -split '\s+')[0].Trim().ToLowerInvariant()
+  if ($Expected -notmatch '^[0-9a-f]{64}$') { throw "Release checksum file is invalid." }
+  $Actual = (Get-FileHash -Algorithm SHA256 $Zip).Hash.ToLowerInvariant()
+  if ($Actual -ne $Expected) { throw "Downloaded Windows package SHA-256 does not match the official checksum." }
+
+  $Stage = Join-Path $TempRoot "expanded"
+  Expand-Archive -Path $Zip -DestinationPath $Stage -Force
+  $SourceRoot = Join-Path $Stage "GREEN_ION_V16_WINDOWS"
+  foreach ($Required in @("START_GREEN_ION.cmd","Ground_Station\ground_station.py","Ground_Station\version.json","web\index.html")) {
+    if (-not (Test-Path (Join-Path $SourceRoot $Required))) { throw "Verified ZIP is missing $Required" }
+  }
+
+  $Target = Join-Path $AppRoot $Tag
+  if (Test-Path $Target) { Remove-Item -Recurse -Force $Target }
+  Move-Item -Path $SourceRoot -Destination $Target
+  Set-Content -Path $CurrentFile -Value $Target -Encoding UTF8
+  Write-Host "[UPDATE] Installed verified $Tag side-by-side at:"
+  Write-Host "         $Target"
+  Write-Host "[UPDATE] Your GREEN_ION_Data folder was not changed."
+  Write-Host "[UPDATE] Close the currently running ground-station window, then run START_GREEN_ION.cmd again."
+} finally {
+  Remove-Item -Recurse -Force $TempRoot -ErrorAction SilentlyContinue
+}
