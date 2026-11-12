@@ -9,6 +9,7 @@ DASH = (ROOT / "Green_Ion_V14" / "Dashboard.h").read_text(encoding="utf-8")
 class V161SdDeleteTests(unittest.TestCase):
     def test_delete_endpoint_is_narrow_and_explicit(self):
         self.assertIn('dashboardServer.on("/api/delete", HTTP_POST, deleteDashboardFlight);', FW)
+        self.assertIn('dashboardServer.on("/api/flightstats", []() { sendDashboardDownload(true); });', FW)
         self.assertIn('dashboardFlightFilename(name, ".BIN")', FW)
         self.assertIn('confirmation != name', FW)
         self.assertIn('Only V12D###.BIN flight packages can be deleted', FW)
