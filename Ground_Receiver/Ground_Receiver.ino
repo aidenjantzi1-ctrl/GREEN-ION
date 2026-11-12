@@ -48,7 +48,7 @@ static void printScaledDegrees(int32_t value) {
   Serial.print(fraction);
 }
 
-static void printTelemetry(const green_ion::TelemetryPacket &packet, int16_t rssi) {
+static void printTelemetry(const green_ion::TelemetryPacket &packet, int16_t rssi, int8_t snr) {
   const bool current = green_ion::hasCurrentPosition(packet);
   const bool bench = green_ion::isBenchRadioPacket(packet);
   if (haveLastSequence && packet.uptimeMs < lastUptimeMs &&
@@ -92,6 +92,8 @@ static void printTelemetry(const green_ion::TelemetryPacket &packet, int16_t rss
   Serial.print(packet.uptimeMs);
   Serial.print(F(",\"packet_age_ms\":0,\"rssi_dbm\":"));
   Serial.print(rssi);
+  Serial.print(F(",\"snr_db\":"));
+  Serial.print(snr);
   Serial.print(F(",\"altitude_m\":"));
   Serial.print(packet.altitudeCm / 100.0f, 2);
   Serial.print(F(",\"pressure_pa\":"));
@@ -214,7 +216,9 @@ void setup() {
   radio.setSignalBandwidth(green_ion::radio_config::kSignalBandwidthHz);
   radio.setCodingRate4(green_ion::radio_config::kCodingRateDenominator);
   radioReady = true;
-  Serial.print(F("{\"type\":\"receiver_status\",\"ok\":true,\"frequency_mhz\":"));
+  Serial.print(F("{\"type\":\"receiver_status\",\"ok\":true,\"protocol\":"));
+  Serial.print(green_ion::kProtocolVersion);
+  Serial.print(F(",\"frequency_mhz\":"));
   Serial.print(green_ion::radio_config::kFrequencyMhz, 1);
   Serial.print(F(",\"bandwidth_hz\":"));
   Serial.print(green_ion::radio_config::kSignalBandwidthHz);
@@ -233,6 +237,7 @@ static void printReceiverHeartbeat(uint32_t nowMs) {
   lastStatusMs = nowMs;
   Serial.print(F("{\"type\":\"receiver_status\",\"ok\":"));
   Serial.print(radioReady ? F("true") : F("false"));
+  Serial.print(F(",\"protocol\":")); Serial.print(green_ion::kProtocolVersion);
   Serial.print(F(",\"valid_packets\":")); Serial.print(validPackets);
   Serial.print(F(",\"invalid_packets\":")); Serial.print(invalidPackets);
   Serial.print(F(",\"estimated_missing_packets\":")); Serial.print(estimatedMissingPackets);
@@ -266,6 +271,6 @@ void loop() {
   lastPacketMs = millis();
   green_ion::TelemetryPacket packet;
   memcpy(&packet, buffer, sizeof(packet));
-  printTelemetry(packet, radio.lastRssi());
+  printTelemetry(packet, radio.lastRssi(), radio.lastSNR());
 }
 
