@@ -22,6 +22,9 @@ class V16WindowsPackagingTests(unittest.TestCase):
         self.assertIn("auto-discover", ps.lower())
         self.assertIn("--wifi-only", ps)
         self.assertIn("GREEN_ION_DATA_DIR", ps)
+        self.assertIn('$LaunchArgs += $GroundStationArgs', ps)
+        self.assertIn('& $PythonExe @PythonPrefix @LaunchArgs', ps)
+        self.assertNotIn('& $PythonExe @PythonPrefix @Args', ps)
 
     def test_updater_is_side_by_side_and_checksum_gated(self):
         ps = (ROOT / "Ground_Station" / "Update-GreenIon.ps1").read_text(encoding="utf-8")
