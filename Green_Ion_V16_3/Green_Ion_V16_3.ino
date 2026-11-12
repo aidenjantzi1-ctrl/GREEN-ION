@@ -665,7 +665,11 @@ static void recoverInterruptedLogs() {
 }
 
 static bool configureRadioHardware() {
-  digitalWrite(config::PIN_SD_CS, HIGH);
+  RadioSpiScope bus;
+  if (!bus) return false;
+  detachInterrupt(digitalPinToInterrupt(config::PIN_LORA_DIO0));
+  radioTxAwaitingCompletion = false;
+  radioTxAwaitingBench = false;
   pinMode(config::PIN_LORA_RST, OUTPUT);
   digitalWrite(config::PIN_LORA_RST, LOW);
   delay(10);
@@ -678,7 +682,15 @@ static bool configureRadioHardware() {
     radio.setSpreadingFactor(config::LORA_SPREADING_FACTOR);
     radio.setSignalBandwidth(config::LORA_SIGNAL_BANDWIDTH_HZ);
     radio.setCodingRate4(config::LORA_CODING_RATE_DENOMINATOR);
+    // RadioHead was constructed with RH_INVALID_PIN, so its ISR never owns the
+    // shared SPI bus. DIO0 only records an event; SPI servicing happens later
+    // in loop() under RadioSpiScope after recorder-priority SD work.
+    pinMode(config::PIN_LORA_DIO0, INPUT);
+    attachInterrupt(digitalPinToInterrupt(config::PIN_LORA_DIO0),
+                    radioDio0Isr, RISING);
+    if (digitalRead(config::PIN_LORA_DIO0) == HIGH) ++radioIrqGeneration;
   } else {
+    detachInterrupt(digitalPinToInterrupt(config::PIN_LORA_DIO0));
     healthBits |= green_ion::HEALTH_RADIO_INIT_ERROR;
   }
   return state.radioOk;
@@ -1235,8 +1247,72 @@ static void serviceBarometerRecovery(uint32_t nowMs) {
   if (initialized) resetCalibration(millis());
 }
 
+static void serviceDeferredRadioInterrupt(uint32_t nowMs, uint32_t nowUs) {
+  if (!state.radioOk) return;
+
+  // Backstop a missed edge: SX127x DIO0 remains asserted until its IRQ flags
+  // are serviced. We still never touch the radio over SPI from interrupt context.
+  if (radio.mode() == RHGenericDriver::RHModeTx &&
+      digitalRead(config::PIN_LORA_DIO0) == HIGH &&
+      radioIrqGeneration == radioIrqServicedGeneration) {
+    ++radioIrqGeneration;
+  }
+
+  if (radioIrqGeneration == radioIrqServicedGeneration) {
+    if (radioTxAwaitingCompletion &&
+        static_cast<uint32_t>(nowMs - radioLastTxStartMs) >
+            config::RADIO_TX_TIMEOUT_MS) {
+      ++radioTxTimeouts;
+      ++radioSendFailures;
+      healthBits |= green_ion::HEALTH_RADIO_SEND_ERROR;
+      radioRecovery.noteSendResult(nowMs, false);
+      state.radioOk = false;
+      radioTxAwaitingCompletion = false;
+      radioTxAwaitingBench = false;
+      Serial.printf("BENCH RADIO status=TX_TIMEOUT sequence=%lu timeouts=%lu recorder_unchanged=1\n",
+                    static_cast<unsigned long>(radioTxAwaitingSequence),
+                    static_cast<unsigned long>(radioTxTimeouts));
+    }
+    return;
+  }
+
+  if (!green_ion::shared_spi::hasDeadlineMargin(
+          nowUs, sampleClock.nextDeadlineUs(),
+          config::RADIO_IRQ_SERVICE_GUARD_US)) {
+    ++radioIrqDeferred;
+    sharedSpi.noteRadioDeadlineDeferral();
+    return;
+  }
+
+  RadioSpiScope bus;
+  if (!bus) {
+    ++radioIrqDeferred;
+    return;
+  }
+  const uint32_t generation = radioIrqGeneration;
+  const bool wasTx = radio.mode() == RHGenericDriver::RHModeTx;
+  radio.serviceDeferredInterrupt();
+  radioIrqServicedGeneration = generation;
+
+  if (wasTx && radio.mode() != RHGenericDriver::RHModeTx &&
+      radioTxAwaitingCompletion) {
+    ++radioTxCompleted;
+    radioLastTxCompleteMs = nowMs;
+    radioRecovery.noteSendResult(nowMs, true);
+    if (radioTxAwaitingBench) {
+      ++radioBenchPacketsSent;
+      Serial.printf("BENCH RADIO status=TX_DONE sequence=%lu completed=%lu\n",
+                    static_cast<unsigned long>(radioTxAwaitingSequence),
+                    static_cast<unsigned long>(radioTxCompleted));
+    }
+    radioTxAwaitingCompletion = false;
+    radioTxAwaitingBench = false;
+  }
+}
+
 static void serviceRadioRecovery(uint32_t nowMs) {
-  if (recorderMode == RECORDER_MAINTENANCE) return;
+  if (recorderMode == RECORDER_MAINTENANCE || radioTxAwaitingCompletion ||
+      !sharedSpi.idle()) return;
   const bool recorderCritical = recorderMode != RECORDER_COMPLETE &&
                                 recorderMode != RECORDER_FAULT;
   const bool manual = radioManualRetryRequested;
@@ -2332,11 +2408,11 @@ static void queueTelemetry(uint32_t nowMs) {
 }
 
 static void serviceTelemetry(uint32_t nowMs, uint32_t nowUs) {
-  if (recorderMode == RECORDER_MAINTENANCE) return;
+  if (recorderMode == RECORDER_MAINTENANCE || radioTxAwaitingCompletion) return;
   if (nowMs - lastRadioAttemptMs < config::RADIO_RETRY_INTERVAL_MS) return;
   const bool radioBusy = state.radioOk && radio.mode() == RHGenericDriver::RHModeTx;
   if (!green_ion::radioDispatchAllowed(
-          state.radioOk, radioBusy, false, telemetryQueue.size() > 0,
+          state.radioOk, radioBusy, !sharedSpi.idle(), telemetryQueue.size() > 0,
           nowUs, sampleClock.nextDeadlineUs(), config::RADIO_SERVICE_GUARD_US))
     return;
 
@@ -2345,7 +2421,8 @@ static void serviceTelemetry(uint32_t nowMs, uint32_t nowUs) {
   const green_ion::TelemetryPacket packet = *queued;
   lastRadioAttemptMs = nowMs;
 
-  digitalWrite(config::PIN_SD_CS, HIGH);
+  RadioSpiScope bus;
+  if (!bus) return;
   if (!radio.send(reinterpret_cast<const uint8_t *>(&packet), sizeof(packet))) {
     ++radioSendFailures;
     healthBits |= green_ion::HEALTH_RADIO_SEND_ERROR;
@@ -2353,15 +2430,18 @@ static void serviceTelemetry(uint32_t nowMs, uint32_t nowUs) {
     Serial.printf("BENCH RADIO status=SEND_FAILED sequence=%lu failures=%lu\n",
                   static_cast<unsigned long>(packet.sequence),
                   static_cast<unsigned long>(radioSendFailures));
-  } else {
-    radioRecovery.noteSendResult(nowMs, true);
-    telemetryQueue.pop();
-    if (!green_ion::isBenchRadioPacket(packet)) return;
-    ++radioBenchPacketsSent;
-    Serial.printf("BENCH RADIO status=TX sequence=%lu remaining=%u\n",
-                  static_cast<unsigned long>(packet.sequence),
-                  radioBenchPacketsRemaining);
+    return;
   }
+
+  telemetryQueue.pop();
+  ++radioTxStarted;
+  radioLastTxStartMs = nowMs;
+  radioTxAwaitingCompletion = true;
+  radioTxAwaitingBench = green_ion::isBenchRadioPacket(packet);
+  radioTxAwaitingSequence = packet.sequence;
+  Serial.printf("BENCH RADIO status=TX_STARTED sequence=%lu queued=%u\n",
+                static_cast<unsigned long>(packet.sequence),
+                static_cast<unsigned int>(telemetryQueue.size()));
 }
 
 void setup() {
@@ -2433,6 +2513,7 @@ void loop() {
   serviceStorageRecovery(nowMs);
   servicePeripheralRecovery(nowMs);
   serviceBarometerRecovery(nowMs);
+  serviceDeferredRadioInterrupt(nowMs, micros());
   serviceRadioRecovery(nowMs);
   queueTelemetry(nowMs);
   serviceTelemetry(nowMs, micros());
