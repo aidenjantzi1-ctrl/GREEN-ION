@@ -18,10 +18,17 @@ import {initSensorLab} from "./v14_sensor_lab.mjs";
 import {initV16Navigation} from "./v16_navigation.mjs";
 import {initV16Data,recordTransfer,transferEntry} from "./v16_data.mjs";
 import {initV16Runtime} from "./v16_runtime.mjs";
-import {initV16Visualization} from "./v16_visualization.mjs";
 import {initV16Validation} from "./v16_validation.mjs";
 import {initV161Diagnostics} from "./v16_1_diagnostics.mjs";
 import {initV161GuidedTest} from "./v16_1_guided_test.mjs";
+import {initV162Dashboard} from "./v16_2_dashboard.mjs";
+import {initV162Webgl} from "./v16_2_webgl.mjs";
+import {initV162Map} from "./v16_2_map.mjs";
+import {initV162SdManager} from "./v16_2_sd_manager.mjs";
+import {initV162Compare} from "./v16_2_compare.mjs";
+import {initV162Testing} from "./v16_2_testing.mjs";
+import {initV162Experience} from "./v16_2_experience.mjs";
+import {initV162Scorecard} from "./v16_2_scorecard.mjs";
 import {requiresFeather,initTabs} from "./v14_ui.mjs";
 const $=id=>document.getElementById(id),t=window.GREEN_ION_TRANSPORT;
 let importing=false,lastAutoImport=0,lastRadioAt=0,radioPackets=[];
@@ -194,7 +201,7 @@ async function downloadApiAnchor(event){
  const anchor=event.target.closest?.('a[href^="/api/"]');
  if(!anchor)return;
  event.preventDefault();
- if(!t.wifiFresh()){note("Feather Wi-Fi required for SD download.");return;}
+ if(!t.controlsVerified()){note("A fresh Feather Wi-Fi status is required for SD download. Last-known telemetry may remain visible while commands are paused.");return;}
  try{
   const response=await fetch(anchor.getAttribute("href"),{cache:"no-store"});
   if(!response.ok)throw Error("HTTP "+response.status);
@@ -204,13 +211,13 @@ async function downloadApiAnchor(event){
 }
 function renderBrowserInfo(){
  text("v14ClientInfo",/iPhone|iPad|iPod/i.test(navigator.userAgent)?
-  "Phone/iPad mode: Feather Wi-Fi and offline history. Uno Web Serial is not supported by Safari.":
+  "Phone/iPad mode: Feather Wi-Fi, touch-friendly recovery/3D and offline history. Uno LoRa reaches the app through the Windows receiver path; iPhone/iPad do not receive LoRa directly.":
   serialSupported()?"Desktop mode: connect the Uno with USB using Chrome/Edge; Feather Wi-Fi remains the priority.":
   "Web Serial is unavailable in this browser. Feather Wi-Fi and saved files still work.");
 }
 async function init(){
- document.querySelector("header small").textContent="Flight logger · V16.1 RC2 simple reliability";
- text("v14AppBuild","Website V16.1 RC2 · safe SD management + reliability · Feather firmware channel "+APP_VERSION+" (check actual installed build in Settings & Advanced)");
+ document.querySelector("header small").textContent="Flight logger · V16.2 · reliable, visual, local-first";
+ text("v14AppBuild","GREEN ION V16.2 · Feather V16.2 + Uno V16.2 supported · verify installed hardware versions in System Health");
  renderBrowserInfo();
  initLayout();
  initPreferences();
@@ -219,10 +226,17 @@ async function init(){
  initV16Navigation();
  initV16Data();
  initV16Runtime();
- initV16Visualization();
+ initV162Dashboard();
+ initV162Experience();
+ initV162Webgl();
+ initV162SdManager();
+ initV162Compare();
+ initV162Scorecard();
+ initV162Map();
  initV16Validation();
  initV161Diagnostics();
  initV161GuidedTest();
+ initV162Testing();
  $("v14SerialConnect").onclick=connectSerial;
  $("v14SerialDisconnect").onclick=disconnectSerial;
  $("v14SerialDisconnect").disabled=true;
@@ -272,4 +286,4 @@ async function init(){
  }
  if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});
 }
-init().catch(e=>{const n=document.getElementById("v14ConnectionNotice");if(n)n.textContent="V14 startup error: "+e.message;});
+init().catch(e=>{const n=document.getElementById("v14ConnectionNotice");if(n)n.textContent="V16.2 startup error: "+e.message;});
