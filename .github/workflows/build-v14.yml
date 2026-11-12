@@ -225,6 +225,7 @@ jobs:
           test -s v16-release-smoke/GREEN_ION_V16_WEB.zip
           test -s v16-release-smoke/Green_Ion_V16_2.ino.bin
           test -s v16-release-smoke/Ground_Receiver_V16_2.ino.hex
+          test -s v16-release-smoke/GREEN_ION_V16_2_SOURCE.zip
           test -s v16-release-smoke/SHA256_MANIFEST.json
           python3 - <<'PY'
           import hashlib,json
@@ -234,6 +235,10 @@ jobs:
           assert manifest["schema"]=="GREEN-ION-V16-RELEASE-1"
           assert manifest["safety"]["loraReceiveOnly"] is True
           assert manifest["safety"]["autonomousSdRecorderPreserved"] is True
+          assert manifest["firmwareGeneration"]=="V16.2"
+          assert manifest["receiverGeneration"]=="V16.2"
+          assert manifest["radioProtocolVersion"]==2
+          assert manifest["radioPacketBytes"]==70
           for name,item in manifest["artifacts"].items():
               path=root/name
               assert path.is_file(), name
