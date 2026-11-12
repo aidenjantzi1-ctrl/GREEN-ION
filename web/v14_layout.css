@@ -177,7 +177,7 @@ body[data-compact="true"] .page .actions{gap:7px;}
 #flightSummaryCard,
 #v14OfflineAnalysisCard,
 #v15ReportCard,
-#v16VisualizationCard,
+#v16VisCard,
 #v161DiagnosticsCard{
  column-span:all;
  display:block;
