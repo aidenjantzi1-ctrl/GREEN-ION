@@ -149,10 +149,10 @@ export function saveLibraryMeta(flightId,patch,storage=globalThis.localStorage){
 export function libraryMetaFor(flightId,storage=globalThis.localStorage){
  return loadLibraryMeta(storage)[String(flightId||"").toLowerCase()]||{favorite:false,tags:[],note:""};
 }
-export function filterFlightPackages(packages,{query="",favoritesOnly=false,tag=""}={}){
+export function filterFlightPackages(packages,{query="",favoritesOnly=false,tag="",storage=globalThis.localStorage}={}){
  const q=String(query||"").trim().toLowerCase(),wantedTag=String(tag||"").trim().toLowerCase();
  return (packages||[]).filter(pkg=>{
-  const meta=libraryMetaFor(pkg.flight_id);
+  const meta=libraryMetaFor(pkg.flight_id,storage);
   if(favoritesOnly&&!meta.favorite)return false;
   if(wantedTag&&!meta.tags.some(x=>String(x).toLowerCase()===wantedTag))return false;
   if(!q)return true;
