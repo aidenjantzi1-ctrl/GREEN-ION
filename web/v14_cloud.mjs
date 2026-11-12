@@ -9,10 +9,41 @@ const key=String(cfg.supabaseKey||"");
 const enabled=/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(url)&&key.startsWith("sb_publishable_");
 const SESSION_KEY="green-ion-v14-cloud-session",BUCKET="green-ion-flights";
 const PAGE_SIZE=250,MAX_REMOTE_FILES=10000,MAX_FILE_BYTES=52428800;
-let session=null,busy=false,refreshing=null,failures=0,retryAt=0,lastCompletedAt=0;
+const V16_STATE_KEY="green-ion-v16-cloud-state";
+let session=null,busy=false,refreshing=null,failures=0,retryAt=0,lastCompletedAt=0,pendingCount=0;
+let perFile={},lastCloudStatus="IDLE";
 const $=id=>document.getElementById(id);
 const message=text=>{if($("v14CloudStatus"))$("v14CloudStatus").textContent=text;};
 const detail=text=>{if($("v14CloudProgress"))$("v14CloudProgress").textContent=text;};
+function compactPerFile(){
+ const entries=Object.entries(perFile).sort((a,b)=>
+  String(b[1]?.updated_at||"").localeCompare(String(a[1]?.updated_at||""))).slice(0,500);
+ perFile=Object.fromEntries(entries);
+ return perFile;
+}
+function setFileState(checksum,name,status,extra={}){
+ if(!/^[a-f0-9]{64}$/.test(String(checksum||"")))return;
+ const prior=perFile[checksum]||{};
+ perFile[checksum]={
+  name:String(name||prior.name||""),status,
+  attempts:Number(prior.attempts||0)+(status==="UPLOADING"?1:0),
+  updated_at:new Date().toISOString(),...extra
+ };
+ compactPerFile();
+}
+function setCloudState(status,extra={}){
+ lastCloudStatus=status;
+ const value={
+  schema:"GREEN-ION-V16-CLOUD-1",status,
+  signed_in:!!session,online:!!navigator.onLine,busy,
+  failures,retry_at:retryAt||null,last_success_at:lastCompletedAt||null,
+  pending_count:pendingCount,per_file:compactPerFile(),...extra,
+  updated_at:new Date().toISOString()
+ };
+ try{localStorage.setItem(V16_STATE_KEY,JSON.stringify(value));}catch{}
+ window.dispatchEvent(new CustomEvent("green-ion-v16-cloud-state",{detail:value}));
+ return value;
+}
 function loadSession(){
  try{const obj=JSON.parse(localStorage.getItem(SESSION_KEY)||"null");
    session=obj?.access_token&&obj?.refresh_token?obj:null;}catch{session=null;}
@@ -93,10 +124,11 @@ export async function signIn(email,password,signup=false){
  return !!data.access_token;
 }
 export async function signOut(){
- remember(null);failures=0;retryAt=0;
+ remember(null);failures=0;retryAt=0;pendingCount=0;perFile={};
  renderAccount();
  message("Signed out. Existing local flights were not changed.");
  detail("No cloud session");
+ setCloudState("SIGNED_OUT");
 }
 export async function listCloudFiles(){
  const all=[];
@@ -143,14 +175,28 @@ function scheduleRetry(){
 export async function backupNow({automatic=false}={}){
  if(busy||!session)return;
  if(automatic&&(!canAutoSync()||Date.now()<retryAt))return;
- if(!navigator.onLine){message("Offline. Local recordings are queued until internet returns.");return;}
+ if(!navigator.onLine){
+  const local=await listLocalMetadata().catch(()=>[]);
+  pendingCount=local.length;
+  for(const item of local)setFileState(item.checksum,item.name,"PENDING",{reason:"offline"});
+  message("Offline. Local recordings are queued until internet returns.");
+  setCloudState("OFFLINE");
+  return;
+ }
  busy=true;
+ let finalStatus="IDLE",finalExtra={};
  message("Checking private cloud backups...");
  try{
   const account=await user(),remote=await listCloudFiles();
-  const existing=new Set(remote.map(f=>f.checksum));
+  const existing=new Set(remote.map(f=>String(f.checksum||"").toLowerCase()));
   const files=await listLocalMetadata();
+  for(const file of files){
+   if(existing.has(file.checksum))setFileState(file.checksum,file.name,"SYNCED");
+  }
   const pending=files.filter(f=>!existing.has(f.checksum));
+  pendingCount=pending.length;
+  finalStatus=pending.length?"SYNCING":"SYNCED";
+  setCloudState(finalStatus,{remote_count:existing.size});
   detail(pending.length+" file(s) awaiting backup · "+existing.size+" already in cloud");
   let uploaded=0;
   for(const summary of pending){
@@ -159,6 +205,8 @@ export async function backupNow({automatic=false}={}){
    if(!session)throw Error("Cloud session ended");
    if(file.size>MAX_FILE_BYTES||file.size<1)throw Error("File size not accepted: "+file.name);
    const storagePath=account.id+"/"+file.checksum+"."+file.kind.toLowerCase();
+   setFileState(file.checksum,file.name,"UPLOADING");
+   setCloudState("SYNCING",{current_file:file.name,uploaded,total_pending:pending.length});
    detail("Backing up "+(uploaded+1)+"/"+pending.length+": "+file.name);
    try{
     await api("/storage/v1/object/"+BUCKET+"/"+storagePath,{
@@ -168,32 +216,46 @@ export async function backupNow({automatic=false}={}){
       }
     },120000);
    }catch(e){
-    // Another authorized device may have uploaded the same checksum first.
-    if(e.status!==409&&!/already exists|duplicate/i.test(e.message))throw e;
+    // Retry-safe at file granularity: an already uploaded checksum is success.
+    if(e.status!==409&&!/already exists|duplicate/i.test(e.message)){
+     setFileState(file.checksum,file.name,"FAILED",{error:String(e.message||e).slice(0,180)});
+     throw e;
+    }
    }
-   await api("/rest/v1/flight_backups?on_conflict=user_id,checksum",{
-    method:"POST",headers:{"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},
-    body:JSON.stringify({
-     user_id:account.id,checksum:file.checksum,original_name:file.name,file_kind:file.kind,
-     byte_size:file.size,storage_path:storagePath,flight_name:file.name.replace(/\.[^.]+$/,""),
-     metadata:{origin:file.origin,createdAt:file.createdAt}
-    })
-   });
-   uploaded++;existing.add(file.checksum);
+   try{
+    await api("/rest/v1/flight_backups?on_conflict=user_id,checksum",{
+     method:"POST",headers:{"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},
+     body:JSON.stringify({
+      user_id:account.id,checksum:file.checksum,original_name:file.name,file_kind:file.kind,
+      byte_size:file.size,storage_path:storagePath,flight_name:file.name.replace(/\.[^.]+$/,""),
+      metadata:{origin:file.origin,createdAt:file.createdAt}
+     })
+    });
+   }catch(e){
+    setFileState(file.checksum,file.name,"FAILED",{error:"Metadata: "+String(e.message||e).slice(0,150)});
+    throw e;
+   }
+   uploaded++;existing.add(file.checksum);pendingCount=Math.max(0,pendingCount-1);
+   setFileState(file.checksum,file.name,"SYNCED");
   }
-  failures=0;retryAt=0;lastCompletedAt=Date.now();
+  failures=0;retryAt=0;lastCompletedAt=Date.now();pendingCount=0;
+  finalStatus="SYNCED";finalExtra={uploaded,local_count:files.length,remote_count:existing.size};
   message("Cloud backup complete: "+uploaded+" uploaded, "+(files.length-uploaded)+" already stored.");
   detail("Last successful sync: "+new Date(lastCompletedAt).toLocaleString());
   await refreshCloudList();
  }catch(e){
   message("Cloud sync paused: "+e.message+". Original files remain stored on this device.");
   scheduleRetry();
- }finally{busy=false;}
+  finalStatus="RETRYING";finalExtra={error:String(e.message||e).slice(0,180)};
+ }finally{
+  busy=false;
+  setCloudState(finalStatus,finalExtra);
+ }
 }
 export async function restoreCloud(){
  if(busy||!session)return;
- if(!navigator.onLine){message("Internet is required to restore cloud originals.");return;}
- busy=true;message("Restoring private cloud recordings...");
+ if(!navigator.onLine){message("Internet is required to restore cloud originals.");setCloudState("OFFLINE");return;}
+ busy=true;message("Restoring private cloud recordings...");setCloudState("RESTORING");
  try{
   const account=await user(),files=await listCloudFiles();
   let restored=0,skipped=0;
@@ -216,13 +278,20 @@ export async function restoreCloud(){
   }
   message("Cloud restore complete: "+restored+" files restored, "+skipped+" duplicates skipped.");
   detail("All downloaded originals verified using SHA-256.");
+  setCloudState("SYNCED",{restored,skipped});
   window.dispatchEvent(new Event("green-ion-history-change"));
- }catch(e){message("Cloud restore stopped safely: "+e.message+". No existing recording was overwritten.");}
- finally{busy=false;}
+ }catch(e){message("Cloud restore stopped safely: "+e.message+". No existing recording was overwritten.");setCloudState("ERROR",{error:String(e.message||e).slice(0,180)});}
+ finally{busy=false;if(lastCloudStatus==="RESTORING")setCloudState(lastCompletedAt?"SYNCED":"IDLE");}
 }
 export function initCloud(){
  loadSession();renderAccount();
- if(!enabled){message("Cloud configuration unavailable. Offline storage still works.");return;}
+ try{
+  const previous=JSON.parse(localStorage.getItem(V16_STATE_KEY)||"null");
+  if(previous?.per_file&&typeof previous.per_file==="object")perFile=previous.per_file;
+  if(Number.isFinite(Number(previous?.last_success_at)))lastCompletedAt=Number(previous.last_success_at);
+ }catch{}
+ if(!enabled){message("Cloud configuration unavailable. Offline storage still works.");setCloudState("UNAVAILABLE");return;}
+ setCloudState(session?"IDLE":"SIGNED_OUT");
  $("v14CloudSubmit").onclick=async()=>{
   const email=$("v14CloudEmail").value.trim(),password=$("v14CloudPassword").value;
   if(!email||!password){message("Enter account email and password.");return;}
