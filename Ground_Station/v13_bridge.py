@@ -140,6 +140,21 @@ class FeatherBridge:
             connection = "disconnected"
         return state, status, age, error, connection, failures, active, active_age
 
+    def telemetry_source(self):
+        """Expose independent Feather freshness and last-known status for V16 fusion."""
+        wifi, status, age, error, connection, failures, active, active_age = self._wifi()
+        return {
+            "status": status,
+            "freshness": wifi,
+            "age_ms": round(age * 1000) if age is not None else None,
+            "connection_state": connection,
+            "error": error if wifi != "live" else "",
+            "consecutive_failures": failures,
+            "active_operation": active or None,
+            "active_operation_age_ms": round(active_age * 1000) if active_age is not None else None,
+            "controls_verified": wifi == "live" and age is not None and age <= CONTROL_FRESH_S and not error,
+        }
+
     def link_status(self, radio):
         wifi, _, age, error, connection, failures, active, active_age = self._wifi()
         demo = radio.get("source") == "simulation"

@@ -6,7 +6,7 @@ export const TOPICS=Object.freeze([
  {title:"Find the rocket after landing",terms:"where gps map coordinates recovery locate lost track position",tab:"recovery",id:"v15RecoveryCard",
   guide:"Open Recovery. Read the last observed GPS fix and its age, confirm whether LoRa is still receiving, and open the map link when internet is available. The last position may not be the landing position."},
  {title:"Connect Arduino Uno LoRa",terms:"radio com port lora connection serial usb receiver",tab:"connections",id:"v14SerialStatus",
-  guide:"On Windows, connect the Uno using USB. Close Arduino Serial Monitor. In the local ground-station launcher, enter the COM port; the server reads radio independently. Alternatively use Connect Arduino Uno in Chrome/Edge Web Serial, not both readers on the same port."},
+  guide:"On Windows, connect the Uno using USB and close Arduino Serial Monitor. OPEN_GROUND_STATION.cmd now auto-detects a recognizable Uno when unambiguous. If needed, run it with --port COM5. The local server reads radio independently; do not also open the same port with Web Serial."},
  {title:"Join Feather Wi-Fi",terms:"wifi wireless connect feather ip access point",tab:"connections",id:"v14WifiStatusDetail",
   guide:"On Windows join the GREEN-ION-V14 access point. Open http://127.0.0.1:8765 after starting OPEN_GROUND_STATION.cmd, or use the Feather fallback at http://192.168.4.1. This access point does not provide internet."},
  {title:"Save flights to the computer",terms:"download file local disk archive storage flight saved",tab:"history",id:"v15LocalCard",

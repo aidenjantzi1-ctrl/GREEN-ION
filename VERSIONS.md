@@ -1,3 +1,13 @@
+# V16 development — Phase 2 unified telemetry
+
+Phase 2 adds one source-aware Windows telemetry contract across Feather Wi-Fi and receive-only Uno/LoRa. It preserves independent source freshness, per-reading provenance, packet/session identity, receiver integrity counters, RSSI/SNR, bounded radio history, duplicate/out-of-order rejection for the live sample, and safe automatic Uno discovery. The Windows diagnostics panel now polls one fused endpoint instead of separate telemetry/link calls.
+
+The 70-byte LoRa packet, RKT4 v2 and GIS1 formats remain unchanged. The Uno USB JSON adds protocol/SNR evidence. Feather firmware remains V14 generation. Physical link validation is still pending.
+
+[V16 Phase 2 details](docs/V16_PHASE2_UNIFIED_TELEMETRY.md) · [V16 checklist](docs/V16_IMPLEMENTATION_CHECKLIST.md)
+
+---
+
 # V16 development — Phase 1 Windows reliability
 
 **Current development line: V16.** Phase 1 hardens the Windows localhost ground station before the mission-controller or five-tab redesign. It coalesces overlapping status requests, prevents long file transfers from producing false Wi-Fi failures, adds Connected / Delayed / Reconnecting / Disconnected states, preserves last-known Feather data as explicitly stale, and keeps command authorization on a stricter freshness window. The PWA cache is bumped so the transport fix actually reaches installed clients.

@@ -30,7 +30,19 @@ V16 is the next application/ground-station generation after V15 Beta 1. Feather 
   - [x] Add last-success age, failure count and active-operation diagnostics.
   - [x] Add simulated one-hour and interruption regression coverage.
   - [x] Invalidate the PWA cache for the V16 Phase 1 transport changes.
-- [ ] **Phase 2 — Unified telemetry**
+- [x] **Phase 2 — Unified telemetry**
+  - [x] Fuse Wi-Fi and LoRa into one source-aware telemetry schema.
+  - [x] Track Wi-Fi and LoRa freshness independently.
+  - [x] Preserve source, age and freshness for each selected live reading.
+  - [x] Add receiver/sender session identity and stable packet IDs.
+  - [x] Prevent duplicates/out-of-order frames from replacing the live sample.
+  - [x] Retain bounded receiver-side radio history and packet classifications.
+  - [x] Track packet gaps, duplicates, out-of-order frames, sender resets and receiver reconnects.
+  - [x] Expose RSSI/SNR and radio protocol compatibility.
+  - [x] Safely auto-discover an unambiguous Arduino Uno receiver.
+  - [x] Drive Windows link diagnostics from one fused endpoint.
+  - [x] Keep LoRa compact/receive-only and full-resolution sensor data on SD/history.
+  - [x] Add Wi-Fi-only, LoRa-only, dual-link, stale/loss/recovery and integrity regressions.
 - [ ] **Phase 3 — Mission workflow**
 - [ ] **Phase 4 — Five-tab interface**
 - [ ] **Phase 5 — Data and cloud**

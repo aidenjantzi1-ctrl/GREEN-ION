@@ -88,9 +88,9 @@ function downloadText(filename,value){
 }
 async function exportReceiver(){
  if(!radioPackets.length){text("v14SerialStatus","No LoRa packets received to export.");return;}
- const names=["received_at","type","sequence","uptime_ms","altitude_m","pressure_pa","battery_v","acceleration_g",
- "rotation_x_dps","rotation_y_dps","rotation_z_dps","speed_mps","latitude","longitude","gps_status",
- "rssi_dbm","flight_state","satellites"];
+ const names=["received_at","received_utc","packet_id","packet_classification","type","protocol","sequence","uptime_ms",
+ "altitude_m","pressure_pa","battery_v","acceleration_g","rotation_x_dps","rotation_y_dps","rotation_z_dps",
+ "speed_mps","latitude","longitude","gps_status","rssi_dbm","snr_db","flight_state","satellites"];
  const quote=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
  const csv=names.map(quote).join(",")+"\n"+radioPackets.map(p=>names.map(n=>quote(p[n])).join(",")).join("\n");
  const url=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
@@ -167,8 +167,8 @@ function renderBrowserInfo(){
   "Web Serial is unavailable in this browser. Feather Wi-Fi and saved files still work.");
 }
 async function init(){
- document.querySelector("header small").textContent="Flight logger · V15 local-first operations";
- text("v14AppBuild","Website V15 local-first beta 1 · Feather firmware channel "+APP_VERSION+" (check actual installed build in System)");
+ document.querySelector("header small").textContent="Flight logger · V16 unified operations";
+ text("v14AppBuild","Website V16 development · unified telemetry phase · Feather firmware channel "+APP_VERSION+" (check actual installed build in System)");
  renderBrowserInfo();
  initPreferences();
  initSensorLab(t);

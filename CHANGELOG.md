@@ -1,3 +1,16 @@
+# V16 Phase 2 — Unified telemetry — November 11, 2026
+
+- Added one source-aware `/api/v16/telemetry` contract spanning independent Feather Wi-Fi and receive-only LoRa links.
+- Added per-reading source, age and freshness plus packet/session identity, protocol compatibility and receiver integrity counters.
+- Deduplicated duplicate/out-of-order radio frames from the live display while preserving them in bounded receiver history.
+- Added sender reboot/session rollover, receiver reconnect tracking, RSSI/SNR and reception timestamps.
+- Added safe automatic Arduino Uno discovery for the one-click Windows launcher, with explicit manual and Wi-Fi-only overrides.
+- Changed Windows link diagnostics to consume one fused endpoint instead of parallel telemetry/link polling.
+- Added Wi-Fi-only, LoRa-only, dual-link, stale, protocol mismatch, duplicate, out-of-order, reboot and reconnect regression coverage.
+- **LoRa remains receive-only. RKT4 v2, GIS1 and the 70-byte radio packet remain unchanged. Physical hardware validation is still pending.**
+
+---
+
 # V16 Phase 1 — Windows reliability — November 11, 2026
 
 - Added explicit Connected, Delayed, Reconnecting and Disconnected Feather Wi-Fi states with last-success age and diagnostics.

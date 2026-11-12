@@ -1,10 +1,11 @@
+import {acceptUnifiedTelemetry,conciseTelemetry} from "./v16_telemetry.mjs";
 /* Independent receive-only radio metrics and Windows loopback Uno bridge.
  * LoRa never authorizes commands or proves that SD has recorded a flight. */
 const t=window.GREEN_ION_TRANSPORT,$=id=>document.getElementById(id);
 const metrics={benchCount:0,packets:0,missing:0,duplicates:0,outOfOrder:0,
  lastSeq:null,lastUptime:null,lastAt:0,rssi:null,snr:null,receiverState:"unknown"};
 window.GREEN_ION_RADIO_EVIDENCE=metrics;
-let lastRadioAt=0,lastBridgeKey="",polling=false,bridgeLink=null;
+let lastRadioAt=0,lastBridgeKey="",polling=false,bridgeLink=null,unified=null;
 function record(){
  const packet=t.state.radio;
  if(!packet||packet.receivedAt===lastRadioAt)return;
@@ -33,26 +34,35 @@ async function pollBridge(){
  if(!t.localBridge||polling)return;
  polling=true;
  try{
-  const [telemetryResponse,linkResponse]=await Promise.all([
-   t.nativeFetch("/api/telemetry",{cache:"no-store"}),
-   t.nativeFetch("/api/ground-link",{cache:"no-store"})
-  ]);
-  if(linkResponse.ok)bridgeLink=await linkResponse.json();
-  if(telemetryResponse.ok){
-   const data=await telemetryResponse.json();
-   if(typeof data.bench_packets==="number")metrics.benchCount=data.bench_packets;
-   if(typeof data.packets_received==="number")metrics.packets=data.packets_received;
-   if(typeof data.packets_missed_estimated==="number")metrics.missing=data.packets_missed_estimated;
-   if(typeof data.packets_repeated==="number")metrics.duplicates=data.packets_repeated;
-   if(typeof data.packets_out_of_order==="number")metrics.outOfOrder=data.packets_out_of_order;
-   if(typeof data.rssi_average_dbm==="number")metrics.rssi=data.rssi_average_dbm;
-   metrics.receiverState=data.receiver_state||"unknown";
-   if(data.type==="telemetry"&&data.link_status==="live"&&Number(data.packet_age_ms)<3000){
-    const key=String(data.sequence)+":"+String(data.received_utc);
-    if(key!==lastBridgeKey){lastBridgeKey=key;t.feedRadio(data);}
-   }
+  const response=await t.nativeFetch("/api/v16/telemetry",{cache:"no-store"});
+  if(!response.ok)return;
+  const data=await response.json();
+  acceptUnifiedTelemetry(data);
+  unified=data;
+  bridgeLink={wifi:{
+   status:data.links?.wifi?.freshness,
+   connection_state:data.links?.wifi?.connection_state,
+   age_ms:data.links?.wifi?.age_ms,
+   error:data.links?.wifi?.error||"",
+   controls_verified:!!data.links?.wifi?.controls_verified
+  }};
+  const q=data.integrity||{},l=data.links?.lora||{};
+  if(typeof q.packets_received==="number")metrics.packets=q.packets_received;
+  if(typeof q.estimated_missing==="number")metrics.missing=q.estimated_missing;
+  if(typeof q.duplicates==="number")metrics.duplicates=q.duplicates;
+  if(typeof q.out_of_order==="number")metrics.outOfOrder=q.out_of_order;
+  if(typeof l.rssi_average_dbm==="number")metrics.rssi=l.rssi_average_dbm;
+  else if(typeof l.rssi_dbm==="number")metrics.rssi=l.rssi_dbm;
+  if(typeof l.snr_average_db==="number")metrics.snr=l.snr_average_db;
+  else if(typeof l.snr_db==="number")metrics.snr=l.snr_db;
+  metrics.receiverState=l.receiver_state||"unknown";
+  const received=Date.parse(q.received_utc||"");
+  if(Number.isFinite(received))metrics.lastAt=received;
+  const radio=data.sources?.radio_latest;
+  if(radio?.type==="telemetry"&&l.freshness==="live"&&radio.packet_id&&radio.packet_id!==lastBridgeKey){
+   lastBridgeKey=radio.packet_id;
+   t.feedRadio({...radio,source:"radio"});
   }
-  // Current counter values come from actual receiver-side serial observations.
   paint();
  }catch{/* cached last-known link state stays visible; do not invent packets */}
  finally{polling=false;}
@@ -60,9 +70,15 @@ async function pollBridge(){
 function paint(){
  const wifi=bridgeLink?bridgeLink.wifi?.status==="live":t.wifiFresh();
  const radio=t.radioFresh(),total=metrics.packets+metrics.missing;
+ const concise=conciseTelemetry(unified);
  const pct=total?100*metrics.missing/total:0;
  const id=(name,value)=>{const node=$(name);if(node)node.textContent=value;};
  id("v15LinkConcurrent",wifi&&radio?"Wi-Fi + LoRa receiving simultaneously":wifi?"Wi-Fi only (LoRa unverified)":radio?"LoRa only (Wi-Fi out of range)":"Neither live");
+ id("v15UnifiedSource",concise?("Primary "+String(concise.primarySource||"none").toUpperCase()+" · "+String(concise.mode||"none")):"Waiting for unified telemetry");
+ if(unified?.integrity){
+  const q=unified.integrity;
+  id("v15LinkIntegrity",(q.radio_protocol_compatible?"Protocol OK":"PROTOCOL MISMATCH")+" · "+(q.accepted_telemetry_packets||0)+" accepted · "+(q.out_of_order||0)+" out of order · "+(q.sender_resets||0)+" sender restart"+((q.sender_resets||0)===1?"":"s"));
+ }
  if(t.localBridge&&bridgeLink?.wifi){
   const w=bridgeLink.wifi,state=String(w.connection_state||w.status||"unknown").toUpperCase();
   const age=w.age_ms==null?"no successful response yet":(Math.max(0,Number(w.age_ms))/1000).toFixed(1)+"s since last successful response";
