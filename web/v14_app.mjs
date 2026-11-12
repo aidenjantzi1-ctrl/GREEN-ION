@@ -20,6 +20,8 @@ import {initV16Data,recordTransfer,transferEntry} from "./v16_data.mjs";
 import {initV16Runtime} from "./v16_runtime.mjs";
 import {initV16Visualization} from "./v16_visualization.mjs";
 import {initV16Validation} from "./v16_validation.mjs";
+import {initV161Diagnostics} from "./v16_1_diagnostics.mjs";
+import {initV161GuidedTest} from "./v16_1_guided_test.mjs";
 import {requiresFeather,initTabs} from "./v14_ui.mjs";
 const $=id=>document.getElementById(id),t=window.GREEN_ION_TRANSPORT;
 let importing=false,lastAutoImport=0,lastRadioAt=0,radioPackets=[];
@@ -207,8 +209,8 @@ function renderBrowserInfo(){
   "Web Serial is unavailable in this browser. Feather Wi-Fi and saved files still work.");
 }
 async function init(){
- document.querySelector("header small").textContent="Flight logger · V16 unified operations";
- text("v14AppBuild","Website V16 development · five-tab interface phase · Feather firmware channel "+APP_VERSION+" (check actual installed build in Settings & Advanced)");
+ document.querySelector("header small").textContent="Flight logger · V16.1 simple reliability";
+ text("v14AppBuild","Website V16.1 reliability + simplicity · Feather firmware channel "+APP_VERSION+" (check actual installed build in Settings & Advanced)");
  renderBrowserInfo();
  initLayout();
  initPreferences();
@@ -219,6 +221,8 @@ async function init(){
  initV16Runtime();
  initV16Visualization();
  initV16Validation();
+ initV161Diagnostics();
+ initV161GuidedTest();
  $("v14SerialConnect").onclick=connectSerial;
  $("v14SerialDisconnect").onclick=disconnectSerial;
  $("v14SerialDisconnect").disabled=true;

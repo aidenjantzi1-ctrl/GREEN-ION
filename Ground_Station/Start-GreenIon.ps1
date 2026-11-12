@@ -69,7 +69,13 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host ""
 Write-Host "GREEN ION V16 Windows Ground Station $($Version.version)"
 Write-Host "Data directory: $env:GREEN_ION_DATA_DIR"
-Write-Host "The app will auto-discover one unambiguous Arduino Uno. No COM prompt is required."
+Write-Host ""
+Write-Host "Simple setup:"
+Write-Host "  1. Leave this window open; the blue dashboard opens automatically."
+Write-Host "  2. Plug the Uno in any time. GREEN ION keeps watching USB and reconnects automatically."
+Write-Host "  3. Join the Feather GREEN ION Wi-Fi when live status, tests or downloads are needed."
+Write-Host "  4. Your saved flights stay in GREEN_ION_Data even when the app is updated or rolled back."
+Write-Host "No COM prompt is required."
 Write-Host ""
 
 $LaunchArgs = @((Join-Path $Here "ground_station.py"))

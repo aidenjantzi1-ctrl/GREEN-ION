@@ -4,7 +4,7 @@ import {validCoordinate} from "./v14_utils.mjs";
 const KEY="green-ion-v15-recovery-fixes",MAX=120;
 const $=id=>document.getElementById(id);
 const t=window.GREEN_ION_TRANSPORT;
-let fixes=[],lastPhase=null;
+let fixes=[],lastPhase=null,userPosition=null;
 function load(){
  try{
   const items=JSON.parse(localStorage.getItem(KEY)||"[]");
@@ -22,6 +22,61 @@ function capture(raw,source){
  fixes.push({lat,lon,source,at});
  if(fixes.length>MAX)fixes=fixes.slice(-MAX);
  try{localStorage.setItem(KEY,JSON.stringify(fixes));}catch{}
+}
+function radians(v){return v*Math.PI/180;}
+function distanceAndBearing(a,b){
+ const R=6371000,dLat=radians(b.lat-a.lat),dLon=radians(b.lon-a.lon);
+ const p1=radians(a.lat),p2=radians(b.lat);
+ const h=Math.sin(dLat/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dLon/2)**2;
+ const distance=2*R*Math.atan2(Math.sqrt(h),Math.sqrt(Math.max(0,1-h)));
+ const y=Math.sin(dLon)*Math.cos(p2);
+ const x=Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dLon);
+ const bearing=(Math.atan2(y,x)*180/Math.PI+360)%360;
+ return {distance,bearing};
+}
+function compass(bearing){
+ const names=["N","NE","E","SE","S","SW","W","NW"];
+ return names[Math.round(bearing/45)%8];
+}
+function formatDistance(m){
+ if(!Number.isFinite(m))return "Unknown";
+ return m<1000?Math.round(m)+" m":(m/1000).toFixed(m<10000?2:1)+" km";
+}
+function ensureLocationControls(){
+ if($("v16RecoveryCurrent"))return;
+ const phase=$("v15RecoveryPhase")?.closest(".row");
+ const card=$("v15RecoveryCard");
+ if(!card)return;
+ const current=document.createElement("div");current.className="row";
+ current.innerHTML='<span>Your current location</span><strong id="v16RecoveryCurrent">Not requested</strong>';
+ const delta=document.createElement("div");delta.className="row";
+ delta.innerHTML='<span>Distance / direction to last GPS</span><strong id="v16RecoveryDelta">Need current location</strong>';
+ if(phase){phase.after(delta);phase.after(current);}else card.prepend(delta,current);
+ const actions=card.querySelector(".actions");
+ if(actions){
+  const locate=document.createElement("button");locate.id="v16RecoveryLocateMe";locate.className="secondary";locate.textContent="Use my current location";
+  const directions=document.createElement("a");directions.id="v16RecoveryDirections";directions.target="_blank";directions.rel="noopener noreferrer";directions.setAttribute("aria-disabled","true");directions.textContent="Google Maps directions";
+  actions.prepend(locate,directions);
+  locate.onclick=requestCurrentLocation;
+ }
+}
+function requestCurrentLocation(){
+ const status=$("v16RecoveryCurrent"),button=$("v16RecoveryLocateMe");
+ if(!navigator.geolocation){if(status)status.textContent="Location unavailable in this browser";return;}
+ if(button)button.disabled=true;
+ if(status)status.textContent="Requesting permission...";
+ navigator.geolocation.getCurrentPosition(position=>{
+  const lat=Number(position.coords.latitude),lon=Number(position.coords.longitude);
+  if(validCoordinate(lat,lon)){
+   userPosition={lat,lon,accuracy:Number(position.coords.accuracy)||null,at:Date.now()};
+   if(status)status.textContent=lat.toFixed(6)+", "+lon.toFixed(6)+(userPosition.accuracy?" · ±"+Math.round(userPosition.accuracy)+" m":"");
+   render();
+  }else if(status)status.textContent="Browser returned an invalid position";
+  if(button)button.disabled=false;
+ },error=>{
+  if(status)status.textContent=error.code===1?"Location permission not allowed":"Could not get current location";
+  if(button)button.disabled=false;
+ },{enableHighAccuracy:true,timeout:10000,maximumAge:15000});
 }
 function draw(){
  const canvas=$("v15RecoveryTrack");if(!canvas)return;
@@ -60,12 +115,32 @@ function render(){
  $("v15RecoveryPhase").textContent=lastPhase===6||lastPhase===7?
   "Reported landed/recovery phase — confirm physically":
   "Landing not yet confirmed by recent telemetry";
- const link=$("v15RecoveryNavigate");
+ const link=$("v15RecoveryNavigate"),directions=$("v16RecoveryDirections"),delta=$("v16RecoveryDelta");
  if(latest){
-  link.href="https://www.openstreetmap.org/?mlat="+latest.lat+"&mlon="+latest.lon+
-   "#map=17/"+latest.lat+"/"+latest.lon;
-  link.removeAttribute("aria-disabled");link.textContent="Open last received GPS position on map";
- }else{link.removeAttribute("href");link.setAttribute("aria-disabled","true");link.textContent="Map link available after GPS fix";}
+  link.href="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(latest.lat+","+latest.lon);
+  link.removeAttribute("aria-disabled");link.textContent="Open last GPS fix in Google Maps";
+  if(userPosition){
+   const d=distanceAndBearing(userPosition,latest);
+   if(delta)delta.textContent=formatDistance(d.distance)+" · "+Math.round(d.bearing)+"° "+compass(d.bearing);
+   if(directions){
+    directions.href="https://www.google.com/maps/dir/?api=1&origin="+
+      encodeURIComponent(userPosition.lat+","+userPosition.lon)+"&destination="+
+      encodeURIComponent(latest.lat+","+latest.lon);
+    directions.removeAttribute("aria-disabled");
+   }
+  }else{
+   if(delta)delta.textContent="Use my current location to compare";
+   if(directions){
+    directions.href="https://www.google.com/maps/dir/?api=1&destination="+
+      encodeURIComponent(latest.lat+","+latest.lon);
+    directions.removeAttribute("aria-disabled");
+   }
+  }
+ }else{
+  link.removeAttribute("href");link.setAttribute("aria-disabled","true");link.textContent="Google Maps link available after GPS fix";
+  if(delta)delta.textContent="Waiting for a confirmed rocket GPS fix";
+  if(directions){directions.removeAttribute("href");directions.setAttribute("aria-disabled","true");}
+ }
  $("v15RecoveryPoints").textContent=fixes.length+" local GPS points · saved on this browser";
  draw();
 }
@@ -82,7 +157,7 @@ function tick(){
  render();
 }
 export function initRecovery(){
- load();render();
+ load();ensureLocationControls();render();
  $("v15RecoveryClear").onclick=()=>{
   if(!confirm("Clear this browser's saved GPS recovery positions? Flight files and cloud backups are not affected."))return;
   fixes=[];try{localStorage.removeItem(KEY);}catch{}

@@ -1,3 +1,19 @@
+# V16.1 RC1 — Reliability + simplicity — November 11, 2026
+
+- Added continuous Uno USB rediscovery and reconnect, including COM-port changes after unplug/replug.
+- Added concise software/link diagnostics plus downloadable troubleshooting evidence.
+- Added a simple guided front door to the existing real one-button home/preflight test.
+- Added Google Maps recovery links, optional current-location comparison, straight-line distance/bearing and Google Maps directions.
+- Locked critical GPS, altitude, battery, flight-state, health and receiver-quality fields into the compact receive-only LoRa regression contract.
+- Improved sustained pressure phase detection, confidence scores, IMU/GPS corroboration and pressure-vs-GPS altitude comparison.
+- Improved offline 3D time alignment, light display smoothing, phase markers and animation-frame replay while keeping recovery GPS raw.
+- Added flight-library search, favorites, tags and notes without modifying original BIN/SEN/TXT files.
+- Added release-note-aware Windows updates and one-click rollback to the prior complete app package; GREEN_ION_Data is untouched.
+- Kept the blue five-tab layout and reduced always-visible Dashboard readings.
+- Added a verified `v16.*` release workflow for web, Windows, Feather and Uno artifacts.
+
+---
+
 # V16 RC.2 — Windows launcher hotfix — November 11, 2026
 
 - Fixed the packaged PowerShell launcher to execute the constructed `ground_station.py` argument list instead of PowerShell's unrelated automatic `$Args` variable.

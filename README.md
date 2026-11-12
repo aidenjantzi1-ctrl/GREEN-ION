@@ -1,14 +1,14 @@
 # GREEN ION — Rocket Flight Recorder
 
-**V16 software implementation: Phases 1–7 complete. Phase 8 validation framework is implemented; real hardware/flight measurements remain pending. Feather/Uno hardware firmware remains the V14 generation. Physical flight validation is still pending.**
+**Current application: V16.1 RC1 — reliability + simplicity.** The original blue five-tab layout is preserved. Automatic reconnects, guided testing, Google Maps recovery, stronger analysis, searchable flight library, reversible Windows updates and verified V16 release automation are added on top of V16. Feather/Uno hardware firmware remains the V14 generation. Real hardware/flight validation is still pending.
 
 **Hosted V16 application / V14 firmware Wi-Fi connection:** compatible Chromium browsers can connect to the Feather after its trusted-origin firmware update and local network permission. Safari/iPhone uses the direct Feather dashboard plus History import and cloud sync after internet returns. [Phone/computer setup and limitations](docs/V15_HOSTED_PHONE_CONNECTION.md).
 
 [**Open the blue flight dashboard**](https://green-ion-beta.vercel.app/) · [**Download V14 releases**](https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases) · [**Automated tests**](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/workflows/build-v14.yml)
 
-GREEN ION records a rocket's pressure, motion, GPS and battery measurements using the **Adafruit Feather ESP32 V2**. It records flight data independently on an SD card. A Windows PC, iPhone or iPad can open the **same original blue dashboard and tabs**. Windows can also receive **Uno USB / LoRa** telemetry; the phone works without LoRa.
+GREEN ION records pressure, motion, GPS and battery data independently to SD. Windows, iPhone and iPad use the same blue dashboard; Windows can also receive Uno USB / LoRa telemetry.
 
-[**V16 implementation checklist**](docs/V16_IMPLEMENTATION_CHECKLIST.md) · [**V16 five-tab interface**](docs/V16_PHASE4_FIVE_TAB_INTERFACE.md) · [**V16 data/cloud integrity**](docs/V16_PHASE5_DATA_CLOUD.md) · [**V16 Windows packaging**](docs/V16_PHASE6_WINDOWS_PACKAGING.md) · [**V16 3D/replay**](docs/V16_PHASE7_ADVANCED_VISUALIZATION.md) · [**V16 hardware evidence**](docs/V16_PHASE8_HARDWARE_VALIDATION.md) · [**V16 Phase 3 Mission Workflow**](docs/V16_PHASE3_MISSION_WORKFLOW.md) · [**Phase 2 Unified Telemetry**](docs/V16_PHASE2_UNIFIED_TELEMETRY.md) · [**Phase 1 Windows reliability**](docs/V16_PHASE1_WINDOWS_RELIABILITY.md) · [**Version history**](VERSIONS.md)
+[**V16.1 reliability + simplicity**](docs/V16_1_RELIABILITY_SIMPLICITY.md) · [**V16 implementation checklist**](docs/V16_IMPLEMENTATION_CHECKLIST.md) · [**V16 five-tab interface**](docs/V16_PHASE4_FIVE_TAB_INTERFACE.md) · [**V16 data/cloud integrity**](docs/V16_PHASE5_DATA_CLOUD.md) · [**V16 Windows packaging**](docs/V16_PHASE6_WINDOWS_PACKAGING.md) · [**V16 3D/replay**](docs/V16_PHASE7_ADVANCED_VISUALIZATION.md) · [**V16 hardware evidence**](docs/V16_PHASE8_HARDWARE_VALIDATION.md) · [**V16 Phase 3 Mission Workflow**](docs/V16_PHASE3_MISSION_WORKFLOW.md) · [**Phase 2 Unified Telemetry**](docs/V16_PHASE2_UNIFIED_TELEMETRY.md) · [**Phase 1 Windows reliability**](docs/V16_PHASE1_WINDOWS_RELIABILITY.md) · [**Version history**](VERSIONS.md)
 
 ## Choose a guide
 
@@ -35,11 +35,11 @@ GREEN ION records a rocket's pressure, motion, GPS and battery measurements usin
 
 V16 exposes exactly five normal top-level tabs: **Dashboard, Flight, Flights & Analysis, Testing, and Settings & Advanced**. Existing advanced tools are preserved underneath those destinations rather than deleted. Recovery is part of Flight; storage/history are combined under Flights & Analysis; radio/cloud/updates/help live under expandable Settings & Advanced sections.
 
-You can disable **Sensor Lab, historical SEN analysis, automatic cloud uploads, compact spacing or imperial display** in Settings & Advanced without changing the onboard recorder. Original BIN/SEN/TXT files, checksum-verified restore, plots, comparison, replay and manually exported GPS GeoJSON work offline.
+Optional Sensor Lab, SEN analysis, cloud backup and display settings live under Settings & Advanced. Original BIN/SEN/TXT analysis and export work offline.
 
 **Hardware commands:** Use the Feather's Wi-Fi and local **http://192.168.4.1** backup dashboard when direct connection from the hosted HTTPS website is blocked. The iPhone website cannot read Uno USB serial. Downloads from GitHub **never flash automatically**; bench-only firmware OTA requires separate confirmation.
 
-**Windows local server:** Run `Ground_Station/OPEN_GROUND_STATION.cmd` for the current blue localhost dashboard with Feather Wi-Fi, Uno LoRa, automatic SHA-256 computer archives and optional signed-in cloud backup when internet returns. Firmware RKT4/GIS1 formats remain unchanged.
+**Windows local server:** Run `START_GREEN_ION.cmd` for the current blue localhost dashboard with Feather Wi-Fi, Uno LoRa, automatic SHA-256 computer archives and optional signed-in cloud backup when internet returns. Firmware RKT4/GIS1 formats remain unchanged.
 
 ## Software vs hardware validation
 

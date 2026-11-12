@@ -7,11 +7,18 @@ $Api = "https://api.github.com/repos/$Repo/releases?per_page=20"
 $StateRoot = Join-Path $env:LOCALAPPDATA "GREEN_ION"
 $AppRoot = Join-Path $StateRoot "App"
 $CurrentFile = Join-Path $StateRoot "current.txt"
+$PreviousFile = Join-Path $StateRoot "previous.txt"
 New-Item -ItemType Directory -Force -Path $AppRoot | Out-Null
 
 Write-Host "[UPDATE] Checking official GREEN ION V16 GitHub releases..."
 $Headers = @{ "Accept"="application/vnd.github+json"; "User-Agent"="GREEN-ION-V16-Updater" }
-$Releases = Invoke-RestMethod -Uri $Api -Headers $Headers -Method Get
+try {
+  $Releases = Invoke-RestMethod -Uri $Api -Headers $Headers -Method Get
+} catch {
+  Write-Host "[UPDATE] GitHub is unavailable. If this PC is joined to the Feather Wi-Fi, reconnect normal internet and try again."
+  Write-Host "[UPDATE] The currently installed GREEN ION app and GREEN_ION_Data were not changed."
+  exit 0
+}
 $Release = $Releases | Where-Object {
   -not $_.draft -and $_.tag_name -match '^v16\.' -and
   ($_.assets.name -contains "GREEN_ION_V16_WINDOWS.zip") -and
@@ -24,7 +31,19 @@ if (-not $Release) {
 
 $Tag = [string]$Release.tag_name
 Write-Host "[UPDATE] Latest official Windows package: $Tag"
+if ($Release.name) { Write-Host "[UPDATE] Release: $($Release.name)" }
+if ($Release.published_at) { Write-Host "[UPDATE] Published: $($Release.published_at)" }
+if ($Release.body) {
+  $Notes = ([string]$Release.body -replace '[\r\n]+',' ' -replace '\s+',' ').Trim()
+  if ($Notes.Length -gt 420) { $Notes = $Notes.Substring(0,420) + "..." }
+  Write-Host "[UPDATE] Notes: $Notes"
+}
 Write-Host "[UPDATE] This installed package reports: $($Version.version)"
+$InstalledTag = "v" + [string]$Version.version
+if ($Tag -eq $InstalledTag) {
+  Write-Host "[UPDATE] This is already the newest published V16 Windows version."
+  exit 0
+}
 if ($CheckOnly) { exit 0 }
 
 $ZipAsset = $Release.assets | Where-Object name -eq "GREEN_ION_V16_WINDOWS.zip" | Select-Object -First 1
@@ -54,10 +73,17 @@ try {
   } else {
     Write-Host "[UPDATE] This exact verified package is already installed; leaving its files untouched."
   }
+  if (Test-Path $CurrentFile) {
+    $OldCurrent = (Get-Content $CurrentFile -Raw).Trim()
+    if ($OldCurrent -and $OldCurrent -ne $Target -and (Test-Path $OldCurrent)) {
+      Set-Content -Path $PreviousFile -Value $OldCurrent -Encoding UTF8
+    }
+  }
   Set-Content -Path $CurrentFile -Value $Target -Encoding UTF8
   Write-Host "[UPDATE] Selected verified $Tag side-by-side at:"
   Write-Host "         $Target"
   Write-Host "[UPDATE] Your GREEN_ION_Data folder was not changed."
+  if (Test-Path $PreviousFile) { Write-Host "[UPDATE] Previous app version is retained for one-click rollback." }
   Write-Host "[UPDATE] Close the currently running ground-station window, then run START_GREEN_ION.cmd again."
 } finally {
   Remove-Item -Recurse -Force $TempRoot -ErrorAction SilentlyContinue

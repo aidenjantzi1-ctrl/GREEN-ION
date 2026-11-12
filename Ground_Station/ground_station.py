@@ -54,6 +54,12 @@ except (OSError, ValueError, TypeError):
 RUNTIME = {
     "started_utc": datetime.now(timezone.utc).isoformat(),
     "receiver_port": None,
+    "receiver_requested_port": None,
+    "receiver_auto_discovery": True,
+    "receiver_last_connected_utc": None,
+    "receiver_last_disconnect_utc": None,
+    "receiver_last_error": "",
+    "receiver_searching_since_utc": None,
     "mode": "starting",
 }
 
@@ -395,7 +401,7 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if path == "/api/app/health":
             self._json({
-                "schema": "GREEN-ION-V16-WINDOWS-HEALTH-1",
+                "schema": "GREEN-ION-V16-WINDOWS-HEALTH-2",
                 "version": APP_INFO.get("version"),
                 "channel": APP_INFO.get("channel"),
                 "python": platform.python_version(),
@@ -404,10 +410,71 @@ class Handler(SimpleHTTPRequestHandler):
                 "flight_archive": str(FLIGHT_DIR),
                 "static_root": str(STATIC_ROOT),
                 "receiver_port": RUNTIME.get("receiver_port"),
+                "receiver_requested_port": RUNTIME.get("receiver_requested_port"),
+                "receiver_auto_discovery": RUNTIME.get("receiver_auto_discovery"),
+                "receiver_last_connected_utc": RUNTIME.get("receiver_last_connected_utc"),
+                "receiver_last_disconnect_utc": RUNTIME.get("receiver_last_disconnect_utc"),
+                "receiver_last_error": RUNTIME.get("receiver_last_error"),
+                "receiver_searching_since_utc": RUNTIME.get("receiver_searching_since_utc"),
                 "mode": RUNTIME.get("mode"),
                 "started_utc": RUNTIME.get("started_utc"),
                 "update_script_available": (ROOT / "Update-GreenIon.ps1").is_file(),
+                "rollback_script_available": (ROOT / "Rollback-GreenIon.ps1").is_file(),
                 "user_data_outside_app": True,
+            })
+            return
+        if path == "/api/app/diagnostics":
+            radio = STORE.snapshot()
+            try:
+                disk_root = DATA_ROOT if DATA_ROOT.exists() else Path.home()
+                disk = shutil.disk_usage(disk_root)
+                disk_info = {
+                    "free_bytes": disk.free,
+                    "used_bytes": disk.used,
+                    "total_bytes": disk.total,
+                }
+            except OSError:
+                disk_info = {"free_bytes": None, "used_bytes": None, "total_bytes": None}
+            archive_count = 0
+            try:
+                if FLIGHT_DIR.exists():
+                    archive_count = sum(1 for _ in FLIGHT_DIR.glob("*.json"))
+            except OSError:
+                pass
+            self._json({
+                "schema": "GREEN-ION-V16-DIAGNOSTICS-1",
+                "captured_utc": datetime.now(timezone.utc).isoformat(),
+                "app": {
+                    "version": APP_INFO.get("version"),
+                    "channel": APP_INFO.get("channel"),
+                    "python": platform.python_version(),
+                    "platform": platform.platform(),
+                    "started_utc": RUNTIME.get("started_utc"),
+                    "mode": RUNTIME.get("mode"),
+                    "data_root": str(DATA_ROOT),
+                    "archive_count": archive_count,
+                    "disk": disk_info,
+                },
+                "receiver": {
+                    "state": radio.get("receiver_state"),
+                    "error": radio.get("receiver_error"),
+                    "port": RUNTIME.get("receiver_port"),
+                    "requested_port": RUNTIME.get("receiver_requested_port"),
+                    "auto_discovery": RUNTIME.get("receiver_auto_discovery"),
+                    "last_connected_utc": RUNTIME.get("receiver_last_connected_utc"),
+                    "last_disconnect_utc": RUNTIME.get("receiver_last_disconnect_utc"),
+                    "last_error": RUNTIME.get("receiver_last_error"),
+                    "reconnects": radio.get("receiver_reconnects"),
+                    "packets_received": radio.get("packets_received"),
+                    "estimated_missing": radio.get("packets_missed_estimated"),
+                    "duplicates": radio.get("packets_repeated"),
+                    "out_of_order": radio.get("packets_out_of_order"),
+                    "sender_resets": radio.get("sender_resets"),
+                    "rssi_average_dbm": radio.get("rssi_average_dbm"),
+                    "snr_average_db": radio.get("snr_average_db"),
+                },
+                "feather": BRIDGE.link_status(radio),
+                "note": "Software diagnostics only; this does not certify RF range, sensor accuracy, SD integrity or flight readiness.",
             })
             return
         if path == "/api/local/files":
@@ -564,17 +631,39 @@ def discover_serial_port() -> str | None:
     return None
 
 
-def serial_source(stop: threading.Event, port: str, log_path: Path) -> None:
+def serial_source(stop: threading.Event, requested_port: str | None, log_path: Path,
+                  auto_discover: bool = True) -> None:
+    """Continuously reconnect the Uno, including when USB COM numbers change."""
     try:
         import serial  # type: ignore
     except ImportError:
         STORE.receiver("missing", "Install pyserial: py -3 -m pip install pyserial")
+        RUNTIME["receiver_last_error"] = "pyserial unavailable"
+        RUNTIME["mode"] = "wifi-only"
         return
+    active_port = requested_port
     while not stop.is_set():
+        if auto_discover and not active_port:
+            active_port = discover_serial_port()
+        if not active_port:
+            if not RUNTIME.get("receiver_searching_since_utc"):
+                RUNTIME["receiver_searching_since_utc"] = datetime.now(timezone.utc).isoformat()
+            RUNTIME["receiver_port"] = None
+            RUNTIME["mode"] = "wifi+lora-searching"
+            STORE.receiver("searching", "Waiting for Arduino Uno USB receiver")
+            if stop.wait(2):
+                break
+            continue
         try:
-            with serial.Serial(port, 115200, timeout=1) as connection:
+            RUNTIME["receiver_port"] = active_port
+            RUNTIME["mode"] = "wifi+lora-connecting"
+            with serial.Serial(active_port, 115200, timeout=1) as connection:
+                RUNTIME["receiver_last_connected_utc"] = datetime.now(timezone.utc).isoformat()
+                RUNTIME["receiver_last_error"] = ""
+                RUNTIME["receiver_searching_since_utc"] = None
+                RUNTIME["mode"] = "wifi+lora"
                 STORE.receiver("connected", "Waiting for Uno receiver status")
-                print(f"[UNO] Serial connected on {port}; waiting for packets.")
+                print(f"[UNO] Serial connected on {active_port}; waiting for packets.")
                 while not stop.is_set():
                     line = connection.readline().decode("utf-8", errors="replace").strip()
                     if not line or not line.startswith("{"):
@@ -591,7 +680,6 @@ def serial_source(stop: threading.Event, port: str, log_path: Path) -> None:
                     elif kind == "receiver_error":
                         STORE.receiver("error", "Uno reported an invalid/CRC packet")
                     elif kind == "radio_bench":
-                        # Receiver-side evidence: never infer reception from sender TX.
                         row["source"] = "radio"
                         row["received_utc"] = datetime.now(timezone.utc).isoformat()
                         STORE.bench(row)
@@ -610,8 +698,16 @@ def serial_source(stop: threading.Event, port: str, log_path: Path) -> None:
                             STORE.receiver("error", f"CSV write failed: {error}")
                             print(f"[LOG] Cannot write telemetry CSV: {error}")
         except (serial.SerialException, OSError) as error:
-            STORE.receiver("disconnected", str(error))
-            print(f"[UNO] Disconnected: {error}; retrying in 2 seconds.")
+            message = str(error)
+            RUNTIME["receiver_last_disconnect_utc"] = datetime.now(timezone.utc).isoformat()
+            RUNTIME["receiver_last_error"] = message[:300]
+            RUNTIME["receiver_port"] = None
+            RUNTIME["mode"] = "wifi+lora-searching" if auto_discover else "wifi+lora-reconnecting"
+            STORE.receiver("disconnected", message)
+            print(f"[UNO] Disconnected from {active_port}: {error}; retrying automatically.")
+            if auto_discover:
+                # USB reconnects can come back on a different COM number.
+                active_port = None
         if stop.wait(2):
             break
 
@@ -636,18 +732,22 @@ def main() -> None:
     stop = threading.Event()
     use_sample = args.sample
     selected_port = args.port
-    if not use_sample and not args.wifi_only and not selected_port:
+    auto_receiver = not use_sample and not args.wifi_only and not bool(args.port)
+    if auto_receiver:
         selected_port = discover_serial_port()
         if selected_port:
             print(f"[UNO] Auto-discovered receiver on {selected_port}.")
         else:
-            print("[UNO] No unambiguous Arduino Uno found; continuing Wi-Fi-only. "
-                  "Use --port COMx or set GREEN_ION_UNO_PORT to select one.")
+            print("[UNO] No Uno detected yet. The app will keep watching USB and connect automatically when one appears.")
     target = sample_source if use_sample else serial_source
-    target_args = (stop, log_path) if use_sample else (stop, selected_port, log_path)
+    target_args = (stop, log_path) if use_sample else (stop, selected_port, log_path, auto_receiver)
     STORE.log_path = log_path
     RUNTIME["receiver_port"] = selected_port
-    RUNTIME["mode"] = "simulation" if use_sample else ("wifi+lora" if selected_port else "wifi-only")
+    RUNTIME["receiver_requested_port"] = args.port
+    RUNTIME["receiver_auto_discovery"] = auto_receiver
+    RUNTIME["mode"] = "simulation" if use_sample else (
+        "wifi-only" if args.wifi_only else ("wifi+lora" if selected_port else "wifi+lora-searching")
+    )
     # Preserve any older Ground_Station/logs after an in-place update.
     for older in (ROOT / "logs").glob("*.csv"):
         try:
@@ -657,12 +757,12 @@ def main() -> None:
                 shutil.copy2(older, destination)
         except OSError as error:
             print(f"[LOG] Cannot preserve older log {older.name}: {error}")
-    if selected_port and not use_sample:
+    if not use_sample and not args.wifi_only:
         try:
             import serial  # noqa: F401
         except ImportError as error:
             raise SystemExit("Live Uno mode requires pyserial: py -3 -m pip install pyserial") from error
-    if selected_port or use_sample:
+    if use_sample or not args.wifi_only:
         threading.Thread(target=target, args=target_args, daemon=True).start()
     threading.Thread(target=BRIDGE.run, args=(stop,), daemon=True).start()
     url = f"http://{args.listen}:{args.http_port}"
@@ -679,7 +779,7 @@ def main() -> None:
     print(f"GREEN ION V16 Windows Ground Station {APP_INFO.get('version', 'unknown')}: {url}")
     print(f"Automatic computer flight archive: {FLIGHT_DIR}")
     print("Mode: SIMULATED DATA — NOT HARDWARE" if use_sample else
-          f"Mode: Feather Wi-Fi + {('Uno radio on ' + selected_port) if selected_port else 'no Uno port (Wi-Fi only)'}")
+          f"Mode: Feather Wi-Fi + {('Uno radio on ' + selected_port) if selected_port else ('watching USB for Uno' if auto_receiver else 'Wi-Fi only')}")
     print("Feather Wi-Fi: http://192.168.4.1 (join GREEN-ION-V14 or compatible AP)")
     print(f"Telemetry log: {log_path}")
     print("Keep this window open while using the website. Press Ctrl+C to stop.")

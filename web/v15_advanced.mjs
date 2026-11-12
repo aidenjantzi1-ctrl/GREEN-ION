@@ -24,13 +24,21 @@ export async function refreshAdvancedList(){
 }
 function display(r){
  report=r;const out=$("v15ReportSummary");out.replaceChildren();
+ const enhanced=r.enhanced||{};
+ const compare=enhanced.gpsPressureComparison||{};
+ const events=Array.isArray(enhanced.events)?enhanced.events:[];
  const values=[
   ["Recording",r.name],["Data completeness",r.dataCompletenessScore+"/100 (not sensor accuracy)"],
   ["RKT4 pressure records",r.observed.validPressureSamples+"/"+r.observed.sampleCount],
   ["Recording duration",r.observed.durationS.toFixed(2)+" seconds"],
   ["Estimated apogee",r.estimates.apogeeM===null?"Unavailable":r.estimates.apogeeM.toFixed(2)+" m"],
   ["Estimated max ascent",r.estimates.maxAscentMps===null?"Unavailable":r.estimates.maxAscentMps.toFixed(2)+" m/s"],
+  ["Estimated max descent",enhanced.maxDescentMps==null?"Unavailable":enhanced.maxDescentMps.toFixed(2)+" m/s"],
+  ["Flight event confidence",enhanced.averageEventConfidence==null?"Insufficient evidence":Math.round(enhanced.averageEventConfidence)+"/100 · "+enhanced.eventConfidence?.label],
+  ["Detected events",events.length?events.map(e=>e.name.replaceAll("_"," ")+" "+Math.round(e.confidence)+"%").join(" · "):"Not reliably detected"],
   ["Measured total acceleration",r.sensors?.maxMeasuredTotalG==null?"GIS1 unavailable":r.sensors.maxMeasuredTotalG.toFixed(2)+" g"],
+  ["Measured GPS speed",r.sensors?.maxMeasuredGpsSpeedMps==null?"GIS1 unavailable":r.sensors.maxMeasuredGpsSpeedMps.toFixed(2)+" m/s"],
+  ["Pressure vs GPS altitude",compare.status?compare.status+(compare.rmseM==null?"":" · RMSE "+compare.rmseM.toFixed(1)+" m"):"Not compared"],
   ["Last recorded battery",r.observed.endBatteryV==null?"Unavailable":r.observed.endBatteryV.toFixed(3)+" V"],
   ["Timestamp gaps",String(r.observed.timestampGaps)],
   ["RKT4 trailing bytes",String(r.observed.trailingBytes)],
@@ -43,7 +51,7 @@ function display(r){
  }
  $("v15ReportWarnings").textContent=r.warnings.slice(0,12).join(" · ")||"No file-integrity warnings";
  $("v15ReportExport").disabled=false;
- message("Postflight report calculated locally from original files. Estimates and uncertainty are labeled. No internet required.");
+ message("Postflight report calculated locally from original files. Critical summary is shown first; raw/high-rate evidence stays in the downloadable report. No internet required.");
 }
 export async function analyzeSelected({automatic=false}={}){
  if(busy)return;

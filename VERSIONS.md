@@ -1,3 +1,15 @@
+# V16.1 RC1 — reliability + simplicity
+
+V16.1 keeps the original blue five-tab application while making first use and recovery simpler: automatic Uno USB rediscovery, concise diagnostics, guided real preflight, Google Maps recovery with current-location comparison, event confidence and GPS/pressure cross-checks, improved 3D replay, a searchable annotated flight library, reversible Windows app updates and a verified `v16.*` release pipeline.
+
+The compact 70-byte LoRa protocol remains compatible and receive-only on the ground side; it already carries critical flight state, health, battery and GPS recovery information. Feather/Uno firmware remains the V14 generation.
+
+Real hardware/range/power/OTA/mechanical/flight validation is still required.
+
+[V16.1 details](docs/V16_1_RELIABILITY_SIMPLICITY.md) · [Release notes](docs/V16_RELEASE_NOTES.md)
+
+---
+
 # V16 software release candidate — hardware validation pending
 
 V16 software phases 1–7 are implemented. Phase 8 now includes the evidence framework and exact physical acceptance plan, but real hardware measurements are deliberately still pending and cannot be replaced by CI.

@@ -41,7 +41,7 @@ def main() -> None:
 
     copytree(ROOT / "Ground_Station", stage / "Ground_Station")
     copytree(args.website, stage / "web")
-    for name in ("START_GREEN_ION.cmd", "UPDATE_GREEN_ION.cmd", "README.md", "VERSIONS.md", "CHANGELOG.md"):
+    for name in ("START_GREEN_ION.cmd", "UPDATE_GREEN_ION.cmd", "ROLLBACK_GREEN_ION.cmd", "README.md", "VERSIONS.md", "CHANGELOG.md"):
         shutil.copy2(ROOT / name, stage / name)
     docs = stage / "docs"
     docs.mkdir()
@@ -63,6 +63,7 @@ def main() -> None:
             "firmwareFlashing": False,
             "loraCommands": False,
             "preservesUserData": True,
+            "rollbackRetainsPriorApp": True,
         },
     }
     (stage / "PACKAGE_MANIFEST.json").write_text(json.dumps(package_manifest, indent=2) + "\n", encoding="utf-8")

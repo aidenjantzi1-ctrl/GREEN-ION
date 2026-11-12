@@ -1,6 +1,6 @@
 # GREEN ION V16 Windows Ground Station
 
-**Run `OPEN_GROUND_STATION.cmd` from this folder.** It starts the current dark-blue GREEN ION dashboard at `http://127.0.0.1:8765`, not the older V13 static page. Python 3 is required. For Uno LoRa, install `py -3 -m pip install pyserial`, plug the Uno into USB and close Arduino Serial Monitor. V16 auto-detects an unambiguous Arduino Uno; use `OPEN_GROUND_STATION.cmd --port COM5` only when manual selection is needed. Run with motors removed for testing.
+**Run `START_GREEN_ION.cmd` from this folder.** `OPEN_GROUND_STATION.cmd` remains a compatibility alias. It starts the current dark-blue GREEN ION dashboard at `http://127.0.0.1:8765`, not the older V13 static page. The launcher checks Python 3.10+ and the pinned pyserial dependency. Plug the Uno in before or after startup; V16.1 keeps watching USB and can rediscover it after unplug/replug or a COM-port change. Use `START_GREEN_ION.cmd --port COM5` only when manual selection is needed. Run with motors removed for testing.
 
 Windows may join the Feather `GREEN-ION-V14` access point while the command window remains open. The access point has no internet. The local server polls Feather `192.168.4.1` and Uno LoRa independently. Wi-Fi status is authoritative for SD recording state; when Wi-Fi is lost, received LoRa telemetry remains visible but **cannot command the rocket**.
 
@@ -10,4 +10,4 @@ The `/api/status` endpoint merges verified Feather Wi-Fi and receive-only LoRa w
 
 When internet returns on the Windows computer, the open browser tab retries automatic Supabase backups **only if signed in and auto-sync enabled**. This server is not a background cloud uploader when the browser is closed. Keep the local tab open. Cloud never controls flight or OTA.
 
-See [V16 Phase 2 unified telemetry](../docs/V16_PHASE2_UNIFIED_TELEMETRY.md), [V16 Phase 1 reliability details](../docs/V16_PHASE1_WINDOWS_RELIABILITY.md), [V16 implementation checklist](../docs/V16_IMPLEMENTATION_CHECKLIST.md), the [V15 workflow](../docs/V15_LOCAL_FIRST.md), and [hardware quality plan](../docs/V14_QUALITY_PLAN.md). Physical tests of RF range, LiPo, SD, iPhone networking and OTA remain required.
+See [V16 Phase 2 unified telemetry](../docs/V16_PHASE2_UNIFIED_TELEMETRY.md), [V16 Phase 1 reliability details](../docs/V16_PHASE1_WINDOWS_RELIABILITY.md), [V16 implementation checklist](../docs/V16_IMPLEMENTATION_CHECKLIST.md), the [V15 workflow](../docs/V15_LOCAL_FIRST.md), and [hardware quality plan](../docs/V14_QUALITY_PLAN.md). Windows app updates use `UPDATE_GREEN_ION.cmd`; `ROLLBACK_GREEN_ION.cmd` returns to the previous complete app package without touching `GREEN_ION_Data`. Physical tests of RF range, LiPo, SD, iPhone networking and OTA remain required.

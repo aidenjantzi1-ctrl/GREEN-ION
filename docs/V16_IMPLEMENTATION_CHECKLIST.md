@@ -120,6 +120,64 @@ V16 is the next application/ground-station generation after V15 Beta 1. Feather 
   - [ ] Perform bench OTA/rollback/interruption validation.
   - [ ] Inspect actual rocket mounting/antenna/fit and complete supervised real-flight evidence.
 
+## V16.1 reliability + simplicity pass
+
+Requested improvement set implemented without changing the five-tab blue navigation or onboard file formats:
+
+- [x] **2 — Better automatic recovery**
+  - [x] Continuously rediscover Uno USB after unplug/replug or COM-port change.
+  - [x] Preserve V16 Feather reconnect state behavior.
+  - [x] Keep partial flight transfers rejected/retryable instead of saving incomplete originals.
+- [x] **3 — Simpler first-time Windows setup**
+  - [x] Keep one-click launcher and no normal COM prompt.
+  - [x] Explain first-run steps in the launcher.
+  - [x] Allow Uno to be plugged in after app startup.
+- [x] **4 — Stronger connection diagnostics**
+  - [x] Add concise Feather / Uno / LoRa / GPS / SD / cloud / archive health view.
+  - [x] Add downloadable local diagnostic evidence.
+- [x] **6 — Improve automated home test**
+  - [x] Add a simple guided wrapper around the existing real full preflight.
+  - [x] Never simulate PASS or override missing measured/receiver evidence.
+- [x] **7 — Improve flight analysis**
+  - [x] Require sustained pressure evidence for phase detection.
+  - [x] Add event confidence scores.
+  - [x] Add IMU/GPS corroboration and pressure-vs-GPS altitude comparison.
+  - [x] Label any inferred burnout transition as an estimate.
+- [x] **10 — Improve 3D reconstruction**
+  - [x] Align pressure/GIS1 timelines by recorded timestamps.
+  - [x] Add light display smoothing without modifying raw GPS.
+  - [x] Add flight-phase markers and animation-frame replay.
+- [x] **11 — Better flight library**
+  - [x] Add search, favorites, tags and notes.
+  - [x] Keep incomplete/collision status obvious.
+  - [x] Store annotations separately from immutable originals.
+- [x] **12 — Safer/easier updates**
+  - [x] Show release notes before Windows app update.
+  - [x] Keep verified side-by-side packages.
+  - [x] Add one-click app rollback to the prior complete package.
+  - [x] Never modify GREEN_ION_Data during app update/rollback.
+- [x] **13 — Performance cleanup**
+  - [x] Keep full-resolution originals while bounding/decimating display work.
+  - [x] Use background worker for advanced reports and animation-frame 3D replay.
+- [x] **14 — UI polish**
+  - [x] Preserve original blue background and exactly five visible tabs.
+  - [x] Keep only critical Dashboard readings visible by default.
+  - [x] Add direct Find Rocket shortcut.
+- [x] **15 — Release automation**
+  - [x] Add verified `v16.*` tag workflow.
+  - [x] Gate release on tests, site build, Feather compile, Uno compile and Windows package verification.
+  - [x] Publish Windows ZIP/checksum/manifest, web ZIP, Feather BIN, Uno HEX and release SHA manifest.
+- [x] **LoRa recovery requirement**
+  - [x] Preserve compact 70-byte CRC packet.
+  - [x] Regression-lock GPS, altitude, pressure, battery, motion, satellites, flight state, flags and health.
+  - [x] Preserve receiver RSSI/SNR and packet-integrity evidence.
+  - [x] Keep ground LoRa receive-only.
+- [x] **Finder requirement**
+  - [x] Open last confirmed rocket GPS fix in Google Maps.
+  - [x] With user permission, compare to current browser location.
+  - [x] Show straight-line distance/bearing and Google Maps directions.
+  - [x] Never replace raw recovery GPS with 3D-smoothed coordinates.
+
 ## Validation boundary
 
 Phase 1 can be validated by automated software tests and CI. It does **not** prove real Feather Wi-Fi stability, real LoRa range, power integrity, SD timing, GPS reception or flight readiness. Those require later bench and field evidence.
