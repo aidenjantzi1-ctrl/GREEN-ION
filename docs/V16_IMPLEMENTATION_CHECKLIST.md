@@ -178,6 +178,22 @@ Requested improvement set implemented without changing the five-tab blue navigat
   - [x] Show straight-line distance/bearing and Google Maps directions.
   - [x] Never replace raw recovery GPS with 3D-smoothed coordinates.
 
+## V16.1 RC2 — SD management and layout hardening
+
+- [x] Add Wi-Fi SD deletion for completed V12D flight packages only.
+- [x] Require exact filename confirmation and reject arbitrary paths.
+- [x] Block deletion during recording, home verification, maintenance/OTA and open recorder files.
+- [x] Remove SEN/TXT/JRA/JRB/RCV companions before deleting the primary BIN.
+- [x] Verify the deleted package is absent before returning success.
+- [x] Preserve browser, Windows and cloud copies.
+- [x] Restart stationary calibration if deletion interrupts launch watching.
+- [x] Harden normal SD listing/downloads against critical recorder states.
+- [x] Remove stale Protect/Add-note/manifest/integrity controls with no V14 backend.
+- [x] Restore saved-flight quick stats from current TXT metadata.
+- [x] Keep exactly five visible tabs and the original blue background.
+- [x] Improve Flights & Analysis hierarchy and responsive file actions.
+- [x] Add regression coverage for firmware and UI deletion contracts.
+
 ## Validation boundary
 
 Phase 1 can be validated by automated software tests and CI. It does **not** prove real Feather Wi-Fi stability, real LoRa range, power integrity, SD timing, GPS reception or flight readiness. Those require later bench and field evidence.
