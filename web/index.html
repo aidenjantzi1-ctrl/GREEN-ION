@@ -575,11 +575,10 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <div class="row"><span>Actual sample rate</span><strong id="storageRate">--</strong></div>
   <div class="row"><span>Maximum SD flush</span><strong id="maximumFlush">--</strong></div>
   <div class="row"><span>Recording heartbeat</span><strong id="flushHeartbeat">--</strong></div>
-  <button id="refresh" class="secondary">REFRESH FILES</button>
-  <a href="/api/manifest" download><button class="secondary">DOWNLOAD FLIGHT MANIFEST</button></a>
-  <button id="downloadEverything" class="secondary">DOWNLOAD SELECTED FLIGHT PACKAGE</button>
-  <button id="scanIntegrity" class="secondary">SCAN SELECTED FILE</button>
-  <div class="notice" id="integrityScanResult">Select a flight to scan.</div>
+  <div class="actions">
+   <button id="refresh" class="secondary">REFRESH SD FILES</button>
+   <button id="downloadEverything" class="secondary">DOWNLOAD BIN + SEN + TXT</button>
+  </div>
   <div class="notice" id="sdDeleteFeedback">Deleting here removes the selected flight package from the Feather SD card only. Browser, Windows, and cloud backups are not deleted.</div>
   <label for="fileSort">Sort recordings</label>
   <select id="fileSort"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="size">Largest first</option></select>
@@ -1440,16 +1439,14 @@ async function armAndWatch(){
  finally{busy=false;await poll();}
 }
 
-async function scanSelectedIntegrity(){
- if(!selectedFlight){$("integrityScanResult").textContent="Select a flight first.";return;}
- try{const result=await api("integrity?name="+encodeURIComponent(selectedFlight));$("integrityScanResult").textContent=result.result+" · "+result.completeRecords+" complete records · "+result.trailingBytes+" trailing bytes · "+result.implausibleRecords+" implausible records";}
- catch(err){$("integrityScanResult").textContent=err.message;}
-}
 function downloadSelectedPackage(){
- if(!selectedFlight){alert("Select a flight first.");return;}
- const urls=["/api/download?name=","/api/metadata?name="];
- urls.forEach((base,i)=>setTimeout(()=>{const a=document.createElement("a");a.href=base+encodeURIComponent(selectedFlight);a.download="";document.body.appendChild(a);a.click();a.remove();},i*700));
- setTimeout(()=>{location.href="/api/manifest";},2300);
+ if(!selectedFlight){$("sdDeleteFeedback").textContent="Select a Feather SD flight first.";return;}
+ const urls=["/api/download?name=","/api/sensors?name=","/api/metadata?name="];
+ urls.forEach((base,i)=>setTimeout(()=>{
+  const a=document.createElement("a");a.href=base+encodeURIComponent(selectedFlight);
+  a.download="";document.body.appendChild(a);a.click();a.remove();
+ },i*650));
+ $("sdDeleteFeedback").textContent="Downloading available BIN, SEN and TXT files for "+selectedFlight+".";
 }
 async function rollbackFirmware(){
  if(!confirm("Restart using the previous valid OTA firmware image?"))return;
@@ -1853,6 +1850,15 @@ async function showFlightStats(name,scrollToReport=true) {
    const ix=line.indexOf("=");
    if(ix>0)values[line.slice(0,ix).trim()]=line.slice(ix+1).trim();
   }
+  if(values.duration_ms&&!values.duration_s)
+   values.duration_s=(Number(values.duration_ms)/1000).toFixed(2);
+  if(values.complete_records&&!values.samples)values.samples=values.complete_records;
+  if(values.missed_sample_periods&&!values.missed_samples)values.missed_samples=values.missed_sample_periods;
+  if(values.start_battery_mv&&!values.starting_battery_v)
+   values.starting_battery_v=(Number(values.start_battery_mv)/1000).toFixed(3);
+  if(values.end_battery_mv&&!values.ending_battery_v)
+   values.ending_battery_v=(Number(values.end_battery_mv)/1000).toFixed(3);
+  if(values.file&&!values.label)values.label=values.file;
   flightMeta=values;
   const timeline=$("flightConfidenceTimeline");timeline.replaceChildren();
   const events=Object.entries(values).filter(([key])=>key.startsWith("confidence_event_"))
@@ -2055,7 +2061,6 @@ $("groundtest").onclick=()=>command("groundtest");
 $("shutdown").onclick=shutdown;
 $("disconnect").onclick=disconnect;
 $("fieldStop").onclick=()=>{if(confirm("Stop and save flight?"))command("stop");};
-$("scanIntegrity").onclick=scanSelectedIntegrity;
 $("downloadEverything").onclick=downloadSelectedPackage;
 $("rollbackFirmware").onclick=rollbackFirmware;
 $("restoreConfig").onclick=restoreConfiguration;
