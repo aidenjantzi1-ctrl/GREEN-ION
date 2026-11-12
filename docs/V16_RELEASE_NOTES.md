@@ -1,8 +1,14 @@
-# GREEN ION V16.1 RC1
+# GREEN ION V16.1 RC2
 
-V16.1 focuses on opening cleanly, reconnecting automatically and keeping normal use simple.
+V16.1 RC2 keeps the RC1 reliability work and adds safe Feather SD management plus a cleaner Flights & Analysis layout.
 
 Highlights:
+
+- delete completed flight packages from the Feather SD card over Wi-Fi with exact-name confirmation and post-delete verification;
+- preserve browser, Windows and cloud backups when Feather SD files are deleted;
+- block SD deletion/list/download traffic during recording, home verification and firmware maintenance/OTA;
+- remove stale storage controls whose old V11 endpoints no longer existed and restore quick stats from current V14 metadata;
+- cleaner responsive Feather SD manager and equal-width desktop tabs while preserving the original blue five-tab format;
 
 - automatic Uno USB rediscovery/reconnect, including COM-port changes;
 - compact connection/health diagnostics and downloadable troubleshooting report;
