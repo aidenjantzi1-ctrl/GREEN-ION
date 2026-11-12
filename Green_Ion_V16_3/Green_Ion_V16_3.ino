@@ -895,7 +895,8 @@ static void serviceStorageRecovery(uint32_t nowMs) {
   if (state.sdOk || !storageRecoveryAllowed() ||
       nowMs - lastSdRecoveryAttemptMs < config::SD_REINITIALIZE_DELAY_MS) return;
   lastSdRecoveryAttemptMs = nowMs;
-  digitalWrite(config::PIN_LORA_CS, HIGH);
+  SdSpiScope bus;
+  if (!bus) return;
   ++state.sdMountAttempts;
   if (SD.begin(config::PIN_SD_CS, SPI)) {
     state.sdOk = true;
@@ -1656,7 +1657,6 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs) {
         ? green_ion::sensor_log::crc32(rkt4HeaderBytes, sizeof(rkt4HeaderBytes))
         : 0,
   };
-  digitalWrite(config::PIN_LORA_CS, HIGH);
   sensorLogFile = SD.open(sensorLogFilename, FILE_WRITE);
   if (!sensorLogFile) {
     ++sensorLogFailures;
@@ -1716,6 +1716,8 @@ static void serviceSensorLog(uint32_t nowMs, uint32_t nowUs) {
   if (marginUs >= 0x80000000u ||
       marginUs < config::SENSOR_LOG_SERVICE_GUARD_US)
     return;
+  SdSpiScope bus;
+  if (!bus) return;
   if (!sensorLogCore.serviceOne()) {
     ++sensorLogFailures;
     sensorLogFile.close();
