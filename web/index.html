@@ -143,7 +143,8 @@ body.sunlight .guide-steps span.current{background:#badced;color:#10344c;outline
 body.sunlight .progress{background:#d2dfeb}
 body.sunlight .value.big{color:#006c98}
 body.sunlight .tabs button.active{background:#006c98!important;color:#fff!important}
-@media(min-width:900px){#status.page.active,#flight.page.active,#testing.page.active,#utilities.page.active,#system.page.active,#storage.page.active{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}#status .metrics,#storage #flightSummaryCard{grid-column:1/-1}#storage .card,#testing .card,#utilities .card,#system .card{margin-bottom:0}.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+#v16MissionCard{scroll-margin-top:16px}
+@media(min-width:900px){#v16MissionCard{grid-column:1/-1}#status.page.active,#flight.page.active,#testing.page.active,#utilities.page.active,#system.page.active,#storage.page.active{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}#status .metrics,#storage #flightSummaryCard{grid-column:1/-1}#storage .card,#testing .card,#utilities .card,#system .card{margin-bottom:0}.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
 </style>
 
 <style>
@@ -338,6 +339,24 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 </div>
 </section>
 <section id="flight" class="page">
+<div class="card launch-guide" id="v16MissionCard">
+ <div class="guide-top"><div><h2>V16 Mission Controller</h2>
+ <p class="muted">Guides one mission from preflight through recovery and analysis. Feather flight detection and SD recording remain authoritative and autonomous.</p></div>
+ <strong id="v16MissionState">IDLE</strong></div>
+ <div class="notice" id="v16MissionInstruction" role="status" aria-live="polite">Start a mission when the rocket and motor profile are ready.</div>
+ <div class="row"><span>Mission identity</span><strong id="v16MissionIdentity">Rocket not selected · Motor not selected</strong></div>
+ <div class="row"><span>GPS evidence</span><strong id="v16MissionGps">GPS: MISSING</strong></div>
+ <div class="row"><span>Flight file</span><strong id="v16MissionFile">No completed flight file yet</strong></div>
+ <div class="notice" id="v16MissionEvidence">No mission evidence yet.</div>
+ <label id="v16MissionPhysicalLabel" hidden><input id="v16MissionPhysical" type="checkbox"> I completed the required physical rocket, recovery, power and antenna checks.</label>
+ <div class="actions">
+  <button id="v16MissionPrimary" class="green wide">START MISSION</button>
+  <button id="v16MissionExport" class="secondary">EXPORT MISSION EVIDENCE</button>
+  <button id="v16MissionReset" class="secondary">RESET WORKFLOW</button>
+ </div>
+ <details><summary>Recent mission transitions</summary><div id="v16MissionTimeline">No mission transitions yet.</div></details>
+</div>
+
 <div class="card" id="flightProfileCard">
  <h2>Rocket flight profile</h2>
  <p class="muted">Choose the rocket and motor on the bench BEFORE launching. Saves the selection on the Feather and in the flight .TXT metadata. Changing the profile restarts stationary calibration; never edit at the pad.</p>
@@ -2555,19 +2574,41 @@ function next(){
  step++;pending="";radioStarted=false;node("homeConfirm").checked=false;setMessage(here().guide);paint();
 }
 function skip(){if(!active||busy||pending==="record")return;save("NOT VERIFIED","This check was skipped. It has not passed.");}
+function missionPreflightDetail(error=""){
+ const complete=Object.keys(results).length===steps.length&&!error;
+ const fails=Object.values(results).filter(v=>v==="FAIL").length;
+ let blocking=0,manual=0;
+ steps.forEach((item,index)=>{
+  const result=results[index];
+  const verified=result==="PASS"||result==="CONFIRMED";
+  if(verified)return;
+  if(item.kind==="manual")manual++;else blocking++;
+ });
+ return {
+  complete,fails,blocking_unverified:blocking,manual_unverified:manual,
+  error:String(error||"").slice(0,180),results:{...results},
+  evidence:evidence.slice(-30)
+ };
+}
+function emitMissionPreflight(error=""){
+ window.dispatchEvent(new CustomEvent("green-ion-v16-preflight",{detail:missionPreflightDetail(error)}));
+}
 async function finish(){
  if(!active)return;
  busy=true;paint();
+ let cleanupError="";
  try{
   const r=await request("home/finish","POST");
   active=false;step=-1;pending="";
   evidence.push({event:"session ended",cleanup:r.message,at:new Date().toISOString()});
   setMessage(r.message+". Hold Feather still while recalibrating. Verify WATCHING FOR LAUNCH before flight.");
  }catch(e){
+  cleanupError=e.message;
   active=false;step=-1;pending="";
   evidence.push({event:"cleanup not verified",error:e.message});
   setMessage("Cleanup could not be confirmed: "+e.message+". Inspect GIHOME.BIN manually. Do not launch until resolved.");
  }
+ emitMissionPreflight(cleanupError);
  busy=false;paint();
 }
 function report(){
@@ -2641,6 +2682,7 @@ async function autoPreflight(){
  }catch(error){
   feedback("AUTOMATED PREFLIGHT INCOMPLETE: "+error.message+". Finish/exit the home session before launch.");
   if(active)try{await finish();}catch{/* never claim cleanup succeeded */}
+  else emitMissionPreflight(error.message);
  }finally{autoRunning=false;paint();}
 }
 node("homeStart").onclick=start;

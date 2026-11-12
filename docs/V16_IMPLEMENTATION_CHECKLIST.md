@@ -43,7 +43,19 @@ V16 is the next application/ground-station generation after V15 Beta 1. Feather 
   - [x] Drive Windows link diagnostics from one fused endpoint.
   - [x] Keep LoRa compact/receive-only and full-resolution sensor data on SD/history.
   - [x] Add Wi-Fi-only, LoRa-only, dual-link, stale/loss/recovery and integrity regressions.
-- [ ] **Phase 3 — Mission workflow**
+- [x] **Phase 3 — Mission workflow**
+  - [x] Add persistent IDLE→PREFLIGHT→READY→PRELAUNCH→ASCENT→DESCENT→LANDED→RECOVERY→DOWNLOADING→ANALYZING→COMPLETE state machine.
+  - [x] Add ERROR and INTERRUPTED paths without claiming browser authority over the rocket.
+  - [x] Integrate the existing measured full preflight and preserve its evidence.
+  - [x] Require separate physical/manual confirmation after measured checks.
+  - [x] Prevent missing receiver/non-physical evidence from being manually overridden.
+  - [x] Drive airborne states only from fresh unified Feather/LoRa flight-state evidence.
+  - [x] Preserve GPS-missing warnings for recovery without stopping autonomous recording.
+  - [x] Bind download/save/report events to the current expected flight file.
+  - [x] Ignore unrelated archived flights during an active mission.
+  - [x] Persist workflow state and mark active browser restarts INTERRUPTED.
+  - [x] Export bounded mission transition/evidence JSON.
+  - [x] Add mission workflow regression coverage.
 - [ ] **Phase 4 — Five-tab interface**
 - [ ] **Phase 5 — Data and cloud**
 - [ ] **Phase 6 — Windows packaging and updates**

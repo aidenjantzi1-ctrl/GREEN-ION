@@ -11,6 +11,7 @@ import {initLocalArchive} from "./v15_local.mjs";
 import {initBattery} from "./v15_battery.mjs";
 import {initLink} from "./v15_link.mjs";
 import {initHelp} from "./v15_help.mjs";
+import {initMission} from "./v16_mission.mjs";
 import {initPreferences} from "./v14_preferences.mjs";
 import {initSensorLab} from "./v14_sensor_lab.mjs";
 import {requiresFeather,initTabs} from "./v14_ui.mjs";
@@ -112,6 +113,12 @@ async function autoSaveOneCompletedFlight(){
   const response=await fetch("/api/files",{cache:"no-store"});
   if(!response.ok)return;
   const result=await response.json(),files=Array.isArray(result.files)?result.files:[];
+  const current=String(status.log_file||"");
+  files.sort((a,b)=>{
+   const ac=String(a.name||"")===current,bc=String(b.name||"")===current;
+   if(ac!==bc)return ac?-1:1;
+   return String(b.name||"").localeCompare(String(a.name||""));
+  });
   let saved=0;
   for(const file of files){
    if(!t.wifiFresh())break;
@@ -119,6 +126,7 @@ async function autoSaveOneCompletedFlight(){
    const signature=file.name+":"+file.size;
    if(importSeen.has(signature))continue;
    const url="/api/download?name="+encodeURIComponent(file.name);
+   window.dispatchEvent(new CustomEvent("green-ion-v16-download-start",{detail:{name:file.name,size:Number(file.size)||null}}));
    const bin=await fetch(url,{cache:"no-store"});
    if(!bin.ok)continue;
    const data=await bin.arrayBuffer();
@@ -168,7 +176,7 @@ function renderBrowserInfo(){
 }
 async function init(){
  document.querySelector("header small").textContent="Flight logger · V16 unified operations";
- text("v14AppBuild","Website V16 development · unified telemetry phase · Feather firmware channel "+APP_VERSION+" (check actual installed build in System)");
+ text("v14AppBuild","Website V16 development · mission workflow phase · Feather firmware channel "+APP_VERSION+" (check actual installed build in System)");
  renderBrowserInfo();
  initPreferences();
  initSensorLab(t);
@@ -212,7 +220,7 @@ async function init(){
   }
   mode();
  });
- initHistoryAnalysis();initSensorHistory();initRecovery();initLink();initBattery();initLocalArchive();initAdvanced();initHelp();initCloud();initUpdates();
+ initHistoryAnalysis();initSensorHistory();initRecovery();initLink();initMission();initBattery();initLocalArchive();initAdvanced();initHelp();initCloud();initUpdates();
  try{const n=await importLegacyHistory();if(n)text("v14HistoryNotice","Imported "+n+" older V11-V13 recordings into V14 storage.");}
  catch{/* historical DB may not exist */}
  await renderHistory();mode();

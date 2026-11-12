@@ -1,6 +1,8 @@
 /* Searchable offline documentation assistant. It does not invent answers,
  * connect to an LLM, or send flight/GPS/account data to a search provider. */
 export const TOPICS=Object.freeze([
+ {title:"Run a V16 mission",terms:"mission workflow preflight ready launch ascent descent landed recovery download analyze",tab:"flight",id:"v16MissionCard",
+  guide:"Start Mission in Flight. Run the measured preflight, complete the physical checklist, then begin pre-launch monitoring. The Feather—not the browser—detects launch and records autonomously. After landing, use Recovery; the mission completes only after the matching BIN is saved and analyzed."},
  {title:"Run one-button full preflight",terms:"tests sensor check preflight ready launch automatic all",tab:"testing",id:"homeVerificationCard",
   guide:"Remove all motors, secure payload, attach radio antennas and safe power. Select RUN FULL PREFLIGHT. Real tests run automatically; physical checks that cannot be measured are marked NOT VERIFIED. Review the report, then complete remaining inspections."},
  {title:"Find the rocket after landing",terms:"where gps map coordinates recovery locate lost track position",tab:"recovery",id:"v15RecoveryCard",
