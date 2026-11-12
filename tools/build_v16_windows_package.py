@@ -54,7 +54,7 @@ def main() -> None:
         "channel": version["channel"],
         "commit": args.commit,
         "dataLocation": "%USERPROFILE%\\GREEN_ION_Data",
-        "updateInstallLocation": "%LOCALAPPDATA%\\GREEN_ION\\App\\<tag>",
+        "updateInstallLocation": "%LOCALAPPDATA%\\GREEN_ION\\App\\<tag>-<sha12>",
         "requirements": {
             "python": ">=3.10",
             "pyserial": "3.5 (optional; launcher attempts installation and falls back to Wi-Fi-only)",

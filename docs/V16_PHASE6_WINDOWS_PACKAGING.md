@@ -56,12 +56,12 @@ When a package is available, the PowerShell updater:
 4. refuses a mismatch;
 5. extracts to a temporary directory;
 6. verifies required GREEN ION files;
-7. installs side-by-side under `%LOCALAPPDATA%\GREEN_ION\App\<tag>`;
+7. installs side-by-side under `%LOCALAPPDATA%\GREEN_ION\App\<tag>-<sha12>`;
 8. updates a small `current.txt` pointer only after validation.
 
 It does **not** delete or migrate `GREEN_ION_Data`.
 
-A currently running server is not forcibly killed. The verified package becomes active the next time the launcher is started.
+An existing content-addressed package directory is never deleted or replaced. A currently running server is not forcibly killed. The verified package becomes active the next time the launcher is started.
 
 ## Runtime diagnostics
 

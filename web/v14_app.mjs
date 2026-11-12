@@ -19,6 +19,7 @@ import {initV16Navigation} from "./v16_navigation.mjs";
 import {initV16Data} from "./v16_data.mjs";
 import {initV16Runtime} from "./v16_runtime.mjs";
 import {initV16Visualization} from "./v16_visualization.mjs";
+import {initV16Validation} from "./v16_validation.mjs";
 import {requiresFeather,initTabs} from "./v14_ui.mjs";
 const $=id=>document.getElementById(id),t=window.GREEN_ION_TRANSPORT;
 let importing=false,lastAutoImport=0,lastRadioAt=0,radioPackets=[];
@@ -191,6 +192,7 @@ async function init(){
  initV16Data();
  initV16Runtime();
  initV16Visualization();
+ initV16Validation();
  $("v14SerialConnect").onclick=connectSerial;
  $("v14SerialDisconnect").onclick=disconnectSerial;
  $("v14SerialDisconnect").disabled=true;

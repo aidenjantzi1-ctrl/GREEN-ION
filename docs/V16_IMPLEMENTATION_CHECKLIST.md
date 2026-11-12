@@ -100,6 +100,20 @@ V16 is the next application/ground-station generation after V15 Beta 1. Feather 
   - [x] Preserve full-resolution original BIN/SEN data separately from display decimation.
   - [x] Add synthetic reconstruction/quaternion regression coverage.
 - [ ] **Phase 8 — Real hardware integration and measured evidence**
+  - [x] Implement a hardware-evidence ledger with NOT_TESTED / PASS / FAIL / INCONCLUSIVE.
+  - [x] Default every physical requirement to NOT_TESTED.
+  - [x] Allow local runtime/telemetry diagnostic snapshots without auto-passing physical tests.
+  - [x] Require a measured note or retained evidence reference before manual PASS is accepted.
+  - [x] Export validation evidence JSON with explicit advisory-only status.
+  - [x] Ensure even all required PASS results only in READY_FOR_HUMAN_REVIEW_NOT_FLIGHT_AUTHORIZATION.
+  - [x] Document exact Windows, SD, sensor, GPS, LoRa, SPI, power, OTA, mechanical and flight evidence requirements.
+  - [ ] Run the Windows + Feather reconnect soak on the actual hardware.
+  - [ ] Verify autonomous SD recording and original-file integrity through real network loss.
+  - [ ] Complete assembled IMU/barometer and outdoor GPS measurements.
+  - [ ] Measure receiver-side LoRa range/integrity and shared-SPI behavior.
+  - [ ] Measure real LiPo/voltage/brownout behavior.
+  - [ ] Perform bench OTA/rollback/interruption validation.
+  - [ ] Inspect actual rocket mounting/antenna/fit and complete supervised real-flight evidence.
 
 ## Validation boundary
 

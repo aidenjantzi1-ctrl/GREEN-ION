@@ -1,3 +1,13 @@
+# V16 software release candidate — hardware validation pending
+
+V16 software phases 1–7 are implemented. Phase 8 now includes the evidence framework and exact physical acceptance plan, but real hardware measurements are deliberately still pending and cannot be replaced by CI.
+
+The application may report **READY_FOR_HUMAN_REVIEW_NOT_FLIGHT_AUTHORIZATION** only after required physical evidence is entered. It never grants launch permission.
+
+[Phase 8 hardware evidence](docs/V16_PHASE8_HARDWARE_VALIDATION.md) · [V16 checklist](docs/V16_IMPLEMENTATION_CHECKLIST.md)
+
+---
+
 # V16 development — Phase 7 advanced visualization
 
 Phase 7 adds offline postflight 3D trajectory replay and a relative gyro-integrated digital-twin view from immutable RKT4/GIS1 originals. It runs entirely on the browser/computer and explicitly avoids claims of absolute attitude or aerodynamic simulation.
