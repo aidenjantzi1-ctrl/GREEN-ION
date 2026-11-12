@@ -1,57 +1,43 @@
-/* GREEN ION V16 five-tab shell.
- * Keeps legacy feature pages reachable as contextual subpages without
- * exposing thirteen top-level tabs. */
-const GROUPS=Object.freeze({
- status:{label:"Mission",pages:[["status","Overview"],["flight","Flight"],["testing","Preflight"]]},
- connections:{label:"Live",pages:[["connections","Links"],["field","Field"]]},
- recovery:{label:"Recovery",pages:[["recovery","Locate"]]},
- history:{label:"Data",pages:[["history","History"],["storage","SD Files"],["cloud","Cloud"]]},
- system:{label:"System",pages:[["system","Device"],["utilities","Utilities"],["updates","Updates"],["help","Help"]]}
-});
-const PAGE_TO_GROUP=Object.fromEntries(Object.entries(GROUPS).flatMap(([group,data])=>data.pages.map(([page])=>[page,group])));
-const $=id=>document.getElementById(id);
+/* GREEN ION V16 primary navigation.
+ * Exactly five visible top-level destinations. Legacy data-tab aliases remain
+ * hidden only for old code paths and are mapped by the inline openTab helper. */
+export const PRIMARY_TABS=Object.freeze([
+ ["status","Dashboard"],
+ ["flight","Flight"],
+ ["history","Flights & Analysis"],
+ ["testing","Testing"],
+ ["system","Settings & Advanced"]
+]);
 
-function openLegacy(page){
- const hidden=document.querySelector('#v16LegacyTabs [data-tab="'+page+'"]');
- if(hidden){hidden.click();return true;}
- const top=document.querySelector('.tabs [data-tab="'+page+'"]');
- if(top){top.click();return true;}
- return false;
+export function primaryTabForLegacy(page){
+ const map={
+  status:"status",
+  flight:"flight",field:"flight",recovery:"flight",
+  storage:"history",history:"history",
+  testing:"testing",
+  utilities:"system",system:"system",connections:"system",
+  cloud:"system",updates:"system",help:"system"
+ };
+ return map[String(page||"")]||"status";
 }
-function selector(group){
- const data=GROUPS[group],wrap=document.createElement("div");
- wrap.className="card v16-subnav";
- wrap.setAttribute("aria-label",data.label+" tools");
- const title=document.createElement("h2");title.textContent=data.label+" tools";
- const p=document.createElement("p");p.className="muted";
- p.textContent="Focused shortcuts. Detailed tools stay here without adding more top-level tabs.";
- const actions=document.createElement("div");actions.className="actions";
- for(const [page,label] of data.pages){
-  const b=document.createElement("button");b.className="secondary";
-  b.textContent=label;b.dataset.v16Subpage=page;b.onclick=()=>openLegacy(page);
-  actions.append(b);
- }
- wrap.append(title,p,actions);
- return wrap;
-}
+
 function paint(page){
- const group=PAGE_TO_GROUP[page]||page;
- document.body.dataset.v16Group=group;
- document.body.dataset.v16Page=page;
- document.querySelectorAll(".v16-subnav button").forEach(button=>{
-  button.classList.toggle("active",button.dataset.v16Subpage===page);
+ const primary=primaryTabForLegacy(page);
+ document.body.dataset.v16Group=primary;
+ document.body.dataset.v16Page=primary;
+ document.querySelectorAll("nav.tabs button").forEach(button=>{
+  const active=button.dataset.tab===primary;
+  button.classList.toggle("active",active);
+  button.setAttribute("aria-selected",active?"true":"false");
  });
 }
+
 export function initV16Navigation(){
- for(const group of Object.keys(GROUPS)){
-  const page=$(group);if(!page)continue;
-  if(!page.querySelector(".v16-subnav"))page.prepend(selector(group));
- }
  window.addEventListener("green-ion-v16-page",e=>paint(e.detail?.page||"status"));
  document.addEventListener("keydown",event=>{
   if(!(event.altKey&&/^[1-5]$/.test(event.key)))return;
-  const order=["status","connections","recovery","history","system"];
-  const target=document.querySelector('.tabs [data-tab="'+order[Number(event.key)-1]+'"]');
+  const item=PRIMARY_TABS[Number(event.key)-1];
+  const target=item&&document.querySelector('nav.tabs [data-tab="'+item[0]+'"]');
   if(target){event.preventDefault();target.click();target.focus();}
  });
  paint(document.querySelector(".page.active")?.id||"status");
