@@ -2045,6 +2045,7 @@ static void initializeDashboard() {
   dashboardServer.on("/api/delete", HTTP_POST, deleteDashboardFlight);
   dashboardServer.on("/api/download", []() { sendDashboardDownload(false); });
   dashboardServer.on("/api/metadata", []() { sendDashboardDownload(true); });
+  dashboardServer.on("/api/flightstats", []() { sendDashboardDownload(true); });
   dashboardServer.on("/api/sensors", []() { sendDashboardDownload(false, true); });
   dashboardServer.on("/api/sdtest", HTTP_POST, runDashboardSdTest);
   dashboardServer.on("/api/home/start", HTTP_POST, homeStart);
