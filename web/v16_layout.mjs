@@ -78,12 +78,22 @@ function organizeFlight(){
 }
 function organizeAnalysis(){
  const target=$("history");if(!target)return;
- moveChildren($("storage"),target,{prepend:true});
+ const source=$("storage");
+ const sdHealth=$("sdtest")?.closest(".card");
+ const sdManager=$("fileList")?.closest(".card");
+ const flightSummary=$("flightSummaryCard");
+ if(sdHealth){sdHealth.id="v16SdHealthCard";sdHealth.classList.add("v16-support-card");}
+ if(sdManager){sdManager.id="v16SdManagerCard";sdManager.classList.add("v16-primary-card");}
+ if(flightSummary)flightSummary.classList.add("v16-primary-card");
+ moveChildren(source,target,{prepend:true});
+ // Keep destructive SD actions easy to find, then local backups, then analysis.
+ if(sdManager)target.prepend(sdManager);
+ if(sdHealth&&sdManager)sdManager.after(sdHealth);
 }
 function organizeSettings(){
  const target=$("system");if(!target)return;
  const existing=Array.from(target.childNodes);
- const general=details("Profiles, sensors & recording","v16SettingsGeneral",true);
+ const general=details("Profiles, sensors & recording","v16SettingsGeneral",false);
  for(const node of existing)general.append(node);
  target.append(general);
  const groups=[
