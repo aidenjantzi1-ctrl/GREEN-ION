@@ -1,3 +1,11 @@
+# V16 development — Phase 5 data and cloud
+
+**Current development line: V16.** Phase 5 makes immutable local BIN/SEN/TXT originals easier to verify and group, adds exportable package manifests, and exposes explicit optional-cloud sync state. Local browser/disk originals remain authoritative; Supabase is backup only and never gates recording, recovery or analysis.
+
+[Phase 5 data/cloud](docs/V16_PHASE5_DATA_CLOUD.md) · [V16 checklist](docs/V16_IMPLEMENTATION_CHECKLIST.md)
+
+---
+
 # V16 development — Phase 3 mission workflow
 
 Phase 3 adds a persistent mission controller around the existing preflight, unified telemetry, recovery, verified flight retrieval and local postflight analysis. The browser tracks IDLE → PREFLIGHT → READY → PRELAUNCH → ASCENT → DESCENT → LANDED → RECOVERY → DOWNLOADING → ANALYZING → COMPLETE, with ERROR and INTERRUPTED states. Real flight transitions come from Feather/LoRa flight-state evidence; browser timers do not declare launch or landing.
