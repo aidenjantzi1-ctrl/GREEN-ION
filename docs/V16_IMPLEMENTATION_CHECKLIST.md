@@ -69,7 +69,19 @@ V16 is the next application/ground-station generation after V15 Beta 1. Feather 
   - [x] Preserve Alt+1…Alt+5 keyboard navigation for the exact five tabs.
   - [x] Cache both V16 layout/navigation modules for offline updates.
   - [x] Add strict regression coverage that fails if visible navigation stops being exactly five tabs.
-- [ ] **Phase 5 — Data and cloud**
+- [x] **Phase 5 — Data and cloud**
+  - [x] Keep Feather SD → verified local originals → Windows disk mirror → optional cloud as the data priority order.
+  - [x] Group BIN/SEN/TXT into one flight library entry without making optional companions mandatory.
+  - [x] Detect same-flight/same-kind checksum collisions instead of overwriting them.
+  - [x] Add local SHA-256 re-verification and manifest export.
+  - [x] Persist a bounded Feather transfer journal with partial-transfer rejection and exponential retry.
+  - [x] Make completed file transfers retry-safe across browser restarts.
+  - [x] Expose explicit Supabase queue/sync/retry/restore/error state.
+  - [x] Persist per-file cloud checksum state and attempts.
+  - [x] Resume cloud backup at file granularity by skipping remote checksums already stored.
+  - [x] Keep cloud restore byte-size/SHA-256 verified and non-overwriting.
+  - [x] Audit the connected Supabase table, bucket, grants and owner-scoped RLS read-only.
+  - [x] Add local-first data/cloud regression coverage and offline-cache integration.
 - [ ] **Phase 6 — Windows packaging and updates**
 - [ ] **Phase 7 — Advanced visualization, 3D trajectory and digital twin**
 - [ ] **Phase 8 — Real hardware integration and measured evidence**
