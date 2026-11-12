@@ -20,7 +20,7 @@ GREEN ION records a rocket's pressure, motion, GPS and battery measurements usin
 | **Unified Wi-Fi + LoRa telemetry and receiver setup** | [**V16 Phase 2 Unified Telemetry**](docs/V16_PHASE2_UNIFIED_TELEMETRY.md) |
 | **Windows connection reliability changes** | [**V16 Phase 1 Reliability**](docs/V16_PHASE1_WINDOWS_RELIABILITY.md) |
 | **Existing launch pad workflow: preflight, Recovery, archive, cloud sync and Help** | [**V15 Local-First Guide**](docs/V15_LOCAL_FIRST.md) |
-| **Future 3D flight and digital twin (plan only)** | [3D + Digital Twin Plan](docs/V15_3D_TWIN_PLAN.md) |
+| **3D postflight trajectory and relative digital twin** | [V16 3D + Replay](docs/V16_PHASE7_ADVANCED_VISUALIZATION.md) |
 | Start the website and use the blue tabs | [Start Here](docs/V14_START_HERE.md) |
 | **What to solder and exactly where** | [**Wiring & Soldering**](docs/V14_WIRING_SOLDER.md) |
 | Every BMP388, IMU, GPS, battery and radio measurement | [Sensor Capabilities & Recorded Formats](docs/V14_SENSOR_CAPABILITIES.md) |
