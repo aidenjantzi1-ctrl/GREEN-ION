@@ -137,7 +137,10 @@ def build_unified_telemetry(wifi_source: dict, radio: dict, radio_history: list[
                 "error": wifi_source.get("error", ""),
             },
             "lora": {
-                "freshness": "live" if radio_live else radio.get("link_status", "missing"),
+                "freshness": "live" if radio_live else (
+                    "stale" if radio_has_observation and not protocol_ok
+                    else radio.get("link_status", "missing")
+                ),
                 "age_ms": radio_age,
                 "receiver_state": radio.get("receiver_state", "missing"),
                 "receiver_error": radio.get("receiver_error", ""),
