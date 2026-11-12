@@ -62,3 +62,25 @@ test("V16 diagnostics show explicit Wi-Fi state and age",()=>{
  assert.match(html,/id="v15LinkWifi"/);
  assert.match(html,/GREEN ION V16/);
 });
+
+test("V16.2 direct browser keeps brief Wi-Fi dropout visible but blocks commands",async()=>{
+ let fail=false;
+ const win=sandboxFor(async()=>{
+  if(fail)throw Error("brief timeout");
+  return new Response(JSON.stringify({
+   version:16,v13_source:"wifi",v13_wifi_connected:true,
+   relative_altitude_m:21,recorder_mode:1,pressure_pa:100900
+  }),{status:200,headers:{"Content-Type":"application/json"}});
+ });
+ await win.fetch("/api/status",{cache:"no-store"});
+ assert.equal(win.GREEN_ION_TRANSPORT.wifiFresh(),true);
+ assert.equal(win.GREEN_ION_TRANSPORT.controlsVerified(),true);
+ fail=true;
+ await assert.rejects(()=>win.fetch("/api/status",{cache:"no-store"}));
+ assert.equal(win.GREEN_ION_TRANSPORT.wifiFresh(),true,
+  "one failed poll must not erase the last visible observation");
+ assert.equal(win.GREEN_ION_TRANSPORT.controlsVerified(),false,
+  "a failed status poll must immediately pause hardware commands");
+ const blocked=await win.fetch("/api/delete?name=V12D001.BIN",{method:"POST"});
+ assert.equal(blocked.status,503);
+});
