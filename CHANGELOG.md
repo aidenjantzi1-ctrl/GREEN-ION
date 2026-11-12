@@ -1,3 +1,15 @@
+# V16 Phase 6 — Windows packaging and updates — November 11, 2026
+
+- Added one-click Windows startup with automatic Uno discovery and no normal COM-port prompt.
+- Added pinned pyserial setup with graceful Wi-Fi-only fallback.
+- Added a stable external GREEN_ION_Data location and runtime health diagnostics.
+- Added deterministic V16 Windows ZIP, SHA-256 and manifest artifacts to CI.
+- Added an official-release updater that verifies SHA-256, installs side-by-side and never deletes user flight data.
+- Kept Feather/Uno firmware updates separate from the Windows application updater.
+- Added package/updater regression coverage.
+
+---
+
 # V16 Phase 5 — Data and cloud — November 11, 2026
 
 - Grouped immutable BIN/SEN/TXT originals into flight packages with completeness and collision status.
