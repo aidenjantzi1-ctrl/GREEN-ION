@@ -2,6 +2,7 @@
  * pressure-derived; the original RKT4/GIS1 files are never modified. */
 import {parseRkt4,analyzeFlight} from "./analysis/rkt4.mjs";
 import {parseGis1} from "./analysis/gis1.mjs";
+import {buildFlightSummary} from "./v16_1_analysis_core.mjs";
 const finite=v=>Number.isFinite(v);
 function finiteMax(values){let max=null;for(const v of values)if(finite(v))max=max===null?v:Math.max(max,v);return max;}
 export function analyzeOriginals(binBytes,senBytes=null,{name="flight",checksum=null}={}){
@@ -31,9 +32,9 @@ export function analyzeOriginals(binBytes,senBytes=null,{name="flight",checksum=
  if(!valid.length)warnings.unshift("No valid pressure samples");
  if(gaps)warnings.push(gaps+" timestamp gaps exceed the accepted continuity interval");
  if(nonMonotonic)warnings.push(nonMonotonic+" non-increasing timestamps");
- let sensor=null;
+ let sensor=null,sensorReport=null;
  if(senBytes){
-  const sen=parseGis1(senBytes);
+  const sen=parseGis1(senBytes);sensorReport=sen;
   let lastFix=null;
   for(let i=sen.samples.length-1;i>=0;i--){if(sen.samples[i].gpsCurrent&&sen.samples[i].latitude!==null){lastFix=sen.samples[i];break;}}
   sensor={
@@ -49,8 +50,11 @@ export function analyzeOriginals(binBytes,senBytes=null,{name="flight",checksum=
   };
   if(sen.invalidIndex!==null)warnings.push("Sensor CRC32 failed; only the verified prefix was decoded");
  }else warnings.push("No companion GIS1 sensor recording available for this analysis");
+ const enhanced=buildFlightSummary(analysis,sensorReport);
+ if(enhanced.gpsPressureComparison.status==="DIVERGENT")
+  warnings.push("GPS altitude change and pressure altitude diverge substantially; review both sources.");
  return {
-  schema:"GREEN-ION-V15-REPORT-1",analysisVersion:15,name,checksum,createdAt:new Date().toISOString(),
+  schema:"GREEN-ION-V15-REPORT-1",analysisVersion:16.1,name,checksum,createdAt:new Date().toISOString(),
   observed:{sampleCount:count,validPressureSamples:valid.length,rateHz:parsed.rateHz,
    durationS:count>1?Math.max(0,rows.at(-1).timeS-rows[0].timeS):0,
    minBatteryV:minBattery,startBatteryV:startBattery,endBatteryV:endBattery,
@@ -60,9 +64,10 @@ export function analyzeOriginals(binBytes,senBytes=null,{name="flight",checksum=
    maxDescentMps:finite(analysis.maxDescentMps)?analysis.maxDescentMps:null,
    peakPressureDerivedAccelerationMps2:maxPressureAccel,
    detectedPhases:analysis.phases},
-  sensors:sensor,dataCompletenessScore:quality,
-  evidenceStatus:parsed.trailingBytes||nonMonotonic||sensor?.crc32ValidatedPrefix===false?"REVIEW":"ANALYZED",
+  sensors:sensor,enhanced,dataCompletenessScore:quality,
+  evidenceStatus:parsed.trailingBytes||nonMonotonic||sensor?.crc32ValidatedPrefix===false||
+    enhanced.gpsPressureComparison.status==="DIVERGENT"?"REVIEW":"ANALYZED",
   warnings,
-  limitations:"Completeness score evaluates file integrity and samples, NOT sensor accuracy or launch safety. Pressure-derived speed, acceleration and phases are estimates. GIS1 measured acceleration is not automatically earth-frame motion. GPS gives observed fixes only."
+  limitations:"Completeness score evaluates file integrity and samples, NOT sensor accuracy or launch safety. Pressure-derived speed, acceleration and phases are estimates. GIS1 measured acceleration is not automatically earth-frame motion. GPS gives observed fixes only. Burnout is only a labeled estimate when IMU evidence supports it."
  };
 }
