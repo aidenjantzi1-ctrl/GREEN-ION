@@ -1,3 +1,13 @@
+# V16 development — Phase 3 mission workflow
+
+Phase 3 adds a persistent mission controller around the existing preflight, unified telemetry, recovery, verified flight retrieval and local postflight analysis. The browser tracks IDLE → PREFLIGHT → READY → PRELAUNCH → ASCENT → DESCENT → LANDED → RECOVERY → DOWNLOADING → ANALYZING → COMPLETE, with ERROR and INTERRUPTED states. Real flight transitions come from Feather/LoRa flight-state evidence; browser timers do not declare launch or landing.
+
+Measured preflight failures and missing receiver evidence cannot be manually overridden. Physical checks require explicit user confirmation. Postflight file/report events are matched to the expected mission recording when known, so older archived flights cannot complete the active mission.
+
+[Phase 3 details](docs/V16_PHASE3_MISSION_WORKFLOW.md) · [V16 checklist](docs/V16_IMPLEMENTATION_CHECKLIST.md)
+
+---
+
 # V16 development — Phase 2 unified telemetry
 
 Phase 2 adds one source-aware Windows telemetry contract across Feather Wi-Fi and receive-only Uno/LoRa. It preserves independent source freshness, per-reading provenance, packet/session identity, receiver integrity counters, RSSI/SNR, bounded radio history, duplicate/out-of-order rejection for the live sample, and safe automatic Uno discovery. The Windows diagnostics panel now polls one fused endpoint instead of separate telemetry/link calls.
