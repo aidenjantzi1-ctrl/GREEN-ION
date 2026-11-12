@@ -2,7 +2,7 @@
 
 GREEN ION saves original **BIN, SEN and TXT** files to the browser first. Supabase is a secondary user-controlled backup, not a requirement for recording.
 
-1. Open [V14](https://green-ion-beta.vercel.app/) → **Cloud** and create an email/password account or sign in. Confirm the email if requested.
+1. Open the GREEN ION app → **Settings & Advanced → Cloud backup** and create an email/password account or sign in. Confirm the email if requested.
 2. In **System**, leave **Automatic cloud sync** enabled for background upload when internet is usable. Turn it off whenever you prefer manual-only backups.
 3. Use **Back up local recordings now** to start a manual backup and view per-file progress, number stored and approximate usage.
 4. On another device, sign into the same account and select **Restore cloud recordings**. Only records that pass SHA-256 and size checks are saved; existing originals are not overwritten.
@@ -15,3 +15,10 @@ GREEN ION saves original **BIN, SEN and TXT** files to the browser first. Supaba
 **Not yet physically verified:** account registration, email confirmation, full upload/restore and token renewal need an end-to-end test using actual devices and an account. Database security checks alone are not a complete live validation.
 
 Sources: [Supabase Auth](https://supabase.com/docs/guides/auth), [Storage security](https://supabase.com/docs/guides/storage/security/access-control), [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security).
+
+
+## V16 local-first behavior
+
+V16 Phase 5 keeps cloud as an optional third/fourth copy, never the primary flight store. Finished files are verified locally first, then mirrored to Windows disk when using the local ground station, then uploaded if signed in and automatic sync is enabled. The app exposes per-file pending/sync/retry state and resumes at file granularity after interruption.
+
+See [V16 Phase 5 Data & Cloud](V16_PHASE5_DATA_CLOUD.md) for the current data-flow and backend audit.
