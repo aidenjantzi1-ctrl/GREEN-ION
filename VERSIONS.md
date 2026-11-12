@@ -1,3 +1,13 @@
+# V16 development — Phase 4 five-tab interface
+
+Phase 4 replaces the intermediate navigation shell with the approved five top-level destinations: **Dashboard, Flight, Flights & Analysis, Testing, and Settings & Advanced**. Mission-critical information stays visible while detailed telemetry, radio diagnostics, cloud, updates and troubleshooting are grouped into expandable advanced sections.
+
+Recovery is integrated into Flight; Storage and History are combined into Flights & Analysis; Testing remains a dedicated bench workflow. Hidden legacy tab aliases remain only for compatibility with older internal navigation. Alt+1 through Alt+5 follows the five visible tabs.
+
+[Phase 4 details](docs/V16_PHASE4_FIVE_TAB_INTERFACE.md) · [V16 checklist](docs/V16_IMPLEMENTATION_CHECKLIST.md)
+
+---
+
 # V16 development — Phase 3 mission workflow
 
 Phase 3 adds a persistent mission controller around the existing preflight, unified telemetry, recovery, verified flight retrieval and local postflight analysis. The browser tracks IDLE → PREFLIGHT → READY → PRELAUNCH → ASCENT → DESCENT → LANDED → RECOVERY → DOWNLOADING → ANALYZING → COMPLETE, with ERROR and INTERRUPTED states. Real flight transitions come from Feather/LoRa flight-state evidence; browser timers do not declare launch or landing.
