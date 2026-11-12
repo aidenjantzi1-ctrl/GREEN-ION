@@ -23,7 +23,8 @@ test("Flight and analysis tabs retain existing operational features",()=>{
   assert.ok(html.includes('id="'+id+'"'),id);
  }
  assert.match(layout,/moveChildren\(\$\("recovery"\),target\)/);
- assert.match(layout,/moveChildren\(\$\("storage"\),target/);
+ assert.match(layout,/const source=\$\("storage"\)/);
+ assert.match(layout,/moveChildren\(source,target/);
 });
 
 test("advanced features stay present but grouped under Settings & Advanced",()=>{

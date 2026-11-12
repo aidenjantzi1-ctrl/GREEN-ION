@@ -1792,10 +1792,106 @@ static bool dashboardFlightFilename(const String &name, const char *suffix) {
   return true;
 }
 
-static void sendDashboardFiles() {
-  if (state.recording) {
+static bool dashboardSdDeleteBlocked() {
+  return state.recording || recorderCore.recording() || logFile || sensorLogFile ||
+         recorderMode == RECORDER_RECORDING ||
+         recorderMode == RECORDER_HOME_TEST ||
+         recorderMode == RECORDER_MAINTENANCE ||
+         homeLogActive || otaUploadInProgress;
+}
+
+static void deleteDashboardFlight() {
+  if (dashboardSdDeleteBlocked()) {
     dashboardServer.send(409, "application/json",
-                         "{\"success\":false,\"message\":\"Recording is active; SD browsing is deferred\"}");
+      "{\"success\":false,\"message\":\"SD deletion is blocked during recording, home testing or firmware maintenance\"}");
+    return;
+  }
+  if (!state.sdOk) {
+    dashboardServer.send(503, "application/json",
+      "{\"success\":false,\"message\":\"SD card is unavailable\"}");
+    return;
+  }
+
+  const String name = dashboardServer.arg("name");
+  const String confirmation = dashboardServer.arg("confirm");
+  if (!dashboardFlightFilename(name, ".BIN")) {
+    dashboardServer.send(400, "application/json",
+      "{\"success\":false,\"message\":\"Only V12D###.BIN flight packages can be deleted\"}");
+    return;
+  }
+  if (confirmation != name) {
+    dashboardServer.send(400, "application/json",
+      "{\"success\":false,\"message\":\"Deletion confirmation did not match the flight filename\"}");
+    return;
+  }
+
+  const String binPath = "/" + name;
+  digitalWrite(config::PIN_LORA_CS, HIGH);
+  if (!SD.exists(binPath)) {
+    dashboardServer.send(404, "application/json",
+      "{\"success\":false,\"message\":\"Flight file not found on the SD card\"}");
+    return;
+  }
+
+  // Never mutate the SD while launch watching is active. A deletion request
+  // pauses the watcher and restarts stationary calibration after the package
+  // operation completes. This keeps primary recording higher priority.
+  const bool restartCalibration =
+      recorderMode == RECORDER_WATCHING || recorderMode == RECORDER_CALIBRATING;
+  if (restartCalibration) flightWatcher.cancel();
+
+  const String base = name.substring(0, 7);
+  static const char *companions[] = {".SEN", ".TXT", ".JRA", ".JRB", ".RCV"};
+  uint8_t removed = 0;
+  String failed = "";
+
+  // Delete companions/recovery artifacts first and the immutable primary BIN
+  // last. If any companion cannot be removed, retain the BIN for recovery.
+  for (const char *extension : companions) {
+    const String path = String("/") + base + extension;
+    if (!SD.exists(path)) continue;
+    if (!SD.remove(path)) {
+      failed = path;
+      break;
+    }
+    ++removed;
+  }
+
+  if (failed.isEmpty()) {
+    if (!SD.remove(binPath)) failed = binPath;
+    else ++removed;
+  }
+
+  bool verified = failed.isEmpty();
+  if (verified) {
+    verified = !SD.exists(binPath);
+    for (const char *extension : companions) {
+      if (SD.exists(String("/") + base + extension)) verified = false;
+    }
+  }
+
+  if (restartCalibration) resetCalibration(millis());
+
+  if (!failed.isEmpty() || !verified) {
+    String body = "{\"success\":false,\"message\":\"Delete did not fully complete; primary flight data was retained when possible\",\"failed_path\":\"";
+    body += failed;
+    body += "\",\"verified\":false}";
+    dashboardServer.send(500, "application/json", body);
+    return;
+  }
+
+  String body = "{\"success\":true,\"message\":\"Deleted flight package from Feather SD only";
+  if (restartCalibration) body += "; stationary calibration restarted";
+  body += "\",\"name\":\"" + name + "\",\"deleted_files\":" + String(removed);
+  body += ",\"verified\":true,\"used\":" + String(SD.usedBytes());
+  body += ",\"total\":" + String(SD.totalBytes()) + "}";
+  dashboardServer.send(200, "application/json", body);
+}
+
+static void sendDashboardFiles() {
+  if (dashboardSdDeleteBlocked()) {
+    dashboardServer.send(409, "application/json",
+                         "{\"success\":false,\"message\":\"SD browsing is deferred during recording, home testing or firmware maintenance\"}");
     return;
   }
   if (!state.sdOk) {
@@ -1828,9 +1924,9 @@ static void sendDashboardFiles() {
 }
 
 static void sendDashboardDownload(bool metadata, bool sensors = false) {
-  if (state.recording) {
+  if (dashboardSdDeleteBlocked()) {
     dashboardServer.send(409, "application/json",
-                         "{\"success\":false,\"message\":\"Recording is active; downloads are deferred\"}");
+                         "{\"success\":false,\"message\":\"Downloads are deferred during recording, home testing or firmware maintenance\"}");
     return;
   }
   String name = dashboardServer.arg("name");
@@ -1946,8 +2042,10 @@ static void initializeDashboard() {
   dashboardServer.on("/api/update", HTTP_POST, finishFirmwareUpload, handleFirmwareUpload);
   dashboardServer.on("/api/rollback", HTTP_POST, rollbackFirmware);
   dashboardServer.on("/api/files", sendDashboardFiles);
+  dashboardServer.on("/api/delete", HTTP_POST, deleteDashboardFlight);
   dashboardServer.on("/api/download", []() { sendDashboardDownload(false); });
   dashboardServer.on("/api/metadata", []() { sendDashboardDownload(true); });
+  dashboardServer.on("/api/flightstats", []() { sendDashboardDownload(true); });
   dashboardServer.on("/api/sensors", []() { sendDashboardDownload(false, true); });
   dashboardServer.on("/api/sdtest", HTTP_POST, runDashboardSdTest);
   dashboardServer.on("/api/home/start", HTTP_POST, homeStart);

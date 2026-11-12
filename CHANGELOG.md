@@ -1,3 +1,19 @@
+# V16.1 RC2 — Safe SD management + layout hardening — November 12, 2026
+
+- Added app-driven deletion of completed Feather SD flight packages over verified Wi-Fi.
+- Restricted deletion to exact `V12D###.BIN` identities with matching filename confirmation.
+- Delete SEN/TXT/JRA/JRB/RCV companions first and the primary BIN last; verify removal before reporting success.
+- Block SD deletion, listing and downloads during recording, home verification and firmware maintenance/OTA work.
+- Pause launch watching for SD deletion and restart stationary calibration afterward.
+- Keep browser, Windows and cloud backups untouched when deleting from Feather SD.
+- Removed broken legacy Protect/Add note, manifest and integrity-scan controls that no longer had V14 backend routes.
+- Restored saved-flight quick stats through current V14 TXT metadata.
+- Simplified selected-flight package download to available BIN + SEN + TXT files.
+- Improved Flights & Analysis hierarchy and desktop file-row layout while preserving the original blue background and exact five visible tabs.
+- Updated stale Help guidance for Windows startup, recovery maps, 3D replay and SD deletion.
+
+---
+
 # V16.1 RC1 — Reliability + simplicity — November 11, 2026
 
 - Added continuous Uno USB rediscovery and reconnect, including COM-port changes after unplug/replug.

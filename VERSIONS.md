@@ -1,3 +1,13 @@
+# V16.1 RC2 — safe SD management + layout hardening
+
+RC2 adds a narrow Feather-Wi-Fi SD deletion workflow for completed `V12D###.BIN` flight packages. It removes matching SEN/TXT/recovery companions, deletes the primary BIN last, verifies the package is absent, blocks deletion during recording/home-test/maintenance/OTA work, and restarts stationary calibration if launch watching had to be paused. Browser, Windows and cloud backups are not deleted.
+
+The Flights & Analysis layout keeps the same dark-blue visual language and exact five tabs while making Feather SD management easier to scan. Broken legacy Protect/Add note/manifest/integrity controls were removed or replaced with current V14-backed behavior. Normal SD browsing/downloads are also blocked during critical recorder operations.
+
+Real microSD/hardware behavior still requires bench validation.
+
+---
+
 # V16.1 RC1 — reliability + simplicity
 
 V16.1 keeps the original blue five-tab application while making first use and recovery simpler: automatic Uno USB rediscovery, concise diagnostics, guided real preflight, Google Maps recovery with current-location comparison, event confidence and GPS/pressure cross-checks, improved 3D replay, a searchable annotated flight library, reversible Windows app updates and a verified `v16.*` release pipeline.

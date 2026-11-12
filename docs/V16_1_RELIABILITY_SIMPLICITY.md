@@ -110,6 +110,25 @@ These annotations are stored separately from immutable flight originals.
 
 A `v16.*` tag runs the V16 release workflow. It must pass application tests, browser tests, JavaScript syntax, web build, Feather compile, Uno compile and Windows package verification before publishing release assets.
 
+### Safe Feather SD management · RC2
+
+Flights & Analysis now includes a clear Feather SD manager. **Delete from SD** is intentionally narrow:
+
+- only a completed `V12D###.BIN` flight identity is accepted;
+- the request must repeat the exact filename as confirmation;
+- deletion is rejected during recording, the full home test, firmware maintenance/OTA, or while recorder files are open;
+- matching `.SEN`, `.TXT`, `.JRA`, `.JRB` and `.RCV` companions are removed first;
+- the primary immutable `.BIN` is removed last, so a companion failure retains the main flight when possible;
+- GREEN ION rereads SD existence after deletion and reports success only when the package is verified absent;
+- if automatic launch watching/calibration was active, the watcher is paused and stationary calibration restarts after the SD operation;
+- deleting from Feather SD does **not** delete the browser original, Windows `GREEN_ION_Data` archive, or optional cloud backup.
+
+RC2 also removes stale V11-era storage buttons that were still visible even though V14 no longer provided their endpoints. The file area now focuses on Refresh SD Files, per-flight downloads/stats/CSV, BIN+SEN+TXT package download, and Delete from SD.
+
+### RC2 layout polish
+
+The original dark-blue background and exact five top-level tabs remain unchanged. On wider screens the five tabs share the navigation width evenly. Flights & Analysis puts Feather SD management first, then the verified local flight library and deeper analysis. File rows use a clearer filename/actions split on desktop and stack safely on phones. Advanced Settings groups start collapsed to reduce visual clutter.
+
 ## Unchanged safety boundaries
 
 V16.1 does not add ignition, staging, deployment, guidance or LoRa command control. The primary SD recorder remains independent of Windows, browser, LoRa, cloud and 3D visualization.

@@ -495,11 +495,11 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <div class="row"><span>Actual sample rate</span><strong id="storageRate">--</strong></div>
   <div class="row"><span>Maximum SD flush</span><strong id="maximumFlush">--</strong></div>
   <div class="row"><span>Recording heartbeat</span><strong id="flushHeartbeat">--</strong></div>
-  <button id="refresh" class="secondary">REFRESH FILES</button>
-  <a href="/api/manifest" download><button class="secondary">DOWNLOAD FLIGHT MANIFEST</button></a>
-  <button id="downloadEverything" class="secondary">DOWNLOAD SELECTED FLIGHT PACKAGE</button>
-  <button id="scanIntegrity" class="secondary">SCAN SELECTED FILE</button>
-  <div class="notice" id="integrityScanResult">Select a flight to scan.</div>
+  <div class="actions">
+   <button id="refresh" class="secondary">REFRESH SD FILES</button>
+   <button id="downloadEverything" class="secondary">DOWNLOAD BIN + SEN + TXT</button>
+  </div>
+  <div class="notice" id="sdDeleteFeedback">Deleting here removes the selected flight package from the Feather SD card only. Browser, Windows, and cloud backups are not deleted.</div>
   <label for="fileSort">Sort recordings</label>
   <select id="fileSort"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="size">Largest first</option></select>
   <div id="fileList"></div>
@@ -1138,16 +1138,14 @@ async function armAndWatch(){
  finally{busy=false;await poll();}
 }
 
-async function scanSelectedIntegrity(){
- if(!selectedFlight){$("integrityScanResult").textContent="Select a flight first.";return;}
- try{const result=await api("integrity?name="+encodeURIComponent(selectedFlight));$("integrityScanResult").textContent=result.result+" · "+result.completeRecords+" complete records · "+result.trailingBytes+" trailing bytes · "+result.implausibleRecords+" implausible records";}
- catch(err){$("integrityScanResult").textContent=err.message;}
-}
 function downloadSelectedPackage(){
- if(!selectedFlight){alert("Select a flight first.");return;}
- const urls=["/api/download?name=","/api/metadata?name="];
- urls.forEach((base,i)=>setTimeout(()=>{const a=document.createElement("a");a.href=base+encodeURIComponent(selectedFlight);a.download="";document.body.appendChild(a);a.click();a.remove();},i*700));
- setTimeout(()=>{location.href="/api/manifest";},2300);
+ if(!selectedFlight){$("sdDeleteFeedback").textContent="Select a Feather SD flight first.";return;}
+ const urls=["/api/download?name=","/api/sensors?name=","/api/metadata?name="];
+ urls.forEach((base,i)=>setTimeout(()=>{
+  const a=document.createElement("a");a.href=base+encodeURIComponent(selectedFlight);
+  a.download="";document.body.appendChild(a);a.click();a.remove();
+ },i*650));
+ $("sdDeleteFeedback").textContent="Downloading available BIN, SEN and TXT files for "+selectedFlight+".";
 }
 async function rollbackFirmware(){
  if(!confirm("Restart using the previous valid OTA firmware image?"))return;
@@ -1551,6 +1549,15 @@ async function showFlightStats(name,scrollToReport=true) {
    const ix=line.indexOf("=");
    if(ix>0)values[line.slice(0,ix).trim()]=line.slice(ix+1).trim();
   }
+  if(values.duration_ms&&!values.duration_s)
+   values.duration_s=(Number(values.duration_ms)/1000).toFixed(2);
+  if(values.complete_records&&!values.samples)values.samples=values.complete_records;
+  if(values.missed_sample_periods&&!values.missed_samples)values.missed_samples=values.missed_sample_periods;
+  if(values.start_battery_mv&&!values.starting_battery_v)
+   values.starting_battery_v=(Number(values.start_battery_mv)/1000).toFixed(3);
+  if(values.end_battery_mv&&!values.ending_battery_v)
+   values.ending_battery_v=(Number(values.end_battery_mv)/1000).toFixed(3);
+  if(values.file&&!values.label)values.label=values.file;
   flightMeta=values;
   const timeline=$("flightConfidenceTimeline");timeline.replaceChildren();
   const events=Object.entries(values).filter(([key])=>key.startsWith("confidence_event_"))
@@ -1669,37 +1676,43 @@ async function loadFiles() {
    };
 
    const rm=document.createElement("button");
-   rm.textContent="Delete";
+   rm.textContent="Delete from SD";
    rm.className="danger";
+   const deleteBlocked=!!state?.recording||!!state?.home_test_active||
+    !!state?.maintenance_mode||!!state?.update_in_progress;
+   rm.disabled=deleteBlocked;
+   rm.title=deleteBlocked?"Finish recording/testing/maintenance before deleting":"Delete this flight package from Feather SD only";
    rm.onclick=async()=>{
-    if(!confirm("Delete "+f.name+"?"))return;
+    const warning="Delete "+f.name+" from the Feather SD card?\n\n"+
+     "This removes its BIN plus matching SEN/TXT/recovery files from the Feather only. "+
+     "Browser, Windows, and cloud backups are not deleted.\n\n"+
+     "If launch watching is active, GREEN ION will restart stationary calibration.";
+    if(!confirm(warning))return;
+    rm.disabled=true;
+    $("sdDeleteFeedback").textContent="Deleting "+f.name+" from Feather SD...";
     try {
-     await api("delete?name="+
-      encodeURIComponent(f.name),"POST");
-     selectedFlight="";loadedFlightName="";savedFlightSeries=[];flightPhases=[];flightMeta={};graphRequestId++;
-     $("flightSummaryDetails").replaceChildren();
-     $("flightSummaryStatus").textContent="Refreshing after deletion...";
-     $("flightPhases").textContent="No flight selected.";
-     $("flightConfidenceTimeline").textContent="No flight selected.";
-     $("flightPerformance").textContent="No flight selected.";
-     $("savedGraphStatus").textContent="No flight selected.";
+     const result=await api("delete?name="+encodeURIComponent(f.name)+
+      "&confirm="+encodeURIComponent(f.name),"POST");
+     if(!result.success||result.verified!==true)throw Error(result.message||"Delete was not verified");
+     $("sdDeleteFeedback").textContent=result.message+" · "+result.deleted_files+" file(s) removed and verified absent.";
+     if(selectedFlight===f.name){
+      selectedFlight="";loadedFlightName="";savedFlightSeries=[];flightPhases=[];flightMeta={};graphRequestId++;
+      $("flightSummaryDetails").replaceChildren();
+      $("flightSummaryStatus").textContent="Flight removed from Feather SD. Local backups, if any, remain available.";
+      $("flightPhases").textContent="No Feather flight selected.";
+      $("flightConfidenceTimeline").textContent="No Feather flight selected.";
+      $("flightPerformance").textContent="No Feather flight selected.";
+      $("savedGraphStatus").textContent="No Feather flight selected.";
+     }
      await loadFiles();
      await poll();
-    }catch(err){alert(err.message)}
+    }catch(err){
+     $("sdDeleteFeedback").textContent="Delete failed safely: "+err.message;
+     rm.disabled=false;
+    }
    };
 
-   const protect=document.createElement("button");
-   protect.textContent=f.protected?"Unprotect":"Protect";
-   protect.className="secondary";
-   protect.onclick=async()=>{try{await api("protect?name="+encodeURIComponent(f.name)+"&value="+(f.protected?"0":"1"),"POST");await loadFiles();}catch(err){alert(err.message)}};
-
-   const note=document.createElement("button");
-   note.textContent="Add note";
-   note.onclick=async()=>{const value=prompt("Recovery or flight note for "+f.name+":");if(!value)return;try{await api("note?name="+encodeURIComponent(f.name)+"&note="+encodeURIComponent(value),"POST");await showFlightStats(f.name);}catch(err){alert(err.message)}};
-
-   rm.disabled=!!f.protected;
-   rm.title=f.protected?"Unprotect before deleting":"Delete this flight";
-   actions.append(summary,dl,csv,txt,protect,note,rm);
+   actions.append(summary,dl,csv,txt,rm);
    row.append(text,actions);
    list.appendChild(row);
   }
@@ -1747,7 +1760,6 @@ $("groundtest").onclick=()=>command("groundtest");
 $("shutdown").onclick=shutdown;
 $("disconnect").onclick=disconnect;
 $("fieldStop").onclick=()=>{if(confirm("Stop and save flight?"))command("stop");};
-$("scanIntegrity").onclick=scanSelectedIntegrity;
 $("downloadEverything").onclick=downloadSelectedPackage;
 $("rollbackFirmware").onclick=rollbackFirmware;
 $("restoreConfig").onclick=restoreConfiguration;
