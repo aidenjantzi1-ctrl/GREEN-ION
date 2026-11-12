@@ -121,5 +121,5 @@ test("Phase 5 UI stays local-first and grouped",()=>{
  assert.match(data,/Verified local originals are the source of truth/);
  assert.match(app,/initV16Data\(\)/);
  assert.match(sw,/v16_data\.mjs/);
- assert.match(sw,/phase6-data-hardening/);
+ assert.match(sw,/phase7-data-hardening/);
 });
