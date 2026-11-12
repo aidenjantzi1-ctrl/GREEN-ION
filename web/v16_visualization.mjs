@@ -57,8 +57,7 @@ function localXY(lat,lon,lat0,lon0){
 function nearestPressure(analysis,targetTime){
  const samples=analysis.samples;
  if(!samples.length)return null;
- const start=samples[0].timeS;
- const target=start+targetTime;
+ const target=targetTime;
  let lo=0,hi=samples.length-1;
  while(lo<hi){
   const mid=Math.floor((lo+hi)/2);
@@ -67,6 +66,34 @@ function nearestPressure(analysis,targetTime){
  const candidates=[samples[lo],samples[Math.max(0,lo-1)]].filter(Boolean);
  candidates.sort((a,b)=>Math.abs(a.timeS-target)-Math.abs(b.timeS-target));
  return candidates.find(x=>finite(x.altitudeM))||null;
+}
+function smoothTrack(points,radius=2){
+ if(points.length<3)return points;
+ return points.map((point,index)=>{
+  if(index===0||index===points.length-1)return point;
+  const from=Math.max(0,index-radius),to=Math.min(points.length-1,index+radius);
+  let x=0,y=0,n=0;
+  for(let i=from;i<=to;i++){x+=points[i].rawX??points[i].x;y+=points[i].rawY??points[i].y;n++;}
+  return {...point,x:x/n,y:y/n};
+ });
+}
+function nearestPointIndex(points,timeS){
+ if(!points.length)return -1;
+ let best=0,delta=Infinity;
+ for(let i=0;i<points.length;i++){
+  const d=Math.abs(points[i].timeS-timeS);
+  if(d<delta){delta=d;best=i;}
+ }
+ return best;
+}
+function phaseMarkers(analysis,points,pressureStart){
+ return (analysis.phases||[]).map(event=>{
+  const relative=event.timeS-pressureStart,index=nearestPointIndex(points,relative);
+  return index<0?null:{
+   name:event.name,timeS:relative,index,point:points[index],
+   confidence:event.confidenceScore??null,confidenceLabel:event.confidence??null
+  };
+ }).filter(Boolean);
 }
 export function reconstructFlight(binInput,senInput=null){
  const analysis=analyzeFlight(parseRkt4(binInput));
@@ -77,22 +104,23 @@ export function reconstructFlight(binInput,senInput=null){
   orientation=integrateGyroOrientation(sensor.samples);
   const fixes=sensor.samples.filter(s=>s.gpsCurrent&&finite(s.latitude)&&finite(s.longitude));
   if(fixes.length){
-   const first=fixes[0],sensorStart=sensor.samples[0]?.timeS||first.timeS;
+   const first=fixes[0];
    let lastT=-Infinity;
    for(const s of fixes){
-    const t=s.timeS-sensorStart;
+    const t=s.timeS-pressureStart;
     if(t-lastT<0.2&&s!==fixes.at(-1))continue;
     lastT=t;
     const xy=localXY(s.latitude,s.longitude,first.latitude,first.longitude);
-    const p=nearestPressure(analysis,t);
+    const p=nearestPressure(analysis,s.timeS);
     const z=p&&finite(p.altitudeM)?p.altitudeM:
       finite(s.gpsAltitudeM)&&finite(first.gpsAltitudeM)?s.gpsAltitudeM-first.gpsAltitudeM:0;
     points.push({
-     timeS:t,x:xy.x,y:xy.y,z,latitude:s.latitude,longitude:s.longitude,
+     timeS:t,x:xy.x,y:xy.y,rawX:xy.x,rawY:xy.y,z,latitude:s.latitude,longitude:s.longitude,
      gpsAltitudeM:s.gpsAltitudeM,verticalSource:p?"pressure":"gps",
      satellites:s.satellites
     });
    }
+   points=smoothTrack(points);
    mode="gps+pressure";
   }else{
    limitations.push("GIS1 contains no current GPS fixes; horizontal track is unavailable.");
@@ -108,11 +136,17 @@ export function reconstructFlight(binInput,senInput=null){
  }
  const maxAltitude=points.reduce((m,p)=>Math.max(m,finite(p.z)?p.z:0),0);
  let distance=0;
- for(let i=1;i<points.length;i++)distance+=Math.hypot(points[i].x-points[i-1].x,points[i].y-points[i-1].y);
+ for(let i=1;i<points.length;i++){
+  const ax=points[i-1].rawX??points[i-1].x,ay=points[i-1].rawY??points[i-1].y;
+  const bx=points[i].rawX??points[i].x,by=points[i].rawY??points[i].y;
+  distance+=Math.hypot(bx-ax,by-ay);
+ }
+ const markers=phaseMarkers(analysis,points,pressureStart);
+ if(mode==="gps+pressure")limitations.push("The displayed horizontal path uses light local smoothing; raw GPS coordinates remain preserved in the original GIS1 file.");
  if(orientation.length)limitations.push("Orientation is relative gyro integration only; heading drifts and is not absolute attitude.");
  limitations.push("The rocket drawing is generic and not to scale. This is recorded-data reconstruction, not an aerodynamic simulation.");
  return {
-  schema:VIS_SCHEMA,mode,points,orientation,maxAltitudeM:maxAltitude,horizontalTrackM:distance,
+  schema:VIS_SCHEMA,mode,points,orientation,phaseMarkers:markers,maxAltitudeM:maxAltitude,horizontalTrackM:distance,
   pressureSamples:analysis.samples.length,sensorSamples:sensor?.samples.length||0,
   sensorWarnings:sensor?.warnings||[],limitations
  };
@@ -161,8 +195,16 @@ function renderer(canvas,state){
    ctx.fillStyle="#a5bbcd";ctx.fillText(label,b[0]+4,b[1]-4);
   }
   ctx.beginPath();
-  data.points.forEach((p,i)=>{const s=project(p,view,canvas,extent);if(i===0)ctx.moveTo(...s);else ctx.lineTo(...s);});
+  data.points.forEach((p,i)=>{const screen=project(p,view,canvas,extent);if(i===0)ctx.moveTo(...screen);else ctx.lineTo(...screen);});
   ctx.lineWidth=2;ctx.strokeStyle="#7bdbff";ctx.stroke();
+  for(const marker of data.phaseMarkers||[]){
+   const screen=project(marker.point,view,canvas,extent);
+   ctx.beginPath();ctx.arc(screen[0],screen[1],5,0,Math.PI*2);
+   ctx.fillStyle=marker.name==="apogee"?"#ffdd88":"#72e5ab";ctx.fill();
+   ctx.fillStyle="#eff8ff";
+   const conf=Number.isFinite(marker.confidence)?" "+Math.round(marker.confidence)+"%":"";
+   ctx.fillText(marker.name.replaceAll("_"," ")+conf,screen[0]+7,screen[1]-5);
+  }
   const point=data.points[state.index],q=orientationAt(data.orientation,point.timeS);
   drawRocket(ctx,point,q,view,canvas,extent);
   ctx.fillStyle="#eff8ff";ctx.fillText("Recorded-data reconstruction · drag to orbit · wheel to zoom",12,20);
@@ -174,7 +216,7 @@ function renderer(canvas,state){
  canvas.addEventListener("wheel",e=>{e.preventDefault();view.zoom=Math.max(.35,Math.min(4,view.zoom*(e.deltaY>0?.9:1.1)));paint();},{passive:false});
  return {paint,reset(){view.yaw=-.7;view.pitch=.55;view.zoom=1;paint();}};
 }
-let render=null,playTimer=null,current=null;
+let render=null,playFrame=null,current=null;
 async function loadSelected(){
  const select=$("v15ReportFlight"),key=select?.value;
  if(!key)throw Error("Choose a completed BIN in Postflight report first.");
@@ -186,7 +228,7 @@ async function loadSelected(){
  const data=reconstructFlight(bin.bytes,sen?.bytes||null);
  return {data,name:bin.name};
 }
-function stopPlay(){if(playTimer){clearInterval(playTimer);playTimer=null;}$("v16VisPlay").textContent="Play replay";}
+function stopPlay(){if(playFrame){cancelAnimationFrame(playFrame);playFrame=null;}$("v16VisPlay").textContent="Play replay";}
 function setStatus(value){if($("v16VisStatus"))$("v16VisStatus").textContent=value;}
 export function initV16Visualization(){
  const history=$("history");if(!history)return;
@@ -199,6 +241,7 @@ export function initV16Visualization(){
    '<div class="row"><span>Replay evidence</span><strong id="v16VisReplay">No flight loaded</strong></div>'+
    '<div class="row"><span>Reconstruction</span><strong id="v16VisMetrics">--</strong></div>'+
    '<div class="actions"><button id="v16VisLoad">Load selected flight</button><button id="v16VisPlay" class="secondary">Play replay</button><button id="v16VisReset" class="secondary">Reset view</button></div>'+
+   '<p class="muted">Markers show pressure-derived launch/apogee/descent/landing estimates with confidence where available. The finder/recovery view always uses raw confirmed GPS fixes.</p>'+
    '<p id="v16VisStatus" class="muted">Select a BIN in Postflight report, then load the reconstruction.</p>';
   history.append(card);
  }
@@ -219,12 +262,19 @@ export function initV16Visualization(){
  $("v16VisReset").onclick=()=>render?.reset();
  $("v16VisPlay").onclick=()=>{
   if(!render||!current)return;
-  if(playTimer){stopPlay();return;}
+  if(playFrame){stopPlay();return;}
   $("v16VisPlay").textContent="Pause replay";
-  playTimer=setInterval(()=>{
-   const slider=$("v16ReplaySlider"),next=Number(slider.value)+1;
-   if(next>Number(slider.max)){stopPlay();return;}
-   slider.value=next;render.paint(next);
-  },60);
+  let last=performance.now();
+  const step=now=>{
+   if(!playFrame)return;
+   if(now-last>=60){
+    last=now;
+    const slider=$("v16ReplaySlider"),next=Number(slider.value)+1;
+    if(next>Number(slider.max)){stopPlay();return;}
+    slider.value=next;render.paint(next);
+   }
+   playFrame=requestAnimationFrame(step);
+  };
+  playFrame=requestAnimationFrame(step);
  };
 }
