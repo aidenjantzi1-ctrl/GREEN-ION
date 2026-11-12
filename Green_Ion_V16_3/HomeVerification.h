@@ -279,6 +279,11 @@ static void homeStartLog() {
   // a PASS and never prevents the SD recorder from being tested.
   homeRadioStartSent = radioBenchPacketsSent;
   homeRadioStartFailures = radioSendFailures;
+  homeTelemetryDroppedStart = telemetryQueue.dropped();
+  homeSensorDroppedStart = sensorLogCore.droppedRecords();
+  homeOwnershipErrorsStart = sharedSpi.evidence().ownershipErrors;
+  homeRadioTimeoutsStart = radioTxTimeouts;
+  homeRadioConcurrentExpected = state.radioOk;
   if (state.radioOk) {
     radioBenchPacketsRemaining = config::HOME_CONCURRENT_RADIO_PACKETS;
     lastTelemetryMs = homeStartedMs - config::TELEMETRY_INTERVAL_MS;
@@ -312,6 +317,7 @@ static void homeFinish() {
   orphanHomeFile = !homeCleanupOk;
   if (homeResult == 1) homeResult = 3;
   radioBenchPacketsRemaining = 0;
+  homeRadioConcurrentExpected = false;
   Preferences prefs;
   bool stored = false;
   if (prefs.begin("giohome", false)) {
