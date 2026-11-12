@@ -43,6 +43,14 @@ test("even all required PASS only reaches human review, never launch authorizati
  assert.equal(summary.flight_authorized,false);
 });
 
+
+test("blank manual PASS is downgraded to INCONCLUSIVE",()=>{
+ let ledger=newLedger(0);
+ ledger=updateEvidence(ledger,"power_lipo",{status:"PASS",note:"",evidence_ref:""},1000);
+ assert.equal(ledger.records.power_lipo.status,"INCONCLUSIVE");
+ assert.equal(validationSummary(ledger).flight_authorized,false);
+});
+
 test("unknown or corrupted statuses normalize back to NOT_TESTED",()=>{
  const raw=newLedger(0);
  raw.records.power_lipo.status="CERTIFIED";
