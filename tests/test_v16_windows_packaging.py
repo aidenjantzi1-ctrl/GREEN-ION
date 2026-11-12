@@ -30,6 +30,10 @@ class V16WindowsPackagingTests(unittest.TestCase):
         self.assertIn("LOCALAPPDATA", ps)
         self.assertIn("current.txt", ps)
         self.assertIn("Move-Item", ps)
+        self.assertIn("$Actual.Substring(0,12)", ps)
+        target_delete = [line for line in ps.splitlines()
+                         if "Remove-Item" in line and "$Target" in line]
+        self.assertEqual(target_delete, [], "installed app directories must be immutable")
         self.assertNotIn("GREEN_ION_Data", "\n".join(
             line for line in ps.splitlines() if "Remove-Item" in line
         ))
