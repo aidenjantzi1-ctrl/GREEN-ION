@@ -19,7 +19,7 @@ class V16WindowsPackagingTests(unittest.TestCase):
         self.assertIn("Start-GreenIon.ps1", launcher)
         self.assertNotIn("set /p", launcher.lower())
         self.assertIn("START_GREEN_ION.cmd", legacy)
-        self.assertIn("auto-discover", ps.lower())
+        self.assertIn("keeps watching usb", ps.lower())
         self.assertIn("--wifi-only", ps)
         self.assertIn("GREEN_ION_DATA_DIR", ps)
         self.assertIn('$LaunchArgs += $GroundStationArgs', ps)
