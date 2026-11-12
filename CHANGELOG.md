@@ -1,3 +1,21 @@
+# V16.2 — Full application + firmware upgrade — November 12, 2026
+
+- Added explicit GREEN ION Feather V16.2 and Uno V16.2 source generations while preserving RKT4 v2, GIS1 and protocol-v2 70-byte receive-only LoRa.
+- Added boot/session/reset evidence, sensor/SD recovery counters, read-age diagnostics and safe idle peripheral/card reinitialization.
+- Separated brief Wi-Fi display continuity from strict command freshness so transient delays do not erase mission context or authorize stale controls.
+- Added Balanced/Simple/Advanced presentation with Balanced as default; exact five tabs and #081420 visual identity remain.
+- Added a lightweight Dashboard rocket animation with stale-data freeze, saved-flight replay and explicit measured/estimated/illustrative labeling.
+- Replaced the old flat Canvas trajectory display in normal use with a genuine WebGL scene: depth, perspective, 3D rocket geometry, orbit/pan/zoom, camera modes, actual timestamp playback, phase jumps, point picking and graph synchronization.
+- Added optional embedded Google Maps Recovery with satellite/terrain/roadmap/hybrid modes, confirmed GPS trail, optional user position and keyless/offline fallback.
+- Expanded SD cleanup to show completion plus browser/Windows/cloud backup evidence before typed-filename deletion; interrupted/recovery evidence is retained.
+- Added rocket/motor/date/status/backup flight-library filters and 2–4 flight comparison with launch-relative graphs and export.
+- Made Run Full Home Test the primary Testing action and expanded System Health/troubleshooting.
+- Added mission next-action summary, first-run helper, rocket display/mounting profiles, one-click postflight report entry and data-quality scorecard.
+- Added actual headless-browser WebGL render smoke testing, extended reconnect soak coverage, V16.2 firmware compilation and verified release/source packaging.
+- Physical RF/power/GPS/SD/mechanical/OTA-interruption/real-flight validation remains pending.
+
+---
+
 # V16.1 RC2 — Safe SD management + layout hardening — November 12, 2026
 
 - Added app-driven deletion of completed Feather SD flight packages over verified Wi-Fi.
