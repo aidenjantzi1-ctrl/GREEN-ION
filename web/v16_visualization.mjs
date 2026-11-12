@@ -5,7 +5,7 @@ import {getLocalFile,listLocalMetadata} from "./v14_store.mjs";
 import {parseRkt4,analyzeFlight} from "./analysis/rkt4.mjs";
 import {parseGis1} from "./analysis/gis1.mjs";
 
-export const VIS_SCHEMA="GREEN-ION-V16-VIS-1";
+export const VIS_SCHEMA="GREEN-ION-V16.2-VISUALIZATION-1";
 const EARTH_M=6371000;
 const DEG=Math.PI/180;
 const $=id=>document.getElementById(id);
@@ -183,7 +183,7 @@ export function reconstructFlight(binInput,senInput=null){
  if(orientation.length)limitations.push("Orientation is relative gyro integration only; heading drifts and is not absolute attitude.");
  limitations.push("The rocket drawing is generic and not to scale. This is recorded-data reconstruction, not an aerodynamic simulation.");
  return {
-  schema:"GREEN-ION-V16.2-VISUALIZATION-1",mode,points,orientation,phaseMarkers:markers,maxAltitudeM:maxAltitude,horizontalTrackM:distance,
+  schema:VIS_SCHEMA,mode,points,orientation,phaseMarkers:markers,maxAltitudeM:maxAltitude,horizontalTrackM:distance,
   pressureSamples:analysis.samples.length,sensorSamples:sensor?.samples.length||0,
   timeline,sensorTimeline,sensorWarnings:sensor?.warnings||[],limitations
  };
