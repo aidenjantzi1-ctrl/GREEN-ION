@@ -12,7 +12,7 @@ async function analyze(meta,files){
  });
 }
 function draw(){
- const c=$("v162CompareGraph");if(!c)return,void 0;const dpr=Math.min(2,devicePixelRatio||1),w=Math.max(320,c.clientWidth),h=300;c.width=w*dpr;c.height=h*dpr;const ctx=c.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle="#0b1c2b";ctx.fillRect(0,0,w,h);
+ const c=$("v162CompareGraph");if(!c)return;const dpr=Math.min(2,devicePixelRatio||1),w=Math.max(320,c.clientWidth),h=300;c.width=w*dpr;c.height=h*dpr;const ctx=c.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle="#0b1c2b";ctx.fillRect(0,0,w,h);
  const points=results.flatMap(x=>x.graph);if(!points.length)return;
  let minT=0,maxT=Math.max(...points.map(x=>x.t)),minY=Math.min(0,...points.map(x=>x.altitudeM)),maxY=Math.max(1,...points.map(x=>x.altitudeM));if(maxT<=0)maxT=1;if(maxY<=minY)maxY=minY+1;
  const x=t=>48+(t-minT)/(maxT-minT)*(w-66),y=v=>h-35-(v-minY)/(maxY-minY)*(h-58);
