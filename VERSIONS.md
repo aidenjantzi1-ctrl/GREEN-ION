@@ -1,3 +1,17 @@
+# V16.2 — application + Feather + Uno generation
+
+V16.2 is the first V16 application release in this repository that also carries clearly versioned **Feather V16.2** and **Uno V16.2** source/build outputs.
+
+Compatibility is intentionally conservative: RKT4 v2, GIS1, existing flights, the receive-only protocol-v2 70-byte LoRa packet, Windows `GREEN_ION_Data`, cloud accounts/backups and the five-tab blue interface are preserved.
+
+Major additions are transient-link resilience, live/replay Dashboard visualization, genuine WebGL 3D reconstruction, optional embedded Google Maps recovery, backup-aware SD cleanup, richer library/comparison, simplified home testing, expanded diagnostics and verified V16.2 release/source packaging.
+
+Software validation does not replace the physical V16.2 hardware-validation checklist.
+
+[V16.2 implementation](docs/V16_2_IMPLEMENTATION.md) · [release notes](docs/V16_RELEASE_NOTES.md) · [hardware validation](docs/V16_2_HARDWARE_VALIDATION.md)
+
+---
+
 # V16.1 RC2 — safe SD management + layout hardening
 
 RC2 adds a narrow Feather-Wi-Fi SD deletion workflow for completed `V12D###.BIN` flight packages. It removes matching SEN/TXT/recovery companions, deletes the primary BIN last, verifies the package is absent, blocks deletion during recording/home-test/maintenance/OTA work, and restarts stationary calibration if launch watching had to be paused. Browser, Windows and cloud backups are not deleted.
