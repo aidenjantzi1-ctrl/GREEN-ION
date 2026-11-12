@@ -84,10 +84,13 @@ function applyFlightEvidence(mission,data,now){
  mission.rocket=cleanText(data.identity?.rocket,40)||mission.rocket;
  mission.motor=cleanText(data.identity?.motor,30)||mission.motor;
  mission.expected_flight_file=cleanText(data.identity?.mission_file_id,180)||mission.expected_flight_file;
- if(mission.gps_status!=="live"&&["ASCENT","DESCENT","LANDED","RECOVERY"].includes(mission.state))
-  warning(mission,"GPS is not live; recovery will use the last confirmed fix.",now);
  const phase=flightStateFromTelemetry(data);
  if(mission.state==="IDLE"||mission.state==="COMPLETE")return mission;
+ if(mission.gps_status!=="live"&&(
+    ["ASCENT","DESCENT","LANDED","RECOVERY"].includes(mission.state) ||
+    (phase!==null&&phase>=3)
+  ))
+  warning(mission,"GPS is not live; recovery will use the last confirmed fix.",now);
  if(phase===3||phase===4){
   if(["PREFLIGHT","READY"].includes(mission.state))
    warning(mission,"Feather reported flight before the local workflow reached PRELAUNCH; mission evidence is incomplete.",now);
