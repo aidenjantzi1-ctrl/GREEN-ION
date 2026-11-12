@@ -30,8 +30,9 @@ export function newMission(now=Date.now(),id=null){
   rocket:null,
   motor:null,
   preflight:{
-   complete:false,measured_failures:0,blocking_unverified:0,
-   manual_unverified:0,physical_confirmed:false,error:""
+   complete:false,completed_at:null,measured_failures:0,blocking_unverified:0,
+   manual_unverified:0,physical_confirmed:false,physical_confirmed_at:null,
+   error:"",results:{},evidence:[]
   },
   expected_flight_file:null,
   flight_file:null,
@@ -122,11 +123,14 @@ export function reduceMission(current,event,now=Date.now()){
   if(!["PREFLIGHT","ERROR"].includes(mission.state))return mission;
   mission.preflight={
    complete:!!detail.complete,
+   completed_at:nowIso(now),
    measured_failures:Math.max(0,Number(detail.fails)||0),
    blocking_unverified:Math.max(0,Number(detail.blocking_unverified)||0),
    manual_unverified:Math.max(0,Number(detail.manual_unverified)||0),
-   physical_confirmed:false,
-   error:cleanText(detail.error,180)
+   physical_confirmed:false,physical_confirmed_at:null,
+   error:cleanText(detail.error,180),
+   results:detail.results&&typeof detail.results==="object"?clone(detail.results):{},
+   evidence:Array.isArray(detail.evidence)?clone(detail.evidence.slice(-30)):[]
   };
   if(!mission.preflight.complete||mission.preflight.measured_failures>0||mission.preflight.error){
    const reason=mission.preflight.error||
@@ -145,6 +149,7 @@ export function reduceMission(current,event,now=Date.now()){
    return warning(mission,"READY blocked: measured or receiver preflight evidence is incomplete.",now);
   }
   mission.preflight.physical_confirmed=true;
+  mission.preflight.physical_confirmed_at=nowIso(now);
   return addTransition(mission,"READY",type,"User confirmed required physical/manual checks after measured preflight.",now);
  }
  if(type==="RETRY_PREFLIGHT"&&["ERROR","PREFLIGHT"].includes(mission.state)){
@@ -166,7 +171,8 @@ export function reduceMission(current,event,now=Date.now()){
   return addTransition(mission,"DOWNLOADING",type,"Completed flight retrieval started after landing.",now);
  }
  if(type==="FLIGHT_SAVED"&&/\.BIN$/i.test(String(detail.name||"")) &&
-    ["LANDED","RECOVERY","DOWNLOADING","ANALYZING"].includes(mission.state)){
+    (["LANDED","RECOVERY","DOWNLOADING","ANALYZING"].includes(mission.state) ||
+     (mission.state==="INTERRUPTED"&&["DOWNLOADING","ANALYZING"].includes(mission.interrupted_from)))){
   const name=cleanText(detail.name,180);
   const expected=mission.expected_flight_file||mission.flight_file;
   if(!expected||name.toLowerCase()!==expected.toLowerCase())
@@ -174,7 +180,8 @@ export function reduceMission(current,event,now=Date.now()){
   mission.flight_file=name;
   return addTransition(mission,"ANALYZING",type,"Checksum-preserved BIN is available locally for analysis.",now);
  }
- if(type==="REPORT_COMPLETE"&&mission.state==="ANALYZING"){
+ if(type==="REPORT_COMPLETE"&&(mission.state==="ANALYZING" ||
+    (mission.state==="INTERRUPTED"&&mission.interrupted_from==="ANALYZING"))){
   const name=cleanText(detail.name,180);
   if(mission.flight_file&&name&&name.toLowerCase()!==mission.flight_file.toLowerCase())
    return warning(mission,"Ignored postflight report for a different recording: "+name,now);
@@ -240,7 +247,9 @@ function downloadJson(filename,value){
 export function initMission(){
  if(typeof window==="undefined"||typeof document==="undefined")return;
  const $=id=>document.getElementById(id);
- let mission=restoreMission(localStorage.getItem(STORAGE_KEY));
+ let stored=null;
+ try{stored=localStorage.getItem(STORAGE_KEY);}catch{}
+ let mission=restoreMission(stored);
  let latestTelemetry=window.GREEN_ION_UNIFIED_TELEMETRY||null;
  const persist=()=>{
   try{localStorage.setItem(STORAGE_KEY,JSON.stringify(mission));}catch{}
