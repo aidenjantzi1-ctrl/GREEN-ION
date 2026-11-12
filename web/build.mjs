@@ -10,10 +10,13 @@ for(const entry of await readdir(root,{withFileTypes:true})){
 }
 const supabaseUrl=process.env.SUPABASE_URL||"";
 const supabaseKey=process.env.SUPABASE_PUBLISHABLE_KEY||"";
+const googleMapsBrowserKey=process.env.GOOGLE_MAPS_BROWSER_KEY||"";
 if(supabaseUrl && !/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(supabaseUrl))
  throw Error("SUPABASE_URL must be an https Supabase project URL");
 if(supabaseKey && !supabaseKey.startsWith("sb_publishable_"))
  throw Error("Only a public Supabase publishable key is permitted in a web build");
+if(googleMapsBrowserKey && !/^AIza[0-9A-Za-z_-]{20,}$/.test(googleMapsBrowserKey))
+ throw Error("GOOGLE_MAPS_BROWSER_KEY must be a browser API key or left empty");
 await writeFile(join(output,"config.js"),
- "window.GREEN_ION_CONFIG = Object.freeze("+JSON.stringify({supabaseUrl,supabaseKey})+");\n");
+ "window.GREEN_ION_CONFIG = Object.freeze("+JSON.stringify({supabaseUrl,supabaseKey,googleMapsBrowserKey})+");\n");
 console.log("GREEN ION V16 offline web build created: "+output);
