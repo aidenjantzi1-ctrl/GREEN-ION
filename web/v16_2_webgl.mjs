@@ -299,4 +299,17 @@ function inject(){
  window.addEventListener("pagehide",dispose);
  refresh().catch(error=>$("v1623dStatus").textContent=error.message);
 }
+export function runWebglSelfTest(canvas){
+ const gl=canvas?.getContext?.("webgl",{antialias:false,alpha:false});
+ if(!gl)return {supported:false,passed:false,reason:"no-webgl-context"};
+ const shader=createProgram(gl),triangle=[-0.7,-0.7,0,0.7,-0.7,0,0,0.7,0],b=buffer(gl,triangle);
+ canvas.width=64;canvas.height=64;gl.viewport(0,0,64,64);gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);
+ gl.useProgram(shader.program);gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.enableVertexAttribArray(shader.pos);
+ gl.vertexAttribPointer(shader.pos,3,gl.FLOAT,false,0,0);
+ gl.uniformMatrix4fv(shader.mvp,false,new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]));
+ gl.uniform4fv(shader.color,new Float32Array([0.3,0.85,1,1]));gl.uniform1f(shader.pointSize,1);gl.drawArrays(gl.TRIANGLES,0,3);
+ const pixel=new Uint8Array(4);gl.readPixels(32,32,1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixel);
+ gl.deleteBuffer(b);gl.deleteProgram(shader.program);
+ const passed=pixel[2]>100&&pixel[3]>0;return {supported:true,passed,pixel:[...pixel]};
+}
 export function initV162Webgl(){inject();}
