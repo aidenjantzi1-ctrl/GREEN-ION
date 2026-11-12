@@ -56,7 +56,7 @@ test("V16 stale bridge status stays visible without becoming command-authorized 
 test("V16 diagnostics show explicit Wi-Fi state and age",()=>{
  const link=readFileSync(new URL("../web/v15_link.mjs",import.meta.url),"utf8");
  const html=readFileSync(new URL("../web/index.html",import.meta.url),"utf8");
- assert.match(link,/\/api\/ground-link/);
+ assert.match(link,/\/api\/v16\/telemetry/);
  assert.match(link,/connection_state/);
  assert.match(link,/active_operation/);
  assert.match(html,/id="v15LinkWifi"/);
