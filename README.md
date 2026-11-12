@@ -1,48 +1,68 @@
 # GREEN ION — Rocket Flight Recorder
 
-**Current application: V16.1 RC2 — safe SD management + reliability.** The original blue five-tab layout is preserved. RC2 adds verified Wi-Fi SD deletion, removes stale storage controls, hardens critical SD access, and improves Flights & Analysis layout. Feather/Uno hardware firmware remains the V14 generation. Real hardware/flight validation is still pending.
+**Current target: GREEN ION V16.2.** V16.2 keeps the exact dark-blue `#081420` identity and exactly five visible tabs: **Dashboard, Flight, Flights & Analysis, Testing, Settings & Advanced**. It adds a versioned Feather/Uno firmware generation, stronger reconnect behavior, an honest live/replay rocket visualization, genuine WebGL 3D replay, optional embedded Google Maps recovery, backup-aware SD cleanup, improved flight comparison, guided testing and clearer diagnostics.
 
-**Hosted V16 application / V14 firmware Wi-Fi connection:** compatible Chromium browsers can connect to the Feather after its trusted-origin firmware update and local network permission. Safari/iPhone uses the direct Feather dashboard plus History import and cloud sync after internet returns. [Phone/computer setup and limitations](docs/V15_HOSTED_PHONE_CONNECTION.md).
+GREEN ION is a **flight recorder and recovery aid**, not a flight-control computer. It does not control ignition, staging, deployment, guidance or pyrotechnics. Primary RKT4/GIS1 recording remains autonomous on the Feather and does not depend on Windows, LoRa, maps, cloud or visualization.
 
-[**Open the blue flight dashboard**](https://green-ion-beta.vercel.app/) · [**Download V14 releases**](https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases) · [**Automated tests**](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/workflows/build-v14.yml)
+[**Open the blue dashboard**](https://green-ion-beta.vercel.app/) · [**GitHub releases**](https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases) · [**Automated tests**](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/workflows/build-v14.yml)
 
-GREEN ION records pressure, motion, GPS and battery data independently to SD. Windows, iPhone and iPad use the same blue dashboard; Windows can also receive Uno USB / LoRa telemetry.
+## Start here
 
-[**V16.1 reliability + simplicity**](docs/V16_1_RELIABILITY_SIMPLICITY.md) · [**V16 implementation checklist**](docs/V16_IMPLEMENTATION_CHECKLIST.md) · [**V16 five-tab interface**](docs/V16_PHASE4_FIVE_TAB_INTERFACE.md) · [**V16 data/cloud integrity**](docs/V16_PHASE5_DATA_CLOUD.md) · [**V16 Windows packaging**](docs/V16_PHASE6_WINDOWS_PACKAGING.md) · [**V16 3D/replay**](docs/V16_PHASE7_ADVANCED_VISUALIZATION.md) · [**V16 hardware evidence**](docs/V16_PHASE8_HARDWARE_VALIDATION.md) · [**V16 Phase 3 Mission Workflow**](docs/V16_PHASE3_MISSION_WORKFLOW.md) · [**Phase 2 Unified Telemetry**](docs/V16_PHASE2_UNIFIED_TELEMETRY.md) · [**Phase 1 Windows reliability**](docs/V16_PHASE1_WINDOWS_RELIABILITY.md) · [**Version history**](VERSIONS.md)
-
-## Choose a guide
-
-| What you want | Where to go |
+| Goal | Guide |
 |---|---|
-| **Current V16 development status and phase order** | [**V16 Implementation Checklist**](docs/V16_IMPLEMENTATION_CHECKLIST.md) |
-| **Five-tab Dashboard / Flight / Analysis / Testing / Advanced layout** | [**V16 Phase 4 Five-Tab Interface**](docs/V16_PHASE4_FIVE_TAB_INTERFACE.md) |
-| **One mission from preflight through recovery and analysis** | [**V16 Phase 3 Mission Workflow**](docs/V16_PHASE3_MISSION_WORKFLOW.md) |
-| **Unified Wi-Fi + LoRa telemetry and receiver setup** | [**V16 Phase 2 Unified Telemetry**](docs/V16_PHASE2_UNIFIED_TELEMETRY.md) |
-| **Windows connection reliability changes** | [**V16 Phase 1 Reliability**](docs/V16_PHASE1_WINDOWS_RELIABILITY.md) |
-| **Existing launch pad workflow: preflight, Recovery, archive, cloud sync and Help** | [**V15 Local-First Guide**](docs/V15_LOCAL_FIRST.md) |
-| **3D postflight trajectory and relative digital twin** | [V16 3D + Replay](docs/V16_PHASE7_ADVANCED_VISUALIZATION.md) |
-| Start the website and use the blue tabs | [Start Here](docs/V14_START_HERE.md) |
-| **What to solder and exactly where** | [**Wiring & Soldering**](docs/V14_WIRING_SOLDER.md) |
-| Every BMP388, IMU, GPS, battery and radio measurement | [Sensor Capabilities & Recorded Formats](docs/V14_SENSOR_CAPABILITIES.md) |
-| Different iPhone, iPad, tablet and Windows layouts | [Devices and Connectivity](docs/V14_DEVICES.md) |
-| Create a cloud account, sync or restore flights | [Private Cloud Backups](docs/V14_CLOUD.md) |
-| New ideas and removable optional modules | [V14 Improvement Plan](docs/V14_IMPROVEMENT_PLAN.md) |
-| Testing and requirements before launch | [Quality & Hardware Validation](docs/V14_QUALITY_PLAN.md) |
-| GitHub folders, code changes, builds and releases | [Developer Guide](docs/V14_DEVELOPMENT.md) |
-| Previous software, source and rollback packages | [Version Archive](Past_Versions/README.md) · [V13 release](https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases/tag/v13.0.0-beta.1) |
+| Windows install, update and rollback | [V16.2 Windows setup](docs/V16_2_WINDOWS_SETUP.md) |
+| Flash/update the Feather | [V16.2 Feather update](docs/V16_2_FIRMWARE_UPDATE.md) |
+| Update the Uno receiver | [V16.2 Uno receiver](docs/V16_2_UNO_RECEIVER.md) |
+| Understand receive-only radio data | [V16.2 LoRa protocol](docs/V16_2_LORA_PROTOCOL.md) |
+| Download or safely delete SD flights | [V16.2 SD file management](docs/V16_2_SD_FILE_MANAGEMENT.md) |
+| Configure the embedded recovery map | [V16.2 Google Maps](docs/V16_2_GOOGLE_MAPS.md) |
+| Use the interactive 3D viewer | [V16.2 3D viewer](docs/V16_2_3D_VIEWER.md) |
+| Understand the live rocket animation | [V16.2 live visualization](docs/V16_2_LIVE_VISUALIZATION.md) |
+| See implementation status | [V16.2 implementation checklist](docs/V16_2_IMPLEMENTATION.md) |
+| Record physical validation evidence | [V16.2 hardware validation](docs/V16_2_HARDWARE_VALIDATION.md) |
 
-## Dashboard
+## Everyday workflow
 
-V16 exposes exactly five normal top-level tabs: **Dashboard, Flight, Flights & Analysis, Testing, and Settings & Advanced**. Existing advanced tools are preserved underneath those destinations rather than deleted. Recovery is part of Flight; storage/history are combined under Flights & Analysis; radio/cloud/updates/help live under expandable Settings & Advanced sections.
+1. Run `START_GREEN_ION.cmd` on Windows.
+2. Plug the Uno receiver in when needed; GREEN ION auto-detects/reconnects it.
+3. Join Feather `GREEN-ION-V16-2` Wi-Fi for live hardware status, tests and SD transfer.
+4. Select the rocket/motor profile and use **Prepare for Flight**.
+5. Use **Run Full Home Test** on the bench with motors removed.
+6. During flight, the Feather records autonomously. Windows may show Wi-Fi/LoRa telemetry, but a link loss does not stop SD recording.
+7. After landing, use Recovery. The embedded Google Map is optional; the offline GPS plot always remains.
+8. Reconnect Feather Wi-Fi, download/verify the flight, then use reports, comparison and the WebGL 3D replay.
+9. Verify browser/Windows/cloud backup evidence before deleting a completed Feather SD package.
 
-Optional Sensor Lab, SEN analysis, cloud backup and display settings live under Settings & Advanced. Original BIN/SEN/TXT analysis and export work offline.
+## V16.2 compatibility
 
-**Hardware commands:** Use the Feather's Wi-Fi and local **http://192.168.4.1** backup dashboard when direct connection from the hosted HTTPS website is blocked. The iPhone website cannot read Uno USB serial. Downloads from GitHub **never flash automatically**; bench-only firmware OTA requires separate confirmation.
+- RKT4 v2 BIN remains unchanged.
+- GIS1 SEN remains unchanged.
+- Existing recorded flights remain readable.
+- LoRa stays protocol v2, fixed 70 bytes and receive-only on the ground.
+- Windows data remains under `%USERPROFILE%\GREEN_ION_Data`.
+- Supabase remains optional; originals are local first.
+- Windows app update/rollback and Feather OTA remain separate operations.
+- The direct Feather dashboard at `http://192.168.4.1` remains a fallback when hosted browser networking is restricted.
 
-**Windows local server:** Run `START_GREEN_ION.cmd` for the current blue localhost dashboard with Feather Wi-Fi, Uno LoRa, automatic SHA-256 computer archives and optional signed-in cloud backup when internet returns. **Delete from SD** removes only the Feather copy; Windows/browser/cloud backups remain. Firmware RKT4/GIS1 formats remain unchanged.
+## Visual honesty
 
-## Software vs hardware validation
+The Dashboard animation and 3D viewer distinguish evidence types. GPS, pressure, battery and recorded IMU data are measured when valid. Barometric altitude, velocity, phase and gyro-integrated relative attitude are estimates. Flame, smoke, parachute and ground contact are illustrative unless separate physical evidence supports them. Stale telemetry freezes instead of inventing an ongoing trajectory.
 
-GitHub Actions compiles both firmware targets and tests the web app, but **no real launch, GPS/RF range, SD, LiPo, iPhone local-network, account-based cloud restore or OTA rollback test can be certified by CI**. Complete the supervised [hardware validation guide](docs/V14_QUALITY_PLAN.md) before relying on V14 for a launch.
+## Existing hardware/reference guides
 
-Sources: [Adafruit Feather V2 pins](https://learn.adafruit.com/adafruit-esp32-feather-v2/pinouts), [Supabase security](https://supabase.com/docs/guides/storage/security/access-control), [Vercel Git deployments](https://vercel.com/docs/git), [Web Serial compatibility](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API).
+These older guides remain useful for the current hardware and are intentionally retained:
+
+- [Wiring & soldering](docs/V14_WIRING_SOLDER.md)
+- [Sensor capabilities & formats](docs/V14_SENSOR_CAPABILITIES.md)
+- [Devices & connectivity](docs/V14_DEVICES.md)
+- [Private cloud backups](docs/V14_CLOUD.md)
+- [Improvement architecture](docs/V14_IMPROVEMENT_PLAN.md)
+- [Developer guide](docs/V14_DEVELOPMENT.md)
+- [Quality / physical validation](docs/V14_QUALITY_PLAN.md)
+- [Version archive](Past_Versions/README.md)
+
+## Validation boundary
+
+CI can test software, compile the Feather/Uno targets, render the WebGL smoke scene, build the offline web app, verify Windows packaging and validate release hashes. It **cannot** prove actual RF range, GPS reception, SD timing on a physical card, battery/brownout behavior, wiring, antenna installation, OTA interruption recovery or a real flight. Those remain measured physical tasks in the [V16.2 hardware validation guide](docs/V16_2_HARDWARE_VALIDATION.md).
+
+Sources: [Adafruit Feather ESP32 V2 pins](https://learn.adafruit.com/adafruit-esp32-feather-v2/pinouts), [Google Maps JavaScript API](https://developers.google.com/maps/documentation/javascript/overview), [Supabase storage security](https://supabase.com/docs/guides/storage/security/access-control), [WebGL](https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API).
