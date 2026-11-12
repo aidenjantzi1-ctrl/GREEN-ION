@@ -255,7 +255,9 @@ export async function backupNow({automatic=false}={}){
 export async function restoreCloud(){
  if(busy||!session)return;
  if(!navigator.onLine){message("Internet is required to restore cloud originals.");setCloudState("OFFLINE");return;}
- busy=true;message("Restoring private cloud recordings...");setCloudState("RESTORING");
+ busy=true;
+ let finalStatus="IDLE",finalExtra={};
+ message("Restoring private cloud recordings...");setCloudState("RESTORING");
  try{
   const account=await user(),files=await listCloudFiles();
   let restored=0,skipped=0;
@@ -276,12 +278,17 @@ export async function restoreCloud(){
    const result=await saveLocalFile({name,bytes,origin:"Supabase restore"});
    if(result.duplicate)skipped++;else restored++;
   }
+  finalStatus="SYNCED";finalExtra={restored,skipped};
   message("Cloud restore complete: "+restored+" files restored, "+skipped+" duplicates skipped.");
   detail("All downloaded originals verified using SHA-256.");
-  setCloudState("SYNCED",{restored,skipped});
   window.dispatchEvent(new Event("green-ion-history-change"));
- }catch(e){message("Cloud restore stopped safely: "+e.message+". No existing recording was overwritten.");setCloudState("ERROR",{error:String(e.message||e).slice(0,180)});}
- finally{busy=false;if(lastCloudStatus==="RESTORING")setCloudState(lastCompletedAt?"SYNCED":"IDLE");}
+ }catch(e){
+  finalStatus="ERROR";finalExtra={error:String(e.message||e).slice(0,180)};
+  message("Cloud restore stopped safely: "+e.message+". No existing recording was overwritten.");
+ }finally{
+  busy=false;
+  setCloudState(finalStatus,finalExtra);
+ }
 }
 export function initCloud(){
  loadSession();renderAccount();
