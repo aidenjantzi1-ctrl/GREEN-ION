@@ -88,9 +88,9 @@ function downloadText(filename,value){
 }
 async function exportReceiver(){
  if(!radioPackets.length){text("v14SerialStatus","No LoRa packets received to export.");return;}
- const names=["received_at","type","sequence","uptime_ms","altitude_m","pressure_pa","battery_v","acceleration_g",
- "rotation_x_dps","rotation_y_dps","rotation_z_dps","speed_mps","latitude","longitude","gps_status",
- "rssi_dbm","flight_state","satellites"];
+ const names=["received_at","received_utc","packet_id","packet_classification","type","protocol","sequence","uptime_ms",
+ "altitude_m","pressure_pa","battery_v","acceleration_g","rotation_x_dps","rotation_y_dps","rotation_z_dps",
+ "speed_mps","latitude","longitude","gps_status","rssi_dbm","snr_db","flight_state","satellites"];
  const quote=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
  const csv=names.map(quote).join(",")+"\n"+radioPackets.map(p=>names.map(n=>quote(p[n])).join(",")).join("\n");
  const url=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
