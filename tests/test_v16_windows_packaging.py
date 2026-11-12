@@ -41,6 +41,24 @@ class V16WindowsPackagingTests(unittest.TestCase):
             line for line in ps.splitlines() if "Remove-Item" in line
         ))
         self.assertIn("Your GREEN_ION_Data folder was not changed", ps)
+        self.assertIn("previous.txt", ps)
+
+    def test_rollback_swaps_only_verified_app_pointer(self):
+        ps = (ROOT / "Ground_Station" / "Rollback-GreenIon.ps1").read_text(encoding="utf-8")
+        cmd = (ROOT / "Ground_Station" / "ROLLBACK_GREEN_ION.cmd").read_text(encoding="utf-8")
+        self.assertIn("previous.txt", ps)
+        self.assertIn("current.txt", ps)
+        self.assertIn("Valid-GreenIonPackage", ps)
+        self.assertIn("GREEN_ION_Data was not changed", ps)
+        self.assertNotIn("Remove-Item -Recurse", ps)
+        self.assertIn("Rollback-GreenIon.ps1", cmd)
+
+    def test_ground_station_continuously_rediscovers_uno(self):
+        source = (ROOT / "Ground_Station" / "ground_station.py").read_text(encoding="utf-8")
+        self.assertIn("wifi+lora-searching", source)
+        self.assertIn("USB reconnects can come back on a different COM number", source)
+        self.assertIn('"/api/app/diagnostics"', source)
+        self.assertIn("receiver_last_connected_utc", source)
 
     def test_runtime_health_endpoint_reports_separation(self):
         source = (ROOT / "Ground_Station" / "ground_station.py").read_text(encoding="utf-8")
@@ -75,6 +93,8 @@ class V16WindowsPackagingTests(unittest.TestCase):
                 names = set(zf.namelist())
             self.assertIn("GREEN_ION_V16_WINDOWS/START_GREEN_ION.cmd", names)
             self.assertIn("GREEN_ION_V16_WINDOWS/UPDATE_GREEN_ION.cmd", names)
+            self.assertIn("GREEN_ION_V16_WINDOWS/ROLLBACK_GREEN_ION.cmd", names)
+            self.assertIn("GREEN_ION_V16_WINDOWS/Ground_Station/Rollback-GreenIon.ps1", names)
             self.assertIn("GREEN_ION_V16_WINDOWS/Ground_Station/ground_station.py", names)
             self.assertIn("GREEN_ION_V16_WINDOWS/web/index.html", names)
 
