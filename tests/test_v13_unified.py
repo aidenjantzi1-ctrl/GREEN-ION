@@ -68,7 +68,10 @@ class UnifiedBridgeTests(unittest.TestCase):
         bridge.poll_once()
         bridge.now += 10
         no_radio = radio(link_status="stale", packet_age_ms=9000)
-        self.assertIsNone(bridge.unified_status(no_radio))
+        cached = bridge.unified_status(no_radio)
+        self.assertEqual(cached["v13_source"], "wifi_stale")
+        self.assertFalse(cached["v13_wifi_connected"])
+        self.assertTrue(cached["v16_status_stale"])
         self.assertEqual(bridge.link_status(no_radio)["source"], "stale")
 
     def test_radio_gps_stale_does_not_pretend_live_coordinates(self):

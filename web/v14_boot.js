@@ -7,7 +7,7 @@ const nativeFetch=window.fetch.bind(window);
 const FEATHER="http://192.168.4.1";
 const local=location.hostname==="192.168.4.1" ||
   ((location.hostname==="localhost"||location.hostname==="127.0.0.1")&&location.port==="8765");
-const state={wifiAt:0,wifiVersion:null,radio:null,radioAt:0,lastPosition:null,lastPositionAt:0,radioError:"",lastStatus:null,lastWifiStatus:null,lastStatusAt:0,bridge:local&&location.hostname!=="192.168.4.1"};
+const state={wifiAt:0,wifiVersion:null,radio:null,radioAt:0,lastPosition:null,lastPositionAt:0,radioError:"",lastStatus:null,lastWifiStatus:null,lastStatusAt:0,bridge:local&&location.hostname!=="192.168.4.1",statusInFlight:false};
 function wifiFresh(){return Date.now()-state.wifiAt<5500;}
 function radioFresh(){return !!state.radio && Date.now()-state.radioAt<4400;}
 function validPosition(lat,lon){return Number.isFinite(+lat)&&Number.isFinite(+lon)&&Math.abs(+lat)<=90&&Math.abs(+lon)<=180&&!(+lat===0&&+lon===0);}
@@ -54,6 +54,17 @@ function responseForRadio(){
     status:200,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}
   });
 }
+let statusPromise=null;
+async function fetchStatusSerialized(url,requestOptions){
+  if(statusPromise)return (await statusPromise).clone();
+  const pending=nativeFetch(url,requestOptions);
+  statusPromise=pending;state.statusInFlight=true;
+  try{return (await pending).clone();}
+  finally{
+    if(statusPromise===pending)statusPromise=null;
+    state.statusInFlight=false;
+  }
+}
 async function interceptedFetch(input, options){
   const path=typeof input==="string"?input:input?.url;
   if(typeof path!=="string"||!path.startsWith("/api/"))return nativeFetch(input,options);
@@ -69,13 +80,16 @@ async function interceptedFetch(input, options){
     const requestOptions=!local
       ?{...options,targetAddressSpace:"local",cache:options?.cache||"no-store"}
       :options;
-    const response=await nativeFetch(url,requestOptions);
+    const response=isStatus && method==="GET"
+      ?await fetchStatusSerialized(url,requestOptions)
+      :await nativeFetch(url,requestOptions);
     if(isStatus){
       if(!response.ok)throw Error("Feather status unavailable");
       const data=await response.clone().json();
+      const bridgeSource=["wifi","wifi_stale","lora","demo"].includes(data?.v13_source);
       const verified=!!data && (
         (data.v13_source==="wifi" && data.v13_wifi_connected===true) ||
-        (typeof data.relative_altitude_m!=="undefined" &&
+        (!bridgeSource && typeof data.relative_altitude_m!=="undefined" &&
           (typeof data.recorder_mode!=="undefined" || typeof data.firmware_build==="string"))
       );
       if(verified && data.v13_source!=="lora" && data.v13_source!=="demo"){
@@ -84,9 +98,12 @@ async function interceptedFetch(input, options){
         state.lastStatus=data;state.lastWifiStatus=data;state.lastStatusAt=state.wifiAt;
       }else{
         state.wifiAt=0;
+        if(data?.v13_source==="wifi_stale"){
+          state.lastStatus=data;state.lastStatusAt=Date.now();
+        }
       }
       window.dispatchEvent(new Event("green-ion-link"));
-      if(data.v13_source==="lora")return response;
+      if(data.v13_source==="lora"||data.v13_source==="wifi_stale")return response;
       if(!verified)throw Error("This address did not return a GREEN ION Feather status");
     }
     return response;

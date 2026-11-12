@@ -7,7 +7,7 @@
  content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#081420">
 <link rel="manifest" href="/manifest.webmanifest">
-<title>GREEN ION V15 · Flight Dashboard</title>
+<title>GREEN ION V16 · Flight Dashboard</title>
 <style>
 :root{
  --bg:#081420;
@@ -203,7 +203,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  <strong id="v14SourceStatus">Active source: checking...</strong>
  <strong id="v14WifiStatus">Feather Wi-Fi: checking...</strong>
  <strong id="v14LoraStatus">Uno/LoRa: checking...</strong>
- <p class="muted" id="v14ConnectionNotice">Starting GREEN ION V15...</p>
+ <p class="muted" id="v14ConnectionNotice">Starting GREEN ION V16...</p>
 </div>
 
 <section id="status" class="page active">
@@ -710,7 +710,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <div class="row"><span>GPS</span><strong id="v14GpsStatus">--</strong></div>
   <p id="v14ConnectionNoticeDetail" role="status" class="muted"></p>
   <div class="actions"><button id="v15ConnectFeather" class="secondary">Connect to Feather Wi-Fi</button><a href="http://192.168.4.1/" target="_blank" rel="noopener noreferrer">Open Feather directly</a></div>
-  <p id="v15ConnectGuide" class="muted" role="status">Hosted V15: connect this device to the GREEN ION Wi-Fi, then choose Connect. If your browser asks for local network access, allow it. This requires updated Feather firmware with trusted-origin support; Safari may block direct HTTPS-to-HTTP communication. If blocked, open the Feather dashboard and download BIN/SEN files there, then import them into V15 History.</p>
+  <p id="v15ConnectGuide" class="muted" role="status">Hosted V16: connect this device to the GREEN ION Wi-Fi, then choose Connect. If your browser asks for local network access, allow it. This requires updated Feather firmware with trusted-origin support; Safari may block direct HTTPS-to-HTTP communication. If blocked, open the Feather dashboard and download BIN/SEN files there, then import them into V15 History.</p>
   <p class="muted">The website stays on this device. The Feather's independent recorder and its local blue dashboard operate without internet. The Uno is a receive-only radio link; it cannot arm, stop, download or update the rocket.</p>
   <p><a id="v14OpenFeather" href="http://192.168.4.1/">Open Feather's local backup dashboard (192.168.4.1)</a></p>
  </div>
@@ -724,6 +724,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  <h2>Live link diagnostics · Wi-Fi and LoRa together</h2>
  <p class="muted">Receiver-side LoRa packet evidence is independent of full Feather Wi-Fi status. Packet gaps are estimates, not proof of successful SD recording.</p>
  <div class="row"><span>Simultaneous links</span><strong id="v15LinkConcurrent">Checking...</strong></div>
+ <div class="row"><span>Feather Wi-Fi state</span><strong id="v15LinkWifi">Checking...</strong></div>
  <div class="row"><span>LoRa packets</span><strong id="v15LinkCounts">--</strong></div>
  <div class="row"><span>Estimated loss</span><strong id="v15LinkLoss">--</strong></div>
  <div class="row"><span>RSSI / SNR when available</span><strong id="v15LinkSignal">--</strong></div>
@@ -2051,6 +2052,7 @@ const v12Finite=value=>value!==null&&value!==''&&Number.isFinite(Number(value));
 const v12Number=(value,digits=1,suffix="--")=>v12Finite(value)?Number(value).toFixed(digits):suffix;
 const v12FlightNames=["CALIBRATING","WATCHING FOR LAUNCH","RECORDING","LANDED / COMPLETE","RECORDER FAULT","BENCH MAINTENANCE — LAUNCH DETECTION OFF","HOME VERIFICATION — LAUNCH DETECTION OFF"];
 let v12Busy=false;
+let v12Polling=false;
 
 
 const v12PreflightLabels=[
@@ -2169,7 +2171,13 @@ async function v12Fetch(path,method='GET',body=null){
 
 function v12Render(d){
  state=d;connectedOnce=true;
- v12Set('connection',d.v13_source==='lora'?'● LORA TRACKING':d.v13_source==='demo'?'● DEMO DATA':'● V13 WI-FI ONLINE');$('connection').style.color=d.v13_source==='lora'?'#ffdd88':'#72e5ab';
+ const v16Stale=d.v13_source==='wifi_stale'||d.v16_status_stale===true;
+ const v16LinkState=String(d.v16_connection_state||'connected').toUpperCase();
+ const v16Age=d.v16_status_age_ms==null?'unknown':(Number(d.v16_status_age_ms)/1000).toFixed(1)+'s';
+ if(d.v13_source==='lora'){v12Set('connection','● LORA TRACKING');$('connection').style.color='#ffdd88';}
+ else if(d.v13_source==='demo'){v12Set('connection','● DEMO DATA');$('connection').style.color='#ffdd88';}
+ else if(v16Stale){v12Set('connection','● WI-FI '+v16LinkState);$('connection').style.color='#ffdd88';}
+ else {v12Set('connection','● V16 WI-FI CONNECTED');$('connection').style.color='#72e5ab';}
  const altitude=d.relative_altitude_m,pressure=d.pressure_pa,battery=Number(d.battery_v);
  const batteryPct=Math.max(0,Math.min(100,(battery-3.3)/(4.2-3.3)*100));
  const v13RadioPhases=['BOOT','IDLE','ARMED','ASCENT','COAST','DESCENT','LANDED','RECOVERY'];
@@ -2182,7 +2190,7 @@ function v12Render(d){
  v12Set('flightState',phase);v12Set('flightPhase',phase);v12Set('missionIdentity',(d.selected_rocket||'V13 recorder')+(d.selected_motor?' · '+d.selected_motor:''));
  v12Set('prebufferStatus',String(d.prebuffer_records||0)+' buffered records');
  v12Set('prepareStatus',d.home_test_active?'Home verification: launch watching is OFF until end and recalibration.':d.maintenance_mode?'Firmware maintenance: launch watching is disabled until exit and calibration.':d.recording?'Flight logging is active. Dashboard loss cannot stop recording.':'V13 calibrates and watches for launch automatically after boot.');
- v12Set('feedback',d.v13_source==='lora'?'Received LoRa telemetry only; SD recorder status is unknown until Wi-Fi returns.':d.v13_source==='demo'?'SIMULATED telemetry; not real hardware.':d.recording?'Recording '+(d.log_file||'RKT4 file'):'Recorder is '+phase.toLowerCase()+'.');
+ v12Set('feedback',d.v13_source==='lora'?'Received LoRa telemetry only; SD recorder status is unknown until Wi-Fi returns.':d.v13_source==='demo'?'SIMULATED telemetry; not real hardware.':v16Stale?'Last-known Feather status retained but NOT LIVE · '+v16Age+' old · '+v16LinkState+'. Controls remain blocked until a fresh response returns.':d.recording?'Recording '+(d.log_file||'RKT4 file'):'Recorder is '+phase.toLowerCase()+'.');
  v12Set('preflightScore',d.preflight_state||'CHECK');
  if(d.home_interrupted)v12Set('homeInstructions','Previous home session was interrupted. Start a fresh session to clean temporary data and recheck.');
  v12Set('preflightDetail',v12PreflightDetails(d));
@@ -2205,7 +2213,7 @@ function v12Render(d){
  v12Set('temperatureRange',v12Number(d.imu_temperature_c,1)+' °C current');v12Set('launched',Number(d.flight_state)>0?'YES / WATCHING':'NO');v12Set('finish',phase);
  v12Set('uptime',String(d.uptime_s||0)+' s');v12Set('error',Number(d.health)?'Health flags '+d.health:'None');
  v12Set('sysPct',batteryPct.toFixed(0)+'%');v12Set('sysV',v12Number(battery,3)+' V');v12Set('sysWarning',battery<3.5?'LOW':'NORMAL');
- v12Set('freshness',d.imu_ok&&d.barometer_ready?'LIVE':'CHECK SENSOR');v12Set('reads','Runtime loss '+String(d.barometer_runtime_losses||0));
+ v12Set('freshness',v16Stale?'STALE · '+v16Age:(d.imu_ok&&d.barometer_ready?'LIVE':'CHECK SENSOR'));v12Set('reads','Runtime loss '+String(d.barometer_runtime_losses||0));
  v12Set('sensorFrozen',d.barometer_ready?'NOT DETECTED':'UNAVAILABLE');v12Set('calCount',v12Finite(d.calibration_baseline_pa)?'COMPLETE':'IN PROGRESS');
  v12Set('baseline',v12Number(d.calibration_baseline_pa,1)+' Pa');v12Set('calResult',phase);v12Set('calNoise',v12Number(d.calibration_noise_m,3)+' m');
  v12Set('calDrift','Monitored by launch watcher');v12Set('calAge','Current boot');
@@ -2223,7 +2231,7 @@ function v12Render(d){
   if(!paused){if(v12Finite(altitude))append('altitude',Number(altitude));if(v12Finite(pressure))append('pressure',Number(pressure));if(v12Finite(d.imu_temperature_c))append('temperature',Number(d.imu_temperature_c));drawAll();}
 }
 
-async function v12Poll(){if(v12Busy)return;try{v12Render(await v12Fetch('status'));}catch(error){v12Set('connection','● OFFLINE');$('connection').style.color='#ff91a0';v12Set('feedback','Dashboard offline; autonomous recording continues on the Feather.');}}
+async function v12Poll(){if(v12Busy||v12Polling)return;v12Polling=true;try{v12Render(await v12Fetch('status'));}catch(error){v12Set('connection','● RECONNECTING');$('connection').style.color='#ffdd88';v12Set('feedback','No live response yet. The Windows app stays open and keeps retrying; autonomous recording continues on the Feather.');}finally{v12Polling=false;}}
 function v12SetUnits(useImperial){imperial=useImperial;$('metric').classList.toggle('active',!useImperial);$('imperial').classList.toggle('active',useImperial);if(state)v12Render(state);drawAll();drawSavedGraph();}
 async function v12Calibrate(){try{notice((await v12Fetch('calibrate','POST')).message,true);}catch(error){notice(error.message,false);}finally{v12Poll();}}
 async function v12Stop(){if(!confirm('Stop, flush and finalize the active V12 recording?'))return;try{notice((await v12Fetch('stop','POST')).message,true);}catch(error){notice(error.message,false);}finally{v12Poll();}}
@@ -2357,7 +2365,7 @@ v12ShowFlight=async function(name){
 };
 loadFiles=v12LoadFiles;
 v12ConfigureUi();
-notice('V11 blue dashboard restored with live V13 recorder integration. Connecting...');
+notice('GREEN ION V16 Windows reliability mode. Connecting without resetting the mission...');
 setInterval(v12Poll,1200);v12Poll();
 </script>
 

@@ -1,3 +1,13 @@
+# V16 development — Phase 1 Windows reliability
+
+**Current development line: V16.** Phase 1 hardens the Windows localhost ground station before the mission-controller or five-tab redesign. It coalesces overlapping status requests, prevents long file transfers from producing false Wi-Fi failures, adds Connected / Delayed / Reconnecting / Disconnected states, preserves last-known Feather data as explicitly stale, and keeps command authorization on a stricter freshness window. The PWA cache is bumped so the transport fix actually reaches installed clients.
+
+Feather and Uno firmware remain the V14 generation in this phase. RKT4 v2, GIS1, autonomous SD recording, receive-only LoRa, Supabase and OTA safety behavior are unchanged. Real Windows/Feather hardware validation is still pending.
+
+[V16 checklist](docs/V16_IMPLEMENTATION_CHECKLIST.md) · [Phase 1 reliability details](docs/V16_PHASE1_WINDOWS_RELIABILITY.md)
+
+---
+
 # V15 Beta 1 — Local-first dashboard and Windows ground station (published)
 
 **Current application release: V15 Beta 1.** Merged into GitHub `main` and deployed to Vercel production. Includes one-button bench preflight, new Recovery and Help tabs, offline advanced RKT4/GIS1 analysis and health reports, computer-based SHA-256 flight archiving, optional cloud retry when internet returns, battery forecasts, and combined Wi-Fi/LoRa diagnostics. The original dark-blue layout and existing flight formats are preserved.
