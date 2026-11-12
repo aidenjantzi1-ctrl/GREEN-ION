@@ -46,6 +46,8 @@ SAFE_HASH = re.compile(r"[0-9a-f]{64}")
 PUBLIC_CLOUD = {
     "supabaseUrl": os.environ.get("SUPABASE_URL", "https://bqvvtbnjthbiqyljmzfx.supabase.co"),
     "supabaseKey": os.environ.get("SUPABASE_PUBLISHABLE_KEY", "sb_publishable_m8GYtLRB9LKT2bPzxVMESA_yhlgIAZR"),
+    # Optional browser key only. Never place server/admin credentials here.
+    "googleMapsBrowserKey": os.environ.get("GOOGLE_MAPS_BROWSER_KEY", ""),
 }
 try:
     APP_INFO = json.loads((ROOT / "version.json").read_text(encoding="utf-8"))
