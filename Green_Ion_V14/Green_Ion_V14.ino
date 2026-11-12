@@ -1848,7 +1848,7 @@ static void deleteDashboardFlight() {
   // Delete companions/recovery artifacts first and the immutable primary BIN
   // last. If any companion cannot be removed, retain the BIN for recovery.
   for (const char *extension : companions) {
-    const String path = "/" + base + extension;
+    const String path = String("/") + base + extension;
     if (!SD.exists(path)) continue;
     if (!SD.remove(path)) {
       failed = path;
@@ -1866,7 +1866,7 @@ static void deleteDashboardFlight() {
   if (verified) {
     verified = !SD.exists(binPath);
     for (const char *extension : companions) {
-      if (SD.exists("/" + base + extension)) verified = false;
+      if (SD.exists(String("/") + base + extension)) verified = false;
     }
   }
 
