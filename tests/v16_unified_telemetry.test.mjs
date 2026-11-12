@@ -2,6 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {acceptUnifiedTelemetry,conciseTelemetry,unifiedTelemetryState,UNIFIED_SCHEMA} from "../web/v16_telemetry.mjs";
 
+function reset(){
+ unifiedTelemetryState.latest=null;
+ unifiedTelemetryState.receivedAt=0;
+ unifiedTelemetryState.lastPacketId=null;
+}
 function sample(){
  return {
   schema:UNIFIED_SCHEMA,
@@ -25,6 +30,7 @@ function sample(){
 }
 
 test("unified telemetry validates and exposes concise mission values",()=>{
+ reset();
  const data=sample();
  assert.equal(acceptUnifiedTelemetry(data),true);
  const result=conciseTelemetry();
@@ -37,6 +43,7 @@ test("unified telemetry validates and exposes concise mission values",()=>{
 });
 
 test("same exact unified document is deduplicated",()=>{
+ reset();
  const data=sample();
  assert.equal(acceptUnifiedTelemetry(data),true);
  assert.equal(acceptUnifiedTelemetry(data),false);
@@ -44,10 +51,12 @@ test("same exact unified document is deduplicated",()=>{
 });
 
 test("invalid unified telemetry is rejected",()=>{
+ reset();
  assert.throws(()=>acceptUnifiedTelemetry({schema:"wrong"}),/Invalid V16/);
 });
 
 test("missing readings remain null instead of invented zeros",()=>{
+ reset();
  const data=sample();
  data.readings.altitude_m={value:null,source:"none",freshness:"missing",age_ms:null};
  data.readings.latitude={value:null,source:"none",freshness:"missing",age_ms:null};
