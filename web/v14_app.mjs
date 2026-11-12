@@ -16,7 +16,7 @@ import {initLayout} from "./v16_layout.mjs";
 import {initPreferences} from "./v14_preferences.mjs";
 import {initSensorLab} from "./v14_sensor_lab.mjs";
 import {initV16Navigation} from "./v16_navigation.mjs";
-import {initV16Data} from "./v16_data.mjs";
+import {initV16Data,recordTransfer,transferEntry} from "./v16_data.mjs";
 import {initV16Runtime} from "./v16_runtime.mjs";
 import {initV16Visualization} from "./v16_visualization.mjs";
 import {requiresFeather,initTabs} from "./v14_ui.mjs";
@@ -128,18 +128,44 @@ async function autoSaveOneCompletedFlight(){
   for(const file of files){
    if(!t.wifiFresh())break;
    if(!/\.BIN$/i.test(file.name||"")||Number(file.size)<32||Number(file.size)>52428800)continue;
-   const signature=file.name+":"+file.size;
+   const size=Number(file.size),signature=file.name+":"+size;
    if(importSeen.has(signature))continue;
+   const prior=transferEntry(file.name,size);
+   if(["VERIFIED","SKIPPED"].includes(prior?.status)){importSeen.add(signature);continue;}
+   if(Number(prior?.next_retry_at)>Date.now())continue;
+   if(await hasLocalName(file.name,size)){
+    recordTransfer(file.name,size,"SKIPPED",{reason:"matching local name and byte size already stored"});
+    importSeen.add(signature);continue;
+   }
+   recordTransfer(file.name,size,"DOWNLOADING");
    const url="/api/download?name="+encodeURIComponent(file.name);
-   window.dispatchEvent(new CustomEvent("green-ion-v16-download-start",{detail:{name:file.name,size:Number(file.size)||null}}));
-   const bin=await fetch(url,{cache:"no-store"});
-   if(!bin.ok)continue;
+   window.dispatchEvent(new CustomEvent("green-ion-v16-download-start",{detail:{name:file.name,size}}));
+   let bin;
+   try{bin=await fetch(url,{cache:"no-store"});}
+   catch(error){
+    const attempts=transferEntry(file.name,size)?.attempts||1;
+    recordTransfer(file.name,size,"DEFERRED",{error:String(error.message||error).slice(0,160),
+     next_retry_at:Date.now()+Math.min(120000,5000*Math.pow(2,Math.min(attempts,5)-1))});
+    continue;
+   }
+   if(!bin.ok){
+    const attempts=transferEntry(file.name,size)?.attempts||1;
+    recordTransfer(file.name,size,"DEFERRED",{error:"HTTP "+bin.status,
+     next_retry_at:Date.now()+Math.min(120000,5000*Math.pow(2,Math.min(attempts,5)-1))});
+    continue;
+   }
    const data=await bin.arrayBuffer();
-   if(data.byteLength!==Number(file.size)){
-    text("v14HistoryNotice","Partial Feather transfer rejected: "+file.name+" (expected "+file.size+" bytes, received "+data.byteLength+")");
+   if(data.byteLength!==size){
+    const attempts=transferEntry(file.name,size)?.attempts||1;
+    recordTransfer(file.name,size,"DEFERRED",{
+     error:"partial transfer: expected "+size+" bytes, received "+data.byteLength,
+     next_retry_at:Date.now()+Math.min(120000,5000*Math.pow(2,Math.min(attempts,5)-1))
+    });
+    text("v14HistoryNotice","Partial Feather transfer rejected: "+file.name+" (expected "+size+" bytes, received "+data.byteLength+")");
     continue;
    }
    const result=await saveLocalFile({name:file.name,bytes:data,origin:"Feather SD completed flight"});
+   recordTransfer(file.name,size,"VERIFIED",{checksum:result.record.checksum,verified_at:new Date().toISOString(),next_retry_at:null});
    importSeen.add(signature);
    for(const [route,ext] of [["sensors","SEN"],["metadata","TXT"]]){
     const sibling=file.name.replace(/\.BIN$/i,"."+ext);
