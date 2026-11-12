@@ -1,3 +1,11 @@
+# V16 development — Phase 7 advanced visualization
+
+Phase 7 adds offline postflight 3D trajectory replay and a relative gyro-integrated digital-twin view from immutable RKT4/GIS1 originals. It runs entirely on the browser/computer and explicitly avoids claims of absolute attitude or aerodynamic simulation.
+
+[Phase 7 visualization](docs/V16_PHASE7_ADVANCED_VISUALIZATION.md) · [V16 checklist](docs/V16_IMPLEMENTATION_CHECKLIST.md)
+
+---
+
 # V16 development — Phase 6 Windows packaging and updates
 
 Phase 6 adds a one-click Windows launcher, automatic Uno discovery, package/runtime diagnostics, deterministic CI ZIPs and a checksum-verified side-by-side updater. User flight data remains outside the replaceable application folder.
