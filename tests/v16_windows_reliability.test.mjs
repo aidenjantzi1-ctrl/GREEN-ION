@@ -5,11 +5,11 @@ import {runInNewContext} from "node:vm";
 
 const boot=readFileSync(new URL("../web/v14_boot.js",import.meta.url),"utf8");
 
-function sandboxFor(nativeFetch){
+function sandboxFor(nativeFetch,locationOverride=null){
  const win={fetch:nativeFetch,addEventListener:()=>{},dispatchEvent:()=>{}};
  const sandbox={
   window:win,
-  location:{hostname:"127.0.0.1",port:"8765",protocol:"http:"},
+  location:locationOverride||{hostname:"127.0.0.1",port:"8765",protocol:"http:"},
   Response,Headers,Event,Date,console,setTimeout,clearTimeout
  };
  runInNewContext(boot,sandbox);
@@ -71,7 +71,7 @@ test("V16.2 direct browser keeps brief Wi-Fi dropout visible but blocks commands
    version:16,v13_source:"wifi",v13_wifi_connected:true,
    relative_altitude_m:21,recorder_mode:1,pressure_pa:100900
   }),{status:200,headers:{"Content-Type":"application/json"}});
- });
+ },{hostname:"192.168.4.1",port:"80",protocol:"http:"});
  await win.fetch("/api/status",{cache:"no-store"});
  assert.equal(win.GREEN_ION_TRANSPORT.wifiFresh(),true);
  assert.equal(win.GREEN_ION_TRANSPORT.controlsVerified(),true);
