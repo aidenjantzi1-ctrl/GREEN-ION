@@ -65,7 +65,15 @@ V16 is the next application/ground-station generation after V15 Beta 1. Feather 
   - [x] Route Utilities + Updates + Help into System.
   - [x] Keep programmatic legacy-page navigation working while highlighting the correct primary group.
   - [x] Add keyboard navigation and regression coverage.
-- [ ] **Phase 5 — Data and cloud**
+- [x] **Phase 5 — Data and cloud**
+  - [x] Group immutable BIN/SEN/TXT siblings into source-aware flight packages.
+  - [x] Surface missing companions and checksum collisions without overwriting originals.
+  - [x] Add local SHA-256 reread verification and exportable package manifest.
+  - [x] Keep local browser/disk originals authoritative.
+  - [x] Expose explicit cloud states: signed out, unavailable, offline, idle, pending, retrying, synced and error.
+  - [x] Preserve optional Supabase retry/dedup/verified restore behavior.
+  - [x] Ensure cloud availability never gates recording, recovery or local analysis.
+  - [x] Add package/cloud regression coverage.
 - [ ] **Phase 6 — Windows packaging and updates**
 - [ ] **Phase 7 — Advanced visualization, 3D trajectory and digital twin**
 - [ ] **Phase 8 — Real hardware integration and measured evidence**
