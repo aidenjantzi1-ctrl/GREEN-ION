@@ -1,3 +1,13 @@
+# V16 Phase 4 — Five-tab interface — November 11, 2026
+
+- Replaced thirteen visible top-level dashboard tabs with Mission, Live, Recovery, Data and System.
+- Preserved every existing detailed page as a contextual subpage instead of removing features.
+- Kept legacy programmatic navigation compatible while synchronizing the new primary-tab highlight.
+- Added contextual shortcuts and Alt+1 through Alt+5 keyboard navigation.
+- Added automated five-tab regression coverage and refreshed the offline cache.
+
+---
+
 # V16 Phase 3 — Mission workflow — November 11, 2026
 
 - Added a persistent mission state machine from preflight through recovery, download, analysis and completion.
