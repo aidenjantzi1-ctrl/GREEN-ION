@@ -126,10 +126,24 @@ function drawBuffer(gl,buf,count,mode,color,mvp,pointSize=4){
  gl.enableVertexAttribArray(p.pos);gl.vertexAttribPointer(p.pos,3,gl.FLOAT,false,0,0);gl.uniformMatrix4fv(p.mvp,false,mvp);
  gl.uniform4fv(p.color,color);gl.uniform1f(p.pointSize,pointSize);gl.drawArrays(mode,0,count);
 }
+function displayProfile(){try{return JSON.parse(localStorage.getItem("green-ion-v16.2-active-profile")||"{}");}catch{return {};}}
+function mountingVector(v){
+ const axis=String(displayProfile().mountingAxis||"+Z");
+ const [x,y,z]=v;
+ if(axis==="-Z")return [x,-y,-z];
+ if(axis==="+X")return [z,y,-x];
+ if(axis==="-X")return [-z,y,x];
+ if(axis==="+Y")return [x,z,-y];
+ if(axis==="-Y")return [x,-z,y];
+ return v;
+}
 function transformedRocket(point,q,scale){
- const out=[];for(let i=0;i<ROCKET.length;i+=3){
-  const local=[ROCKET[i]*scale,ROCKET[i+1]*scale,ROCKET[i+2]*scale];
-  const v=q?rotateVector(q,local):local;out.push(point.x+v[0],point.y+v[1],point.z+v[2]);
+ const p=displayProfile(),aspect=Number(p.lengthCm)>0&&Number(p.diameterCm)>0?Number(p.lengthCm)/Number(p.diameterCm):10;
+ const axial=clamp(aspect/10,.65,1.7),radial=clamp(10/aspect,.7,1.4),out=[];
+ for(let i=0;i<ROCKET.length;i+=3){
+  let local=[ROCKET[i]*scale*radial,ROCKET[i+1]*scale*radial,ROCKET[i+2]*scale*axial];
+  local=mountingVector(local);const v=q?rotateVector(q,local):local;
+  out.push(point.x+v[0],point.y+v[1],point.z+v[2]);
  }return out;
 }
 function effectGeometry(point,scale,phase){
