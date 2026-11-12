@@ -7,6 +7,7 @@ $Api = "https://api.github.com/repos/$Repo/releases?per_page=20"
 $StateRoot = Join-Path $env:LOCALAPPDATA "GREEN_ION"
 $AppRoot = Join-Path $StateRoot "App"
 $CurrentFile = Join-Path $StateRoot "current.txt"
+$PreviousFile = Join-Path $StateRoot "previous.txt"
 New-Item -ItemType Directory -Force -Path $AppRoot | Out-Null
 
 Write-Host "[UPDATE] Checking official GREEN ION V16 GitHub releases..."
@@ -54,10 +55,17 @@ try {
   } else {
     Write-Host "[UPDATE] This exact verified package is already installed; leaving its files untouched."
   }
+  if (Test-Path $CurrentFile) {
+    $OldCurrent = (Get-Content $CurrentFile -Raw).Trim()
+    if ($OldCurrent -and $OldCurrent -ne $Target -and (Test-Path $OldCurrent)) {
+      Set-Content -Path $PreviousFile -Value $OldCurrent -Encoding UTF8
+    }
+  }
   Set-Content -Path $CurrentFile -Value $Target -Encoding UTF8
   Write-Host "[UPDATE] Selected verified $Tag side-by-side at:"
   Write-Host "         $Target"
   Write-Host "[UPDATE] Your GREEN_ION_Data folder was not changed."
+  if (Test-Path $PreviousFile) { Write-Host "[UPDATE] Previous app version is retained for one-click rollback." }
   Write-Host "[UPDATE] Close the currently running ground-station window, then run START_GREEN_ION.cmd again."
 } finally {
   Remove-Item -Recurse -Force $TempRoot -ErrorAction SilentlyContinue
