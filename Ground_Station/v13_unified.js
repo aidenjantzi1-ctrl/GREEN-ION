@@ -110,6 +110,15 @@
       $("v13Notice").textContent = "LOCAL GROUND STATION ERROR · " + error.message;
     }
   }
-  setInterval(update, 800);
-  update();
+  // The link status is served locally from cached bridge state; do not stack
+  // browser status requests when Windows or the browser is busy.
+  let checking = false;
+  async function checkLink() {
+    if (checking) return;
+    checking = true;
+    try { await update(); }
+    finally { checking = false; }
+  }
+  setInterval(checkLink, 1500);
+  checkLink();
 })();
