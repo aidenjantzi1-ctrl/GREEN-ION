@@ -123,6 +123,8 @@ class FusionTests(unittest.TestCase):
         self.assertFalse(result["integrity"]["radio_protocol_compatible"])
         self.assertEqual(result["integrity"]["expected_radio_protocol"], 2)
         self.assertEqual(result["integrity"]["radio_protocol"], 99)
+        self.assertEqual(result["primary_source"], "none")
+        self.assertEqual(result["links"]["lora"]["freshness"], "stale")
 
 
 class RadioStoreTests(unittest.TestCase):
