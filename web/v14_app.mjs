@@ -40,7 +40,7 @@ function mode(){
  text("v14PacketStatus","Radio age: "+formatAge(t.state.radioAt?Date.now()-t.state.radioAt:null)+" · RSSI: "+(packet?.rssi_dbm??"--")+" dBm");
  const pos=t.lastPosition(),age=t.positionAge();
  text("v14GpsStatus",pos?"Last valid GPS: "+pos[0].toFixed(6)+", "+pos[1].toFixed(6)+" · "+formatAge(age)+" old":"Last valid GPS: not received");
- const message=source==="wifi"?"Feather status verified. SD, guided tests, calibration and bench OTA require Feather Wi-Fi.":
+ const message=source==="wifi"?(t.controlsVerified()?"Feather status verified. SD, guided tests, calibration and bench OTA require Feather Wi-Fi.":"Feather telemetry is temporarily delayed. Last observation remains visible, but controls are paused until a fresh status arrives."):
   source==="lora"?"Radio telemetry only. SD recording state is unknown; all Feather controls and downloads are blocked.":
   "No live Feather or LoRa readings. The installed website and locally saved flight history remain available.";
  note(message);
@@ -55,7 +55,7 @@ function mode(){
 }
 function guardLiveControls(event){
  const button=event.target.closest?.("button");
- if(!button || t.wifiFresh() || !requiresFeather(button.id))return;
+ if(!button || t.controlsVerified() || !requiresFeather(button.id))return;
  // Only block commands requiring hardware. Offline graphs, saved-flight
  // analysis, CSV/PDF export, theme and tab navigation remain usable.
  event.preventDefault();event.stopImmediatePropagation();
