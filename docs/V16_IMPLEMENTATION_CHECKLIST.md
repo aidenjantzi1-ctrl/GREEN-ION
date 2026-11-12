@@ -57,14 +57,18 @@ V16 is the next application/ground-station generation after V15 Beta 1. Feather 
   - [x] Export bounded mission transition/evidence JSON.
   - [x] Add mission workflow regression coverage.
 - [x] **Phase 4 — Five-tab interface**
-  - [x] Reduce visible top-level navigation to Mission / Live / Recovery / Data / System.
-  - [x] Keep legacy feature pages available as contextual subpages instead of deleting tools.
-  - [x] Route Flight + Testing into Mission.
-  - [x] Route Field + Connections into Live.
-  - [x] Route Storage + History + Cloud into Data.
-  - [x] Route Utilities + Updates + Help into System.
-  - [x] Keep programmatic legacy-page navigation working while highlighting the correct primary group.
-  - [x] Add keyboard navigation and regression coverage.
+  - [x] Expose exactly Dashboard / Flight / Flights & Analysis / Testing / Settings & Advanced.
+  - [x] Add a concise Dashboard mission summary and Prepare for Flight shortcut.
+  - [x] Keep detailed live telemetry/graphs expandable instead of always visible.
+  - [x] Keep the Mission Controller first in Flight and combine recovery into the flight workflow.
+  - [x] Combine Storage + History into Flights & Analysis without breaking offline analysis.
+  - [x] Keep one-button preflight and hardware/storage checks in Testing.
+  - [x] Group profiles, sensors, radio, cloud, updates, help and diagnostics under expandable Settings & Advanced sections.
+  - [x] Preserve hidden legacy tab aliases for internal/backward-compatible navigation.
+  - [x] Route old destinations to their new visible parent tab.
+  - [x] Preserve Alt+1…Alt+5 keyboard navigation for the exact five tabs.
+  - [x] Cache both V16 layout/navigation modules for offline updates.
+  - [x] Add strict regression coverage that fails if visible navigation stops being exactly five tabs.
 - [ ] **Phase 5 — Data and cloud**
 - [ ] **Phase 6 — Windows packaging and updates**
 - [ ] **Phase 7 — Advanced visualization, 3D trajectory and digital twin**
