@@ -15,6 +15,9 @@ test("Feather SD delete UI is explicit and backup-safe",()=>{
  assert.match(html,/If launch watching is active, GREEN ION will restart stationary calibration/);
  assert.doesNotMatch(html,/protect\?name=/);
  assert.doesNotMatch(html,/note\?name=/);
+ assert.doesNotMatch(html,/integrity\?name=/);
+ assert.doesNotMatch(html,/\/api\/manifest/);
+ assert.match(html,/\/api\/sensors\?name=/);
 });
 
 test("SD delete UI blocks destructive action during critical states",()=>{
