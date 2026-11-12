@@ -1,3 +1,15 @@
+# V16 Phase 7 — Advanced visualization — November 11, 2026
+
+- Added offline postflight 3D trajectory reconstruction from immutable RKT4/GIS1 originals.
+- Uses verified current GPS for local East/North track and pressure-derived relative altitude for vertical position.
+- Falls back to pressure-only vertical replay when GIS1/GPS is unavailable instead of inventing a track.
+- Added measured-gyro relative orientation replay using normalized quaternion integration.
+- Explicitly labels gyro drift, arbitrary initial reference, generic/non-scale rocket rendering and non-simulation limits.
+- Added orbit, zoom, timeline replay and lightweight Canvas rendering; no visualization work runs on the Feather.
+- Added synthetic trajectory/orientation regression coverage and offline caching.
+
+---
+
 # V16 Phase 6 — Windows packaging and updates — November 11, 2026
 
 - Added one-click Windows startup with automatic Uno discovery and no normal COM-port prompt.

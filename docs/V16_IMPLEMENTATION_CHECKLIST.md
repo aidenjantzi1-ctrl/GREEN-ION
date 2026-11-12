@@ -89,7 +89,16 @@ V16 is the next application/ground-station generation after V15 Beta 1. Feather 
   - [x] Build and verify a complete V16 Windows ZIP artifact in CI.
   - [x] Ensure Windows-only source changes trigger the main CI workflow.
   - [x] Add packaging/updater regression coverage.
-- [ ] **Phase 7 — Advanced visualization, 3D trajectory and digital twin**
+- [x] **Phase 7 — Advanced visualization, 3D trajectory and digital twin**
+  - [x] Keep all 3D/replay processing off the Feather and postflight-only.
+  - [x] Reconstruct local East/North trajectory from verified current GIS1 GPS fixes.
+  - [x] Prefer synchronized pressure-derived relative altitude for the vertical track.
+  - [x] Fall back to an honest pressure-only vertical replay when GIS1/GPS is unavailable.
+  - [x] Integrate measured gyro rates into normalized relative-orientation quaternions.
+  - [x] Explicitly label orientation drift/initial-reference limits; never claim absolute attitude.
+  - [x] Add orbit/zoom/replay controls with a generic, non-scale rocket marker.
+  - [x] Preserve full-resolution original BIN/SEN data separately from display decimation.
+  - [x] Add synthetic reconstruction/quaternion regression coverage.
 - [ ] **Phase 8 — Real hardware integration and measured evidence**
 
 ## Validation boundary
