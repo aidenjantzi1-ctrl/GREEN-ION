@@ -1,3 +1,14 @@
+# V16 Phase 5 — Data and cloud — November 11, 2026
+
+- Grouped immutable BIN/SEN/TXT originals into flight packages with completeness and collision status.
+- Added local SHA-256 reread verification and an exportable package manifest.
+- Added explicit optional-cloud states: signed out, unavailable, offline, idle, pending, retrying, synced and error.
+- Kept local browser/disk originals authoritative; cloud never gates recording, recovery or analysis.
+- Preserved checksum deduplication and checksum-verified cloud restore.
+- Added data/cloud regression coverage and refreshed offline assets.
+
+---
+
 # V16 Phase 4 — Five-tab interface — November 11, 2026
 
 - Replaced thirteen visible top-level dashboard tabs with Mission, Live, Recovery, Data and System.
