@@ -2,8 +2,8 @@
 
 GREEN ION saves original **BIN, SEN and TXT** files to the browser first. Supabase is a secondary user-controlled backup, not a requirement for recording.
 
-1. Open [V14](https://green-ion-beta.vercel.app/) → **Cloud** and create an email/password account or sign in. Confirm the email if requested.
-2. In **System**, leave **Automatic cloud sync** enabled for background upload when internet is usable. Turn it off whenever you prefer manual-only backups.
+1. Open GREEN ION → **Settings & Advanced → Cloud backup** and create an email/password account or sign in. Confirm the email if requested.
+2. In **Settings & Advanced**, leave **Automatic cloud sync** enabled for background upload when internet is usable. Turn it off whenever you prefer manual-only backups.
 3. Use **Back up local recordings now** to start a manual backup and view per-file progress, number stored and approximate usage.
 4. On another device, sign into the same account and select **Restore cloud recordings**. Only records that pass SHA-256 and size checks are saved; existing originals are not overwritten.
 5. Keep an offline exported archive and the SD card as independent backups.
@@ -15,3 +15,10 @@ GREEN ION saves original **BIN, SEN and TXT** files to the browser first. Supaba
 **Not yet physically verified:** account registration, email confirmation, full upload/restore and token renewal need an end-to-end test using actual devices and an account. Database security checks alone are not a complete live validation.
 
 Sources: [Supabase Auth](https://supabase.com/docs/guides/auth), [Storage security](https://supabase.com/docs/guides/storage/security/access-control), [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security).
+
+
+## V16 local-first behavior
+
+V16 stores and verifies originals locally before optional cloud upload. The cloud queue is file-granular and restart-safe: already stored SHA-256 checksums are skipped on retry, while failed files keep explicit retry/error state. Cloud restore validates byte count and SHA-256 before saving and never overwrites an existing original.
+
+The connected GREEN ION project was audited read-only for owner-scoped RLS, authenticated table grants and a private `green-ion-flights` bucket. See [V16 Phase 5 Data & Cloud](V16_PHASE5_DATA_CLOUD.md).
