@@ -316,7 +316,10 @@ export function initMission(){
    if($("v16MissionPhysical")?.checked)apply({type:"CONFIRM_PHYSICAL"});
   }else if(action==="prelaunch")apply({type:"BEGIN_PRELAUNCH"});
   else if(action==="recovery")apply({type:"BEGIN_RECOVERY"});
-  else if(action==="open-recovery")document.querySelector('[data-tab="recovery"]')?.click();
+  else if(action==="open-recovery"){
+   document.querySelector('nav.tabs [data-tab="flight"]')?.click();
+   setTimeout(()=>document.getElementById("v15RecoveryCard")?.scrollIntoView({behavior:"smooth",block:"start"}),0);
+  }
   else if(action==="open-report")document.querySelector('[data-tab="history"]')?.click();
   else if(action==="retry"){
    apply({type:"RETRY_PREFLIGHT"});
