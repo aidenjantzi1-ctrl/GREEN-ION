@@ -6,10 +6,15 @@ on:
       - "web/**"
       - "Green_Ion_V14/**"
       - "Ground_Receiver/**"
+      - "Ground_Station/**"
+      - "tools/build_v16_windows_package.py"
+      - "START_GREEN_ION.cmd"
+      - "UPDATE_GREEN_ION.cmd"
       - "libraries/**"
       - "tests/**"
       - ".github/workflows/build-v14.yml"
       - "docs/V14_*"
+      - "docs/V16_*"
       - "README.md"
   pull_request:
     branches: [main]
@@ -54,6 +59,7 @@ jobs:
           test -s web/dist/v16_layout.mjs
           test -s web/dist/v16_navigation.mjs
           test -s web/dist/v16_data.mjs
+          test -s web/dist/v16_runtime.mjs
           grep -q 'id="homeAuto"' web/dist/index.html
           grep -q 'id="v15ConnectFeather"' web/dist/index.html
           grep -q 'GREEN ION V16' web/dist/index.html
@@ -68,6 +74,65 @@ jobs:
         with:
           name: green-ion-v14-web
           path: web/dist/
+          if-no-files-found: error
+
+  windows-package:
+    needs: app-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: green-ion-v14-web
+          path: built-web
+      - name: Parse Windows PowerShell launch/update scripts
+        shell: pwsh
+        run: |
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("Ground_Station/Start-GreenIon.ps1",[ref]$null,[ref]$errors)
+          if ($errors.Count) { $errors | Format-List | Out-String | Write-Error; exit 1 }
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("Ground_Station/Update-GreenIon.ps1",[ref]$null,[ref]$errors)
+          if ($errors.Count) { $errors | Format-List | Out-String | Write-Error; exit 1 }
+      - name: Build V16 Windows package
+        run: python3 tools/build_v16_windows_package.py --website built-web --output windows-release --commit "$GITHUB_SHA"
+      - name: Validate Windows package
+        run: |
+          test -s windows-release/GREEN_ION_V16_WINDOWS.zip
+          test -s windows-release/GREEN_ION_V16_WINDOWS.sha256
+          test -s windows-release/GREEN_ION_V16_WINDOWS_MANIFEST.json
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          from zipfile import ZipFile
+          root=Path("windows-release")
+          z=root/"GREEN_ION_V16_WINDOWS.zip"
+          expected=(root/"GREEN_ION_V16_WINDOWS.sha256").read_text().split()[0]
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==expected
+          with ZipFile(z) as a:
+            names=set(a.namelist())
+          required={
+            "GREEN_ION_V16_WINDOWS/START_GREEN_ION.cmd",
+            "GREEN_ION_V16_WINDOWS/UPDATE_GREEN_ION.cmd",
+            "GREEN_ION_V16_WINDOWS/Ground_Station/ground_station.py",
+            "GREEN_ION_V16_WINDOWS/Ground_Station/Start-GreenIon.ps1",
+            "GREEN_ION_V16_WINDOWS/Ground_Station/Update-GreenIon.ps1",
+            "GREEN_ION_V16_WINDOWS/Ground_Station/version.json",
+            "GREEN_ION_V16_WINDOWS/web/index.html",
+          }
+          missing=required-names
+          assert not missing, missing
+          m=json.loads((root/"GREEN_ION_V16_WINDOWS_MANIFEST.json").read_text())
+          assert m["zipSha256"]==expected
+          assert m["safety"]["preservesUserData"] is True
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GREEN_ION_V16_WINDOWS
+          path: |
+            windows-release/GREEN_ION_V16_WINDOWS.zip
+            windows-release/GREEN_ION_V16_WINDOWS.sha256
+            windows-release/GREEN_ION_V16_WINDOWS_MANIFEST.json
           if-no-files-found: error
 
   firmware-build:
@@ -102,7 +167,7 @@ jobs:
 
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [app-tests, firmware-build]
+    needs: [app-tests, firmware-build, windows-package]
     permissions:
       contents: write
     runs-on: ubuntu-latest

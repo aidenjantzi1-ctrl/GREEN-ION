@@ -78,7 +78,17 @@ V16 is the next application/ground-station generation after V15 Beta 1. Feather 
   - [x] Preserve optional Supabase retry/dedup/verified restore behavior.
   - [x] Ensure cloud availability never gates recording, recovery or local analysis.
   - [x] Add package/cloud regression coverage.
-- [ ] **Phase 6 — Windows packaging and updates**
+- [x] **Phase 6 — Windows packaging and updates**
+  - [x] Add one-click START_GREEN_ION.cmd with no normal COM-port prompt.
+  - [x] Auto-detect Python 3.10+ and an unambiguous Arduino Uno.
+  - [x] Pin pyserial and fall back to Wi-Fi-only mode if USB support is unavailable.
+  - [x] Keep GREEN_ION_Data outside the replaceable application folder.
+  - [x] Add checksum-verified, side-by-side official-release updater.
+  - [x] Never kill the running app or overwrite user data during update.
+  - [x] Add /api/app/health and System runtime diagnostics.
+  - [x] Build and verify a complete V16 Windows ZIP artifact in CI.
+  - [x] Ensure Windows-only source changes trigger the main CI workflow.
+  - [x] Add packaging/updater regression coverage.
 - [ ] **Phase 7 — Advanced visualization, 3D trajectory and digital twin**
 - [ ] **Phase 8 — Real hardware integration and measured evidence**
 
