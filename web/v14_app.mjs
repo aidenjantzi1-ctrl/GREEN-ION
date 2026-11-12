@@ -113,6 +113,12 @@ async function autoSaveOneCompletedFlight(){
   const response=await fetch("/api/files",{cache:"no-store"});
   if(!response.ok)return;
   const result=await response.json(),files=Array.isArray(result.files)?result.files:[];
+  const current=String(status.log_file||"");
+  files.sort((a,b)=>{
+   const ac=String(a.name||"")===current,bc=String(b.name||"")===current;
+   if(ac!==bc)return ac?-1:1;
+   return String(b.name||"").localeCompare(String(a.name||""));
+  });
   let saved=0;
   for(const file of files){
    if(!t.wifiFresh())break;
