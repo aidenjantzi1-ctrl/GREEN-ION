@@ -379,7 +379,8 @@ static void initializeSensors() {
 }
 
 static void initializeStorage() {
-  digitalWrite(config::PIN_LORA_CS, HIGH);
+  SdSpiScope bus;
+  if (!bus) { state.sdOk = false; return; }
   ++state.sdMountAttempts;
   state.sdOk = SD.begin(config::PIN_SD_CS, SPI);
   if (!state.sdOk) healthBits |= green_ion::HEALTH_SD_INIT_ERROR;
@@ -398,6 +399,8 @@ static bool isV12JournalName(const String &name, const char *suffix) {
 
 static size_t readCheckpointFile(const String &path,
                                  uint8_t out[green_ion::recovery::kCheckpointBytes]) {
+  SdSpiScope bus;
+  if (!bus) return 0;
   File file = SD.open(path, FILE_READ);
   if (!file) return 0;
   const size_t fileBytes = static_cast<size_t>(file.size());
@@ -420,6 +423,8 @@ class SdRecoveryCommitter : public green_ion::recovery::RecoveryCommitter {
         slotAPath_(slotAPath), slotBPath_(slotBPath) {}
 
   bool saveReport() override {
+    SdSpiScope bus;
+    if (!bus) return false;
     if (SD.exists(reportPath_) && !SD.remove(reportPath_)) return false;
     File recovery = SD.open(reportPath_, FILE_WRITE);
     const bool saved = recovery && recovery.print(report_) == report_.length();
@@ -431,11 +436,13 @@ class SdRecoveryCommitter : public green_ion::recovery::RecoveryCommitter {
   }
 
   bool removeSlotA() override {
-    return !SD.exists(slotAPath_) || SD.remove(slotAPath_);
+    SdSpiScope bus;
+    return bus && (!SD.exists(slotAPath_) || SD.remove(slotAPath_));
   }
 
   bool removeSlotB() override {
-    return !SD.exists(slotBPath_) || SD.remove(slotBPath_);
+    SdSpiScope bus;
+    return bus && (!SD.exists(slotBPath_) || SD.remove(slotBPath_));
   }
 
  private:
@@ -450,6 +457,8 @@ static void appendSensorRecoveryEvidence(
     const uint8_t rkt4Header[green_ion::rkt4::kHeaderBytes], String &report,
     const green_ion::recovery::Checkpoint &checkpoint,
     uint32_t &validSensorRecords, bool &sensorIssue) {
+  SdSpiScope bus;
+  if (!bus) { validSensorRecords = 0; sensorIssue = true; return; }
   validSensorRecords = 0;
   sensorIssue = false;
   String sensorLeaf = binLeaf;
@@ -540,6 +549,8 @@ static void appendSensorRecoveryEvidence(
 }
 
 static bool recoverInterruptedLog(const String &journalLeaf) {
+  SdSpiScope bus;
+  if (!bus) { ++recoveryPending; return false; }
   String binLeaf = journalLeaf;
   binLeaf.replace(journalLeaf.endsWith(".JRB") ? ".JRB" : ".JRA", ".BIN");
   const String binPath = "/" + binLeaf;
@@ -620,6 +631,8 @@ static void recoverInterruptedLogs() {
     recoveryStatus = "SD unavailable; recovery not scanned";
     return;
   }
+  SdSpiScope bus;
+  if (!bus) { ++recoveryPending; recoveryStatus = "Shared SPI busy; recovery deferred"; return; }
   // Two bits per possible V12D000..V12D999 log. Discovery completes before
   // any journal is removed, avoiding mutation while the FAT directory is open.
   uint8_t journalSlots[250] = {};
@@ -1400,6 +1413,8 @@ static bool updateLaunchWatcher(uint32_t nowMs, bool valid) {
 static bool saveCheckpoint(uint32_t nowMs) {
   if (!state.sdOk || !recorderCore.recording() || !logFile ||
       !checkpointFilenameA.length() || !checkpointFilenameB.length()) return false;
+  SdSpiScope bus;
+  if (!bus) { ++checkpointFailures; return false; }
   // Throttle both successful and failed journal attempts so primary BIN writes
   // always keep priority over recovery metadata.
   lastCheckpointMs = nowMs;
@@ -1447,6 +1462,8 @@ static bool saveCheckpoint(uint32_t nowMs) {
 }
 
 static bool writeStartMetadata() {
+  SdSpiScope bus;
+  if (!bus) { ++metadataFailures; return false; }
   char encoded[320];
   size_t encodedBytes = 0;
   const green_ion::metadata::FlightStart metadata = {
@@ -1490,6 +1507,8 @@ static bool writeStartMetadata() {
 }
 
 static bool writeCompletionMetadata(uint32_t nowMs, uint32_t fileBytes) {
+  SdSpiScope bus;
+  if (!bus) { ++metadataFailures; return false; }
   char encoded[320];
   size_t encodedBytes = 0;
   const green_ion::metadata::FlightComplete metadata = {
@@ -1523,6 +1542,8 @@ static bool writeCompletionMetadata(uint32_t nowMs, uint32_t fileBytes) {
 static bool finalizeRecording(uint32_t nowMs) {
   if (recorderMode != RECORDER_RECORDING || !recorderCore.recording() || !logFile)
     return false;
+  SdSpiScope bus;
+  if (!bus) return false;
   if (!recorderCore.stop()) {
     ++finalizationFailures;
     healthBits |= green_ion::HEALTH_SD_WRITE_ERROR;
@@ -1562,7 +1583,8 @@ static bool finalizeRecording(uint32_t nowMs) {
 
 static bool openRawLog(uint32_t nowMs, uint32_t nowUs) {
   if (!state.sdOk || logFile) return static_cast<bool>(logFile);
-  digitalWrite(config::PIN_LORA_CS, HIGH);
+  SdSpiScope bus;
+  if (!bus) return false;
   for (uint16_t sequence = 0; sequence < 1000; ++sequence) {
     char candidate[14];
     snprintf(candidate, sizeof(candidate), "/V12D%03u.BIN", sequence);
@@ -2053,6 +2075,12 @@ static void deleteDashboardFlight() {
       "{\"success\":false,\"message\":\"SD card is unavailable\"}");
     return;
   }
+  SdSpiScope bus;
+  if (!bus) {
+    dashboardServer.send(503, "application/json",
+      "{\"success\":false,\"message\":\"Shared SPI is busy; retry after the current recorder operation\"}");
+    return;
+  }
 
   const String name = dashboardServer.arg("name");
   const String confirmation = dashboardServer.arg("confirm");
@@ -2153,6 +2181,12 @@ static void sendDashboardFiles() {
                          "{\"success\":false,\"message\":\"SD card is unavailable\"}");
     return;
   }
+  SdSpiScope bus;
+  if (!bus) {
+    dashboardServer.send(503, "application/json",
+                         "{\"success\":false,\"message\":\"Shared SPI busy; retry shortly\"}");
+    return;
+  }
   String body = "{\"success\":true,\"used\":" + String(SD.usedBytes()) +
                 ",\"total\":" + String(SD.totalBytes()) + ",\"files\":[";
   bool first = true;
@@ -2207,7 +2241,12 @@ static void sendDashboardDownload(bool metadata, bool sensors = false) {
     return;
   }
   const String path = "/" + name;
-  digitalWrite(config::PIN_LORA_CS, HIGH);
+  SdSpiScope bus;
+  if (!bus) {
+    dashboardServer.send(503, "application/json",
+                         "{\"success\":false,\"message\":\"Shared SPI busy; retry shortly\"}");
+    return;
+  }
   File file = SD.open(path, FILE_READ);
   if (!file) {
     dashboardServer.send(404, "application/json",
@@ -2231,9 +2270,14 @@ static void runDashboardSdTest() {
                          "{\"success\":false,\"message\":\"SD card is unavailable\"}");
     return;
   }
+  SdSpiScope bus;
+  if (!bus) {
+    dashboardServer.send(503, "application/json",
+                         "{\"success\":false,\"message\":\"Shared SPI busy; retry shortly\"}");
+    return;
+  }
   static const char path[] = "/V12SD.TMP";
   static const uint8_t pattern[] = {0x47, 0x49, 0x4f, 0x4e, 0x12, 0xa5};
-  digitalWrite(config::PIN_LORA_CS, HIGH);
   SD.remove(path);
   File file = SD.open(path, FILE_WRITE);
   bool ok = file && file.write(pattern, sizeof(pattern)) == sizeof(pattern);
