@@ -1,3 +1,13 @@
+# V16 development — Phase 5 local-first data and cloud
+
+Phase 5 makes verified local originals the application data source of truth and groups BIN/SEN/TXT siblings into one flight-library entry. Finished Feather transfers have a persistent bounded retry journal, partial files are rejected, checksum collisions are surfaced, and local originals can be reread/verified without modification.
+
+Optional Supabase backup now exposes explicit per-file queue/sync/retry state and resumes at file granularity by skipping checksums already stored remotely. Cross-device restore remains checksum verified and non-overwriting. A read-only audit confirmed the connected GREEN ION backend has owner-scoped RLS and a private 50 MiB storage bucket.
+
+[Phase 5 details](docs/V16_PHASE5_DATA_CLOUD.md) · [V16 checklist](docs/V16_IMPLEMENTATION_CHECKLIST.md)
+
+---
+
 # V16 development — Phase 4 five-tab interface
 
 Phase 4 replaces the intermediate navigation shell with the approved five top-level destinations: **Dashboard, Flight, Flights & Analysis, Testing, and Settings & Advanced**. Mission-critical information stays visible while detailed telemetry, radio diagnostics, cloud, updates and troubleshooting are grouped into expandable advanced sections.
