@@ -184,8 +184,15 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  </div>
 </div>
 
-<nav class="tabs" aria-label="Dashboard sections">
- <button class="active" data-tab="status">Status</button>
+<nav class="tabs" aria-label="GREEN ION V16 primary sections">
+ <button class="active" data-tab="status">Mission</button>
+ <button data-tab="connections">Live</button>
+ <button data-tab="recovery">Recovery</button>
+ <button data-tab="history">Data</button>
+ <button data-tab="system">System</button>
+</nav>
+<nav id="v16LegacyTabs" hidden aria-hidden="true">
+ <button data-tab="status">Status</button>
  <button data-tab="flight">Flight</button>
  <button data-tab="field">Field</button>
  <button data-tab="testing">Testing</button>
@@ -1007,6 +1014,13 @@ function setUnits(x) {
  drawAll();
 }
 
+const v16TabGroup={
+ status:"status",flight:"status",testing:"status",
+ field:"connections",connections:"connections",
+ recovery:"recovery",
+ storage:"history",history:"history",cloud:"history",
+ utilities:"system",system:"system",updates:"system",help:"system"
+};
 function openTab(name,button) {
  document.querySelectorAll(".page").forEach(
   e=>e.classList.remove("active")
@@ -1015,8 +1029,12 @@ function openTab(name,button) {
   e=>e.classList.remove("active")
  );
  $(name).classList.add("active");
- button.classList.add("active");
+ const primary=v16TabGroup[name]||name;
+ const top=document.querySelector('.tabs button[data-tab="'+primary+'"]');
+ if(top)top.classList.add("active");
+ if(button&&button.closest?.(".tabs"))button.classList.add("active");
  if(name==="storage")loadFiles();
+ window.dispatchEvent(new CustomEvent("green-ion-v16-page",{detail:{page:name,group:primary}}));
  drawAll();
 }
 
