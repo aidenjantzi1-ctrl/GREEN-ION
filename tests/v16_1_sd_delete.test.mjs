@@ -9,7 +9,7 @@ const data=readFileSync(new URL("../web/v16_data.mjs",import.meta.url),"utf8");
 
 test("Feather SD delete UI is explicit and backup-safe",()=>{
  assert.match(html,/Delete from SD/);
- assert.match(html,/&confirm="+encodeURIComponent\(f\.name\)/);
+ assert.match(html,/&confirm="\+encodeURIComponent\(f\.name\)/);
  assert.match(html,/id="sdDeleteFeedback"/);
  assert.match(html,/Browser, Windows, and cloud backups are not deleted/);
  assert.match(html,/If launch watching is active, GREEN ION will restart stationary calibration/);
