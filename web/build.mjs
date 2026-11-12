@@ -16,4 +16,4 @@ if(supabaseKey && !supabaseKey.startsWith("sb_publishable_"))
  throw Error("Only a public Supabase publishable key is permitted in a web build");
 await writeFile(join(output,"config.js"),
  "window.GREEN_ION_CONFIG = Object.freeze("+JSON.stringify({supabaseUrl,supabaseKey})+");\n");
-console.log("GREEN ION V14 offline web build created: "+output);
+console.log("GREEN ION V16 offline web build created: "+output);
