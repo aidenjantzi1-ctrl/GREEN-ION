@@ -156,3 +156,81 @@ body[data-compact="true"] .page .actions{gap:7px;}
 .v16-flight-package .checks{margin:8px 0}
 .v16-flight-package p{margin-bottom:0}
 @media(max-width:520px){#v16FlightPackages{grid-template-columns:1fr}.v16-flight-package{padding:12px}}
+
+
+/* V16.1 RC2 layout polish: same dark-blue language, less visual clutter. */
+@media(min-width:700px){
+ .v16-tabs{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:8px;
+  overflow:visible;
+ }
+ .v16-tabs button{
+  width:100%;
+  min-width:0;
+  justify-content:center;
+ }
+}
+#v16SdManagerCard,
+#v16DataCard,
+#flightSummaryCard,
+#v14OfflineAnalysisCard,
+#v15ReportCard,
+#v16VisualizationCard,
+#v161DiagnosticsCard{
+ column-span:all;
+ display:block;
+ width:100%;
+ break-inside:avoid;
+}
+#v16SdManagerCard{
+ border-color:color-mix(in srgb,var(--blue) 55%,var(--line));
+}
+#v16SdManagerCard .file{
+ display:grid;
+ grid-template-columns:minmax(0,1fr) minmax(240px,auto);
+ gap:10px 14px;
+ align-items:center;
+ padding:11px 0;
+ border-bottom:1px solid color-mix(in srgb,var(--line) 72%,transparent);
+}
+#v16SdManagerCard .file:last-child{border-bottom:0}
+#v16SdManagerCard .file>span:first-child{
+ font-variant-numeric:tabular-nums;
+ overflow-wrap:anywhere;
+}
+#v16SdManagerCard .file>span:last-child{
+ display:flex;
+ flex-wrap:wrap;
+ gap:7px;
+ justify-content:flex-end;
+}
+#v16SdManagerCard .file button{
+ width:auto;
+ min-width:70px;
+ margin:0;
+ padding:8px 10px;
+}
+#sdDeleteFeedback{
+ border-left:3px solid var(--blue);
+ padding-left:11px;
+}
+.v16-section-group>summary{
+ padding-block:2px;
+ line-height:1.4;
+}
+#history.page.active>#v16SdHealthCard{
+ break-inside:avoid;
+}
+@media(max-width:699px){
+ #v16SdManagerCard .file{
+  grid-template-columns:minmax(0,1fr);
+ }
+ #v16SdManagerCard .file>span:last-child{
+  justify-content:flex-start;
+ }
+ #v16SdManagerCard .file button{
+  flex:1 1 130px;
+ }
+}
