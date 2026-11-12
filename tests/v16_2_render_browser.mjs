@@ -1,7 +1,7 @@
 import {createServer} from "node:http";
 import {readFile} from "node:fs/promises";
 import {existsSync} from "node:fs";
-import {spawnSync} from "node:child_process";
+import {spawn} from "node:child_process";
 import {extname,join,normalize} from "node:path";
 
 const candidates=[
@@ -42,14 +42,22 @@ const server=createServer(async(req,res)=>{
 });
 await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
 const port=server.address().port,url=`http://127.0.0.1:${port}/harness`;
-const result=spawnSync(chrome,[
- "--headless=new","--no-sandbox","--disable-dev-shm-usage","--enable-webgl","--ignore-gpu-blocklist",
- "--use-gl=angle","--use-angle=swiftshader","--virtual-time-budget=3500","--dump-dom",url
-],{encoding:"utf8",timeout:30000,maxBuffer:10*1024*1024});
+const result=await new Promise((resolve,reject)=>{
+ const child=spawn(chrome,[
+  "--headless=new","--no-sandbox","--disable-dev-shm-usage","--enable-webgl","--ignore-gpu-blocklist",
+  "--use-gl=angle","--use-angle=swiftshader","--virtual-time-budget=3500","--dump-dom",url
+ ],{stdio:["ignore","pipe","pipe"]});
+ let stdout="",stderr="";
+ child.stdout.setEncoding("utf8");child.stderr.setEncoding("utf8");
+ child.stdout.on("data",chunk=>{stdout+=chunk;if(stdout.length>10*1024*1024)child.kill("SIGKILL");});
+ child.stderr.on("data",chunk=>{stderr+=chunk;if(stderr.length>10*1024*1024)stderr=stderr.slice(-10*1024*1024);});
+ const timer=setTimeout(()=>{child.kill("SIGKILL");reject(Error("Headless Chrome WebGL smoke timed out"));},30000);
+ child.on("error",error=>{clearTimeout(timer);reject(error);});
+ child.on("close",code=>{clearTimeout(timer);resolve({code,stdout,stderr});});
+});
 server.close();
-if(result.error)throw result.error;
 const dom=result.stdout||"";
-if(!/data-result="pass"/.test(dom)){
+if(result.code!==0||!/data-result="pass"/.test(dom)){
  console.error(result.stderr||"");console.error(dom.slice(-5000));
  throw Error("Headless browser did not complete the real WebGL render/interaction smoke test");
 }
