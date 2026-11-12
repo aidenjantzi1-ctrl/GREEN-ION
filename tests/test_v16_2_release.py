@@ -37,7 +37,10 @@ class V162ReleaseContractTests(unittest.TestCase):
             self.assertIn("Ground_Receiver_V16_2",text)
             self.assertIn("v16_2_render_browser.mjs",text)
         self.assertNotIn("GREEN_ION_V14_COMPLETE.zip",main)
-        self.assertNotRegex(main,r"(?m)^\s+release:\s*$")
+        self.assertIn("publish-v16-2:",main)
+        self.assertIn("needs: [app-tests, firmware-build, windows-package, v16-release-smoke]",main)
+        self.assertIn("gh release create v16.2.0",main)
+        self.assertIn('--target "$GITHUB_SHA"',main)
 
     def test_no_google_key_is_committed(self):
         paths=[
