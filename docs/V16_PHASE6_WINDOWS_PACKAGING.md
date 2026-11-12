@@ -18,7 +18,8 @@ It:
 4. checks for the pinned `pyserial==3.5` USB dependency;
 5. attempts to install pyserial if it is missing;
 6. falls back to Feather Wi-Fi-only mode if pyserial still cannot be used;
-7. starts the local server and lets it auto-discover one unambiguous Arduino Uno.
+7. appends any explicit ground-station arguments (for example `--port COM5`) to the constructed launch command;
+8. starts `ground_station.py` and lets it auto-discover one unambiguous Arduino Uno when no explicit port is supplied.
 
 There is no normal COM-port prompt.
 
@@ -80,3 +81,8 @@ The Windows package updater does not flash the Feather or Uno. Firmware OTA rema
 ## Validation boundary
 
 CI verifies package contents, hashes, scripts and source behavior. It does not prove that a particular Windows machine has Python installed, that corporate antivirus permits PowerShell, that USB drivers work, or that a physical Uno/Feather reconnects correctly.
+
+
+### RC.2 launcher correction
+
+The release-candidate launcher explicitly splats `$LaunchArgs` into Python. This is regression-tested because using PowerShell's unrelated automatic `$Args` variable would omit `ground_station.py` and could make the packaged launcher exit without starting the server.

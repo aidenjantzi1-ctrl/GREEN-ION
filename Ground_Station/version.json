@@ -1,6 +1,6 @@
 {
   "schema": "GREEN-ION-V16-WINDOWS-1",
-  "version": "16.0.0-rc.1",
+  "version": "16.0.0-rc.2",
   "channel": "release-candidate",
   "app": "GREEN ION V16 Windows Ground Station",
   "data_dir": "%USERPROFILE%\\GREEN_ION_Data",
