@@ -212,7 +212,8 @@ export function missionView(mission){
     "Measured checks finished, but receiver/non-physical evidence is still missing. Re-run preflight.":
     "Measured checks passed. Complete the physical checklist, then confirm it below."):
     "Run the full preflight. Measured failures cannot be manually overridden.",
-   pf.complete?"CONFIRM PHYSICAL CHECKS":"RUN FULL PREFLIGHT",pf.complete?"physical":"preflight"],
+   pf.complete&&!pf.blocking_unverified?"CONFIRM PHYSICAL CHECKS":"RUN FULL PREFLIGHT",
+   pf.complete&&!pf.blocking_unverified?"physical":"preflight"],
   READY:["Measured preflight passed and physical checks were confirmed. Begin prelaunch monitoring when ready.","BEGIN PRE-LAUNCH","prelaunch"],
   PRELAUNCH:["Waiting for the Feather's real launch detection. Do not rely on the browser to start recording.","WAITING FOR FEATHER","wait"],
   ASCENT:["Flight in progress. SD recording has priority; live links may change or disappear.","FLIGHT IN PROGRESS","wait"],
