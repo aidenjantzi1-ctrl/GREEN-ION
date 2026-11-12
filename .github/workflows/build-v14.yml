@@ -85,6 +85,15 @@ jobs:
         with:
           name: green-ion-v14-web
           path: built-web
+      - name: Parse Windows PowerShell launch/update scripts
+        shell: pwsh
+        run: |
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("Ground_Station/Start-GreenIon.ps1",[ref]$null,[ref]$errors)
+          if ($errors.Count) { $errors | Format-List | Out-String | Write-Error; exit 1 }
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("Ground_Station/Update-GreenIon.ps1",[ref]$null,[ref]$errors)
+          if ($errors.Count) { $errors | Format-List | Out-String | Write-Error; exit 1 }
       - name: Build V16 Windows package
         run: python3 tools/build_v16_windows_package.py --website built-web --output windows-release --commit "$GITHUB_SHA"
       - name: Validate Windows package
