@@ -132,38 +132,13 @@ jobs:
           path: windows-release
       - name: Assemble release assets and SHA manifest
         run: |
-          python3 - <<'PY'
-          import hashlib,json,shutil
-          from pathlib import Path
-          from zipfile import ZipFile,ZIP_DEFLATED
-          release=Path("release");release.mkdir()
-          for name in ("GREEN_ION_V16_WINDOWS.zip","GREEN_ION_V16_WINDOWS.sha256","GREEN_ION_V16_WINDOWS_MANIFEST.json"):
-              shutil.copy2(Path("windows-release")/name,release/name)
-          feather=list(Path("built-firmware").rglob("Green_Ion_V14.ino.bin"))
-          uno=list(Path("built-firmware").rglob("Ground_Receiver.ino.hex"))
-          if len(feather)!=1 or len(uno)!=1:
-              raise SystemExit("Expected exactly one Feather app image and one Uno HEX")
-          shutil.copy2(feather[0],release/"Green_Ion_V14.ino.bin")
-          shutil.copy2(uno[0],release/"Ground_Receiver.ino.hex")
-          webzip=release/"GREEN_ION_V16_WEB.zip"
-          with ZipFile(webzip,"w",ZIP_DEFLATED,compresslevel=7) as z:
-              for file in sorted(Path("built-web").rglob("*")):
-                  if file.is_file(): z.write(file,Path("GREEN_ION_V16_WEB")/file.relative_to("built-web"))
-          assets={}
-          for file in sorted(release.iterdir()):
-              if file.is_file() and file.name!="SHA256_MANIFEST.json":
-                  assets[file.name]={"sha256":hashlib.sha256(file.read_bytes()).hexdigest(),"size":file.stat().st_size}
-          manifest={
-              "schema":"GREEN-ION-V16-RELEASE-1",
-              "tag":"${{ github.ref_name }}",
-              "commit":"${{ github.sha }}",
-              "firmwareGeneration":"V14",
-              "windowsApp":"V16",
-              "artifacts":assets,
-              "safety":{"loraReceiveOnly":True,"autonomousSdRecorderPreserved":True,"hardwareValidationRequired":True}
-          }
-          (release/"SHA256_MANIFEST.json").write_text(json.dumps(manifest,indent=2)+"\n")
-          PY
+          python3 tools/assemble_v16_release.py \
+            --web built-web \
+            --firmware built-firmware \
+            --windows windows-release \
+            --output release \
+            --tag "${{ github.ref_name }}" \
+            --commit "${{ github.sha }}"
       - uses: actions/upload-artifact@v4
         with:
           name: GREEN_ION_V16_RELEASE
