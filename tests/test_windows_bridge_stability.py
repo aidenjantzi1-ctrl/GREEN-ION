@@ -25,12 +25,15 @@ class BridgeTests(unittest.TestCase):
         self.now += TELEMETRY_FRESH_S
         self.assertEqual(self.bridge._wifi()[0], "stale")
 
-    def test_cached_status_is_not_returned_after_expiration(self):
+    def test_cached_status_after_expiration_is_retained_only_as_stale(self):
         with patch.object(self.bridge, "_fetch_status", return_value=self.status):
             self.bridge.poll_once()
         self.assertEqual(self.bridge.unified_status({"link_status": "missing"})["v13_source"], "wifi")
         self.now += TELEMETRY_FRESH_S + 0.1
-        self.assertIsNone(self.bridge.unified_status({"link_status": "missing"}))
+        cached = self.bridge.unified_status({"link_status": "missing"})
+        self.assertEqual(cached["v13_source"], "wifi_stale")
+        self.assertFalse(cached["v13_wifi_connected"])
+        self.assertTrue(cached["v16_status_stale"])
 
     def test_controls_do_not_gain_extended_verification_window(self):
         with patch.object(self.bridge, "_fetch_status", return_value=self.status):
