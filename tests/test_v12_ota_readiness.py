@@ -60,8 +60,10 @@ class V12OtaReadinessTests(unittest.TestCase):
         self.assertIn("estimated_missing_packets", RECEIVER)
         self.assertIn('F("{\\"type\\":\\"telemetry\\",\\"protocol\\":")', RECEIVER)
         self.assertIn("handleSerialCommands();", RECEIVER)
-        self.assertIn("UNO_PORT", LAUNCHER)
-        self.assertIn('--port "%UNO_PORT%"', LAUNCHER)
+        self.assertIn("auto-detects a recognizable Arduino Uno", LAUNCHER)
+        self.assertIn("--port COM5", LAUNCHER)
+        self.assertIn("--wifi-only", LAUNCHER)
+        self.assertNotIn("set /p", LAUNCHER)
 
     def test_complete_readme_and_hardware_limitations(self):
         for token in (
