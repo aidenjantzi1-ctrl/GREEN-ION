@@ -42,6 +42,8 @@ static const uint32_t BENCH_OUTPUT_INTERVAL_MS = 1000;
 static const uint32_t TELEMETRY_INTERVAL_MS = 1000;
 static const uint8_t TELEMETRY_QUEUE_CAPACITY = 3;
 static const uint32_t RADIO_SERVICE_GUARD_US = 5000;
+static const uint32_t RADIO_IRQ_SERVICE_GUARD_US = 3000;
+static const uint32_t RADIO_TX_TIMEOUT_MS = 2500;
 static const uint32_t RADIO_RETRY_INTERVAL_MS = 1000;
 static const uint32_t RADIO_REINITIALIZE_DELAY_MS = 10000;
 static const uint8_t RADIO_SEND_FAILURE_THRESHOLD = 3;
@@ -52,6 +54,7 @@ static const uint32_t IMU_TEST_DURATION_MS = 5000;
 static const uint16_t IMU_TEST_MINIMUM_SAMPLES = 100;
 static const uint32_t GPS_TEST_DURATION_MS = 12000;
 static const uint32_t GPS_COMMUNICATION_STALE_MS = 5000;
+static const uint8_t HOME_CONCURRENT_RADIO_PACKETS = 8;
 
 // Shared with the receiver. This is provisional until coordinated for the
 // launch site; it is not a statement of FCC compliance or channel clearance.
@@ -68,6 +71,8 @@ static const bool BUZZER_ENABLED = true;
 static const uint16_t BUZZER_FREQUENCY_HZ = 2500;
 
 static_assert(PIN_SD_CS != PIN_LORA_CS, "SD and LoRa require separate chip selects");
+static_assert(PIN_LORA_DIO0 != PIN_SD_CS && PIN_LORA_DIO0 != PIN_LORA_CS,
+              "LoRa DIO0 must not share a chip-select pin");
 static_assert(SENSOR_RATE_HZ > 0 && SENSOR_RATE_HZ <= 200, "Unsupported sensor rate");
 static_assert(PREBUFFER_RECORDS == 150, "V16.3 prebuffer must retain exactly three seconds at 50 Hz");
 
