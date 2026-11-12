@@ -66,11 +66,16 @@ export function normalizeLedger(raw,now=Date.now()){
 export function updateEvidence(ledger,id,patch,now=Date.now()){
  const next=normalizeLedger(ledger,now);
  if(!REQUIREMENTS.some(r=>r.id===id))return next;
- const status=ALLOWED_STATUS.includes(patch?.status)?patch.status:next.records[id].status;
+ let status=ALLOWED_STATUS.includes(patch?.status)?patch.status:next.records[id].status;
+ const note=cleanText(patch?.note??next.records[id].note);
+ const evidence_ref=cleanText(patch?.evidence_ref??next.records[id].evidence_ref,300);
+ // A blank manual click is not evidence. PASS requires at least a measured
+ // note or a reference to retained evidence; otherwise keep it INCONCLUSIVE.
+ if(status==="PASS"&&!note&&!evidence_ref)status="INCONCLUSIVE";
  next.records[id]={
   status,
-  note:cleanText(patch?.note??next.records[id].note),
-  evidence_ref:cleanText(patch?.evidence_ref??next.records[id].evidence_ref,300),
+  note,
+  evidence_ref,
   measured_at:status==="NOT_TESTED"?null:(patch?.measured_at||new Date(now).toISOString()),
   updated_at:new Date(now).toISOString()
  };
