@@ -1445,7 +1445,6 @@ static bool saveCheckpoint(uint32_t nowMs) {
   }
 
   const String &target = checkpointSlotB ? checkpointFilenameB : checkpointFilenameA;
-  digitalWrite(config::PIN_LORA_CS, HIGH);
   if (SD.exists(target) && !SD.remove(target)) {
     ++checkpointFailures;
     return false;
@@ -1484,7 +1483,6 @@ static bool writeStartMetadata() {
     ++metadataFailures;
     return false;
   }
-  digitalWrite(config::PIN_LORA_CS, HIGH);
   if (SD.exists(metadataFilename) && !SD.remove(metadataFilename)) {
     ++metadataFailures;
     return false;
@@ -1530,7 +1528,6 @@ static bool writeCompletionMetadata(uint32_t nowMs, uint32_t fileBytes) {
     ++metadataFailures;
     return false;
   }
-  digitalWrite(config::PIN_LORA_CS, HIGH);
   File metadataFile = SD.open(metadataFilename, FILE_APPEND);
   const bool saved = metadataFile &&
                      metadataFile.write(reinterpret_cast<const uint8_t *>(encoded),
@@ -2146,7 +2143,6 @@ static void deleteDashboardFlight() {
   const bool hasRecovery = SD.exists(String("/") + base + ".RCV");
   const bool hasMetadata = SD.exists(String("/") + base + ".TXT");
   const bool recordingComplete = hasMetadata && !hasJournal && !hasRecovery;
-  digitalWrite(config::PIN_LORA_CS, HIGH);
   if (!SD.exists(binPath)) {
     dashboardServer.send(404, "application/json",
       "{\"success\":false,\"message\":\"Flight file not found on the SD card\"}");
@@ -2234,7 +2230,6 @@ static void sendDashboardFiles() {
   String body = "{\"success\":true,\"used\":" + String(SD.usedBytes()) +
                 ",\"total\":" + String(SD.totalBytes()) + ",\"files\":[";
   bool first = true;
-  digitalWrite(config::PIN_LORA_CS, HIGH);
   File root = SD.open("/");
   if (root) {
     File entry = root.openNextFile();
