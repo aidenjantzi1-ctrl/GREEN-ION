@@ -33,6 +33,11 @@ if ($Release.body) {
   Write-Host "[UPDATE] Notes: $Notes"
 }
 Write-Host "[UPDATE] This installed package reports: $($Version.version)"
+$InstalledTag = "v" + [string]$Version.version
+if ($Tag -eq $InstalledTag) {
+  Write-Host "[UPDATE] This is already the newest published V16 Windows version."
+  exit 0
+}
 if ($CheckOnly) { exit 0 }
 
 $ZipAsset = $Release.assets | Where-Object name -eq "GREEN_ION_V16_WINDOWS.zip" | Select-Object -First 1
