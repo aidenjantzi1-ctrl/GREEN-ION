@@ -44,6 +44,8 @@ class V16WindowsPackagingTests(unittest.TestCase):
         self.assertIn("previous.txt", ps)
         self.assertIn('$InstalledTag = "v" + [string]$Version.version', ps)
         self.assertIn("already the newest published V16 Windows version", ps)
+        self.assertIn("GitHub is unavailable", ps)
+        self.assertIn("GREEN_ION_Data were not changed", ps)
 
     def test_rollback_swaps_only_verified_app_pointer(self):
         ps = (ROOT / "Ground_Station" / "Rollback-GreenIon.ps1").read_text(encoding="utf-8")
