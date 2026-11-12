@@ -228,7 +228,17 @@ async function loadSelected(){
  const metadata=await listLocalMetadata(),stem=bin.name.replace(/\.BIN$/i,"");
  const senMeta=metadata.find(f=>f.kind==="SEN"&&f.name.replace(/\.SEN$/i,"")===stem);
  const sen=senMeta?await getLocalFile(senMeta.key):null;
- const data=reconstructFlight(bin.bytes,sen?.bytes||null);
+ const binBytes=bin.bytes.slice(0),senBytes=sen?.bytes?.slice(0)||null;
+ const data=await new Promise((resolve,reject)=>{
+  const worker=new Worker("./v16_visualization_worker.mjs",{type:"module"});
+  const timeout=setTimeout(()=>{worker.terminate();reject(Error("3D reconstruction timed out"));},90000);
+  worker.onerror=event=>{clearTimeout(timeout);worker.terminate();reject(Error(event.message||"3D worker failed"));};
+  worker.onmessage=event=>{
+   clearTimeout(timeout);worker.terminate();
+   if(event.data?.error)reject(Error(event.data.error));else resolve(event.data.data);
+  };
+  worker.postMessage({id:1,binBytes,senBytes},senBytes?[binBytes,senBytes]:[binBytes]);
+ });
  return {data,name:bin.name};
 }
 function stopPlay(){if(playFrame){cancelAnimationFrame(playFrame);playFrame=null;}$("v16VisPlay").textContent="Play replay";}
