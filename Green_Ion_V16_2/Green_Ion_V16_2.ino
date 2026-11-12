@@ -136,6 +136,10 @@ enum HardwareTestRequest : uint8_t {
   HARDWARE_TEST_ALL,
 };
 
+// Keep Arduino's sketch prototype generator from placing a custom-enum
+// prototype before the enum declaration in this larger V16.2 sketch.
+static void requestHardwareTest(HardwareTestRequest request);
+
 HardwareTestRequest hardwareTestRequest = HARDWARE_TEST_NONE;
 bool imuHardwareTestReported = true;
 bool gpsHardwareTestReported = true;
