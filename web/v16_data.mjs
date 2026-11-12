@@ -281,7 +281,7 @@ export function initV16Data(){
  if(!$("v16DataCard")){
   const card=document.createElement("div");card.className="card";card.id="v16DataCard";
   card.innerHTML='<h2>Flight library · local first</h2>'+
-   '<p class="muted">One entry per flight. Search the library here; originals stay immutable and detailed analysis remains separate.</p>'+
+   '<p class="muted">One entry per flight. Verified local originals are the source of truth. Search and annotations stay separate from immutable files.</p>'+
    '<div class="row"><span>Library status</span><strong id="v16DataSummary">Checking...</strong></div>'+
    '<label>Search flights <input id="v161LibrarySearch" type="search" placeholder="Flight, tag, note, file name"></label>'+
    '<div class="actions"><label><input id="v161LibraryFavorites" type="checkbox"> Favorites only</label>'+
