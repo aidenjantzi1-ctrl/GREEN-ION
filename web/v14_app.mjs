@@ -170,7 +170,7 @@ function renderBrowserInfo(){
 }
 async function init(){
  document.querySelector("header small").textContent="Flight logger · V16 unified operations";
- text("v14AppBuild","Website V16 development · unified telemetry phase · Feather firmware channel "+APP_VERSION+" (check actual installed build in System)");
+ text("v14AppBuild","Website V16 development · mission workflow phase · Feather firmware channel "+APP_VERSION+" (check actual installed build in System)");
  renderBrowserInfo();
  initPreferences();
  initSensorLab(t);
