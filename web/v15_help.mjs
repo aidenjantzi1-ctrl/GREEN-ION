@@ -33,7 +33,7 @@ export const TOPICS=Object.freeze([
   guide:"Run START_GREEN_ION.cmd. It starts http://127.0.0.1:8765, serves the current blue website, proxies only the verified Feather API, receives Uno LoRa serial, and keeps watching for the Uno. Keep the command window open."},
  {title:"Restore local flight originals",terms:"restore recover indexeddb archive backup files",tab:"history",id:"v15LocalCard",
   guide:"Use Reconcile PC archive to import SHA-256 verified BIN/SEN/TXT originals from the Windows disk folder. You can also import saved originals through History. Browser storage may be evicted; keep disk backups."},
- {title:"3D flight and digital twin",terms:"3d trajectory digital twin replay orientation gps path",tab:"history",id:"v16VisCard",
+ {title:"3D flight and digital twin",terms:"3d trajectory digital twin replay orientation gps path",tab:"history",id:"history",
   guide:"Load a saved flight in the 3D trajectory card. Reconstruction runs locally in a Web Worker from original RKT4/GIS1 data, with pressure altitude, GPS path and relative gyro orientation. It is a recorded-data reconstruction, not an aerodynamic simulation or absolute attitude solution."}
 ]);
 export function searchHelp(query){
