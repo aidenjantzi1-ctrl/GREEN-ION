@@ -35,7 +35,7 @@ jobs:
           test -s web/dist/v16_1_diagnostics.mjs
           test -s web/dist/v16_1_guided_test.mjs
           test -s web/dist/v16_1_analysis_core.mjs
-          grep -q -- '--bg:#0b1c2b' web/dist/index.html
+          grep -q -- '--bg:#081420' web/dist/index.html
       - uses: actions/upload-artifact@v4
         with:
           name: v16-web
