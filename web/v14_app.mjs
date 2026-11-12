@@ -167,8 +167,8 @@ function renderBrowserInfo(){
   "Web Serial is unavailable in this browser. Feather Wi-Fi and saved files still work.");
 }
 async function init(){
- document.querySelector("header small").textContent="Flight logger · V15 local-first operations";
- text("v14AppBuild","Website V15 local-first beta 1 · Feather firmware channel "+APP_VERSION+" (check actual installed build in System)");
+ document.querySelector("header small").textContent="Flight logger · V16 unified operations";
+ text("v14AppBuild","Website V16 development · unified telemetry phase · Feather firmware channel "+APP_VERSION+" (check actual installed build in System)");
  renderBrowserInfo();
  initPreferences();
  initSensorLab(t);
