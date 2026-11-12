@@ -9,6 +9,8 @@ from pathlib import Path
 import shutil
 from zipfile import ZipFile, ZIP_DEFLATED
 
+ROOT = Path(__file__).resolve().parents[1]
+
 
 WINDOWS_FILES = (
     "GREEN_ION_V16_WINDOWS.zip",
@@ -56,8 +58,8 @@ def main() -> None:
     if sha256(windows_zip) != expected_windows_sha:
         raise SystemExit("Windows ZIP SHA-256 mismatch during release assembly")
 
-    feather = one(args.firmware, "Green_Ion_V14.ino.bin", "Feather app image")
-    uno = one(args.firmware, "Ground_Receiver.ino.hex", "Uno HEX")
+    feather = one(args.firmware, "Green_Ion_V16_2.ino.bin", "V16.2 Feather app image")
+    uno = one(args.firmware, "Ground_Receiver_V16_2.ino.hex", "V16.2 Uno HEX")
 
     out = args.output
     if out.exists():
@@ -66,14 +68,36 @@ def main() -> None:
 
     for name in WINDOWS_FILES:
         shutil.copy2(args.windows / name, out / name)
-    shutil.copy2(feather, out / "Green_Ion_V14.ino.bin")
-    shutil.copy2(uno, out / "Ground_Receiver.ino.hex")
+    shutil.copy2(feather, out / "Green_Ion_V16_2.ino.bin")
+    shutil.copy2(uno, out / "Ground_Receiver_V16_2.ino.hex")
 
     web_zip = out / "GREEN_ION_V16_WEB.zip"
     with ZipFile(web_zip, "w", ZIP_DEFLATED, compresslevel=7) as archive:
         for path in sorted(args.web.rglob("*")):
             if path.is_file():
                 archive.write(path, Path("GREEN_ION_V16_WEB") / path.relative_to(args.web))
+
+    source_zip = out / "GREEN_ION_V16_2_SOURCE.zip"
+    source_roots = (
+        "Green_Ion_V16_2",
+        "Ground_Receiver_V16_2",
+        "libraries/GreenIonProtocol",
+        "libraries/GreenIonRecorder",
+    )
+    required_source = [ROOT / item for item in source_roots]
+    if not all(path.exists() for path in required_source):
+        missing = [str(path.relative_to(ROOT)) for path in required_source if not path.exists()]
+        raise SystemExit(f"V16.2 source input missing: {missing}")
+    with ZipFile(source_zip, "w", ZIP_DEFLATED, compresslevel=7) as archive:
+        for relative in source_roots:
+            source = ROOT / relative
+            for path in sorted(source.rglob("*")):
+                if path.is_file():
+                    archive.write(path, Path("GREEN_ION_V16_2_SOURCE") / path.relative_to(ROOT))
+        for name in ("README.md", "CHANGELOG.md", "VERSIONS.md"):
+            archive.write(ROOT / name, Path("GREEN_ION_V16_2_SOURCE") / name)
+        for path in sorted((ROOT / "docs").glob("V16_*.md")):
+            archive.write(path, Path("GREEN_ION_V16_2_SOURCE/docs") / path.name)
 
     assets = {}
     for path in sorted(out.iterdir()):
@@ -87,8 +111,11 @@ def main() -> None:
         "schema": "GREEN-ION-V16-RELEASE-1",
         "tag": args.tag,
         "commit": args.commit,
-        "firmwareGeneration": "V14",
-        "windowsApp": "V16",
+        "firmwareGeneration": "V16.2",
+        "receiverGeneration": "V16.2",
+        "radioProtocolVersion": 2,
+        "radioPacketBytes": 70,
+        "windowsApp": "V16.2",
         "artifacts": assets,
         "safety": {
             "loraReceiveOnly": True,
