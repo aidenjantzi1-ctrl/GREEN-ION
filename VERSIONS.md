@@ -1,3 +1,11 @@
+# V16 development — Phase 6 Windows packaging and updates
+
+Phase 6 adds a one-click Windows launcher, automatic Uno discovery, package/runtime diagnostics, deterministic CI ZIPs and a checksum-verified side-by-side updater. User flight data remains outside the replaceable application folder.
+
+[Phase 6 Windows packaging](docs/V16_PHASE6_WINDOWS_PACKAGING.md) · [V16 checklist](docs/V16_IMPLEMENTATION_CHECKLIST.md)
+
+---
+
 # V16 development — Phase 5 data and cloud
 
 Phase 5 makes immutable local BIN/SEN/TXT originals easier to verify and group, adds exportable package manifests, and exposes explicit optional-cloud sync state. Local browser/disk originals remain authoritative; Supabase is backup only and never gates recording, recovery or analysis.
