@@ -220,6 +220,9 @@ static uint8_t homeResult = 0;  // idle=0, running=1, pass=2, fail=3
 static uint16_t homeSamples = 0, homeValidSamples = 0;
 static uint32_t homeStartedMs = 0, homeMissedStart = 0, homeMissed = 0;
 static uint32_t homeRadioStartSent = 0, homeRadioStartFailures = 0;
+static uint32_t homeTelemetryDroppedStart = 0, homeSensorDroppedStart = 0;
+static uint32_t homeOwnershipErrorsStart = 0, homeRadioTimeoutsStart = 0;
+static bool homeRadioConcurrentExpected = false;
 static uint8_t homeStepStatuses[9] = {}; // Persistent evidence codes (not tests in progress).
 static bool homeInterrupted = false;
 static bool homeSdVerified = false;
@@ -1874,6 +1877,11 @@ static green_ion::preflight::Result currentPreflight() {
 
 static void sendDashboardStatus() {
   const uint32_t age = gpsAgeMs(millis());
+  const auto &spiEvidence = sharedSpi.evidence();
+  if (spiEvidence.ownershipErrors)
+    healthBits |= green_ion::HEALTH_SHARED_SPI_OWNERSHIP_ERROR;
+  if (radioTxTimeouts)
+    healthBits |= green_ion::HEALTH_RADIO_TX_TIMEOUT;
   const char *gpsStatus = !state.gpsHasPosition ? "missing" :
                           (gpsPositionCurrent(millis()) ? "live" : "stale");
   const float radiansToDegrees = 180.0f / PI;
@@ -1881,7 +1889,7 @@ static void sendDashboardStatus() {
     return isfinite(value) ? String(value, static_cast<unsigned int>(decimals)) : String("null");
   };
   String body;
-  body.reserve(3400);
+  body.reserve(4400);
   body += "{\"version\":16,\"firmware_name\":\"" + String(FIRMWARE_NAME) + "\"";
   body += ",\"firmware_version\":\"" + String(FIRMWARE_VERSION) + "\"";
   body += ",\"radio_protocol\":" + String(green_ion::kProtocolVersion);
@@ -1985,6 +1993,22 @@ static void sendDashboardStatus() {
   body += ",\"telemetry_queue_depth\":" + String(telemetryQueue.size());
   body += ",\"telemetry_queue_dropped\":" + String(telemetryQueue.dropped());
   body += ",\"telemetry_sequence\":" + String(telemetrySequence);
+  body += ",\"shared_spi_owner\":" + String(static_cast<uint8_t>(sharedSpi.owner()));
+  body += ",\"shared_spi_sd_sections\":" + String(spiEvidence.sdSections);
+  body += ",\"shared_spi_radio_sections\":" + String(spiEvidence.radioSections);
+  body += ",\"shared_spi_radio_deferred_busy\":" + String(spiEvidence.radioDeferredBusy);
+  body += ",\"shared_spi_radio_deferred_deadline\":" + String(spiEvidence.radioDeferredDeadline);
+  body += ",\"shared_spi_ownership_errors\":" + String(spiEvidence.ownershipErrors);
+  body += ",\"radio_irq_observed\":" + String(radioIrqGeneration);
+  body += ",\"radio_irq_serviced\":" + String(radioIrqServicedGeneration);
+  body += ",\"radio_irq_deferred\":" + String(radioIrqDeferred);
+  body += ",\"radio_tx_started\":" + String(radioTxStarted);
+  body += ",\"radio_tx_completed\":" + String(radioTxCompleted);
+  body += ",\"radio_tx_timeouts\":" + String(radioTxTimeouts);
+  body += ",\"radio_tx_awaiting_completion\":";
+  body += radioTxAwaitingCompletion ? "true" : "false";
+  body += ",\"radio_last_tx_age_ms\":";
+  body += radioLastTxCompleteMs ? String(millis() - radioLastTxCompleteMs) : "null";
   body += ",\"sd_mount_attempts\":" + String(state.sdMountAttempts);
   body += ",\"sd_recoveries\":" + String(state.sdRecoveries);
   body += ",\"imu_recoveries\":" + String(state.imuRecoveries);
@@ -2044,6 +2068,24 @@ static void sendDashboardStatus() {
   body += ",\"home_radio_sent\":" + String(radioBenchPacketsSent - homeRadioStartSent);
   body += ",\"home_radio_remaining\":" + String(radioBenchPacketsRemaining);
   body += ",\"home_radio_failures\":" + String(radioSendFailures - homeRadioStartFailures);
+  body += ",\"home_radio_expected\":";
+  body += homeRadioConcurrentExpected ? "true" : "false";
+  body += ",\"home_radio_target\":" + String(config::HOME_CONCURRENT_RADIO_PACKETS);
+  body += ",\"home_telemetry_dropped\":" + String(telemetryQueue.dropped() - homeTelemetryDroppedStart);
+  body += ",\"home_sensor_log_dropped\":" + String(sensorLogCore.droppedRecords() - homeSensorDroppedStart);
+  body += ",\"home_spi_ownership_errors\":" + String(spiEvidence.ownershipErrors - homeOwnershipErrorsStart);
+  body += ",\"home_radio_tx_timeouts\":" + String(radioTxTimeouts - homeRadioTimeoutsStart);
+  body += ",\"home_shared_spi_result\":\"";
+  if (!homeRadioConcurrentExpected) body += "NOT_TESTED";
+  else if (homeResult == 1) body += "RUNNING";
+  else if (homeResult == 3 ||
+           spiEvidence.ownershipErrors != homeOwnershipErrorsStart ||
+           radioTxTimeouts != homeRadioTimeoutsStart) body += "FAIL";
+  else if (homeResult == 2 &&
+           radioBenchPacketsSent - homeRadioStartSent >=
+               config::HOME_CONCURRENT_RADIO_PACKETS) body += "PASS";
+  else body += "INCONCLUSIVE";
+  body += "\"";
   body += ",\"radio_send_failures\":" + String(radioSendFailures);
   body += ",\"radio_bench_packets_sent\":" + String(radioBenchPacketsSent);
   body += "}";
