@@ -48,11 +48,14 @@ try {
     if (-not (Test-Path (Join-Path $SourceRoot $Required))) { throw "Verified ZIP is missing $Required" }
   }
 
-  $Target = Join-Path $AppRoot $Tag
-  if (Test-Path $Target) { Remove-Item -Recurse -Force $Target }
-  Move-Item -Path $SourceRoot -Destination $Target
+  $Target = Join-Path $AppRoot ($Tag + "-" + $Actual.Substring(0,12))
+  if (-not (Test-Path $Target)) {
+    Move-Item -Path $SourceRoot -Destination $Target
+  } else {
+    Write-Host "[UPDATE] This exact verified package is already installed; leaving its files untouched."
+  }
   Set-Content -Path $CurrentFile -Value $Target -Encoding UTF8
-  Write-Host "[UPDATE] Installed verified $Tag side-by-side at:"
+  Write-Host "[UPDATE] Selected verified $Tag side-by-side at:"
   Write-Host "         $Target"
   Write-Host "[UPDATE] Your GREEN_ION_Data folder was not changed."
   Write-Host "[UPDATE] Close the currently running ground-station window, then run START_GREEN_ION.cmd again."
