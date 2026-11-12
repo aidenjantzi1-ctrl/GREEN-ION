@@ -38,6 +38,9 @@ enum HealthBits : uint16_t {
   HEALTH_GPS_RUNTIME_ERROR = 1u << 9,
   HEALTH_IMU_RUNTIME_LOST = 1u << 10,
   HEALTH_SENSOR_LOG_DROPPED = 1u << 11,
+  // V16.3 software evidence only. These do not claim electrical contention.
+  HEALTH_SHARED_SPI_OWNERSHIP_ERROR = 1u << 12,
+  HEALTH_RADIO_TX_TIMEOUT = 1u << 13,
 };
 
 enum FlightState : uint8_t {
