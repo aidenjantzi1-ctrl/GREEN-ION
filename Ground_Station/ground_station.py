@@ -396,6 +396,15 @@ class Handler(SimpleHTTPRequestHandler):
             else:
                 self._json(data)
             return
+        if self.path == "/api/v16/telemetry":
+            radio = STORE.snapshot()
+            self._json(build_unified_telemetry(
+                BRIDGE.telemetry_source(),
+                radio,
+                STORE.history_snapshot(),
+                datetime.now(timezone.utc).isoformat(),
+            ))
+            return
         if self.path == "/api/ground-link":
             self._json(BRIDGE.link_status(STORE.snapshot()))
             return
@@ -491,6 +500,43 @@ def sample_source(stop: threading.Event, log_path: Path) -> None:
         sequence += 1
 
 
+def discover_serial_port() -> str | None:
+    """Safely prefer a recognizable Arduino Uno; never guess among unknown ports."""
+    requested = os.environ.get("GREEN_ION_UNO_PORT", "").strip()
+    try:
+        from serial.tools import list_ports  # type: ignore
+    except ImportError:
+        return None
+    ports = list(list_ports.comports())
+    if requested:
+        for item in ports:
+            if item.device.lower() == requested.lower():
+                return item.device
+        return None
+    scored = []
+    for item in ports:
+        text = " ".join(str(value or "") for value in (
+            item.description, item.manufacturer, item.product
+        )).lower()
+        score = 0
+        if "arduino uno" in text:
+            score += 100
+        elif "arduino" in text:
+            score += 70
+        if getattr(item, "vid", None) in (0x2341, 0x2A03):
+            score += 40
+        if "usb serial" in text or "usb-serial" in text:
+            score += 10
+        scored.append((score, item.device))
+    scored.sort(reverse=True)
+    if scored and scored[0][0] >= 40:
+        # If two equally likely Arduino ports exist, require explicit selection.
+        if len(scored) > 1 and scored[1][0] == scored[0][0]:
+            return None
+        return scored[0][1]
+    return None
+
+
 def serial_source(stop: threading.Event, port: str, log_path: Path) -> None:
     try:
         import serial  # type: ignore
@@ -548,6 +594,7 @@ def main() -> None:
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--sample", action="store_true", help="use simulated rocket telemetry")
     source.add_argument("--port", help="Arduino Uno serial port, for example COM5")
+    source.add_argument("--wifi-only", action="store_true", help="disable automatic Uno USB discovery")
     parser.add_argument("--listen", default="127.0.0.1")
     parser.add_argument("--http-port", type=int, default=8765)
     parser.add_argument("--no-browser", action="store_true", help="do not open the dashboard automatically")
@@ -561,8 +608,16 @@ def main() -> None:
     log_path = LOG_DIR / f"telemetry-{timestamp}.csv"
     stop = threading.Event()
     use_sample = args.sample
+    selected_port = args.port
+    if not use_sample and not args.wifi_only and not selected_port:
+        selected_port = discover_serial_port()
+        if selected_port:
+            print(f"[UNO] Auto-discovered receiver on {selected_port}.")
+        else:
+            print("[UNO] No unambiguous Arduino Uno found; continuing Wi-Fi-only. "
+                  "Use --port COMx or set GREEN_ION_UNO_PORT to select one.")
     target = sample_source if use_sample else serial_source
-    target_args = (stop, log_path) if use_sample else (stop, args.port, log_path)
+    target_args = (stop, log_path) if use_sample else (stop, selected_port, log_path)
     STORE.log_path = log_path
     # Preserve any older Ground_Station/logs after an in-place update.
     for older in (ROOT / "logs").glob("*.csv"):
@@ -573,12 +628,12 @@ def main() -> None:
                 shutil.copy2(older, destination)
         except OSError as error:
             print(f"[LOG] Cannot preserve older log {older.name}: {error}")
-    if args.port and not use_sample:
+    if selected_port and not use_sample:
         try:
             import serial  # noqa: F401
         except ImportError as error:
             raise SystemExit("Live Uno mode requires pyserial: py -3 -m pip install pyserial") from error
-    if args.port or use_sample:
+    if selected_port or use_sample:
         threading.Thread(target=target, args=target_args, daemon=True).start()
     threading.Thread(target=BRIDGE.run, args=(stop,), daemon=True).start()
     url = f"http://{args.listen}:{args.http_port}"
@@ -595,7 +650,7 @@ def main() -> None:
     print(f"GREEN ION local-first blue dashboard: {url}")
     print(f"Automatic computer flight archive: {FLIGHT_DIR}")
     print("Mode: SIMULATED DATA — NOT HARDWARE" if use_sample else
-          f"Mode: Feather Wi-Fi + {('Uno radio on ' + args.port) if args.port else 'no Uno port (Wi-Fi only)'}")
+          f"Mode: Feather Wi-Fi + {('Uno radio on ' + selected_port) if selected_port else 'no Uno port (Wi-Fi only)'}")
     print("Feather Wi-Fi: http://192.168.4.1 (join GREEN-ION-V14 or compatible AP)")
     print(f"Telemetry log: {log_path}")
     print("Keep this window open while using the website. Press Ctrl+C to stop.")
