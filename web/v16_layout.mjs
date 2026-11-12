@@ -1,29 +1,31 @@
 /* GREEN ION V16 five-tab interface organizer.
- * Existing feature cards keep their IDs and logic; this module moves them into
- * a simpler top-level information architecture after legacy scripts initialize. */
+ * Existing feature cards keep their IDs and logic. Legacy pages remain as
+ * hidden compatibility mounts while their contents are moved into five visible
+ * top-level tabs after the old dashboard setup code has initialized. */
 const $=id=>document.getElementById(id);
 
 export const V16_TABS=Object.freeze([
- ["dashboard","Dashboard"],
+ ["status","Dashboard"],
  ["flight","Flight"],
- ["analysis","Flights & Analysis"],
+ ["history","Flights & Analysis"],
  ["testing","Testing"],
- ["settings","Settings & Advanced"]
+ ["system","Settings & Advanced"]
 ]);
 
 export const LEGACY_TAB_MAP=Object.freeze({
- status:"dashboard",flight:"flight",field:"flight",recovery:"flight",
- storage:"analysis",history:"analysis",testing:"testing",
- utilities:"settings",system:"settings",connections:"settings",
- cloud:"settings",updates:"settings",help:"settings",
- dashboard:"dashboard",analysis:"analysis",settings:"settings"
+ status:"status",
+ flight:"flight",field:"flight",recovery:"flight",
+ storage:"history",history:"history",
+ testing:"testing",
+ utilities:"system",system:"system",connections:"system",
+ cloud:"system",updates:"system",help:"system"
 });
 
-export function v16TabFor(name){return LEGACY_TAB_MAP[String(name||"")]||"dashboard";}
+export function v16TabFor(name){return LEGACY_TAB_MAP[String(name||"")]||"status";}
 
 function details(title,id,open=false){
  const node=document.createElement("details");
- node.className="v16-section-group";
+ node.className="v16-section-group card";
  node.id=id;
  node.open=open;
  const summary=document.createElement("summary");
@@ -31,56 +33,63 @@ function details(title,id,open=false){
  node.append(summary);
  return node;
 }
-function moveChildren(source,target){
- if(!source||!target)return;
- while(source.firstChild)target.append(source.firstChild);
+function moveChildren(source,target,{prepend=false}={}){
+ if(!source||!target||source===target)return;
+ const nodes=Array.from(source.childNodes);
+ if(prepend){
+  const marker=target.firstChild;
+  for(const node of nodes)target.insertBefore(node,marker);
+ }else for(const node of nodes)target.append(node);
+ source.hidden=true;
+ source.classList.remove("active");
 }
-function moveStatus(){
- const source=$("status"),target=$("dashboard");
- if(!source||!target)return;
+function groupChildren(source,title,id){
+ if(!source)return null;
+ const nodes=Array.from(source.childNodes);
+ if(!nodes.length)return null;
+ const group=details(title,id,false);
+ for(const node of nodes)group.append(node);
+ return group;
+}
+function organizeDashboard(){
+ const target=$("status");if(!target)return;
  const advanced=details("Detailed live telemetry & graphs","v16DashboardDetails",false);
- for(const child of Array.from(source.children)){
-  if(child.classList?.contains("metrics"))target.append(child);
-  else advanced.append(child);
+ for(const id of ["graphOptionsCard","altGraphCard","pressureGraphCard","tempGraphCard","v14SensorLabCard"]){
+  const node=$(id);if(node)advanced.append(node);
  }
  if(advanced.children.length>1)target.append(advanced);
 }
-function moveFlight(){
- const target=$("flight");
- if(!target)return;
- moveChildren($("legacy-flight"),target);
- const field=$("field");
- if(field?.children.length){
-  const group=details("Field controls","v16FieldControls");
-  moveChildren(field,group);target.append(group);
- }
+function organizeFlight(){
+ const target=$("flight");if(!target)return;
+ const mission=$("v16MissionCard");
+ if(mission)target.prepend(mission);
+ const profile=$("flightProfileCard");
+ if(profile&&mission)mission.after(profile);
+ const field=groupChildren($("field"),"Field controls","v16FieldControls");
+ if(field)target.append(field);
  moveChildren($("recovery"),target);
 }
-function moveAnalysis(){
- const target=$("analysis");if(!target)return;
- moveChildren($("storage"),target);
- moveChildren($("history"),target);
+function organizeAnalysis(){
+ const target=$("history");if(!target)return;
+ moveChildren($("storage"),target,{prepend:true});
 }
-function moveTesting(){moveChildren($("testing-source"),$("testing"));}
-function moveSettings(){
- const target=$("settings");if(!target)return;
+function organizeSettings(){
+ const target=$("system");if(!target)return;
+ const existing=Array.from(target.childNodes);
+ const general=details("Profiles, sensors & recording","v16SettingsGeneral",true);
+ for(const node of existing)general.append(node);
+ target.append(general);
  const groups=[
   ["utilities","Utilities & controls","v16SettingsUtilities"],
-  ["system","Profiles, sensors & recording","v16SettingsSystem"],
   ["connections","Connections, radio & diagnostics","v16SettingsConnections"],
   ["cloud","Cloud backup","v16SettingsCloud"],
   ["updates","Firmware & app updates","v16SettingsUpdates"],
   ["help","Help & troubleshooting","v16SettingsHelp"]
  ];
  for(const [sourceId,title,id] of groups){
-  const source=$(sourceId);if(!source?.children.length)continue;
-  const group=details(title,id,false);moveChildren(source,group);target.append(group);
- }
-}
-function removeSources(){
- for(const id of ["status","legacy-flight","field","testing-source","utilities","storage","system",
-  "connections","recovery","history","cloud","updates","help"]){
-  const node=$(id);if(node?.classList.contains("v16-legacy-page"))node.remove();
+  const group=groupChildren($(sourceId),title,id);
+  if(group)target.append(group);
+  const source=$(sourceId);if(source){source.hidden=true;source.classList.remove("active");}
  }
 }
 function renderSummary(){
@@ -101,12 +110,13 @@ export function openV16Tab(name,{scrollId=null}={}){
  const target=v16TabFor(name);
  const button=document.querySelector('nav.tabs [data-tab="'+target+'"]');
  if(button)button.click();
- if(scrollId)setTimeout(()=>$ (scrollId)?.scrollIntoView({behavior:"smooth",block:"start"}),0);
+ if(scrollId)setTimeout(()=>$(scrollId)?.scrollIntoView({behavior:"smooth",block:"start"}),0);
 }
 export function initLayout(){
- // Inline legacy setup runs before this module, so all cards are already in
- // their final legacy source sections and can be moved without cloning IDs.
- moveStatus();moveFlight();moveAnalysis();moveTesting();moveSettings();removeSources();
+ organizeDashboard();organizeFlight();organizeAnalysis();organizeSettings();
+ for(const id of ["field","storage","utilities","connections","recovery","cloud","updates","help"]){
+  const source=$(id);if(source){source.hidden=true;source.classList.remove("active");}
+ }
  const prepare=$("v16DashboardPrepare");
  if(prepare)prepare.onclick=()=>openV16Tab("flight",{scrollId:"v16MissionCard"});
  window.addEventListener("green-ion-v16-mission",renderSummary);
