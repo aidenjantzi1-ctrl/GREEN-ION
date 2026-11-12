@@ -1,3 +1,12 @@
+# V16 RC.2 — Windows launcher hotfix — November 11, 2026
+
+- Fixed the packaged PowerShell launcher to execute the constructed `ground_station.py` argument list instead of PowerShell's unrelated automatic `$Args` variable.
+- Preserve forwarded manual options such as `--port COM5` while retaining automatic Uno discovery and Wi-Fi-only fallback.
+- Added a packaging regression that fails if the launcher stops splatting `$LaunchArgs`.
+- Windows package identity is now `16.0.0-rc.2`; user data and firmware are unchanged.
+
+---
+
 # V16 Phase 8 — Hardware-validation evidence framework — November 11, 2026
 
 - Added a local hardware-evidence ledger covering Windows reconnects, SD/network-loss recording, sensors, outdoor GPS, receiver-side LoRa, shared SPI, power, OTA/rollback, mobile workflow, mechanical/RF installation and real flight.
