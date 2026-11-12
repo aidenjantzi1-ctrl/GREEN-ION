@@ -64,7 +64,9 @@ main > header, main > .tabs, main > .v14-link-panel { max-width:100%; }
   display:inline-block; vertical-align:top; width:100%;
   margin:0 0 16px !important; break-inside:avoid-column;
  }
- #status.page.active > .metrics, #storage.page.active > #flightSummaryCard,
+ #status.page.active > .metrics, #status.page.active > #v16DashboardSummary,
+ #status.page.active > #v16DashboardDetails, #flight.page.active > #v16MissionCard,
+ #storage.page.active > #flightSummaryCard, #history.page.active > #flightSummaryCard,
  #history.page.active > #v14OfflineAnalysisCard {
   column-span:all; display:block; width:100%; break-inside:avoid;
  }
@@ -136,3 +138,13 @@ body[data-compact="true"] .page .actions{gap:7px;}
 #v15RecoveryTrack{max-width:100%;height:auto;border-radius:8px}
 .v15-help-highlight{outline:3px solid #7bdbff;outline-offset:4px;transition:outline-color .3s}
 #v15HelpResults>.card{margin-block:12px}
+
+/* V16 five-tab organization: advanced groups stay compact and touch-safe. */
+.v16-section-group{break-inside:avoid-column}
+.v16-section-group>summary{cursor:pointer;font-weight:750;list-style-position:outside}
+.v16-section-group>summary:focus-visible{outline:3px solid var(--green);outline-offset:3px}
+#v16DashboardSummary button{margin-top:10px}
+@media(max-width:520px){
+ .v16-tabs button{min-width:132px}
+ .v16-section-group{padding:14px}
+}

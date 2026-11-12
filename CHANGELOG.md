@@ -1,3 +1,17 @@
+# V16 Phase 4 — Five-tab interface — November 11, 2026
+
+- Exposed exactly five normal top-level tabs: Dashboard, Flight, Flights & Analysis, Testing, and Settings & Advanced.
+- Added a concise Dashboard mission summary and moved detailed live graphs/Sensor Lab behind an expandable section.
+- Kept the V16 Mission Controller first in Flight and integrated Recovery into the same operational workflow.
+- Combined Storage and History under Flights & Analysis while preserving offline RKT4/GIS1 analysis, reports, comparisons and local archives.
+- Kept the full preflight/hardware/storage verification workflow in Testing.
+- Grouped profiles, utilities, radio diagnostics, cloud, firmware updates and help into expandable Settings & Advanced sections.
+- Preserved hidden legacy tab aliases for older internal links while mapping them to the correct visible tab.
+- Updated Alt+1 through Alt+5 keyboard navigation and offline PWA caching for the new layout/navigation modules.
+- Added strict tests for the exact five visible tabs and preservation of existing feature cards.
+
+---
+
 # V16 Phase 3 — Mission workflow — November 11, 2026
 
 - Added a persistent mission state machine from preflight through recovery, download, analysis and completion.

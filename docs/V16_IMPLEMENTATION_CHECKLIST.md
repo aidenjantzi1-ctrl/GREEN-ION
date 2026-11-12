@@ -56,7 +56,19 @@ V16 is the next application/ground-station generation after V15 Beta 1. Feather 
   - [x] Persist workflow state and mark active browser restarts INTERRUPTED.
   - [x] Export bounded mission transition/evidence JSON.
   - [x] Add mission workflow regression coverage.
-- [ ] **Phase 4 — Five-tab interface**
+- [x] **Phase 4 — Five-tab interface**
+  - [x] Expose exactly Dashboard / Flight / Flights & Analysis / Testing / Settings & Advanced.
+  - [x] Add a concise Dashboard mission summary and Prepare for Flight shortcut.
+  - [x] Keep detailed live telemetry/graphs expandable instead of always visible.
+  - [x] Keep the Mission Controller first in Flight and combine recovery into the flight workflow.
+  - [x] Combine Storage + History into Flights & Analysis without breaking offline analysis.
+  - [x] Keep one-button preflight and hardware/storage checks in Testing.
+  - [x] Group profiles, sensors, radio, cloud, updates, help and diagnostics under expandable Settings & Advanced sections.
+  - [x] Preserve hidden legacy tab aliases for internal/backward-compatible navigation.
+  - [x] Route old destinations to their new visible parent tab.
+  - [x] Preserve Alt+1…Alt+5 keyboard navigation for the exact five tabs.
+  - [x] Cache both V16 layout/navigation modules for offline updates.
+  - [x] Add strict regression coverage that fails if visible navigation stops being exactly five tabs.
 - [ ] **Phase 5 — Data and cloud**
 - [ ] **Phase 6 — Windows packaging and updates**
 - [ ] **Phase 7 — Advanced visualization, 3D trajectory and digital twin**

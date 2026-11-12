@@ -30,7 +30,7 @@ jobs:
       - name: Python regression suite
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
       - name: Node browser tests
-        run: node --test tests/v14_browser.test.mjs tests/v14_analysis.test.mjs tests/v14_ui.test.mjs tests/v14_sensor.test.mjs tests/v14_gis1.test.mjs tests/v15_features.test.mjs tests/v15_hosted_link.test.mjs tests/v16_windows_reliability.test.mjs tests/v16_unified_telemetry.test.mjs tests/v16_mission.test.mjs
+        run: node --test tests/v14_browser.test.mjs tests/v14_analysis.test.mjs tests/v14_ui.test.mjs tests/v14_sensor.test.mjs tests/v14_gis1.test.mjs tests/v15_features.test.mjs tests/v15_hosted_link.test.mjs tests/v16_windows_reliability.test.mjs tests/v16_unified_telemetry.test.mjs tests/v16_mission.test.mjs tests/v16_navigation.test.mjs tests/v16_layout.test.mjs
       - name: JavaScript syntax verification
         run: |
           for f in web/*.mjs web/analysis/*.mjs web/v14_boot.js web/service-worker.js web/build.mjs; do
@@ -44,11 +44,15 @@ jobs:
           test -s web/dist/index.html
           test -s web/dist/config.js
           test -s web/dist/service-worker.js
-          grep -q 'data-tab="testing"' web/dist/index.html
-          grep -q 'data-tab="cloud"' web/dist/index.html
-          grep -q 'data-tab="updates"' web/dist/index.html
-          grep -q 'data-tab="recovery"' web/dist/index.html
-          grep -q 'data-tab="help"' web/dist/index.html
+          grep -q 'data-tab="status">Dashboard</button>' web/dist/index.html
+          grep -q 'data-tab="flight">Flight</button>' web/dist/index.html
+          grep -q 'data-tab="history">Flights &amp; Analysis</button>' web/dist/index.html
+          grep -q 'data-tab="testing">Testing</button>' web/dist/index.html
+          grep -q 'data-tab="system">Settings &amp; Advanced</button>' web/dist/index.html
+          grep -q 'id="v16DashboardSummary"' web/dist/index.html
+          grep -q 'id="v16LegacyTabs" hidden' web/dist/index.html
+          test -s web/dist/v16_layout.mjs
+          test -s web/dist/v16_navigation.mjs
           grep -q 'id="homeAuto"' web/dist/index.html
           grep -q 'id="v15ConnectFeather"' web/dist/index.html
           grep -q 'GREEN ION V16' web/dist/index.html

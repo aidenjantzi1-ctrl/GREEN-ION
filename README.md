@@ -1,6 +1,6 @@
 # GREEN ION — Rocket Flight Recorder
 
-**Current application development: V16 Phase 3 — mission workflow. Feather/Uno hardware firmware remains the V14 generation. Physical flight validation is still pending.**
+**Current application development: V16 Phase 4 — five-tab interface. Feather/Uno hardware firmware remains the V14 generation. Physical flight validation is still pending.**
 
 **Hosted V16 application / V14 firmware Wi-Fi connection:** compatible Chromium browsers can connect to the Feather after its trusted-origin firmware update and local network permission. Safari/iPhone uses the direct Feather dashboard plus History import and cloud sync after internet returns. [Phone/computer setup and limitations](docs/V15_HOSTED_PHONE_CONNECTION.md).
 
@@ -8,13 +8,14 @@
 
 GREEN ION records a rocket's pressure, motion, GPS and battery measurements using the **Adafruit Feather ESP32 V2**. It records flight data independently on an SD card. A Windows PC, iPhone or iPad can open the **same original blue dashboard and tabs**. Windows can also receive **Uno USB / LoRa** telemetry; the phone works without LoRa.
 
-[**V16 implementation checklist**](docs/V16_IMPLEMENTATION_CHECKLIST.md) · [**V16 Phase 3 Mission Workflow**](docs/V16_PHASE3_MISSION_WORKFLOW.md) · [**Phase 2 Unified Telemetry**](docs/V16_PHASE2_UNIFIED_TELEMETRY.md) · [**Phase 1 Windows reliability**](docs/V16_PHASE1_WINDOWS_RELIABILITY.md) · [**Version history**](VERSIONS.md)
+[**V16 implementation checklist**](docs/V16_IMPLEMENTATION_CHECKLIST.md) · [**V16 five-tab interface**](docs/V16_PHASE4_FIVE_TAB_INTERFACE.md) · [**V16 Phase 3 Mission Workflow**](docs/V16_PHASE3_MISSION_WORKFLOW.md) · [**Phase 2 Unified Telemetry**](docs/V16_PHASE2_UNIFIED_TELEMETRY.md) · [**Phase 1 Windows reliability**](docs/V16_PHASE1_WINDOWS_RELIABILITY.md) · [**Version history**](VERSIONS.md)
 
 ## Choose a guide
 
 | What you want | Where to go |
 |---|---|
 | **Current V16 development status and phase order** | [**V16 Implementation Checklist**](docs/V16_IMPLEMENTATION_CHECKLIST.md) |
+| **Five-tab Dashboard / Flight / Analysis / Testing / Advanced layout** | [**V16 Phase 4 Five-Tab Interface**](docs/V16_PHASE4_FIVE_TAB_INTERFACE.md) |
 | **One mission from preflight through recovery and analysis** | [**V16 Phase 3 Mission Workflow**](docs/V16_PHASE3_MISSION_WORKFLOW.md) |
 | **Unified Wi-Fi + LoRa telemetry and receiver setup** | [**V16 Phase 2 Unified Telemetry**](docs/V16_PHASE2_UNIFIED_TELEMETRY.md) |
 | **Windows connection reliability changes** | [**V16 Phase 1 Reliability**](docs/V16_PHASE1_WINDOWS_RELIABILITY.md) |
@@ -32,9 +33,9 @@ GREEN ION records a rocket's pressure, motion, GPS and battery measurements usin
 
 ## Dashboard
 
-The original **Status, Flight, Field, Testing, Utilities, Storage and System** tabs remain. **Connections, Recovery, History, Cloud, Updates and Help** add optional Windows LoRa, offline RKT4/GIS1 analysis, private Supabase backups and user-confirmed GitHub update downloads.
+V16 exposes exactly five normal top-level tabs: **Dashboard, Flight, Flights & Analysis, Testing, and Settings & Advanced**. Existing advanced tools are preserved underneath those destinations rather than deleted. Recovery is part of Flight; storage/history are combined under Flights & Analysis; radio/cloud/updates/help live under expandable Settings & Advanced sections.
 
-You can disable **Sensor Lab, historical SEN analysis, automatic cloud uploads, compact spacing or imperial display** in System without changing the onboard recorder. Original BIN/SEN/TXT files, checksum-verified restore, plots, comparison, replay and manually exported GPS GeoJSON work offline.
+You can disable **Sensor Lab, historical SEN analysis, automatic cloud uploads, compact spacing or imperial display** in Settings & Advanced without changing the onboard recorder. Original BIN/SEN/TXT files, checksum-verified restore, plots, comparison, replay and manually exported GPS GeoJSON work offline.
 
 **Hardware commands:** Use the Feather's Wi-Fi and local **http://192.168.4.1** backup dashboard when direct connection from the hosted HTTPS website is blocked. The iPhone website cannot read Uno USB serial. Downloads from GitHub **never flash automatically**; bench-only firmware OTA requires separate confirmation.
 

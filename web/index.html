@@ -131,7 +131,7 @@ input[readonly]{background:#253e54;opacity:.85}
  .row strong{max-width:60%}
 }
 @media(max-width:360px){.metrics{grid-template-columns:1fr}.file div{grid-template-columns:1fr 1fr}}
-@media(max-width:520px){.control-buttons{grid-template-columns:1fr}.actions{gap:12px}.tabs button{padding-inline:10px}}
+@media(max-width:520px){.control-buttons{grid-template-columns:1fr}.actions{gap:12px}.tabs button{padding-inline:10px}.v16-tabs button{min-width:132px}}
 body.sunlight{--bg:#f3f7fb;--card:#fff;--line:#aac4d4;--txt:#15283c;--muted:#536b7b;--blue:#006c98;--green:#006f47;--red:#aa1e37;--yellow:#805700}
 body.sunlight .notice{background:#e3edf5;color:#172b40}
 body.sunlight .check{background:#e8f0f6}
@@ -143,8 +143,8 @@ body.sunlight .guide-steps span.current{background:#badced;color:#10344c;outline
 body.sunlight .progress{background:#d2dfeb}
 body.sunlight .value.big{color:#006c98}
 body.sunlight .tabs button.active{background:#006c98!important;color:#fff!important}
-#v16MissionCard{scroll-margin-top:16px}
-@media(min-width:900px){#v16MissionCard{grid-column:1/-1}#status.page.active,#flight.page.active,#testing.page.active,#utilities.page.active,#system.page.active,#storage.page.active{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}#status .metrics,#storage #flightSummaryCard{grid-column:1/-1}#storage .card,#testing .card,#utilities .card,#system .card{margin-bottom:0}.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+#v16MissionCard,#v16DashboardSummary{scroll-margin-top:16px}.v16-section-group>summary{cursor:pointer;font-weight:750;padding:4px 0 12px}.v16-section-group[open]>summary{margin-bottom:10px}
+@media(min-width:900px){#v16MissionCard,#v16DashboardSummary,#v16DashboardDetails,.v16-section-group{grid-column:1/-1}#status.page.active,#flight.page.active,#testing.page.active,#utilities.page.active,#system.page.active,#storage.page.active{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}#status .metrics,#storage #flightSummaryCard{grid-column:1/-1}#storage .card,#testing .card,#utilities .card,#system .card{margin-bottom:0}.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
 </style>
 
 <style>
@@ -184,8 +184,15 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  </div>
 </div>
 
-<nav class="tabs" aria-label="Dashboard sections">
- <button class="active" data-tab="status">Status</button>
+<nav class="tabs v16-tabs" aria-label="GREEN ION V16 primary sections">
+ <button class="active" data-tab="status">Dashboard</button>
+ <button data-tab="flight">Flight</button>
+ <button data-tab="history">Flights &amp; Analysis</button>
+ <button data-tab="testing">Testing</button>
+ <button data-tab="system">Settings &amp; Advanced</button>
+</nav>
+<nav id="v16LegacyTabs" hidden aria-hidden="true">
+ <button data-tab="status">Status</button>
  <button data-tab="flight">Flight</button>
  <button data-tab="field">Field</button>
  <button data-tab="testing">Testing</button>
@@ -208,6 +215,16 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 </div>
 
 <section id="status" class="page active">
+<div class="card" id="v16DashboardSummary">
+ <h2>Mission overview</h2>
+ <div class="row"><span>Mission state</span><strong id="v16DashMission">IDLE</strong></div>
+ <div class="row"><span>Rocket / motor</span><strong id="v16DashRocket">Not selected</strong></div>
+ <div class="row"><span>Live links</span><strong id="v16DashLinks">WAITING</strong></div>
+ <div class="row"><span>GPS</span><strong id="v16DashGps">MISSING</strong></div>
+ <div class="row"><span>SD / recording</span><strong id="v16DashRecorder">UNKNOWN</strong></div>
+ <button id="v16DashboardPrepare" class="green" style="width:100%">PREPARE FOR FLIGHT</button>
+ <p class="muted">Record everything useful; show only what matters right now. Expand detailed live telemetry below when needed.</p>
+</div>
 <div class="metrics">
  <div class="metric">
   <div class="label">LIVE ALTITUDE</div>
@@ -1007,16 +1024,24 @@ function setUnits(x) {
  drawAll();
 }
 
+const v16TabGroup={
+ status:"status",
+ flight:"flight",field:"flight",recovery:"flight",
+ storage:"history",history:"history",
+ testing:"testing",
+ utilities:"system",system:"system",connections:"system",
+ cloud:"system",updates:"system",help:"system"
+};
 function openTab(name,button) {
- document.querySelectorAll(".page").forEach(
-  e=>e.classList.remove("active")
- );
- document.querySelectorAll(".tabs button").forEach(
-  e=>e.classList.remove("active")
- );
- $(name).classList.add("active");
- button.classList.add("active");
- if(name==="storage")loadFiles();
+ const target=v16TabGroup[name]||name;
+ document.querySelectorAll(".page").forEach(e=>e.classList.remove("active"));
+ document.querySelectorAll(".tabs button").forEach(e=>e.classList.remove("active"));
+ const page=$(target);
+ if(page)page.classList.add("active");
+ const top=document.querySelector('.tabs button[data-tab="'+target+'"]');
+ if(top)top.classList.add("active");
+ if(target==="history")loadFiles();
+ window.dispatchEvent(new CustomEvent("green-ion-v16-page",{detail:{page:target,requested:name}}));
  drawAll();
 }
 

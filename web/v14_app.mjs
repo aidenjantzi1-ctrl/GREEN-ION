@@ -12,8 +12,10 @@ import {initBattery} from "./v15_battery.mjs";
 import {initLink} from "./v15_link.mjs";
 import {initHelp} from "./v15_help.mjs";
 import {initMission} from "./v16_mission.mjs";
+import {initLayout} from "./v16_layout.mjs";
 import {initPreferences} from "./v14_preferences.mjs";
 import {initSensorLab} from "./v14_sensor_lab.mjs";
+import {initV16Navigation} from "./v16_navigation.mjs";
 import {requiresFeather,initTabs} from "./v14_ui.mjs";
 const $=id=>document.getElementById(id),t=window.GREEN_ION_TRANSPORT;
 let importing=false,lastAutoImport=0,lastRadioAt=0,radioPackets=[];
@@ -176,11 +178,13 @@ function renderBrowserInfo(){
 }
 async function init(){
  document.querySelector("header small").textContent="Flight logger · V16 unified operations";
- text("v14AppBuild","Website V16 development · mission workflow phase · Feather firmware channel "+APP_VERSION+" (check actual installed build in System)");
+ text("v14AppBuild","Website V16 development · five-tab interface phase · Feather firmware channel "+APP_VERSION+" (check actual installed build in Settings & Advanced)");
  renderBrowserInfo();
+ initLayout();
  initPreferences();
  initSensorLab(t);
  initTabs(document.querySelector("nav.tabs"));
+ initV16Navigation();
  $("v14SerialConnect").onclick=connectSerial;
  $("v14SerialDisconnect").onclick=disconnectSerial;
  $("v14SerialDisconnect").disabled=true;
