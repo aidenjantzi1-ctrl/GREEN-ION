@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
@@ -26,7 +27,9 @@ import os
 import threading
 import time
 import webbrowser
+import uuid
 from v13_bridge import FeatherBridge
+from v16_telemetry import build_unified_telemetry
 
 ROOT = Path(__file__).resolve().parent
 # Never put new logs inside a replaceable downloaded app folder.
@@ -49,7 +52,7 @@ PUBLIC_CLOUD = {
 # ordinary telemetry and bench-test packets. Original JSON is retained.
 LOG_COLUMNS = (
     "received_utc", "source", "type", "protocol", "sequence", "uptime_ms",
-    "rssi_dbm", "altitude_m", "pressure_pa", "gps_altitude_m",
+    "rssi_dbm", "snr_db", "altitude_m", "pressure_pa", "gps_altitude_m",
     "acceleration_g", "acceleration_x_g", "acceleration_y_g",
     "acceleration_z_g", "rotation_x_dps", "rotation_y_dps",
     "rotation_z_dps", "speed_mps", "battery_v", "gps_fix_age_ms",
@@ -79,26 +82,37 @@ class Store:
     repeated_packets: int = 0
     out_of_order: int = 0
     resets: int = 0
+    sender_session_index: int = 0
     last_seq: int | None = None
     last_uptime: int | None = None
     avg_rssi: float | None = None
+    avg_snr: float | None = None
+    accepted_telemetry_packets: int = 0
+    receiver_reconnects: int = 0
+    receiver_connected_once: bool = False
+    receiver_session_id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    radio_history: deque = field(default_factory=lambda: deque(maxlen=240))
     log_path: Path | None = None
 
     def receiver(self, status: str, detail: str = "", info: dict | None = None) -> None:
         with self.lock:
+            old_ready = self.receiver_state in ("connected", "ready")
+            new_ready = status in ("connected", "ready")
+            if new_ready and self.receiver_connected_once and not old_ready:
+                self.receiver_reconnects += 1
+            if new_ready:
+                self.receiver_connected_once = True
             self.receiver_state = status
             self.receiver_error = detail[:300]
             if info is not None:
                 self.receiver_info = info
 
-    def _observe_packet(self, row: dict) -> None:
-        """Call under lock for both telemetry and CRC-valid radio_bench frames."""
+    def _observe_packet(self, row: dict) -> str:
+        """Classify one CRC-valid frame; caller holds lock."""
         self.received_packets += 1
+        classification = "new"
         seq, uptime = row.get("sequence"), row.get("uptime_ms")
         if isinstance(seq, int) and isinstance(uptime, int):
-            # A late packet can have an older uptime. Treat a substantial
-            # uptime drop paired with a fresh low sequence as a reboot;
-            # otherwise classify old sequence numbers as out-of-order.
             restarted = (
                 self.last_uptime is not None
                 and self.last_seq is not None
@@ -109,17 +123,23 @@ class Store:
             )
             if restarted:
                 self.resets += 1
+                self.sender_session_index += 1
                 self.last_seq = None
+                self.last_uptime = None
+                classification = "sender_restart"
             advance = True
             if self.last_seq is not None:
                 delta = (seq - self.last_seq) & 0xFFFFFFFF
                 if delta == 0:
                     self.repeated_packets += 1
+                    classification = "duplicate"
                     advance = False
                 elif 1 < delta < 1000000:
                     self.inferred_missing += delta - 1
+                    classification = "gap"
                 elif delta >= 1000000:
                     self.out_of_order += 1
+                    classification = "out_of_order"
                     advance = False
             if advance:
                 self.last_seq, self.last_uptime = seq, uptime
@@ -128,20 +148,52 @@ class Store:
             self.avg_rssi = float(rssi) if self.avg_rssi is None else (
                 0.9 * self.avg_rssi + 0.1 * float(rssi)
             )
+        snr = row.get("snr_db")
+        if isinstance(snr, (int, float)) and math.isfinite(snr):
+            self.avg_snr = float(snr) if self.avg_snr is None else (
+                0.9 * self.avg_snr + 0.1 * float(snr)
+            )
+        return classification
+
+    def _annotate(self, row: dict, classification: str) -> dict:
+        item = dict(row)
+        item["receiver_session_id"] = self.receiver_session_id
+        item["sender_session_index"] = self.sender_session_index
+        item["packet_classification"] = classification
+        seq = row.get("sequence")
+        item["packet_id"] = (
+            f"{self.receiver_session_id}:{self.sender_session_index}:{seq}"
+            if isinstance(seq, int) else None
+        )
+        return item
 
     def bench(self, row: dict) -> None:
         with self.lock:
             self.bench_packets += 1
-            self.last_bench = row
-            self._observe_packet(row)  # Avoid falsely counting bench packets as lost.
+            classification = self._observe_packet(row)
+            self.last_bench = self._annotate(row, classification)
 
     def update(self, row: dict) -> None:
         now = time.monotonic()
         with self.lock:
-            self.latest = dict(row)
-            self.received_monotonic = now
             self.telemetry_packets += 1
-            self._observe_packet(row)
+            classification = self._observe_packet(row)
+            item = self._annotate(row, classification)
+            accepted = classification not in ("duplicate", "out_of_order")
+            item["accepted_for_live_display"] = accepted
+            self.radio_history.append({
+                key: item.get(key) for key in (
+                    "received_utc", "packet_id", "sender_session_index", "sequence",
+                    "uptime_ms", "packet_classification", "accepted_for_live_display",
+                    "altitude_m", "battery_v", "flight_state", "gps_status",
+                    "latitude", "longitude", "rssi_dbm", "snr_db"
+                )
+            })
+            if not accepted:
+                return
+            self.latest = item
+            self.received_monotonic = now
+            self.accepted_telemetry_packets += 1
             lat, lon = row.get("latitude"), row.get("longitude")
             # Received a stale last-known position != a fresh GPS acquisition.
             if (isinstance(lat, (int, float)) and isinstance(lon, (int, float))
@@ -171,10 +223,14 @@ class Store:
             row["receiver_state"] = self.receiver_state
             row["receiver_error"] = self.receiver_error
             row["receiver_info"] = dict(self.receiver_info)
+            row["receiver_session_id"] = self.receiver_session_id
+            row["receiver_reconnects"] = self.receiver_reconnects
+            row["sender_session_index"] = self.sender_session_index
             row["bench_packets"] = self.bench_packets
             row["last_bench"] = self.last_bench
             row["packets_received"] = self.received_packets
             row["telemetry_packets"] = self.telemetry_packets
+            row["accepted_telemetry_packets"] = self.accepted_telemetry_packets
             row["packets_missed_estimated"] = self.inferred_missing
             row["packets_repeated"] = self.repeated_packets
             row["packets_out_of_order"] = self.out_of_order
@@ -182,8 +238,15 @@ class Store:
             total = self.received_packets + self.inferred_missing
             row["loss_pct_estimated"] = round(self.inferred_missing * 100 / total, 2) if total else 0
             row["rssi_average_dbm"] = round(self.avg_rssi, 1) if self.avg_rssi is not None else None
+            row["snr_average_db"] = round(self.avg_snr, 1) if self.avg_snr is not None else None
             row["log_download_available"] = bool(self.log_path and self.log_path.is_file())
             return row
+
+    def history_snapshot(self, limit: int = 120) -> list[dict]:
+        with self.lock:
+            if limit <= 0:
+                return []
+            return list(self.radio_history)[-min(limit, self.radio_history.maxlen):]
 
 STORE = Store()
 
