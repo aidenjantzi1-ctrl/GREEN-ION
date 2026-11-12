@@ -125,7 +125,9 @@ function paint(){
  if(canvas.width!==w*dpr||canvas.height!==h*dpr){canvas.width=w*dpr;canvas.height=h*dpr;}
  const ctx=canvas.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);
  const state=replayState()||latest||{mode:"live",live:false,stale:false,phase:"No telemetry",altitudeM:null,source:"none"};
- const now=performance.now(),dt=Math.min(.08,Math.max(0,(now-lastFrame)/1000));lastFrame=now;
+ const now=performance.now();
+ if(lastFrame&&now-lastFrame<30){requestFrame();return;}
+ const dt=Math.min(.08,Math.max(0,(now-lastFrame)/1000));lastFrame=now;
  if(state.live&&finite(state.rotationDps))angle+=state.rotationDps*Math.PI/180*dt;
  angle=Math.max(-Math.PI*.7,Math.min(Math.PI*.7,angle));
  if(state.phase==="Prelaunch"||state.phase==="Idle"||state.phase==="Landed")angle*=.85;
@@ -151,7 +153,8 @@ function paint(){
   (finite(state.altitudeM)?state.altitudeM.toFixed(1)+" m estimated altitude":"Altitude unavailable")+" · "+
   (finite(state.speedMps)?state.speedMps.toFixed(1)+" m/s estimated speed":"Speed unavailable");
  if(replay&&!replay.paused&&state.replayTimeS>=state.durationS-.02){replay.paused=true;replay.pauseTime=state.durationS;}
- requestFrame();
+ // Keep animation bounded (~33 fps) only while live telemetry or active replay needs motion.
+ if((replay&&!replay.paused)||latest?.live)requestFrame();
 }
 function requestFrame(){
  if(!visible||document.hidden)return;
