@@ -82,8 +82,9 @@ test("flight-library metadata is reversible and does not modify package original
   {flight_id:"V12D007",status:"FULL",cloud_status:"LOCAL",windows_status:"VERIFIED",files:{BIN:{name:"V12D007.BIN"}}},
   {flight_id:"V12D008",status:"RECORDED",cloud_status:"LOCAL",windows_status:"UNKNOWN",files:{BIN:{name:"V12D008.BIN"}}}
  ];
- // libraryMetaFor in filter reads default global storage, so validate the pure
- // metadata separately and source contract below verifies filtering controls.
+ assert.deepEqual(filterFlightPackages(packages,{favoritesOnly:true,storage:store}).map(x=>x.flight_id),["V12D007"]);
+ assert.deepEqual(filterFlightPackages(packages,{query:"east of pad",storage:store}).map(x=>x.flight_id),["V12D007"]);
+ assert.deepEqual(filterFlightPackages(packages,{tag:"so-long",storage:store}).map(x=>x.flight_id),["V12D007"]);
  assert.equal(packages[0].flight_id,"V12D007");
 });
 
