@@ -338,6 +338,24 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 </div>
 </section>
 <section id="flight" class="page">
+<div class="card launch-guide" id="v16MissionCard">
+ <div class="guide-top"><div><h2>V16 Mission Controller</h2>
+ <p class="muted">Guides one mission from preflight through recovery and analysis. Feather flight detection and SD recording remain authoritative and autonomous.</p></div>
+ <strong id="v16MissionState">IDLE</strong></div>
+ <div class="notice" id="v16MissionInstruction" role="status" aria-live="polite">Start a mission when the rocket and motor profile are ready.</div>
+ <div class="row"><span>Mission identity</span><strong id="v16MissionIdentity">Rocket not selected · Motor not selected</strong></div>
+ <div class="row"><span>GPS evidence</span><strong id="v16MissionGps">GPS: MISSING</strong></div>
+ <div class="row"><span>Flight file</span><strong id="v16MissionFile">No completed flight file yet</strong></div>
+ <div class="notice" id="v16MissionEvidence">No mission evidence yet.</div>
+ <label id="v16MissionPhysicalLabel" hidden><input id="v16MissionPhysical" type="checkbox"> I completed the required physical rocket, recovery, power and antenna checks.</label>
+ <div class="actions">
+  <button id="v16MissionPrimary" class="green wide">START MISSION</button>
+  <button id="v16MissionExport" class="secondary">EXPORT MISSION EVIDENCE</button>
+  <button id="v16MissionReset" class="secondary">RESET WORKFLOW</button>
+ </div>
+ <details><summary>Recent mission transitions</summary><div id="v16MissionTimeline">No mission transitions yet.</div></details>
+</div>
+
 <div class="card" id="flightProfileCard">
  <h2>Rocket flight profile</h2>
  <p class="muted">Choose the rocket and motor on the bench BEFORE launching. Saves the selection on the Feather and in the flight .TXT metadata. Changing the profile restarts stationary calibration; never edit at the pad.</p>
