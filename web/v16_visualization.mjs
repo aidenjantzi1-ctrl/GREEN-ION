@@ -101,7 +101,10 @@ export function reconstructFlight(binInput,senInput=null){
  let sensor=null,points=[],orientation=[],mode="pressure-only",limitations=[];
  if(senInput){
   sensor=parseGis1(senInput);
-  orientation=integrateGyroOrientation(sensor.samples);
+  const sensorStart=sensor.samples[0]?.timeS??pressureStart;
+  orientation=integrateGyroOrientation(sensor.samples).map(item=>({
+   ...item,timeS:item.timeS+(sensorStart-pressureStart)
+  }));
   const fixes=sensor.samples.filter(s=>s.gpsCurrent&&finite(s.latitude)&&finite(s.longitude));
   if(fixes.length){
    const first=fixes[0];
