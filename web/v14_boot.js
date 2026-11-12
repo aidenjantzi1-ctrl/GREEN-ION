@@ -7,8 +7,11 @@ const nativeFetch=window.fetch.bind(window);
 const FEATHER="http://192.168.4.1";
 const local=location.hostname==="192.168.4.1" ||
   ((location.hostname==="localhost"||location.hostname==="127.0.0.1")&&location.port==="8765");
-const state={wifiAt:0,wifiVersion:null,radio:null,radioAt:0,lastPosition:null,lastPositionAt:0,radioError:"",lastStatus:null,lastWifiStatus:null,lastStatusAt:0,bridge:local&&location.hostname!=="192.168.4.1",statusInFlight:false};
-function wifiFresh(){return Date.now()-state.wifiAt<5500;}
+const state={wifiAt:0,wifiVersion:null,wifiFailures:0,statusErrorAt:0,lastStatusError:"",radio:null,radioAt:0,lastPosition:null,lastPositionAt:0,radioError:"",lastStatus:null,lastWifiStatus:null,lastStatusAt:0,bridge:local&&location.hostname!=="192.168.4.1",statusInFlight:false};
+const WIFI_DISPLAY_FRESH_MS=6000;
+const WIFI_COMMAND_FRESH_MS=2500;
+function wifiFresh(){return !!state.wifiAt && Date.now()-state.wifiAt<WIFI_DISPLAY_FRESH_MS;}
+function controlsVerified(){return !!state.wifiAt && Date.now()-state.wifiAt<WIFI_COMMAND_FRESH_MS && !state.statusErrorAt;}
 function radioFresh(){return !!state.radio && Date.now()-state.radioAt<4400;}
 function validPosition(lat,lon){return Number.isFinite(+lat)&&Number.isFinite(+lon)&&Math.abs(+lat)<=90&&Math.abs(+lon)<=180&&!(+lat===0&&+lon===0);}
 function source(){return wifiFresh()?"wifi":radioFresh()?"lora":"none";}
@@ -70,8 +73,8 @@ async function interceptedFetch(input, options){
   if(typeof path!=="string"||!path.startsWith("/api/"))return nativeFetch(input,options);
   const isStatus=/^\/api\/status(?:[?]|$)/.test(path);
   const method=(options?.method||"GET").toUpperCase();
-  if(!isStatus && !wifiFresh() && !state.bridge){
-    return new Response(JSON.stringify({success:false,message:"Feather Wi-Fi not verified. Controls and SD access require the Feather local connection."}),{status:503,headers:{"Content-Type":"application/json"}});
+  if(!isStatus && !controlsVerified() && !state.bridge){
+    return new Response(JSON.stringify({success:false,message:"Feather Wi-Fi is not freshly verified. Wait for the next live status before using controls or SD access."}),{status:503,headers:{"Content-Type":"application/json"}});
   }
   try{
     const url=local?path:FEATHER+path;
@@ -95,6 +98,7 @@ async function interceptedFetch(input, options){
       if(verified && data.v13_source!=="lora" && data.v13_source!=="demo"){
         state.wifiAt=Date.now();
         state.wifiVersion=Number(data.version??13);
+        state.wifiFailures=0;state.statusErrorAt=0;state.lastStatusError="";
         state.lastStatus=data;state.lastWifiStatus=data;state.lastStatusAt=state.wifiAt;
       }else{
         state.wifiAt=0;
@@ -109,15 +113,20 @@ async function interceptedFetch(input, options){
     return response;
   }catch(error){
     if(isStatus){
-      state.wifiAt=0;
+      state.wifiFailures++;
+      state.statusErrorAt=Date.now();
+      state.lastStatusError=String(error?.message||error).slice(0,180);
+      // Keep the last verified observation visible during a brief dropout.
+      // controlsVerified() fails immediately, so stale display continuity can
+      // never authorize a command or SD mutation.
       window.dispatchEvent(new Event("green-ion-link"));
-      if(radioFresh())return responseForRadio();
+      if(!wifiFresh() && radioFresh())return responseForRadio();
     }
     throw error;
   }
 }
 window.GREEN_ION_TRANSPORT={
-  state,source,wifiFresh,radioFresh,feedRadio,
+  state,source,wifiFresh,controlsVerified,radioFresh,feedRadio,
   apiUrl:path=>local?path:FEATHER+path,
   nativeFetch,localBridge:state.bridge,
   lastPosition:()=>state.lastPosition,

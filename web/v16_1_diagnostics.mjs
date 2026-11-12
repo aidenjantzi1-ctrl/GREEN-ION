@@ -2,7 +2,7 @@
  * Keeps launch-day UI concise while preserving deeper evidence in a downloadable report. */
 import {listLocalMetadata} from "./v14_store.mjs";
 
-export const DIAGNOSTIC_SCHEMA="GREEN-ION-V16.1-DIAGNOSTICS-1";
+export const DIAGNOSTIC_SCHEMA="GREEN-ION-V16.2-DIAGNOSTICS-1";
 const $=id=>document.getElementById(id);
 const t=window.GREEN_ION_TRANSPORT;
 let lastReport=null,running=null;
@@ -43,6 +43,17 @@ function browserSnapshot(){
    connection_state:wifi.v16_connection_state||null,
    sd_ok:wifi.sd_ok??null,
    recording:wifi.recording??null,
+   firmware_name:wifi.firmware_name||null,
+   firmware_version:wifi.firmware_version||null,
+   imu_ok:wifi.imu_ok??null,
+   barometer_ok:wifi.barometer_ready??null,
+   battery_v:wifi.battery_v??null,
+   gps_ok:wifi.gps_ok??null,
+   gps_status:wifi.gps_status||null,
+   reset_reason:wifi.reset_reason||null,
+   sd_recoveries:wifi.sd_recoveries??null,
+   imu_recoveries:wifi.imu_recoveries??null,
+   gps_recoveries:wifi.gps_recoveries??null,
    last_error:wifi.last_error||wifi.error||null
   },
   lora:{
@@ -81,10 +92,14 @@ export async function buildDiagnosticReport(){
  catch{}
  const browser=browserSnapshot();
  const issues=[];
- if(!browser.wifi.fresh)issues.push("Feather Wi-Fi is not currently verified.");
- if(!browser.lora.fresh)issues.push("No fresh receive-only LoRa packet.");
- if(browser.wifi.fresh&&browser.wifi.sd_ok===false)issues.push("Feather reports SD not ready.");
- if(!browser.gps.position_available)issues.push("No confirmed GPS position has been received on this device.");
+ if(!browser.wifi.fresh)issues.push("Feather Wi-Fi: no recent status. Keep the Windows app open, join GREEN-ION-V16-2, and let automatic reconnect continue.");
+ if(!browser.lora.fresh)issues.push("LoRa: no fresh receive-only packet. Check Uno USB, antenna, radio power/wiring and coordinated frequency; SD recording is independent.");
+ if(browser.wifi.fresh&&browser.wifi.sd_ok===false)issues.push("SD: Feather reports the card unavailable. Stop mission activity, inspect/reseat the card, and rerun SD/home verification.");
+ if(!browser.gps.position_available)issues.push("GPS: no confirmed position received. Move outdoors with a clear sky and wait for a current fix.");
+ if(browser.wifi.imu_ok===false)issues.push("IMU: LSM6DSO32 is unavailable. Check STEMMA QT power/cable and rerun the home test.");
+ if(browser.wifi.barometer_ok===false)issues.push("Barometer: BMP388 is unavailable. Check cable/power before recording.");
+ if(Number.isFinite(Number(browser.wifi.battery_v))&&Number(browser.wifi.battery_v)<3.45)
+  issues.push("Battery: measured voltage is low. Recharge/inspect the protected 1S LiPo; voltage alone does not predict endurance.");
  if(local?.receiver?.state==="disconnected"||local?.receiver?.state==="error")
   issues.push("Windows Uno receiver is "+local.receiver.state+".");
  if(localError)issues.push("Windows diagnostic endpoint unavailable: "+localError);
@@ -116,8 +131,12 @@ function renderFrom(report){
    "NO FRESH PACKETS");
  text("v161DiagGps",b.gps.position_available?"FIX RECEIVED · "+age(b.gps.age_ms)+" old":"NO FIX RECEIVED");
  text("v161DiagSd",b.wifi.fresh?
-   (b.wifi.sd_ok===true?"READY":b.wifi.sd_ok===false?"NOT READY":"UNKNOWN"):
+   (b.wifi.sd_ok===true?"READY"+(b.wifi.sd_recoveries?" · recovered "+b.wifi.sd_recoveries+"×":""):b.wifi.sd_ok===false?"NOT READY":"UNKNOWN"):
    "REQUIRES FEATHER WI-FI");
+ text("v162DiagFirmware",b.wifi.firmware_version?(b.wifi.firmware_name||"Feather")+" · "+b.wifi.firmware_version:"Not reported");
+ text("v162DiagImu",b.wifi.fresh?(b.wifi.imu_ok===true?"READY"+(b.wifi.imu_recoveries?" · recovered "+b.wifi.imu_recoveries+"×":""):b.wifi.imu_ok===false?"NOT READY":"UNKNOWN"):"REQUIRES FEATHER WI-FI");
+ text("v162DiagBaro",b.wifi.fresh?(b.wifi.barometer_ok===true?"READY":b.wifi.barometer_ok===false?"NOT READY":"UNKNOWN"):"REQUIRES FEATHER WI-FI");
+ text("v162DiagBattery",Number.isFinite(Number(b.wifi.battery_v))?Number(b.wifi.battery_v).toFixed(3)+" V measured":"Unavailable");
  text("v161DiagCloud",b.cloud?status(b.cloud.status):"OPTIONAL / NOT CONFIGURED");
  text("v161DiagArchive",report.local_archive.file_count+" original file(s) on this device");
  text("v161DiagSummary",report.issues.length?
@@ -146,14 +165,18 @@ export function initV161Diagnostics(){
  const system=$("system");if(!system)return;
  if(!$("v161DiagnosticsCard")){
   const card=document.createElement("div");card.className="card";card.id="v161DiagnosticsCard";
-  card.innerHTML='<h2>Quick system check</h2>'+
+  card.innerHTML='<h2>System Health</h2>'+
    '<p class="muted">Simple launch-day view. Detailed evidence stays behind this card and in the downloadable report.</p>'+
    '<div class="row"><span>App</span><strong id="v161DiagApp">Checking...</strong></div>'+
    '<div class="row"><span>Feather Wi-Fi</span><strong id="v161DiagFeather">Checking...</strong></div>'+
    '<div class="row"><span>Uno USB</span><strong id="v161DiagUno">Checking...</strong></div>'+
    '<div class="row"><span>Receive-only LoRa</span><strong id="v161DiagLora">Checking...</strong></div>'+
    '<div class="row"><span>GPS evidence</span><strong id="v161DiagGps">Checking...</strong></div>'+
+   '<div class="row"><span>Feather firmware</span><strong id="v162DiagFirmware">Checking...</strong></div>'+
    '<div class="row"><span>SD card</span><strong id="v161DiagSd">Checking...</strong></div>'+
+   '<div class="row"><span>IMU</span><strong id="v162DiagImu">Checking...</strong></div>'+
+   '<div class="row"><span>Barometer</span><strong id="v162DiagBaro">Checking...</strong></div>'+
+   '<div class="row"><span>Battery</span><strong id="v162DiagBattery">Checking...</strong></div>'+
    '<div class="row"><span>Cloud backup</span><strong id="v161DiagCloud">Checking...</strong></div>'+
    '<div class="row"><span>Local archive</span><strong id="v161DiagArchive">Checking...</strong></div>'+
    '<div class="actions"><button id="v161DiagRun">Run connection check</button>'+

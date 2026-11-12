@@ -46,7 +46,8 @@ export function buildFlightPackages(files,{cloudState=null,pcChecksums=null}={})
    group={
     schema:DATA_SCHEMA,flight_id:base,files:{},conflicts:[],
     has_bin:false,full_companions:false,status:"COMPANION_ONLY",
-    total_bytes:0,missing:[],local_verified:"NOT_CHECKED"
+    total_bytes:0,missing:[],local_verified:"NOT_CHECKED",
+    created_at:null,rocket:"",motor:"",recording_status:""
    };
    groups.set(key,group);
   }
@@ -66,6 +67,7 @@ export function buildFlightPackages(files,{cloudState=null,pcChecksums=null}={})
  const out=[...groups.values()];
  for(const group of out){
   group.total_bytes=Object.values(group.files).reduce((sum,f)=>sum+f.size,0);
+  group.created_at=Object.values(group.files).map(f=>f.created_at).filter(Boolean).sort().at(-1)||null;
   group.has_bin=!!group.files.BIN;
   group.full_companions=KINDS.every(kind=>!!group.files[kind]);
   group.missing=KINDS.filter(kind=>!group.files[kind]);
@@ -149,15 +151,24 @@ export function saveLibraryMeta(flightId,patch,storage=globalThis.localStorage){
 export function libraryMetaFor(flightId,storage=globalThis.localStorage){
  return loadLibraryMeta(storage)[String(flightId||"").toLowerCase()]||{favorite:false,tags:[],note:""};
 }
-export function filterFlightPackages(packages,{query="",favoritesOnly=false,tag="",storage=globalThis.localStorage}={}){
+export function filterFlightPackages(packages,{query="",favoritesOnly=false,tag="",rocket="",motor="",status="",backup="",dateFrom="",dateTo="",storage=globalThis.localStorage}={}){
  const q=String(query||"").trim().toLowerCase(),wantedTag=String(tag||"").trim().toLowerCase();
+ const wantedRocket=String(rocket||"").trim().toLowerCase(),wantedMotor=String(motor||"").trim().toLowerCase();
  return (packages||[]).filter(pkg=>{
   const meta=libraryMetaFor(pkg.flight_id,storage);
   if(favoritesOnly&&!meta.favorite)return false;
   if(wantedTag&&!meta.tags.some(x=>String(x).toLowerCase()===wantedTag))return false;
+  if(wantedRocket&&String(pkg.rocket||"").toLowerCase()!==wantedRocket)return false;
+  if(wantedMotor&&String(pkg.motor||"").toLowerCase()!==wantedMotor)return false;
+  if(status&&pkg.status!==status)return false;
+  if(backup==="verified"&&!(pkg.windows_status==="VERIFIED"||pkg.cloud_status==="SYNCED"))return false;
+  if(backup==="feather-only"&&(pkg.windows_status==="VERIFIED"||pkg.cloud_status==="SYNCED"))return false;
+  const day=pkg.created_at?String(pkg.created_at).slice(0,10):"";
+  if(dateFrom&&day&&day<dateFrom)return false;
+  if(dateTo&&day&&day>dateTo)return false;
   if(!q)return true;
   const haystack=[
-   pkg.flight_id,pkg.status,pkg.cloud_status,pkg.windows_status,meta.note,
+   pkg.flight_id,pkg.status,pkg.cloud_status,pkg.windows_status,pkg.rocket,pkg.motor,pkg.recording_status,meta.note,
    ...meta.tags,...Object.values(pkg.files||{}).map(x=>x.name)
   ].join(" ").toLowerCase();
   return haystack.includes(q);
@@ -201,6 +212,33 @@ export function clearFinishedTransfers(storage=globalThis.localStorage){
  return journal;
 }
 
+const txtLabelCache=new Map();
+async function enrichPackageLabels(packages){
+ for(const pkg of packages||[]){
+  const txt=pkg.files?.TXT;if(!txt?.key)continue;
+  let labels=txtLabelCache.get(txt.sha256);
+  if(!labels){
+   try{
+    const file=await getLocalFile(txt.key),text=new TextDecoder().decode(file?.bytes||new Uint8Array());
+    const values={};for(const line of text.split(/\r?\n/)){const ix=line.indexOf("=");if(ix>0)values[line.slice(0,ix).trim()]=line.slice(ix+1).trim();}
+    labels={rocket:values.rocket||"",motor:values.motor||"",recording_status:values.status||"",finish_reason:values.finish_reason||""};
+   }catch{labels={rocket:"",motor:"",recording_status:"",finish_reason:""};}
+   txtLabelCache.set(txt.sha256,labels);
+  }
+  Object.assign(pkg,labels);
+ }
+ return packages;
+}
+function syncFilterOptions(packages){
+ const setOptions=(id,values,label)=>{
+  const select=$(id);if(!select)return;const previous=select.value;
+  select.replaceChildren(new Option(label,""));
+  for(const value of [...new Set(values.filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b))))select.append(new Option(value,value));
+  if([...select.options].some(o=>o.value===previous))select.value=previous;
+ };
+ setOptions("v162LibraryRocket",packages.map(x=>x.rocket),"All rockets");
+ setOptions("v162LibraryMotor",packages.map(x=>x.motor),"All motors");
+}
 function readCloudState(){
  try{return safeParse(localStorage.getItem("green-ion-v16-cloud-state")||"null",null);}catch{return null;}
 }
@@ -223,7 +261,10 @@ function renderPackages(packages){
  const query=$("v161LibrarySearch")?.value||"";
  const favoritesOnly=!!$("v161LibraryFavorites")?.checked;
  const tagFilter=$("v161LibraryTag")?.value||"";
- const filtered=filterFlightPackages(packages,{query,favoritesOnly,tag:tagFilter});
+ const filtered=filterFlightPackages(packages,{query,favoritesOnly,tag:tagFilter,
+  rocket:$("v162LibraryRocket")?.value||"",motor:$("v162LibraryMotor")?.value||"",
+  status:$("v162LibraryStatus")?.value||"",backup:$("v162LibraryBackup")?.value||"",
+  dateFrom:$("v162LibraryFrom")?.value||"",dateTo:$("v162LibraryTo")?.value||""});
  if(!packages.length){node.textContent="No verified local flight originals yet.";return;}
  if(!filtered.length){node.textContent="No flights match the current library filter.";return;}
  for(const pkg of filtered.slice(0,200)){
@@ -234,6 +275,11 @@ function renderPackages(packages){
   const state=document.createElement("span");
   state.textContent=pkg.status+(pkg.status==="COLLISION"?" · REVIEW":pkg.has_bin&&!pkg.full_companions?" · INCOMPLETE":"");
   title.append(name,state);row.append(title);
+  if(pkg.rocket||pkg.motor||pkg.created_at){
+   const identity=document.createElement("p");identity.className="muted";
+   identity.textContent=[pkg.rocket||"Rocket not labeled",pkg.motor||"Motor not labeled",pkg.created_at?String(pkg.created_at).slice(0,10):null].filter(Boolean).join(" · ");
+   row.append(identity);
+  }
   const chips=document.createElement("div");chips.className="checks";
   for(const kind of KINDS)chips.append(tag(kind+" "+(pkg.files[kind]?"✓":"—"),pkg.files[kind]?"ok":""));
   chips.append(tag("Cloud "+pkg.cloud_status,pkg.cloud_status==="SYNCED"?"ok":""));
@@ -249,7 +295,14 @@ function renderPackages(packages){
   const star=document.createElement("button");star.className="secondary";
   star.textContent=meta.favorite?"★ Favorite":"☆ Favorite";
   star.onclick=()=>{saveLibraryMeta(pkg.flight_id,{favorite:!meta.favorite});paint();};
-  actions.append(star);row.append(actions);
+  const open=document.createElement("button");open.className="secondary";open.textContent="Open flight";
+  open.onclick=()=>{
+   for(const id of ["v15ReportFlight","v14AnalysisFlight","v1623dFlight"]){
+    const select=$(id);if(select&&pkg.files.BIN?.key){select.value=pkg.files.BIN.key;select.dispatchEvent(new Event("change",{bubbles:true}));}
+   }
+   $("v15ReportCard")?.scrollIntoView({behavior:"smooth",block:"start"});
+  };
+  actions.append(open,star);row.append(actions);
   const details=document.createElement("details");
   const summary=document.createElement("summary");summary.textContent="Tags & notes";
   const tags=document.createElement("input");tags.placeholder="Tags, comma separated";tags.value=(meta.tags||[]).join(", ");
@@ -270,6 +323,7 @@ async function paint(){
  try{
   const cloud=readCloudState(),pc=await pcChecksums();
   const manifest=await buildDataManifest({cloudState:cloud,pcChecksums:pc});
+  await enrichPackageLabels(manifest.packages);syncFilterOptions(manifest.packages);
   summary.textContent=manifest.recorded_packages+" recorded flight(s) · "+manifest.file_count+
    " original file(s) · "+manifest.collisions+" collision(s) · cloud "+
    String(cloud?.status||"not configured").toLowerCase();
@@ -283,9 +337,16 @@ export function initV16Data(){
   card.innerHTML='<h2>Flight library · local first</h2>'+
    '<p class="muted">One entry per flight. Verified local originals are the source of truth. Search and annotations stay separate from immutable files.</p>'+
    '<div class="row"><span>Library status</span><strong id="v16DataSummary">Checking...</strong></div>'+
-   '<label>Search flights <input id="v161LibrarySearch" type="search" placeholder="Flight, tag, note, file name"></label>'+
+   '<label>Search flights <input id="v161LibrarySearch" type="search" placeholder="Flight, rocket, motor, tag, note, file name"></label>'+
    '<div class="actions"><label><input id="v161LibraryFavorites" type="checkbox"> Favorites only</label>'+
    '<input id="v161LibraryTag" placeholder="Exact tag filter"></div>'+
+   '<details><summary>More library filters</summary><div class="v162-filter-grid">'+
+   '<label>Rocket<select id="v162LibraryRocket"><option value="">All rockets</option></select></label>'+
+   '<label>Motor<select id="v162LibraryMotor"><option value="">All motors</option></select></label>'+
+   '<label>Completeness<select id="v162LibraryStatus"><option value="">All</option><option>FULL</option><option>RECORDED</option><option>COMPANION_ONLY</option><option>COLLISION</option></select></label>'+
+   '<label>Backup<select id="v162LibraryBackup"><option value="">Any</option><option value="verified">Verified PC/cloud</option><option value="feather-only">No PC/cloud verification</option></select></label>'+
+   '<label>From<input id="v162LibraryFrom" type="date"></label><label>To<input id="v162LibraryTo" type="date"></label>'+
+   '</div></details>'+
    '<div class="actions"><button id="v16VerifyData">VERIFY LOCAL CHECKSUMS</button>'+
    '<button id="v16ExportManifest" class="secondary">EXPORT MANIFEST</button></div>'+
    '<p id="v16DataNotice" class="muted">Verification rereads stored bytes without modifying them.</p>'+
@@ -310,6 +371,9 @@ export function initV16Data(){
   const input=$(id);if(input)input.addEventListener("input",paint);
  }
  if($("v161LibraryFavorites"))$("v161LibraryFavorites").addEventListener("change",paint);
+ for(const id of ["v162LibraryRocket","v162LibraryMotor","v162LibraryStatus","v162LibraryBackup","v162LibraryFrom","v162LibraryTo"]){
+  const input=$(id);if(input)input.addEventListener("change",paint);
+ }
  for(const event of ["green-ion-flight-saved","green-ion-history-change","green-ion-v16-cloud-state","green-ion-v16-transfer","green-ion-v16-library-meta"])
   window.addEventListener(event,paint);
  paint();

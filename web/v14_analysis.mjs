@@ -151,7 +151,18 @@ export function initHistoryAnalysis(){
  $("v14Analyze").onclick=analyze;
  $("v14Compare").onclick=compare;
  $("v14GraphMetric").onchange=draw;
- $("v14Replay").oninput=draw;
+ $("v14Replay").oninput=e=>{
+  draw();
+  const ratio=Math.max(0,Math.min(1,(Number(e.target.value)||0)/100));
+  window.dispatchEvent(new CustomEvent("green-ion-v16-graph-progress",{detail:{ratio,source:"analysis-graph"}}));
+ };
+ window.addEventListener("green-ion-v16-replay-time",event=>{
+  if(!active||event.detail?.source!=="3d")return;
+  const duration=active.data.analysis.samples.at(-1)?.timeS-active.data.analysis.samples[0]?.timeS;
+  if(!(duration>0))return;
+  $("v14Replay").value=String(Math.max(0,Math.min(100,event.detail.timeS/duration*100)));
+  draw();
+ });
  $("v14ExportCsv").onclick=()=>{
   if(!active){status("Analyze a BIN first.");return;}
   downloadText(active.record.name.replace(/\.bin$/i,"")+"-analysis.csv",active.data.csv,"text/csv");

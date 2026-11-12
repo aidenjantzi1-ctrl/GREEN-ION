@@ -1,26 +1,24 @@
-# GREEN ION V16.1 RC2
+# GREEN ION V16.2
 
-V16.1 RC2 keeps the RC1 reliability work and adds safe Feather SD management plus a cleaner Flights & Analysis layout.
+GREEN ION V16.2 preserves the existing dark-blue five-tab application and autonomous recorder while upgrading both the application and hardware firmware generation.
 
-Highlights:
+## Highlights
 
-- delete completed flight packages from the Feather SD card over Wi-Fi with exact-name confirmation and post-delete verification;
-- preserve browser, Windows and cloud backups when Feather SD files are deleted;
-- block SD deletion/list/download traffic during recording, home verification and firmware maintenance/OTA;
-- remove stale storage controls whose old V11 endpoints no longer existed and restore quick stats from current V14 metadata;
-- cleaner responsive Feather SD manager and equal-width desktop tabs while preserving the original blue five-tab format;
+- **Feather V16.2:** explicit firmware/session/reset identity, stronger SD/sensor diagnostics and safe idle recovery without changing RKT4 v2 or GIS1.
+- **Uno V16.2:** explicit receiver version; receive-only protocol v2 remains fixed at 70 bytes.
+- **Windows reliability:** brief status delays keep last-known evidence visible while hardware commands immediately require fresh verification.
+- **Clean Dashboard:** Balanced default, smart next action and a polished sensor-based/estimated 2D rocket visualization with clearly illustrative effects.
+- **True 3D:** WebGL perspective/depth, real ENU trajectory geometry, generic 3D rocket, interactive cameras, timestamp replay, phase jumps, point selection and synchronized analysis.
+- **Recovery:** optional embedded Google Maps with confirmed raw GPS trail and existing offline fallback.
+- **SD safety:** completion state plus browser/Windows/cloud evidence before exact-name deletion; interrupted/recovery evidence is retained.
+- **Flights & Analysis:** rocket/motor/date/status/backup filters, local annotations, reports, data-quality scorecard and multi-flight comparison.
+- **Testing:** one Run Full Home Test front door plus expanded System Health and human-readable troubleshooting.
+- **Packaging:** verified Windows ZIP/SHA/manifest, offline web ZIP, Feather BIN, Uno HEX, complete V16.2 source ZIP and release SHA manifest.
 
-- automatic Uno USB rediscovery/reconnect, including COM-port changes;
-- compact connection/health diagnostics and downloadable troubleshooting report;
-- guided one-button real preflight wrapper;
-- Google Maps rocket finder with optional current-location distance/bearing/directions;
-- retained compact receive-only LoRa packet with critical flight + GPS data;
-- improved flight-event confidence and GPS/pressure cross-checks;
-- improved 3D timestamp alignment, path smoothing and phase markers;
-- searchable flight library with favorites, tags and notes;
-- verified side-by-side Windows updates plus one-click app rollback;
-- performance-conscious bounded display/replay behavior;
-- original blue five-tab interface retained;
-- tag-driven verified V16 release packaging.
+## Important limits
 
-This is a software release candidate. Real hardware/range/power/OTA/mechanical/flight validation remains required.
+The rocket visual, flame, parachute and ground-contact depictions are not physical confirmation. Relative gyro attitude is not absolute attitude. GPS/radio failure never blocks primary SD recording.
+
+Real RF range, physical sensor behavior, SD timing, LiPo/brownout behavior, wiring/mechanical installation, OTA interruption/rollback and real flight remain **NOT TESTED** until measured on the assembled hardware.
+
+See `docs/V16_2_WINDOWS_SETUP.md`, `docs/V16_2_FIRMWARE_UPDATE.md`, `docs/V16_2_UNO_RECEIVER.md`, `docs/V16_2_GOOGLE_MAPS.md` and `docs/V16_2_HARDWARE_VALIDATION.md`.

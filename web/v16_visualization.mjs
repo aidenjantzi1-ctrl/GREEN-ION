@@ -5,7 +5,7 @@ import {getLocalFile,listLocalMetadata} from "./v14_store.mjs";
 import {parseRkt4,analyzeFlight} from "./analysis/rkt4.mjs";
 import {parseGis1} from "./analysis/gis1.mjs";
 
-export const VIS_SCHEMA="GREEN-ION-V16-VIS-1";
+export const VIS_SCHEMA="GREEN-ION-V16.2-VISUALIZATION-1";
 const EARTH_M=6371000;
 const DEG=Math.PI/180;
 const $=id=>document.getElementById(id);
@@ -145,13 +145,47 @@ export function reconstructFlight(binInput,senInput=null){
   distance+=Math.hypot(bx-ax,by-ay);
  }
  const markers=phaseMarkers(analysis,points,pressureStart);
+ const timelineStride=Math.max(1,Math.ceil(analysis.samples.length/6000));
+ const timeline=[];
+ for(let i=0;i<analysis.samples.length;i+=timelineStride){
+  const a=analysis.samples[i];
+  timeline.push({
+   timeS:a.timeS-pressureStart,
+   altitudeM:finite(a.altitudeM)?a.altitudeM:null,
+   velocityMps:finite(a.velocityMps)?a.velocityMps:null,
+   accelerationMps2:finite(a.accelerationMps2)?a.accelerationMps2:null,
+   estimatedVerticalG:finite(a.estimatedVerticalG)?a.estimatedVerticalG:null,
+   pressurePa:finite(a.pressurePa)?a.pressurePa:null,
+   batteryV:finite(a.batteryMv)?a.batteryMv/1000:null,
+   valid:!!a.valid
+  });
+ }
+ const sensorTimeline=[];
+ if(sensor?.samples?.length){
+  const sensorStride=Math.max(1,Math.ceil(sensor.samples.length/6000));
+  for(let i=0;i<sensor.samples.length;i+=sensorStride){
+   const q=sensor.samples[i];
+   sensorTimeline.push({
+    timeS:q.timeS-pressureStart,
+    accelerationG:finite(q.accelerationG)?q.accelerationG:null,
+    accelerationXG:finite(q.accelerationXG)?q.accelerationXG:null,
+    accelerationYG:finite(q.accelerationYG)?q.accelerationYG:null,
+    accelerationZG:finite(q.accelerationZG)?q.accelerationZG:null,
+    gyroXDps:finite(q.gyroXDps)?q.gyroXDps:null,
+    gyroYDps:finite(q.gyroYDps)?q.gyroYDps:null,
+    gyroZDps:finite(q.gyroZDps)?q.gyroZDps:null,
+    gpsCurrent:!!q.gpsCurrent,latitude:q.latitude,longitude:q.longitude,
+    gpsAltitudeM:q.gpsAltitudeM,gpsSpeedMps:q.gpsSpeedMps,satellites:q.satellites
+   });
+  }
+ }
  if(mode==="gps+pressure")limitations.push("The displayed horizontal path uses light local smoothing; raw GPS coordinates remain preserved in the original GIS1 file.");
  if(orientation.length)limitations.push("Orientation is relative gyro integration only; heading drifts and is not absolute attitude.");
  limitations.push("The rocket drawing is generic and not to scale. This is recorded-data reconstruction, not an aerodynamic simulation.");
  return {
   schema:VIS_SCHEMA,mode,points,orientation,phaseMarkers:markers,maxAltitudeM:maxAltitude,horizontalTrackM:distance,
   pressureSamples:analysis.samples.length,sensorSamples:sensor?.samples.length||0,
-  sensorWarnings:sensor?.warnings||[],limitations
+  timeline,sensorTimeline,sensorWarnings:sensor?.warnings||[],limitations
  };
 }
 function orientationAt(series,t){

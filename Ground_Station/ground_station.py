@@ -1,4 +1,4 @@
-"""Local, dependency-light GREEN ION V12 telemetry ground station.
+"""Local, dependency-light GREEN ION V16.2 telemetry ground station.
 
 Run sample data:
     py -3 ground_station.py --sample
@@ -46,6 +46,8 @@ SAFE_HASH = re.compile(r"[0-9a-f]{64}")
 PUBLIC_CLOUD = {
     "supabaseUrl": os.environ.get("SUPABASE_URL", "https://bqvvtbnjthbiqyljmzfx.supabase.co"),
     "supabaseKey": os.environ.get("SUPABASE_PUBLISHABLE_KEY", "sb_publishable_m8GYtLRB9LKT2bPzxVMESA_yhlgIAZR"),
+    # Optional browser key only. Never place server/admin credentials here.
+    "googleMapsBrowserKey": os.environ.get("GOOGLE_MAPS_BROWSER_KEY", ""),
 }
 try:
     APP_INFO = json.loads((ROOT / "version.json").read_text(encoding="utf-8"))
@@ -780,7 +782,7 @@ def main() -> None:
     print(f"Automatic computer flight archive: {FLIGHT_DIR}")
     print("Mode: SIMULATED DATA — NOT HARDWARE" if use_sample else
           f"Mode: Feather Wi-Fi + {('Uno radio on ' + selected_port) if selected_port else ('watching USB for Uno' if auto_receiver else 'Wi-Fi only')}")
-    print("Feather Wi-Fi: http://192.168.4.1 (join GREEN-ION-V14 or compatible AP)")
+    print("Feather Wi-Fi: http://192.168.4.1 (join GREEN-ION-V16-2 or a compatible older AP)")
     print(f"Telemetry log: {log_path}")
     print("Keep this window open while using the website. Press Ctrl+C to stop.")
     if not args.no_browser:

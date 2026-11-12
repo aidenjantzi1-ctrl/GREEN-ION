@@ -32,6 +32,12 @@ enum HealthBits : uint16_t {
   HEALTH_IMU_READ_ERROR = 1u << 5,
   HEALTH_RADIO_SEND_ERROR = 1u << 6,
   HEALTH_BARO_READ_ERROR = 1u << 7,
+  // V16.2 adds backward-compatible diagnostic bits. The 70-byte packet and
+  // protocol version remain unchanged; older receivers may safely ignore them.
+  HEALTH_SD_INIT_ERROR = 1u << 8,
+  HEALTH_GPS_RUNTIME_ERROR = 1u << 9,
+  HEALTH_IMU_RUNTIME_LOST = 1u << 10,
+  HEALTH_SENSOR_LOG_DROPPED = 1u << 11,
 };
 
 enum FlightState : uint8_t {

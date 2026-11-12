@@ -19,7 +19,9 @@ function capture(raw,source){
  const at=Date.now()-(Number.isFinite(age)&&age>=0?Math.min(30000,age):0);
  const lat=Number(raw.latitude),lon=Number(raw.longitude),last=fixes.at(-1);
  if(last&&last.source===source&&last.lat===lat&&last.lon===lon&&at-last.at<15000)return;
- fixes.push({lat,lon,source,at});
+ fixes.push({lat,lon,source,at,
+  satellites:Number.isFinite(Number(raw.satellites))?Number(raw.satellites):null,
+  hdop:Number.isFinite(Number(raw.gps_hdop))?Number(raw.gps_hdop):null});
  if(fixes.length>MAX)fixes=fixes.slice(-MAX);
  try{localStorage.setItem(KEY,JSON.stringify(fixes));}catch{}
 }
@@ -143,6 +145,12 @@ function render(){
  }
  $("v15RecoveryPoints").textContent=fixes.length+" local GPS points · saved on this browser";
  draw();
+ window.dispatchEvent(new CustomEvent("green-ion-v16-recovery",{detail:{
+  latest:latest?{...latest,ageMs:Date.now()-latest.at}:null,
+  fixes:fixes.map(x=>({...x})),
+  userPosition:userPosition?{...userPosition}:null,
+  lastPhase
+ }}));
 }
 function tick(){
  if(t.wifiFresh()){

@@ -128,6 +128,25 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(link["wifi"]["consecutive_failures"], 0)
         self.assertEqual(self.bridge._status, self.status)
 
+    def test_two_hour_soak_with_short_and_long_outages_recovers_without_state_loss(self):
+        with patch.object(self.bridge, "_fetch_status", return_value=self.status):
+            self.assertTrue(self.bridge.poll_once())
+        cached = dict(self.bridge._status)
+        for index in range(int(7200 / 1.5)):
+            self.now += 1.5
+            # Short losses every 15 minutes and one longer loss near the middle.
+            short_loss = index % 600 in (120, 121)
+            long_loss = 2200 <= index < 2215
+            if short_loss or long_loss:
+                with patch.object(self.bridge, "_fetch_status", side_effect=TimeoutError("simulated outage")):
+                    self.bridge.poll_once()
+            else:
+                with patch.object(self.bridge, "_fetch_status", return_value={**self.status, "uptime_s": index + 20}):
+                    self.bridge.poll_once()
+        link = self.bridge.link_status({"link_status": "missing"})
+        self.assertEqual(link["wifi"]["connection_state"], "connected")
+        self.assertEqual(link["wifi"]["consecutive_failures"], 0)
+        self.assertEqual(self.bridge._status["sd_ok"], cached["sd_ok"])
 
 if __name__ == "__main__":
     unittest.main()
