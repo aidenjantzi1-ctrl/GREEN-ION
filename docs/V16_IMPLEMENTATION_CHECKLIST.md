@@ -56,7 +56,15 @@ V16 is the next application/ground-station generation after V15 Beta 1. Feather 
   - [x] Persist workflow state and mark active browser restarts INTERRUPTED.
   - [x] Export bounded mission transition/evidence JSON.
   - [x] Add mission workflow regression coverage.
-- [ ] **Phase 4 — Five-tab interface**
+- [x] **Phase 4 — Five-tab interface**
+  - [x] Reduce visible top-level navigation to Mission / Live / Recovery / Data / System.
+  - [x] Keep legacy feature pages available as contextual subpages instead of deleting tools.
+  - [x] Route Flight + Testing into Mission.
+  - [x] Route Field + Connections into Live.
+  - [x] Route Storage + History + Cloud into Data.
+  - [x] Route Utilities + Updates + Help into System.
+  - [x] Keep programmatic legacy-page navigation working while highlighting the correct primary group.
+  - [x] Add keyboard navigation and regression coverage.
 - [ ] **Phase 5 — Data and cloud**
 - [ ] **Phase 6 — Windows packaging and updates**
 - [ ] **Phase 7 — Advanced visualization, 3D trajectory and digital twin**
