@@ -1,3 +1,14 @@
+# V16 Phase 8 — Hardware-validation evidence framework — November 11, 2026
+
+- Added a local hardware-evidence ledger covering Windows reconnects, SD/network-loss recording, sensors, outdoor GPS, receiver-side LoRa, shared SPI, power, OTA/rollback, mobile workflow, mechanical/RF installation and real flight.
+- Every physical item defaults to NOT_TESTED; software diagnostics never auto-pass physical tests.
+- Manual PASS now requires a measured note or retained evidence reference.
+- Added exportable validation JSON and bounded local diagnostic snapshots.
+- Even all required PASS entries only produce READY_FOR_HUMAN_REVIEW_NOT_FLIGHT_AUTHORIZATION.
+- Documented exact physical evidence still required. No unperformed bench, RF, power, OTA or flight test is claimed as complete.
+
+---
+
 # V16 Phase 7 — Advanced visualization — November 11, 2026
 
 - Added offline postflight 3D trajectory reconstruction from immutable RKT4/GIS1 originals.
