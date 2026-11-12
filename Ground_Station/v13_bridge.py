@@ -14,6 +14,11 @@ import time
 from urllib.parse import urlsplit
 
 MAX_CONTROL_UPLOAD = 8 * 1024 * 1024
+# The ESP32's HTTP handler occasionally needs more than one second.
+STATUS_TIMEOUT_S = 3.0
+POLL_INTERVAL_S = 1.5
+TELEMETRY_FRESH_S = 5.5
+CONTROL_FRESH_S = 2.5
 
 
 def _live_number(value):
@@ -33,26 +38,30 @@ class FeatherBridge:
         self.port = port
         self.clock = clock or time.monotonic
         self._lock = threading.Lock()
+        self._upstream_lock = threading.Lock()  # Serialize requests to ESP32
         self._status = None
         self._last_good = None
         self._error = "No Feather status received"
 
     def _fetch_status(self):
-        conn = HTTPConnection(self.host, self.port, timeout=1.0)
-        try:
-            conn.request("GET", "/api/status", headers={"Connection": "close", "Cache-Control": "no-store"})
-            response = conn.getresponse()
-            if response.status != 200:
-                raise ConnectionError("Feather returned HTTP " + str(response.status))
-            data = response.read(128 * 1024 + 1)
-            if len(data) > 128 * 1024:
-                raise ValueError("Feather status is unexpectedly large")
-            status = json.loads(data)
-            if not isinstance(status, dict) or not {"uptime_s", "sd_ok", "pressure_pa"} <= status.keys():
-                raise ValueError("Response is not a GREEN ION Feather status")
-            return status
-        finally:
-            conn.close()
+        # ESP32 WebServer typically handles one request at a time. A shared
+        # lock prevents background polling from competing with browser relays.
+        with self._upstream_lock:
+            conn = HTTPConnection(self.host, self.port, timeout=STATUS_TIMEOUT_S)
+            try:
+                conn.request("GET", "/api/status", headers={"Connection": "close", "Cache-Control": "no-store"})
+                response = conn.getresponse()
+                if response.status != 200:
+                    raise ConnectionError("Feather returned HTTP " + str(response.status))
+                data = response.read(128 * 1024 + 1)
+                if len(data) > 128 * 1024:
+                    raise ValueError("Feather status is unexpectedly large")
+                status = json.loads(data)
+                if not isinstance(status, dict) or not {"uptime_s", "sd_ok", "pressure_pa"} <= status.keys():
+                    raise ValueError("Response is not a GREEN ION Feather status")
+                return status
+            finally:
+                conn.close()
 
     def poll_once(self):
         try:
@@ -70,14 +79,14 @@ class FeatherBridge:
     def run(self, stop):
         while not stop.is_set():
             self.poll_once()
-            stop.wait(0.9)
+            stop.wait(POLL_INTERVAL_S)
 
     def _wifi(self):
         with self._lock:
             status = dict(self._status) if self._status is not None else None
             age = None if self._last_good is None else max(0, self.clock() - self._last_good)
             error = self._error
-        state = "missing" if age is None else "live" if age <= 2.5 else "stale"
+        state = "missing" if age is None else "live" if age <= TELEMETRY_FRESH_S else "stale"
         return state, status, age, error
 
     def link_status(self, radio):
@@ -176,7 +185,8 @@ class FeatherBridge:
         """
         # Never send a command or firmware image to an unverified IP when
         # Windows has left the rocket AP and joined another network.
-        if self._wifi()[0] != "live":
+        state, _, age, _ = self._wifi()
+        if state != "live" or age is None or age > CONTROL_FRESH_S:
             handler.send_error(503, "Feather Wi-Fi is not currently verified")
             return
         path = urlsplit(handler.path)
@@ -197,25 +207,32 @@ class FeatherBridge:
         conn = HTTPConnection(self.host, self.port, timeout=8.0 if handler.command == "POST" else 3.0)
         headers_sent = False
         try:
-            headers = {"Connection": "close"}
-            if handler.headers.get("Content-Type"):
-                headers["Content-Type"] = handler.headers["Content-Type"]
-            conn.request(handler.command, upstream, body=body, headers=headers)
-            response = conn.getresponse()
-            handler.send_response(response.status)
-            for key in ("Content-Type", "Content-Disposition", "Content-Length"):
-                value = response.getheader(key)
-                if value:
-                    handler.send_header(key, value)
-            handler.send_header("Cache-Control", "no-store")
-            handler.send_header("Connection", "close")
-            handler.end_headers()
-            headers_sent = True
-            while True:
-                chunk = response.read(64 * 1024)
-                if not chunk:
-                    break
-                handler.wfile.write(chunk)
+            # Reject excessive dashboard bursts instead of queuing ESP32 requests.
+            if not self._upstream_lock.acquire(timeout=1.0):
+                handler.send_error(503, "Feather busy; retry shortly")
+                return
+            try:
+                headers = {"Connection": "close"}
+                if handler.headers.get("Content-Type"):
+                    headers["Content-Type"] = handler.headers["Content-Type"]
+                conn.request(handler.command, upstream, body=body, headers=headers)
+                response = conn.getresponse()
+                handler.send_response(response.status)
+                for key in ("Content-Type", "Content-Disposition", "Content-Length"):
+                    value = response.getheader(key)
+                    if value:
+                        handler.send_header(key, value)
+                handler.send_header("Cache-Control", "no-store")
+                handler.send_header("Connection", "close")
+                handler.end_headers()
+                headers_sent = True
+                while True:
+                    chunk = response.read(64 * 1024)
+                    if not chunk:
+                        break
+                    handler.wfile.write(chunk)
+            finally:
+                self._upstream_lock.release()
         except (OSError, TimeoutError, HTTPException) as error:
             # If headers were sent, the browser sees a network error on this
             # connection; do not attempt to append a second HTTP response.
