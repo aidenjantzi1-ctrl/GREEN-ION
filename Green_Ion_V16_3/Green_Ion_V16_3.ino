@@ -39,6 +39,7 @@
 #include <GreenIonSensorRecovery.h>
 #include <GreenIonSensorHealth.h>
 #include <GreenIonBenchTests.h>
+#include <GreenIonSharedSpi.h>
 
 #include "Config.h"
 #include "SensorState.h"
@@ -47,7 +48,17 @@
 Adafruit_BMP3XX barometer;
 Adafruit_LSM6DSO32 imu;
 Adafruit_GPS gps(&Wire);
-RH_RF95 radio(config::PIN_LORA_CS, config::PIN_LORA_DIO0);
+
+// RadioHead normally performs SPI register access inside its DIO0 ISR. That is
+// unsafe for GREEN ION because the RFM9x and microSD share the same SPI bus.
+// Construct without a RadioHead-owned interrupt and defer its protected
+// interrupt handler into the normal loop after recorder-priority SD work.
+class DeferredRf95 : public RH_RF95 {
+ public:
+  explicit DeferredRf95(uint8_t chipSelect) : RH_RF95(chipSelect, RH_INVALID_PIN) {}
+  void serviceDeferredInterrupt() { handleInterrupt(); }
+};
+DeferredRf95 radio(config::PIN_LORA_CS);
 File logFile;
 File sensorLogFile;
 SensorState state;
@@ -62,6 +73,40 @@ String selectedMotor = "";
 uint32_t calibratedAtMs = 0;
 bool orphanHomeFile = false;
 WebServer dashboardServer(80);
+
+static green_ion::shared_spi::Coordinator sharedSpi;
+static volatile uint32_t radioIrqGeneration = 0;
+static uint32_t radioIrqServicedGeneration = 0;
+
+static void IRAM_ATTR radioDio0Isr() {
+  ++radioIrqGeneration;
+}
+
+class SdSpiScope {
+ public:
+  SdSpiScope() : active_(sharedSpi.beginSd()) {
+    if (active_) digitalWrite(config::PIN_LORA_CS, HIGH);
+  }
+  ~SdSpiScope() {
+    if (active_) sharedSpi.endSd();
+  }
+  explicit operator bool() const { return active_; }
+ private:
+  bool active_;
+};
+
+class RadioSpiScope {
+ public:
+  RadioSpiScope() : active_(sharedSpi.beginRadio()) {
+    if (active_) digitalWrite(config::PIN_SD_CS, HIGH);
+  }
+  ~RadioSpiScope() {
+    if (active_) sharedSpi.endRadio();
+  }
+  explicit operator bool() const { return active_; }
+ private:
+  bool active_;
+};
 
 static const char FIRMWARE_NAME[] = "GREEN ION Feather V16.3";
 static const char FIRMWARE_VERSION[] = "16.3.0";
@@ -95,13 +140,15 @@ class SdFileSink : public green_ion::recorder::ByteSink {
 
   bool write(const uint8_t *data, size_t length) override {
     if (!file_ || !*file_) return false;
-    digitalWrite(config::PIN_LORA_CS, HIGH);
+    SdSpiScope bus;
+    if (!bus) return false;
     return file_->write(data, length) == length;
   }
 
   bool flush() override {
     if (!file_ || !*file_) return false;
-    digitalWrite(config::PIN_LORA_CS, HIGH);
+    SdSpiScope bus;
+    if (!bus) return false;
     file_->flush();
     return static_cast<bool>(*file_);
   }
@@ -194,6 +241,15 @@ uint32_t watcherPreviousMs = 0;
 
 uint32_t telemetrySequence = 0;
 uint32_t radioSendFailures = 0;
+uint32_t radioTxStarted = 0;
+uint32_t radioTxCompleted = 0;
+uint32_t radioTxTimeouts = 0;
+uint32_t radioLastTxStartMs = 0;
+uint32_t radioLastTxCompleteMs = 0;
+uint32_t radioIrqDeferred = 0;
+bool radioTxAwaitingCompletion = false;
+bool radioTxAwaitingBench = false;
+uint32_t radioTxAwaitingSequence = 0;
 uint32_t lastRadioAttemptMs = 0;
 uint16_t radioBenchPacketsSent = 0;
 uint8_t radioBenchPacketsRemaining = 0;
