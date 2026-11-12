@@ -130,7 +130,11 @@ function render(){
    }
   }else{
    if(delta)delta.textContent="Use my current location to compare";
-   if(directions){directions.removeAttribute("href");directions.setAttribute("aria-disabled","true");}
+   if(directions){
+    directions.href="https://www.google.com/maps/dir/?api=1&destination="+
+      encodeURIComponent(latest.lat+","+latest.lon);
+    directions.removeAttribute("aria-disabled");
+   }
   }
  }else{
   link.removeAttribute("href");link.setAttribute("aria-disabled","true");link.textContent="Google Maps link available after GPS fix";
