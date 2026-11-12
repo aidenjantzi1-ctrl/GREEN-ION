@@ -251,3 +251,63 @@ jobs:
           path: v16-release-smoke/
           if-no-files-found: error
 
+
+  publish-v16-2:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [app-tests, firmware-build, windows-package, v16-release-smoke]
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: green-ion-v16-2-web
+          path: built-web
+      - uses: actions/download-artifact@v4
+        with:
+          name: green-ion-v16-2-firmware
+          path: built-firmware
+      - uses: actions/download-artifact@v4
+        with:
+          name: GREEN_ION_V16_WINDOWS
+          path: windows-release
+      - name: Assemble final V16.2 release assets
+        run: |
+          python3 tools/assemble_v16_release.py \
+            --web built-web \
+            --firmware built-firmware \
+            --windows windows-release \
+            --output release \
+            --tag "v16.2.0" \
+            --commit "$GITHUB_SHA"
+      - name: Verify final release manifest before publication
+        run: |
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("release")
+          m=json.loads((root/"SHA256_MANIFEST.json").read_text())
+          assert m["tag"]=="v16.2.0"
+          assert m["firmwareGeneration"]=="V16.2"
+          assert m["receiverGeneration"]=="V16.2"
+          assert m["radioProtocolVersion"]==2
+          assert m["radioPacketBytes"]==70
+          for name,item in m["artifacts"].items():
+              p=root/name
+              assert p.is_file(), name
+              assert hashlib.sha256(p.read_bytes()).hexdigest()==item["sha256"], name
+              assert p.stat().st_size==item["size"], name
+          PY
+      - name: Publish immutable V16.2 release once
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v16.2.0 >/dev/null 2>&1; then
+            echo "v16.2.0 already exists; refusing to replace an existing stable release."
+            exit 0
+          fi
+          gh release create v16.2.0 release/* \
+            --target "$GITHUB_SHA" \
+            --title "GREEN ION V16.2" \
+            --notes-file docs/V16_RELEASE_NOTES.md
