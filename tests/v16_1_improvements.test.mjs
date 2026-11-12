@@ -128,5 +128,6 @@ test("3D reconstruction source uses phase markers smoothing and animation frames
  assert.match(src,/smoothTrack/);
  assert.match(src,/phaseMarkers/);
  assert.match(src,/requestAnimationFrame/);
+ assert.match(src,/v16_visualization_worker\.mjs/);
  assert.match(src,/finder\/recovery view always uses raw confirmed GPS fixes/);
 });
