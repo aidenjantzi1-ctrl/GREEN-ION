@@ -290,7 +290,8 @@ export function initV16Data(){
    '<button id="v16ExportManifest" class="secondary">EXPORT MANIFEST</button></div>'+
    '<p id="v16DataNotice" class="muted">Verification rereads stored bytes without modifying them.</p>'+
    '<div id="v16FlightPackages"></div>';
-  history.prepend(card);
+  const sdManager=$("v16SdManagerCard");
+  if(sdManager)sdManager.after(card);else history.prepend(card);
  }
  $("v16VerifyData").onclick=async()=>{
   const button=$("v16VerifyData");button.disabled=true;
