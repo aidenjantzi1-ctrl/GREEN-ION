@@ -163,6 +163,20 @@ def build_unified_telemetry(wifi_source: dict, radio: dict, radio_history: list[
             "received_utc": radio.get("received_utc"),
         },
         "readings": readings,
+        "sources": {
+            "radio_latest": {
+                key: radio.get(key) for key in (
+                    "type", "protocol", "sequence", "uptime_ms", "packet_id",
+                    "packet_classification", "received_utc", "packet_age_ms",
+                    "altitude_m", "pressure_pa", "gps_altitude_m", "speed_mps",
+                    "acceleration_g", "acceleration_x_g", "acceleration_y_g",
+                    "acceleration_z_g", "rotation_x_dps", "rotation_y_dps",
+                    "rotation_z_dps", "battery_v", "gps_fix_age_ms",
+                    "gps_status", "satellites", "flight_state", "health",
+                    "latitude", "longitude", "rssi_dbm", "snr_db"
+                )
+            }
+        },
         "radio_history": list(radio_history),
         "detail_policy": {
             "live_display": "critical fused values only",
