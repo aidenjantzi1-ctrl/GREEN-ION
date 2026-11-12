@@ -5,7 +5,7 @@ const ASSETS=["./","./index.html","./config.js","./manifest.webmanifest","./icon
  "./v14_store.mjs","./v14_preferences.mjs","./v14_sensor_catalog.mjs","./v14_sensor_lab.mjs","./v14_sensor_history.mjs","./sensor-worker.mjs","./analysis/gis1.mjs","./v14_analysis.mjs","./v14_cloud.mjs","./v14_updates.mjs",
  "./history-db.mjs","./analysis-worker.mjs","./analysis/rkt4.mjs",
  "./v15_recovery.mjs","./v15_advanced.mjs","./v15_analysis_core.mjs","./v15_report_worker.mjs",
- "./v15_local.mjs","./v15_battery.mjs","./v15_link.mjs","./v15_help.mjs","./v16_telemetry.mjs","./v16_mission.mjs"];
+ "./v15_local.mjs","./v15_battery.mjs","./v15_link.mjs","./v15_help.mjs","./v16_telemetry.mjs","./v16_mission.mjs","./v16_layout.mjs"];
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(VERSION).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
 });
