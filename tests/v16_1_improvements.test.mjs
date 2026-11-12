@@ -119,7 +119,7 @@ test("five visible tabs and original blue dashboard remain untouched",()=>{
  const labels=[...block.matchAll(/<button[^>]*>([\s\S]*?)<\/button>/g)]
   .map(x=>x[1].replace(/&amp;/g,"&").trim());
  assert.deepEqual(labels,["Dashboard","Flight","Flights & Analysis","Testing","Settings & Advanced"]);
- assert.match(html,/--bg:#0b1c2b/);
+ assert.match(html,/--bg:#081420/);
  assert.match(html,/id="v161DashboardFind"/);
 });
 
