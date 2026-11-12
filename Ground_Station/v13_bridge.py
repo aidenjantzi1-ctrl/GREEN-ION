@@ -91,6 +91,10 @@ class FeatherBridge:
 
     def link_status(self, radio):
         wifi, _, age, error = self._wifi()
+        # If Wi-Fi just failed and usable LoRa telemetry exists, fail over
+        # immediately instead of treating cached Wi-Fi as the active source.
+        if error and radio.get("link_status") == "live":
+            wifi = "stale"
         demo = radio.get("source") == "simulation"
         lora = "demo" if demo else radio.get("link_status", "missing")
         source = "wifi" if wifi == "live" else ("demo" if demo and lora == "demo" else
@@ -120,7 +124,9 @@ class FeatherBridge:
         control, or full-resolution-recording claims. Those features require
         a fresh Wi-Fi connection and are blocked by the HTTP proxy.
         """
-        wifi, status, _, _ = self._wifi()
+        wifi, status, _, error = self._wifi()
+        if error and radio.get("link_status") == "live":
+            wifi = "stale"
         if wifi == "live" and status is not None:
             status["v13_source"] = "wifi"
             status["v13_wifi_connected"] = True
