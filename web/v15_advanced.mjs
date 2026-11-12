@@ -80,7 +80,7 @@ export async function analyzeSelected({automatic=false}={}){
    worker.postMessage({id:1,binBytes,senBytes,name:record.name,checksum:record.checksum},transfers);
   });
   display(r);
-  window.dispatchEvent(new CustomEvent("green-ion-postflight-report",{detail:{name:r.name,quality:r.dataCompletenessScore}}));
+  window.dispatchEvent(new CustomEvent("green-ion-postflight-report",{detail:{name:r.name,quality:r.dataCompletenessScore,report:r}}));
  }catch(e){message("Advanced analysis unavailable: "+e.message+(automatic?". Retry from History.":""));}
  finally{busy=false;$("v15ReportRun").disabled=false;}
 }
