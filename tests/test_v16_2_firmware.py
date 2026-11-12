@@ -39,7 +39,9 @@ class V162FirmwareTests(unittest.TestCase):
 
     def test_recovery_work_is_idle_only(self):
         self.assertIn("static bool storageRecoveryAllowed()",FW)
-        block=FW[FW.index("static bool storageRecoveryAllowed()"):FW.index("static void requestHardwareTest")]
+        start=FW.index("static bool storageRecoveryAllowed()")
+        end=FW.index("static void requestHardwareTest",start)
+        block=FW[start:end]
         for token in ("!state.recording","!recorderCore.recording()","!logFile","!sensorLogFile",
                       "RECORDER_RECORDING","RECORDER_HOME_TEST","RECORDER_MAINTENANCE","otaUploadInProgress"):
             self.assertIn(token,block)
