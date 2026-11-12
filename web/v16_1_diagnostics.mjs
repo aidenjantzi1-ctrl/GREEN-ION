@@ -5,7 +5,7 @@ import {listLocalMetadata} from "./v14_store.mjs";
 export const DIAGNOSTIC_SCHEMA="GREEN-ION-V16.1-DIAGNOSTICS-1";
 const $=id=>document.getElementById(id);
 const t=window.GREEN_ION_TRANSPORT;
-let lastReport=null;
+let lastReport=null,running=null;
 
 function cloudState(){
  try{return JSON.parse(localStorage.getItem("green-ion-v16-cloud-state")||"null");}
@@ -131,11 +131,16 @@ function renderFrom(report){
  }
 }
 async function run(){
- text("v161DiagSummary","Checking connections and local storage...");
- try{
-  lastReport=await buildDiagnosticReport();
-  renderFrom(lastReport);
- }catch(error){text("v161DiagSummary","Diagnostic check failed safely: "+error.message);}
+ if(running)return running;
+ running=(async()=>{
+  text("v161DiagSummary","Checking connections and local storage...");
+  try{
+   lastReport=await buildDiagnosticReport();
+   renderFrom(lastReport);
+  }catch(error){text("v161DiagSummary","Diagnostic check failed safely: "+error.message);}
+  finally{running=null;}
+ })();
+ return running;
 }
 export function initV161Diagnostics(){
  const system=$("system");if(!system)return;
