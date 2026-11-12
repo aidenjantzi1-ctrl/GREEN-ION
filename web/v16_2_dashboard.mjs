@@ -11,6 +11,7 @@ let preset="balanced",latest=null,lastObservationAt=0,observedMax=10,angle=0,las
 let replay=null,replayStarted=0,replayPausedAt=0,replayRaf=0;
 
 function finite(v){return typeof v==="number"&&Number.isFinite(v);}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function reading(data,name){return data?.readings?.[name]||null;}
 function profile(){
  try{return JSON.parse(localStorage.getItem("green-ion-v16.2-active-profile")||"null")||{};}
@@ -98,7 +99,8 @@ function drawParachute(ctx,x,y,scale){
 }
 function drawRocket(ctx,x,y,scale,tilt,flame,parachute){
  ctx.save();ctx.translate(x,y);ctx.rotate(tilt);
- const h=94*scale,w=22*scale;
+ const p=profile(),aspect=Number(p.lengthCm)>0&&Number(p.diameterCm)>0?Number(p.lengthCm)/Number(p.diameterCm):10;
+ const h=94*scale*clamp(aspect/10,.72,1.35),w=22*scale*clamp(10/aspect,.72,1.35);
  // Shadowed body and nose.
  const grad=ctx.createLinearGradient(-w,0,w,0);grad.addColorStop(0,"#9eb7c9");grad.addColorStop(.48,"#f4fbff");grad.addColorStop(1,"#7a98af");
  ctx.fillStyle=grad;rounded(ctx,-w/2,-h*.45,w,h*.68,5*scale);ctx.fill();
@@ -195,6 +197,8 @@ function injectVisibility(){
 }
 export function initV162Dashboard(){
  try{preset=localStorage.getItem(V162_VISIBILITY_KEY)||"balanced";}catch{preset="balanced";}
+ const batteryLabel=$("batteryPercent")?.closest(".metric")?.querySelector(".label");if(batteryLabel)batteryLabel.textContent="BATTERY";
+ const batteryNote=$("batteryVoltage")?.nextElementSibling;if(batteryNote)batteryNote.textContent="Voltage-based rough estimate; voltage is measured";
  injectDashboard();injectVisibility();setPreset(preset);
  window.addEventListener("green-ion-v16-telemetry",event=>{
   if(replay)return;
