@@ -1,4 +1,8 @@
-param([switch]$NoRedirect)
+param(
+  [switch]$NoRedirect,
+  [Parameter(ValueFromRemainingArguments=$true)]
+  [string[]]$GroundStationArgs
+)
 $ErrorActionPreference = "Stop"
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PackageRoot = Split-Path -Parent $Here
@@ -14,7 +18,7 @@ if (-not $NoRedirect -and (Test-Path $CurrentFile)) {
   $CurrentRoot = (Get-Content $CurrentFile -Raw).Trim()
   $CurrentScript = Join-Path $CurrentRoot "Ground_Station\Start-GreenIon.ps1"
   if ((Test-Path $CurrentScript) -and -not (Same-Path $CurrentScript $MyInvocation.MyCommand.Path)) {
-    & $CurrentScript -NoRedirect
+    & $CurrentScript -NoRedirect @GroundStationArgs
     exit $LASTEXITCODE
   }
 }
