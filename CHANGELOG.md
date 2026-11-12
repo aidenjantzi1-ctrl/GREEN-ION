@@ -1,3 +1,16 @@
+# V16 Phase 5 — Local-first data and optional cloud — November 11, 2026
+
+- Added a grouped Flight Library with one entry per flight and BIN/SEN/TXT presence, local/cloud/Windows-copy status and collision warnings.
+- Added local SHA-256 re-verification and exportable data manifest without modifying originals.
+- Added a persistent bounded Feather-transfer journal with partial-byte rejection, retry backoff and browser-restart recovery.
+- Made cloud state explicit (offline/pending/syncing/retrying/synced/restoring/error) with per-file checksum status and attempts.
+- Kept Supabase backup idempotent at file granularity: existing remote checksums are skipped and interrupted metadata/object operations repair on retry.
+- Kept cloud restore byte-count/SHA-256 verified and non-overwriting.
+- Audited the connected GREEN ION Supabase project read-only: flight_backups RLS/owner policies and private green-ion-flights bucket match the app model.
+- **Cloud remains optional; flight recording, local recovery and analysis do not depend on internet. Feather/Uno firmware and data formats are unchanged.**
+
+---
+
 # V16 Phase 4 — Five-tab interface — November 11, 2026
 
 - Exposed exactly five normal top-level tabs: Dashboard, Flight, Flights & Analysis, Testing, and Settings & Advanced.
