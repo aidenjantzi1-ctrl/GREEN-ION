@@ -81,11 +81,16 @@ def build_unified_telemetry(wifi_source: dict, radio: dict, radio_history: list[
     wifi_live = wifi_freshness == "live"
 
     radio_age = radio.get("packet_age_ms")
-    radio_live = radio.get("link_status") == "live" and isinstance(radio_age, (int, float)) and radio_age <= RADIO_LIVE_MS
     radio_protocol = radio.get("protocol")
     if radio_protocol is None and isinstance(radio.get("receiver_info"), dict):
         radio_protocol = radio["receiver_info"].get("protocol")
     protocol_ok = radio_protocol is None or radio_protocol == EXPECTED_RADIO_PROTOCOL
+    radio_live = (
+        protocol_ok
+        and radio.get("link_status") == "live"
+        and isinstance(radio_age, (int, float))
+        and radio_age <= RADIO_LIVE_MS
+    )
     radio_has_observation = (
         radio.get("type") in ("telemetry", "radio_bench")
         or radio.get("packet_age_ms") is not None
