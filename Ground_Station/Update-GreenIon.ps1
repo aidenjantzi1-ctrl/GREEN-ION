@@ -12,7 +12,13 @@ New-Item -ItemType Directory -Force -Path $AppRoot | Out-Null
 
 Write-Host "[UPDATE] Checking official GREEN ION V16 GitHub releases..."
 $Headers = @{ "Accept"="application/vnd.github+json"; "User-Agent"="GREEN-ION-V16-Updater" }
-$Releases = Invoke-RestMethod -Uri $Api -Headers $Headers -Method Get
+try {
+  $Releases = Invoke-RestMethod -Uri $Api -Headers $Headers -Method Get
+} catch {
+  Write-Host "[UPDATE] GitHub is unavailable. If this PC is joined to the Feather Wi-Fi, reconnect normal internet and try again."
+  Write-Host "[UPDATE] The currently installed GREEN ION app and GREEN_ION_Data were not changed."
+  exit 0
+}
 $Release = $Releases | Where-Object {
   -not $_.draft -and $_.tag_name -match '^v16\.' -and
   ($_.assets.name -contains "GREEN_ION_V16_WINDOWS.zip") -and
