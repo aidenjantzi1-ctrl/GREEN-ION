@@ -46,9 +46,9 @@ test("truncated RKT4 and missing samples reduce completeness and report warnings
  assert.ok(report.warnings.some(x=>/truncat/i.test(x)));
 });
 test("offline help answers where to find recovery, preflight and cloud sync",()=>{
- assert.equal(searchHelp("how do I find the rocket")[0].tab,"recovery");
+ assert.equal(searchHelp("how do I find the rocket")[0].tab,"flight");
  assert.equal(searchHelp("run full preflight")[0].tab,"testing");
- assert.ok(searchHelp("when internet returns cloud backup").some(x=>x.tab==="cloud"));
+ assert.ok(searchHelp("when internet returns cloud backup").some(x=>x.tab==="system"));
  const html=readFileSync(new URL("../web/index.html",import.meta.url),"utf8");
  for(const item of TOPICS){
   assert.ok(html.includes('data-tab="'+item.tab+'"'),item.title);
