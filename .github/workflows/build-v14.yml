@@ -30,7 +30,7 @@ jobs:
       - name: Python regression suite
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
       - name: Node browser tests
-        run: node --test tests/v14_browser.test.mjs tests/v14_analysis.test.mjs tests/v14_ui.test.mjs tests/v14_sensor.test.mjs tests/v14_gis1.test.mjs tests/v15_features.test.mjs tests/v15_hosted_link.test.mjs tests/v16_windows_reliability.test.mjs tests/v16_unified_telemetry.test.mjs tests/v16_mission.test.mjs tests/v16_navigation.test.mjs
+        run: node --test tests/v14_browser.test.mjs tests/v14_analysis.test.mjs tests/v14_ui.test.mjs tests/v14_sensor.test.mjs tests/v14_gis1.test.mjs tests/v15_features.test.mjs tests/v15_hosted_link.test.mjs tests/v16_windows_reliability.test.mjs tests/v16_unified_telemetry.test.mjs tests/v16_mission.test.mjs tests/v16_navigation.test.mjs tests/v16_data_cloud.test.mjs
       - name: JavaScript syntax verification
         run: |
           for f in web/*.mjs web/analysis/*.mjs web/v14_boot.js web/service-worker.js web/build.mjs; do
