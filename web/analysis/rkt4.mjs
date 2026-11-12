@@ -49,16 +49,61 @@ export function analyzeFlight(log, options = {}) {
   });
   const phases = estimatePhases(samples);
   warnings.push("Altitude, velocity, acceleration, G-force, and phases are pressure-derived estimates.");
-  return { ...log, samples, peakAltitudeM, maxAscentMps: Number.isFinite(maxAscentMps) ? maxAscentMps : NaN, maxDescentMps: Number.isFinite(maxDescentMps) ? maxDescentMps : NaN, phases, warnings, analysisVersion: 1 };
+  return { ...log, samples, peakAltitudeM, maxAscentMps: Number.isFinite(maxAscentMps) ? maxAscentMps : NaN, maxDescentMps: Number.isFinite(maxDescentMps) ? maxDescentMps : NaN, phases, warnings, analysisVersion: 2 };
 }
 
-export function estimatePhases(samples) {
-  const phases = []; let launch = null, apogee = null;
-  for (const s of samples) {
-    if (!launch && s.altitudeM > 3 && s.velocityMps > 2) { launch = s; phases.push({ name: "launch", timeS: s.timeS, confidence: "low" }); }
-    if (launch && !apogee && s.velocityMps <= 0 && s.altitudeM > 5) { apogee = s; phases.push({ name: "apogee", timeS: s.timeS, confidence: "low" }); }
+function confidence(score){
+  const value=Math.max(0,Math.min(100,Math.round(score)));
+  return {confidenceScore:value,confidence:value>=80?"high":value>=55?"medium":"low"};
+}
+function sustained(samples,start,predicate,count){
+  let run=0;
+  for(let i=start;i<samples.length;i++){
+    if(predicate(samples[i],i)){run++;if(run>=count)return i-run+1;}
+    else run=0;
   }
-  if (launch && apogee) phases.push({ name: "descent", timeS: apogee.timeS, confidence: "low" });
+  return -1;
+}
+export function estimatePhases(samples) {
+  const valid=samples.filter(s=>Number.isFinite(s.timeS)&&Number.isFinite(s.altitudeM));
+  if(valid.length<6)return [];
+  const phases=[];
+  const launchIndex=sustained(valid,0,s=>s.altitudeM>3&&Number.isFinite(s.velocityMps)&&s.velocityMps>2,3);
+  if(launchIndex<0)return phases;
+  const launch=valid[launchIndex];
+  const launchEvidence=valid.slice(launchIndex,Math.min(valid.length,launchIndex+8))
+    .filter(s=>Number.isFinite(s.velocityMps)&&s.velocityMps>2).length;
+  phases.push({name:"launch",timeS:launch.timeS,altitudeM:launch.altitudeM,
+    ...confidence(55+Math.min(35,launchEvidence*5)),method:"sustained pressure ascent"});
+
+  let peakIndex=launchIndex;
+  for(let i=launchIndex+1;i<valid.length;i++)if(valid[i].altitudeM>valid[peakIndex].altitudeM)peakIndex=i;
+  const peak=valid[peakIndex];
+  const before=valid.slice(Math.max(launchIndex,peakIndex-8),peakIndex)
+    .filter(s=>Number.isFinite(s.velocityMps)&&s.velocityMps>0.5).length;
+  const after=valid.slice(peakIndex+1,Math.min(valid.length,peakIndex+9))
+    .filter(s=>Number.isFinite(s.velocityMps)&&s.velocityMps<-0.5).length;
+  if(peak.altitudeM>5){
+    phases.push({name:"apogee",timeS:peak.timeS,altitudeM:peak.altitudeM,
+      ...confidence(45+Math.min(25,before*4)+Math.min(25,after*4)),method:"maximum filtered pressure altitude"});
+  }
+
+  const descentIndex=sustained(valid,peakIndex+1,s=>Number.isFinite(s.velocityMps)&&s.velocityMps<-1,3);
+  if(descentIndex>=0){
+    const d=valid[descentIndex];
+    phases.push({name:"descent",timeS:d.timeS,altitudeM:d.altitudeM,
+      ...confidence(65+Math.min(25,after*4)),method:"sustained negative pressure velocity"});
+  }
+
+  // Require a sustained near-ground, low-speed period after the peak. This
+  // avoids declaring landing from one noisy barometer sample.
+  const landingIndex=sustained(valid,Math.max(peakIndex+1,descentIndex+1),
+    s=>Math.abs(s.altitudeM)<=5&&Number.isFinite(s.velocityMps)&&Math.abs(s.velocityMps)<=3,5);
+  if(landingIndex>=0){
+    const l=valid[landingIndex];
+    phases.push({name:"landing",timeS:l.timeS,altitudeM:l.altitudeM,
+      ...confidence(78),method:"sustained near-ground low vertical speed"});
+  }
   return phases;
 }
 
