@@ -23,7 +23,7 @@ export const TOPICS=Object.freeze([
   guide:"Open Connections. Compare simultaneous Wi-Fi and LoRa freshness, receiver-side packet counts, estimated gaps and RSSI. Actual RF range must be tested separately. LoRa never proves SD recording."},
  {title:"Analyze IMU and GPS recordings",terms:"sen gis1 accelerometer gyroscope sensor gps analysis",tab:"history",id:"v14SensorArchiveCard",
   guide:"Choose a saved GIS1 SEN file in History, select Analyze sensor file, change the measurement, or export verified sensor CSV/GPS GeoJSON."},
- {title:"Delete a flight from the Feather SD card",terms:"delete erase remove sd storage file cleanup free space",tab:"history",id:"v16SdManagerCard",
+ {title:"Delete a flight from the Feather SD card",terms:"delete erase remove sd storage file cleanup free space",tab:"history",id:"fileList",
   guide:"Connect verified Feather Wi-Fi and open Flights & Analysis. In Feather SD card, select Delete from SD next to the flight. Deletion is blocked during recording, home testing and firmware maintenance. It removes that V12D### flight package from the Feather only; browser, Windows and cloud backups are not deleted. If launch watching was active, keep the Feather still while calibration restarts."},
  {title:"Test microSD card",terms:"sd error recording test verify card",tab:"testing",id:"sdtest",
   guide:"With recording inactive and the Feather connected over Wi-Fi, use Detect & Test SD Card. It performs temporary write/read/delete verification without erasing saved flights."},
