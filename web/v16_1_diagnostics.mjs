@@ -69,6 +69,23 @@ function browserSnapshot(){
    position_available:!!t.lastPosition(),
    age_ms:t.positionAge()
   },
+  shared_spi:{
+   owner:wifi.shared_spi_owner??null,
+   sd_sections:wifi.shared_spi_sd_sections??null,
+   radio_sections:wifi.shared_spi_radio_sections??null,
+   radio_deferred_busy:wifi.shared_spi_radio_deferred_busy??null,
+   radio_deferred_deadline:wifi.shared_spi_radio_deferred_deadline??null,
+   ownership_errors:wifi.shared_spi_ownership_errors??null,
+   radio_irq_observed:wifi.radio_irq_observed??null,
+   radio_irq_serviced:wifi.radio_irq_serviced??null,
+   radio_irq_deferred:wifi.radio_irq_deferred??null,
+   radio_tx_started:wifi.radio_tx_started??null,
+   radio_tx_completed:wifi.radio_tx_completed??null,
+   radio_tx_timeouts:wifi.radio_tx_timeouts??null,
+   missed_sample_periods:wifi.missed_sample_periods??null,
+   sensor_log_dropped:wifi.sensor_log_dropped??null,
+   evidence_scope:"software scheduling counters only; not electrical contention measurement"
+  },
   cloud:cloud?{
    status:cloud.status||null,
    pending_count:cloud.pending_count??null,
