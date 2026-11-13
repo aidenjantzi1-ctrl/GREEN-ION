@@ -9,6 +9,7 @@ const $=id=>document.getElementById(id);
 const PHASES={0:"Boot",1:"Idle",2:"Prelaunch",3:"Ascent",4:"Coast",5:"Descent",6:"Landed",7:"Recovery"};
 let preset="balanced",latest=null,lastObservationAt=0,observedMax=10,angle=0,lastFrame=0,visible=true;
 let replay=null,replayStarted=0,replayPausedAt=0,replayRaf=0;
+let fakeFlight=null;
 
 function finite(v){return typeof v==="number"&&Number.isFinite(v);}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
@@ -38,6 +39,50 @@ export function visualStateFromTelemetry(data,now=Date.now()){
   observedAt:now
  };
 }
+export function fakeFlightVisualState(elapsedS){
+ const t=clamp(Number(elapsedS)||0,0,18);
+ let phase="Prelaunch",altitude=0,speed=0,rotation=0;
+ if(t<2){
+  phase="Prelaunch";
+ }else if(t<7){
+  const x=(t-2)/5;phase="Ascent";altitude=190*Math.pow(x,.86);speed=48*(1-x*.35);rotation=10*Math.sin(t*1.7);
+ }else if(t<10){
+  const x=(t-7)/3;phase="Coast";altitude=190+30*Math.sin(x*Math.PI/2);speed=Math.max(0,16*(1-x));rotation=5*Math.sin(t);
+ }else if(t<17){
+  const x=(t-10)/7;phase="Descent";altitude=220*Math.max(0,1-x);speed=-31*x;rotation=4*Math.sin(t*.8);
+ }else{
+  phase="Landed";altitude=0;speed=0;rotation=0;
+ }
+ return {
+  mode:"fake",live:true,stale:false,phase,altitudeM:altitude,speedMps:speed,
+  batteryV:3.92,rotationDps:rotation,source:"FAKE FLIGHT — BROWSER ONLY",ageMs:null,
+  flameIllustrative:phase==="Ascent",
+  parachuteIllustrative:phase==="Descent"&&String(profile().recoveryType||"").toLowerCase().includes("parachute"),
+  replayTimeS:t,durationS:18
+ };
+}
+function fakeFlightState(){
+ if(!fakeFlight)return null;
+ const elapsed=(performance.now()-fakeFlight.startedAt)/1000;
+ const state=fakeFlightVisualState(elapsed);
+ if(elapsed>=18)fakeFlight.complete=true;
+ return state;
+}
+function toggleFakeFlight(){
+ const status=$("v162RocketStatus"),button=$("v162FakeFlight");
+ if(fakeFlight){
+  fakeFlight=null;
+  if(button)button.textContent="FAKE FLIGHT";
+  if(status)status.textContent="Live mode. Visual effects are never flight-control evidence.";
+  requestFrame();return;
+ }
+ replay=null;fakeFlight={startedAt:performance.now(),complete:false};angle=0;observedMax=220;
+ if(button)button.textContent="STOP FAKE FLIGHT";
+ if($("v162RocketLive"))$("v162RocketLive").hidden=true;
+ if(status)status.textContent="FAKE FLIGHT — browser-only visualization test. Nothing is being written to the Feather or SD card.";
+ requestFrame();
+}
+
 function phaseForReplay(analysis,t){
  let phase="Prelaunch";
  for(const event of analysis.phases||[]){
@@ -124,7 +169,7 @@ function paint(){
  const w=Math.max(300,Math.round(rect.width)),h=Math.max(250,Math.round(rect.height||360));
  if(canvas.width!==w*dpr||canvas.height!==h*dpr){canvas.width=w*dpr;canvas.height=h*dpr;}
  const ctx=canvas.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);
- const state=replayState()||latest||{mode:"live",live:false,stale:false,phase:"No telemetry",altitudeM:null,source:"none"};
+ const state=replayState()||fakeFlightState()||latest||{mode:"live",live:false,stale:false,phase:"No telemetry",altitudeM:null,source:"none"};
  const now=performance.now();
  if(lastFrame&&now-lastFrame<30){requestFrame();return;}
  const dt=Math.min(.08,Math.max(0,(now-lastFrame)/1000));lastFrame=now;
@@ -142,25 +187,27 @@ function paint(){
  drawRocket(ctx,rocketX,rocketY,Math.max(.65,Math.min(1,w/520)),angle,state.flameIllustrative,state.parachuteIllustrative);
  ctx.fillStyle="#eff8ff";ctx.font="700 14px system-ui";ctx.fillText(state.phase,16,24);
  ctx.font="12px system-ui";ctx.fillStyle="#a5bbcd";
- const source=state.mode==="replay"?"SAVED FLIGHT REPLAY — NOT LIVE":
+ const source=state.mode==="fake"?"FAKE FLIGHT — BROWSER ONLY · NOT RECORDED":
+  state.mode==="replay"?"SAVED FLIGHT REPLAY — NOT LIVE":
   state.live?("LIVE · "+String(state.source).toUpperCase()):
   state.stale?("TELEMETRY DELAYED · LAST OBSERVATION "+Math.round((state.ageMs||0)/1000)+" s OLD"):"NO LIVE TELEMETRY";
  ctx.fillText(source,16,43);
  if(state.flameIllustrative){ctx.fillStyle="#ffdd88";ctx.fillText("Exhaust: illustrative phase effect",16,h-12);}
  if(state.parachuteIllustrative){ctx.fillStyle="#ffdd88";ctx.fillText("Parachute: illustrative from recovery profile, not deployment confirmation",16,h-12);}
  const evidence=$("v162RocketEvidence");
- if(evidence)evidence.textContent=(state.mode==="replay"?"REPLAY · ":"")+
+ if(evidence)evidence.textContent=(state.mode==="fake"?"FAKE · ":state.mode==="replay"?"REPLAY · ":"")+
   (finite(state.altitudeM)?state.altitudeM.toFixed(1)+" m estimated altitude":"Altitude unavailable")+" · "+
   (finite(state.speedMps)?state.speedMps.toFixed(1)+" m/s estimated speed":"Speed unavailable");
  if(replay&&!replay.paused&&state.replayTimeS>=state.durationS-.02){replay.paused=true;replay.pauseTime=state.durationS;}
  // Keep animation bounded (~33 fps) only while live telemetry or active replay needs motion.
- if((replay&&!replay.paused)||latest?.live)requestFrame();
+ if((replay&&!replay.paused)||(fakeFlight&&!fakeFlight.complete)||latest?.live)requestFrame();
 }
 function requestFrame(){
  if(!visible||document.hidden)return;
  cancelAnimationFrame(replayRaf);replayRaf=requestAnimationFrame(paint);
 }
 async function startReplay(){
+ fakeFlight=null;const fakeButton=$("v162FakeFlight");if(fakeButton)fakeButton.textContent="FAKE FLIGHT";
  const select=$("v15ReportFlight")||$("v14AnalysisFlight"),key=select?.value;
  const status=$("v162RocketStatus");
  if(!key){if(status)status.textContent="Choose a saved BIN in Flights & Analysis first.";return;}
@@ -184,12 +231,13 @@ function injectDashboard(){
  const card=document.createElement("div");card.className="card v162-visual-card";card.id="v162RocketCard";
  card.innerHTML='<h2>'+V162_VISUAL_LABEL+'</h2>'+
   '<canvas id="v162RocketCanvas" height="360" role="img" aria-label="Animated side-view rocket visualization using live or replay telemetry"></canvas>'+
+  '<div class="actions"><button id="v162FakeFlight" class="secondary">FAKE FLIGHT</button></div>'+
   '<div class="row"><span>Visualization evidence</span><strong id="v162RocketEvidence">Waiting for telemetry</strong></div>'+
   '<p id="v162RocketStatus" class="muted" role="status">Live mode. Visual effects are never flight-control evidence.</p>'+
   '<details><summary>What does this animation mean?</summary><p class="muted">Altitude, timestamps, battery and sensor readings use received/recorded data when valid. Flight phase, velocity and gyro-integrated orientation are estimates. Flame, smoke, parachute and ground contact are illustrative unless separate hardware evidence exists. Stale telemetry freezes the observed state instead of inventing a trajectory.</p>'+
   '<div class="actions"><button id="v162RocketReplay" class="secondary">Replay selected flight</button><button id="v162RocketLive" class="secondary" hidden>Return to live</button></div></details>';
  if(summary)summary.after(card);else target.prepend(card);
- $("v162RocketReplay").onclick=startReplay;$("v162RocketLive").onclick=stopReplay;
+ $("v162FakeFlight").onclick=toggleFakeFlight;$("v162RocketReplay").onclick=startReplay;$("v162RocketLive").onclick=stopReplay;
  if("IntersectionObserver" in window)new IntersectionObserver(entries=>{visible=!!entries[0]?.isIntersecting;if(visible)requestFrame();},{rootMargin:"100px"}).observe(card);
 }
 function injectVisibility(){
