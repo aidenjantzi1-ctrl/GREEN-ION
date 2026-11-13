@@ -235,6 +235,11 @@ static void homeStart() {
   homeSamples = homeValidSamples = 0; homeMissed = 0;
   homeRadioStartSent = radioBenchPacketsSent;
   homeRadioStartFailures = radioSendFailures;
+  homeRadioConcurrentExpected = false;
+  homeTelemetryDroppedStart = telemetryQueue.dropped();
+  homeSensorDroppedStart = sensorLogCore.droppedRecords();
+  homeOwnershipErrorsStart = sharedSpi.evidence().ownershipErrors;
+  homeRadioTimeoutsStart = radioTxTimeouts;
   Serial.println("[HOME] Session started. Launch watcher OFF; rocket flight files untouched.");
   homeReply(200, true, "Guided home test started; launch watcher OFF until finish");
 }
@@ -325,7 +330,6 @@ static void homeFinish() {
   orphanHomeFile = !homeCleanupOk;
   if (homeResult == 1) homeResult = 3;
   radioBenchPacketsRemaining = 0;
-  homeRadioConcurrentExpected = false;
   Preferences prefs;
   bool stored = false;
   if (prefs.begin("giohome", false)) {
