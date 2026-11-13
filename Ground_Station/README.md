@@ -1,8 +1,8 @@
-# GREEN ION V16.2 Windows Ground Station
+# GREEN ION V16.3 Windows Ground Station
 
 **Run `START_GREEN_ION.cmd` from this folder.** `OPEN_GROUND_STATION.cmd` remains a compatibility alias. It starts the current dark-blue GREEN ION dashboard at `http://127.0.0.1:8765`, not the older V13 static page. The launcher checks Python 3.10+ and the pinned pyserial dependency. Plug the Uno in before or after startup; V16.2 keeps watching USB and can rediscover it after unplug/replug or a COM-port change. Use `START_GREEN_ION.cmd --port COM5` only when manual selection is needed. Run with motors removed for testing.
 
-Windows may join the Feather `GREEN-ION-V16-2` access point while the command window remains open. The access point has no internet. The local server polls Feather `192.168.4.1` and Uno LoRa independently. Wi-Fi status is authoritative for SD recording state; when Wi-Fi is lost, received LoRa telemetry remains visible but **cannot command the rocket**.
+Windows may join the Feather `GREEN-ION-V16-3` access point while the command window remains open. The access point has no internet. The local server polls Feather `192.168.4.1` and Uno LoRa independently. Wi-Fi status is authoritative for SD recording state; when Wi-Fi is lost, received LoRa telemetry remains visible but **cannot command the rocket**.
 
 All finished SD BIN files and available SEN/TXT companions are automatically imported from Feather after reconnecting. The current web app saves immutable originals in IndexedDB and mirrors them through `/api/local/save` to `%USERPROFILE%\GREEN_ION_Data\flights` using SHA-256. The Python server verifies the hash, bounds file sizes, refuses unsafe filenames and only binds to loopback; disk originals are never overwritten. The browser can restore them using `/api/local/files` and `/api/local/file`. Radio CSV stays in `%USERPROFILE%\GREEN_ION_Data\logs`.
 
