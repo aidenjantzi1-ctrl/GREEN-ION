@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {visualStateFromTelemetry,V162_VISUAL_LABEL} from "../web/v16_2_dashboard.mjs";
+import {visualStateFromTelemetry,fakeFlightVisualState,V162_VISUAL_LABEL} from "../web/v16_2_dashboard.mjs";
 
 const html=readFileSync(new URL("../web/index.html",import.meta.url),"utf8");
 const css=readFileSync(new URL("../web/v14_layout.css",import.meta.url),"utf8");
@@ -12,6 +12,7 @@ const testing=readFileSync(new URL("../web/v16_2_testing.mjs",import.meta.url),"
 const exp=readFileSync(new URL("../web/v16_2_experience.mjs",import.meta.url),"utf8");
 const sw=readFileSync(new URL("../web/service-worker.js",import.meta.url),"utf8");
 const cloud=readFileSync(new URL("../web/v14_cloud.mjs",import.meta.url),"utf8");
+const dashboard=readFileSync(new URL("../web/v16_2_dashboard.mjs",import.meta.url),"utf8");
 
 test("V16.2 keeps exactly five visible tabs and the original blue background",()=>{
  const block=html.match(/<nav class="tabs v16-tabs"[^>]*>([\s\S]*?)<\/nav>/)?.[1]||"";
@@ -37,6 +38,20 @@ test("Dashboard live visualization distinguishes live delayed and illustrative e
   readings:{altitude_m:{value:120,freshness:"stale",age_ms:9000}}
  },now);
  assert.equal(delayed.live,false);assert.equal(delayed.stale,true);
+});
+
+
+test("Fake Flight uses stable browser-only orientation rendering",()=>{
+ const ascent=fakeFlightVisualState(5);
+ assert.equal(ascent.mode,"fake");
+ assert.equal(ascent.phase,"Ascent");
+ assert.ok(Number.isFinite(ascent.pitchDeg));
+ assert.ok(Number.isFinite(ascent.rollDeg));
+ assert.ok(Number.isFinite(ascent.yawDeg));
+ assert.match(dashboard,/v162RoomCanvas/);
+ assert.match(dashboard,/ROOM ORIENTATION/);
+ assert.match(dashboard,/if\(!visible\|\|document\.hidden\|\|replayRaf\)return/);
+ assert.match(dashboard,/if\(replay\|\|fakeFlight\)return/);
 });
 
 test("V16.2 app uses true WebGL viewer and integrated new modules",()=>{
