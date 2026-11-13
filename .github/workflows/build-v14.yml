@@ -47,7 +47,7 @@ jobs:
             -o /tmp/test-v16-3-shared-spi
           /tmp/test-v16-3-shared-spi
       - name: Node browser tests
-        run: node --test tests/v14_browser.test.mjs tests/v14_analysis.test.mjs tests/v14_ui.test.mjs tests/v14_sensor.test.mjs tests/v14_gis1.test.mjs tests/v15_features.test.mjs tests/v15_hosted_link.test.mjs tests/v16_windows_reliability.test.mjs tests/v16_unified_telemetry.test.mjs tests/v16_mission.test.mjs tests/v16_navigation.test.mjs tests/v16_layout.test.mjs tests/v16_data_cloud.test.mjs tests/v16_visualization.test.mjs tests/v16_validation.test.mjs tests/v16_1_improvements.test.mjs tests/v16_1_sd_delete.test.mjs tests/v16_2_features.test.mjs tests/v16_2_webgl.test.mjs
+        run: node --test tests/v14_browser.test.mjs tests/v14_analysis.test.mjs tests/v14_ui.test.mjs tests/v14_sensor.test.mjs tests/v14_gis1.test.mjs tests/v15_features.test.mjs tests/v15_hosted_link.test.mjs tests/v16_windows_reliability.test.mjs tests/v16_unified_telemetry.test.mjs tests/v16_mission.test.mjs tests/v16_navigation.test.mjs tests/v16_layout.test.mjs tests/v16_data_cloud.test.mjs tests/v16_visualization.test.mjs tests/v16_validation.test.mjs tests/v16_1_improvements.test.mjs tests/v16_1_sd_delete.test.mjs tests/v16_2_features.test.mjs tests/v16_2_webgl.test.mjs tests/v16_3_features.test.mjs
       - name: Headless browser WebGL rendering smoke test
         run: node tests/v16_2_render_browser.mjs
       - name: JavaScript syntax verification
@@ -89,6 +89,7 @@ jobs:
           test -s web/dist/v16_2_testing.mjs
           test -s web/dist/v16_2_experience.mjs
           test -s web/dist/v16_2_scorecard.mjs
+          test -s web/dist/v16_3_shared_spi.mjs
           grep -q 'id="homeAuto"' web/dist/index.html
           grep -q 'id="v15ConnectFeather"' web/dist/index.html
           grep -q 'GREEN ION V16' web/dist/index.html
