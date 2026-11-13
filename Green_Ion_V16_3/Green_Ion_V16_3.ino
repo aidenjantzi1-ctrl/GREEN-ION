@@ -2370,14 +2370,14 @@ static void initializeDashboard() {
   });
   dashboardServer.on("/manifest.webmanifest", []() {
     dashboardServer.send(200, "application/manifest+json",
-        "{\"name\":\"GREEN ION V14\",\"short_name\":\"GREEN ION\","
+        "{\"name\":\"GREEN ION V16.3\",\"short_name\":\"GREEN ION\","
         "\"start_url\":\"/\",\"display\":\"standalone\","
         "\"background_color\":\"#081420\",\"theme_color\":\"#081420\"}");
   });
   dashboardServer.on("/service-worker.js", []() {
     dashboardServer.sendHeader("Service-Worker-Allowed", "/");
     dashboardServer.send(200, "application/javascript",
-        "const C='green-ion-v13-dashboard-v1';"
+        "const C='green-ion-v16-3-dashboard-v1';"
         "self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.add('/'))));"
         "self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));"
         "self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||new URL(e.request.url).pathname.startsWith('/api/'))return;"
