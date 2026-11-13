@@ -265,6 +265,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  </div>
  <div class="actions">
   <button id="prepareAll" class="wide">1 · PREPARE FOR LAUNCH</button>
+  <button id="manualStartFlight" class="wide green">START FLIGHT MANUALLY</button>
   <button id="calibrate" style="display:none">CALIBRATE</button>
   <button id="armWatch" class="wide green" style="display:none">AUTOMATIC LAUNCH WATCH</button>
   <button id="arm" style="display:none">ARM LOGGER</button>
@@ -844,6 +845,7 @@ function render(d,collect=true) {
   !d.prepareReady||!d.calibrationFresh||!d.sdVerified||d.sdFault||d.batteryCritical;
  $("cancelWatch").disabled=lock||(!d.armed&&!d.launchWatch)||d.recording;
  $("prepareAll").disabled=lock||d.armed||d.recording||d.launchWatch||d.simulation;
+ $("manualStartFlight").disabled=lock||d.recording||d.simulation||!d.calibrated||!d.sdVerified||d.sdFault||d.batteryCritical;
  $("stop").disabled=lock||(!d.recording&&!d.launchWatch);
  $("disconnect").disabled=lock||!d.recording;
  $("simulate").disabled=
@@ -1735,6 +1737,13 @@ document.querySelectorAll("[data-tab]").forEach(b=>{
 $("calibrate").onclick=()=>command("calibrate");
 $("testCalibrate").onclick=()=>command("calibrate");
 $("prepareAll").onclick=prepareAll;
+$("manualStartFlight").onclick=async()=>{
+ if(!confirm("Start the real SD flight recording now, without waiting for automatic launch detection?"))return;
+ if(busy)return;busy=true;notice("Starting real flight recording manually...");
+ try{const result=await api("manual-start","POST");notice(result.message,true);}
+ catch(err){notice("MANUAL START: "+err.message,false);}
+ finally{busy=false;await poll();}
+};
 $("fieldPrepare").onclick=prepareAll;
 $("armWatch").onclick=armAndWatch;
 $("fieldArm").onclick=armAndWatch;
