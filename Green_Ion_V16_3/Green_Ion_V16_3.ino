@@ -246,6 +246,7 @@ uint32_t telemetrySequence = 0;
 uint32_t radioSendFailures = 0;
 uint32_t radioTxStarted = 0;
 uint32_t radioTxCompleted = 0;
+uint32_t radioRecoveryAttempts = 0;
 uint32_t radioTxTimeouts = 0;
 uint32_t radioLastTxStartMs = 0;
 uint32_t radioLastTxCompleteMs = 0;
@@ -1338,6 +1339,7 @@ static void serviceRadioRecovery(uint32_t nowMs) {
   radioManualRetryRequested = false;
   const bool restartCalibration = manual &&
       (recorderMode == RECORDER_CALIBRATING || recorderMode == RECORDER_WATCHING);
+  ++radioRecoveryAttempts;
   const bool initialized = configureRadioHardware();
   radioRecovery.noteInitialize(nowMs, initialized);
   Serial.printf("BENCH RADIO status=%s recoveries=%lu init_failures=%lu\n",
@@ -2002,6 +2004,9 @@ static void sendDashboardStatus() {
   body += ",\"radio_tx_started\":" + String(radioTxStarted);
   body += ",\"radio_tx_completed\":" + String(radioTxCompleted);
   body += ",\"radio_tx_timeouts\":" + String(radioTxTimeouts);
+  body += ",\"radio_recovery_attempts\":" + String(radioRecoveryAttempts);
+  body += ",\"radio_recoveries\":" + String(radioRecovery.recoveries());
+  body += ",\"radio_init_failures\":" + String(radioRecovery.initFailures());
   body += ",\"radio_tx_awaiting_completion\":";
   body += radioTxAwaitingCompletion ? "true" : "false";
   body += ",\"radio_last_tx_age_ms\":";
@@ -2581,8 +2586,13 @@ void loop() {
       state.sdOk = false;
       state.recording = false;
       recorderMode = RECORDER_FAULT;
-      if (logFile) logFile.close();
-      if (sensorLogFile) sensorLogFile.close();
+      {
+        SdSpiScope bus;
+        if (bus) {
+          if (logFile) logFile.close();
+          if (sensorLogFile) sensorLogFile.close();
+        }
+      }
     } else if (nowMs - lastCheckpointMs >= config::CHECKPOINT_INTERVAL_MS) {
       saveCheckpoint(nowMs);
     }
