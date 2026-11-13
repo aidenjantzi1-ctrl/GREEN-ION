@@ -2,7 +2,7 @@
  * Keeps launch-day UI concise while preserving deeper evidence in a downloadable report. */
 import {listLocalMetadata} from "./v14_store.mjs";
 
-export const DIAGNOSTIC_SCHEMA="GREEN-ION-V16.2-DIAGNOSTICS-1";
+export const DIAGNOSTIC_SCHEMA="GREEN-ION-V16.3-DIAGNOSTICS-1";
 const $=id=>document.getElementById(id);
 const t=window.GREEN_ION_TRANSPORT;
 let lastReport=null,running=null;
@@ -69,6 +69,26 @@ function browserSnapshot(){
    position_available:!!t.lastPosition(),
    age_ms:t.positionAge()
   },
+  shared_spi:{
+   owner:wifi.shared_spi_owner??null,
+   sd_sections:wifi.shared_spi_sd_sections??null,
+   radio_sections:wifi.shared_spi_radio_sections??null,
+   radio_deferred_busy:wifi.shared_spi_radio_deferred_busy??null,
+   radio_deferred_deadline:wifi.shared_spi_radio_deferred_deadline??null,
+   ownership_errors:wifi.shared_spi_ownership_errors??null,
+   radio_irq_observed:wifi.radio_irq_observed??null,
+   radio_irq_serviced:wifi.radio_irq_serviced??null,
+   radio_irq_deferred:wifi.radio_irq_deferred??null,
+   radio_tx_started:wifi.radio_tx_started??null,
+   radio_tx_completed:wifi.radio_tx_completed??null,
+   radio_tx_timeouts:wifi.radio_tx_timeouts??null,
+   radio_recovery_attempts:wifi.radio_recovery_attempts??null,
+   radio_recoveries:wifi.radio_recoveries??null,
+   radio_init_failures:wifi.radio_init_failures??null,
+   missed_sample_periods:wifi.missed_sample_periods??null,
+   sensor_log_dropped:wifi.sensor_log_dropped??null,
+   evidence_scope:"software scheduling counters only; not electrical contention measurement"
+  },
   cloud:cloud?{
    status:cloud.status||null,
    pending_count:cloud.pending_count??null,
@@ -92,10 +112,16 @@ export async function buildDiagnosticReport(){
  catch{}
  const browser=browserSnapshot();
  const issues=[];
- if(!browser.wifi.fresh)issues.push("Feather Wi-Fi: no recent status. Keep the Windows app open, join GREEN-ION-V16-2, and let automatic reconnect continue.");
+ if(!browser.wifi.fresh)issues.push("Feather Wi-Fi: no recent status. Keep the Windows app open, join GREEN-ION-V16-3, and let automatic reconnect continue.");
  if(!browser.lora.fresh)issues.push("LoRa: no fresh receive-only packet. Check Uno USB, antenna, radio power/wiring and coordinated frequency; SD recording is independent.");
  if(browser.wifi.fresh&&browser.wifi.sd_ok===false)issues.push("SD: Feather reports the card unavailable. Stop mission activity, inspect/reseat the card, and rerun SD/home verification.");
  if(!browser.gps.position_available)issues.push("GPS: no confirmed position received. Move outdoors with a clear sky and wait for a current fix.");
+ if(Number(browser.shared_spi.ownership_errors)>0)
+  issues.push("Shared SPI ownership error recorded. Stop bench testing and inspect the SD/LoRa scheduling evidence and physical perfboard before relying on the shared bus.");
+ if(Number(browser.shared_spi.radio_tx_timeouts)>0)
+  issues.push("LoRa transmissions timed out. SD recording remains primary; check the RFM9x antenna, reset/DIO0/CS wiring, power, and rerun Full Home Test.");
+ if(Number(browser.shared_spi.missed_sample_periods)>30)
+  issues.push("Recorder timing exceeded the Full Home Test missed-period tolerance. Review SD/radio workload and physical power before hardware use.");
  if(browser.wifi.imu_ok===false)issues.push("IMU: LSM6DSO32 is unavailable. Check STEMMA QT power/cable and rerun the home test.");
  if(browser.wifi.barometer_ok===false)issues.push("Barometer: BMP388 is unavailable. Check cable/power before recording.");
  if(Number.isFinite(Number(browser.wifi.battery_v))&&Number(browser.wifi.battery_v)<3.45)

@@ -7,7 +7,7 @@ import {runInNewContext} from "node:vm";
 import {APP_VERSION,compareVersions,parseVersion,assetForRelease,releaseFirmwarePackage,checkFirmwareManifest,verifiedFirmwareBytes,receiverPacket,radioStatus,safeFileName,validCoordinate} from "../web/v14_utils.mjs";
 
 test("semantic version handling includes stable and beta precedence",()=>{
- assert.equal(APP_VERSION,"14.0.0-beta.5");
+ assert.equal(APP_VERSION,"16.3.0");
  assert.equal(compareVersions("v14.0.0-beta.1","v13.9.9"),1);
  assert.equal(compareVersions("v14.0.0","v14.0.0-beta.2"),1);
  assert.equal(compareVersions("v14.0.0-beta.2","v14.0.0-beta.1"),1);
@@ -21,16 +21,16 @@ test("only official firmware release assets may be offered",()=>{
 });
 
 test("direct Feather update uses only the compiled app and matching SHA-256 release manifest",async()=>{
- const tag="v14.0.0-beta.4";
+ const tag="v16.3.0";
  const base="https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases/download/"+tag+"/";
  const raw=new Uint8Array(200100);raw[0]=0xE9;raw[1]=0x06;
  const hash=createHash("sha256").update(raw).digest("hex");
- const image={name:"Green_Ion_V14.ino.bin",size:raw.byteLength,browser_download_url:base+"Green_Ion_V14.ino.bin"};
+ const image={name:"Green_Ion_V16_3.ino.bin",size:raw.byteLength,browser_download_url:base+"Green_Ion_V16_3.ino.bin"};
  const sum={name:"SHA256_MANIFEST.json",browser_download_url:base+"SHA256_MANIFEST.json"};
- const zip={name:"GREEN_ION_V14_COMPLETE.zip",browser_download_url:base+"GREEN_ION_V14_COMPLETE.zip"};
+ const zip={name:"GREEN_ION_V16_3_SOURCE.zip",browser_download_url:base+"GREEN_ION_V16_3_SOURCE.zip"};
  const release={tag_name:tag,assets:[zip,sum,image]};
- const manifest={version:tag,board:"Adafruit Feather ESP32 V2",firmwareFormat:"ESP32 .ino.bin app image",
-  artifacts:{[image.name]:{size:raw.byteLength,sha256:hash}}};
+ const manifest={version:tag,tag,board:"Adafruit Feather ESP32 V2",firmwareFormat:"ESP32 .ino.bin app image",
+  firmwareGeneration:"V16.3",artifacts:{[image.name]:{size:raw.byteLength,sha256:hash}}};
  assert.deepEqual(releaseFirmwarePackage(release),{image,manifest:sum});
  assert.equal(assetForRelease(release),image,"never upload the ZIP");
  assert.deepEqual(checkFirmwareManifest(release,manifest,image),{size:raw.byteLength,sha256:hash});
@@ -84,11 +84,11 @@ test("firmware release relay refuses unknown assets and unsafe HTTP methods",asy
   await handler(req,res);
   return state;
  };
- assert.equal((await invoke({method:"POST",query:{tag:"v14.0.0-beta.4",name:"Green_Ion_V14.ino.bin"}})).statusCode,405);
- for(const name of ["../../secret","GREEN_ION_V14_COMPLETE.zip","Feather_merged.bin"]){
-  assert.equal((await invoke({method:"GET",query:{tag:"v14.0.0-beta.4",name}})).statusCode,400);
+ assert.equal((await invoke({method:"POST",query:{tag:"v16.3.0",name:"Green_Ion_V16_3.ino.bin"}})).statusCode,405);
+ for(const name of ["../../secret","GREEN_ION_V16_3_SOURCE.zip","Green_Ion_V14.ino.bin","Feather_merged.bin"]){
+  assert.equal((await invoke({method:"GET",query:{tag:"v16.3.0",name}})).statusCode,400);
  }
- assert.equal((await invoke({method:"GET",query:{tag:"v12.0.0-beta.1",name:"Green_Ion_V14.ino.bin"}})).statusCode,400);
+ assert.equal((await invoke({method:"GET",query:{tag:"v12.0.0-beta.1",name:"Green_Ion_V16_3.ino.bin"}})).statusCode,400);
 });
 
 test("serial radio packet validation and telemetry-only flags",()=>{

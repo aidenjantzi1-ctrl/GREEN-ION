@@ -1,8 +1,8 @@
-name: GREEN ION V16.2 - verified release
+name: GREEN ION V16.3 - verified release
 
 on:
   push:
-    tags: ["v16.*"]
+    tags: ["v16.3.*"]
   workflow_dispatch:
 
 permissions:
@@ -15,6 +15,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Python regression suite
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Native shared-SPI scheduler regression
+        run: |
+          g++ -std=c++17 -Wall -Wextra -pedantic \
+            -I libraries/GreenIonProtocol/src \
+            tests/cpp/test_v16_3_shared_spi.cpp \
+            -o /tmp/test-v16-3-shared-spi
+          /tmp/test-v16-3-shared-spi
       - name: Node browser and analysis tests
         run: node --test tests/*.test.mjs
       - name: Headless browser WebGL rendering smoke test
@@ -46,10 +53,11 @@ jobs:
           test -s web/dist/v16_2_testing.mjs
           test -s web/dist/v16_2_experience.mjs
           test -s web/dist/v16_2_scorecard.mjs
+          test -s web/dist/v16_3_shared_spi.mjs
           grep -q -- '--bg:#081420' web/dist/index.html
       - uses: actions/upload-artifact@v4
         with:
-          name: v16-2-web
+          name: v16-3-web
           path: web/dist/
           if-no-files-found: error
 
@@ -72,12 +80,12 @@ jobs:
           arduino-cli lib install "Adafruit GPS Library"
           arduino-cli lib install "RadioHead"
       - name: Compile Feather ESP32 V2
-        run: arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --library libraries/GreenIonProtocol --library libraries/GreenIonRecorder --output-dir build/feather Green_Ion_V16_2
+        run: arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --library libraries/GreenIonProtocol --library libraries/GreenIonRecorder --output-dir build/feather Green_Ion_V16_3
       - name: Compile Arduino Uno receiver
-        run: arduino-cli compile --fqbn arduino:avr:uno --library libraries/GreenIonProtocol --output-dir build/uno Ground_Receiver_V16_2
+        run: arduino-cli compile --fqbn arduino:avr:uno --library libraries/GreenIonProtocol --output-dir build/uno Ground_Receiver_V16_3
       - uses: actions/upload-artifact@v4
         with:
-          name: v16-2-firmware
+          name: v16-3-firmware
           path: |
             build/feather/*.bin
             build/uno/*.hex
@@ -90,7 +98,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: v16-2-web
+          name: v16-3-web
           path: built-web
       - name: Parse Windows scripts
         shell: pwsh
@@ -118,7 +126,7 @@ jobs:
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: v16-2-windows
+          name: v16-3-windows
           path: windows-release/
           if-no-files-found: error
 
@@ -131,15 +139,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: v16-2-web
+          name: v16-3-web
           path: built-web
       - uses: actions/download-artifact@v4
         with:
-          name: v16-2-firmware
+          name: v16-3-firmware
           path: built-firmware
       - uses: actions/download-artifact@v4
         with:
-          name: v16-2-windows
+          name: v16-3-windows
           path: windows-release
       - name: Assemble release assets and SHA manifest
         run: |
@@ -152,7 +160,7 @@ jobs:
             --commit "${{ github.sha }}"
       - uses: actions/upload-artifact@v4
         with:
-          name: GREEN_ION_V16_2_RELEASE
+          name: GREEN_ION_V16_3_RELEASE
           path: release/
           if-no-files-found: error
       - name: Publish tagged V16 release

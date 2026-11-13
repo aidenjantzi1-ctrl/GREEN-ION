@@ -1,3 +1,15 @@
+# V16.3 — shared-SPI reliability
+
+V16.3 is the current GREEN ION application/firmware/receiver generation. It hardens the Feather ESP32 V2 shared SPI bus used by the microSD and RFM9x on the perfboard without changing RKT4 v2, GIS1, the 70-byte LoRa packet or receive-only ground-radio behavior.
+
+The recorder remains authoritative: sensor sampling, BIN writes, checkpoints and companion logging take priority; DIO0 never performs SPI inside interrupt context; radio work is bounded/deferred and cannot be treated as proof of SD success. Full Home Test adds real temporary 50 Hz SD + LoRa scheduling evidence and only credits Uno reception when actual receiver packets are observed.
+
+V16.2 WebGL, live visualization, Maps, library/comparison, cloud, update/rollback and five-tab blue UI remain intact. Real perfboard/RF/power/GPS/flight validation is still required.
+
+[V16.3 implementation](docs/V16_3_IMPLEMENTATION.md) · [update guide](docs/V16_3_UPDATE_GUIDE.md) · [shared-SPI guide](docs/V16_3_SHARED_SPI_PERFBOARD.md) · [hardware validation](docs/V16_3_HARDWARE_VALIDATION.md)
+
+---
+
 # V16.2 — application + Feather + Uno generation
 
 V16.2 is the first V16 application release in this repository that also carries clearly versioned **Feather V16.2** and **Uno V16.2** source/build outputs.

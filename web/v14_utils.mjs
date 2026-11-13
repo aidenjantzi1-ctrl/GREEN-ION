@@ -1,4 +1,4 @@
-export const APP_VERSION = "14.0.0-beta.5";
+export const APP_VERSION = "16.3.0";
 export const REPOSITORY = "aidenjantzi1-ctrl/GREEN-ION";
 export const FEATHER_ADDRESS = "http://192.168.4.1";
 export function parseVersion(input) {
@@ -31,30 +31,46 @@ export function safeFirmwareAsset(asset, releaseTag) {
     /^[A-Za-z0-9_.-]{1,110}$/.test(asset.name || "") &&
     asset.browser_download_url === prefix + asset.name;
 }
+export function firmwareImageNameForTag(tag) {
+  const version=parseVersion(tag);
+  if(!version)return null;
+  if(version.major===16)return "Green_Ion_V16_"+version.minor+".ino.bin";
+  if(version.major===14)return "Green_Ion_V14.ino.bin";
+  return null;
+}
 export function assetForRelease(release) {
   if(!release || !Array.isArray(release.assets) || !parseVersion(release.tag_name))return null;
   const approved=release.assets.filter(a=>safeFirmwareAsset(a,release.tag_name));
-  // Direct Feather OTA needs the application image, never a ZIP or merged image.
-  return approved.find(a=>a.name==="Green_Ion_V14.ino.bin") ||
-    approved.find(a=>a.name==="GREEN_ION_V14_COMPLETE.zip") || null;
+  const imageName=firmwareImageNameForTag(release.tag_name);
+  const image=imageName?approved.find(a=>a.name===imageName):null;
+  if(image)return image;
+  // Historical V14 releases may expose only the complete ZIP for manual use.
+  return approved.find(a=>a.name==="GREEN_ION_V14_COMPLETE.zip") || null;
 }
 
 export function releaseFirmwarePackage(release) {
-  const image=Array.isArray(release?.assets)?release.assets.find(a=>
-    a.name==="Green_Ion_V14.ino.bin" && safeFirmwareAsset(a,release.tag_name)):null;
+  const imageName=firmwareImageNameForTag(release?.tag_name);
+  const image=Array.isArray(release?.assets)&&imageName?release.assets.find(a=>
+    a.name===imageName && safeFirmwareAsset(a,release.tag_name)):null;
   const manifest=Array.isArray(release?.assets)?release.assets.find(a=>
     a.name==="SHA256_MANIFEST.json" && safeFirmwareAsset(a,release.tag_name)):null;
   return image && manifest ? {image,manifest} : null;
 }
 export function checkFirmwareManifest(release, manifest, image) {
-  const entry=manifest?.artifacts?.[image.name];
+  const parsed=parseVersion(release?.tag_name);
+  const entry=manifest?.artifacts?.[image?.name];
   const expectedSize=Number(entry?.size);
-  if(manifest?.version!==release.tag_name ||
+  const expectedGeneration=parsed?.major===16 ? "V16."+parsed.minor : null;
+  const legacy=manifest?.version===release?.tag_name;
+  const modern=manifest?.tag===release?.tag_name &&
+    manifest?.firmwareGeneration===expectedGeneration;
+  if((!legacy&&!modern) ||
      manifest?.board!=="Adafruit Feather ESP32 V2" ||
      manifest?.firmwareFormat!=="ESP32 .ino.bin app image" ||
+     image?.name!==firmwareImageNameForTag(release?.tag_name) ||
      !Number.isSafeInteger(expectedSize) || expectedSize<200000 || expectedSize>8388608 ||
      !/^[a-fA-F0-9]{64}$/.test(entry?.sha256||"") ||
-     (Number.isSafeInteger(image.size)&&image.size!==expectedSize))
+     (Number.isSafeInteger(image?.size)&&image.size!==expectedSize))
     throw Error("Release manifest is missing, incompatible, or invalid");
   return {size:expectedSize,sha256:entry.sha256.toLowerCase()};
 }

@@ -29,6 +29,7 @@ import {initV162Compare} from "./v16_2_compare.mjs";
 import {initV162Testing} from "./v16_2_testing.mjs";
 import {initV162Experience} from "./v16_2_experience.mjs";
 import {initV162Scorecard} from "./v16_2_scorecard.mjs";
+import {initV163SharedSpiEvidence} from "./v16_3_shared_spi.mjs";
 import {requiresFeather,initTabs} from "./v14_ui.mjs";
 const $=id=>document.getElementById(id),t=window.GREEN_ION_TRANSPORT;
 let importing=false,lastAutoImport=0,lastRadioAt=0,radioPackets=[];
@@ -216,8 +217,8 @@ function renderBrowserInfo(){
   "Web Serial is unavailable in this browser. Feather Wi-Fi and saved files still work.");
 }
 async function init(){
- document.querySelector("header small").textContent="Flight logger · V16.2 · reliable, visual, local-first";
- text("v14AppBuild","GREEN ION V16.2 · Feather V16.2 + Uno V16.2 supported · verify installed hardware versions in System Health");
+ document.querySelector("header small").textContent="Flight logger · V16.3 · shared-SPI reliability";
+ text("v14AppBuild","GREEN ION V16.3 · shared SD + LoRa reliability · verify installed Feather/Uno versions in System Health");
  renderBrowserInfo();
  initLayout();
  initPreferences();
@@ -237,6 +238,7 @@ async function init(){
  initV161Diagnostics();
  initV161GuidedTest();
  initV162Testing();
+ initV163SharedSpiEvidence();
  $("v14SerialConnect").onclick=connectSerial;
  $("v14SerialDisconnect").onclick=disconnectSerial;
  $("v14SerialDisconnect").disabled=true;
@@ -286,4 +288,4 @@ async function init(){
  }
  if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});
 }
-init().catch(e=>{const n=document.getElementById("v14ConnectionNotice");if(n)n.textContent="V16.2 startup error: "+e.message;});
+init().catch(e=>{const n=document.getElementById("v14ConnectionNotice");if(n)n.textContent="V16.3 startup error: "+e.message;});

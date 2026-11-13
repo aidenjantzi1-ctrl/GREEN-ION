@@ -10,7 +10,7 @@ export const TOPICS=Object.freeze([
  {title:"Connect Arduino Uno LoRa",terms:"radio com port lora connection serial usb receiver",tab:"system",id:"v14SerialStatus",
   guide:"On Windows, connect the Uno using USB and close Arduino Serial Monitor. START_GREEN_ION.cmd keeps watching USB and reconnects automatically, including after a COM-port change. If needed, start with --port COM5. The local server reads radio independently; do not also open the same port with Web Serial."},
  {title:"Join Feather Wi-Fi",terms:"wifi wireless connect feather ip access point",tab:"system",id:"v14WifiStatusDetail",
-  guide:"On Windows join the GREEN-ION-V16-2 access point (older compatible firmware may still use GREEN-ION-V14). Open http://127.0.0.1:8765 after starting START_GREEN_ION.cmd, or use the Feather fallback at http://192.168.4.1. This access point does not provide internet."},
+  guide:"On Windows join the GREEN-ION-V16-3 access point (older compatible firmware may still use GREEN-ION-V14). Open http://127.0.0.1:8765 after starting START_GREEN_ION.cmd, or use the Feather fallback at http://192.168.4.1. This access point does not provide internet."},
  {title:"Save flights to the computer",terms:"download file local disk archive storage flight saved",tab:"history",id:"v15LocalCard",
   guide:"Run START_GREEN_ION.cmd. After landing, reconnect Feather Wi-Fi; completed BIN/SEN/TXT files import automatically into IndexedDB and are SHA-256 mirrored under ~/GREEN_ION_Data/flights. Click Reconcile PC archive to restore originals from disk."},
  {title:"Cloud backup after internet returns",terms:"supabase cloud sync offline internet upload automatic account",tab:"system",id:"v14CloudAccount",

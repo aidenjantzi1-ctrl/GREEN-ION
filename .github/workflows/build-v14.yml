@@ -1,13 +1,13 @@
-name: GREEN ION V16.2 - verify, compile and package
+name: GREEN ION V16.3 - verify, compile and package
 on:
   push:
-    branches: [main, "v14/**", "v16.2/**"]
+    branches: [main, "v14/**", "v16.2/**", "v16.3/**"]
     paths:
       - "web/**"
       - "Green_Ion_V14/**"
-      - "Green_Ion_V16_2/**"
+      - "Green_Ion_V16_3/**"
       - "Ground_Receiver/**"
-      - "Ground_Receiver_V16_2/**"
+      - "Ground_Receiver_V16_3/**"
       - "Ground_Station/**"
       - "tools/build_v16_windows_package.py"
       - "tools/assemble_v16_release.py"
@@ -39,8 +39,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Python regression suite
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Native shared-SPI scheduler regression
+        run: |
+          g++ -std=c++17 -Wall -Wextra -pedantic \
+            -I libraries/GreenIonProtocol/src \
+            tests/cpp/test_v16_3_shared_spi.cpp \
+            -o /tmp/test-v16-3-shared-spi
+          /tmp/test-v16-3-shared-spi
       - name: Node browser tests
-        run: node --test tests/v14_browser.test.mjs tests/v14_analysis.test.mjs tests/v14_ui.test.mjs tests/v14_sensor.test.mjs tests/v14_gis1.test.mjs tests/v15_features.test.mjs tests/v15_hosted_link.test.mjs tests/v16_windows_reliability.test.mjs tests/v16_unified_telemetry.test.mjs tests/v16_mission.test.mjs tests/v16_navigation.test.mjs tests/v16_layout.test.mjs tests/v16_data_cloud.test.mjs tests/v16_visualization.test.mjs tests/v16_validation.test.mjs tests/v16_1_improvements.test.mjs tests/v16_1_sd_delete.test.mjs tests/v16_2_features.test.mjs tests/v16_2_webgl.test.mjs
+        run: node --test tests/v14_browser.test.mjs tests/v14_analysis.test.mjs tests/v14_ui.test.mjs tests/v14_sensor.test.mjs tests/v14_gis1.test.mjs tests/v15_features.test.mjs tests/v15_hosted_link.test.mjs tests/v16_windows_reliability.test.mjs tests/v16_unified_telemetry.test.mjs tests/v16_mission.test.mjs tests/v16_navigation.test.mjs tests/v16_layout.test.mjs tests/v16_data_cloud.test.mjs tests/v16_visualization.test.mjs tests/v16_validation.test.mjs tests/v16_1_improvements.test.mjs tests/v16_1_sd_delete.test.mjs tests/v16_2_features.test.mjs tests/v16_2_webgl.test.mjs tests/v16_3_features.test.mjs
       - name: Headless browser WebGL rendering smoke test
         run: node tests/v16_2_render_browser.mjs
       - name: JavaScript syntax verification
@@ -82,6 +89,7 @@ jobs:
           test -s web/dist/v16_2_testing.mjs
           test -s web/dist/v16_2_experience.mjs
           test -s web/dist/v16_2_scorecard.mjs
+          test -s web/dist/v16_3_shared_spi.mjs
           grep -q 'id="homeAuto"' web/dist/index.html
           grep -q 'id="v15ConnectFeather"' web/dist/index.html
           grep -q 'GREEN ION V16' web/dist/index.html
@@ -94,7 +102,7 @@ jobs:
           grep -q 'GREEN ION V16' web/dist/index.html
       - uses: actions/upload-artifact@v4
         with:
-          name: green-ion-v16-2-web
+          name: green-ion-v16-3-web
           path: web/dist/
           if-no-files-found: error
 
@@ -105,7 +113,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: green-ion-v16-2-web
+          name: green-ion-v16-3-web
           path: built-web
       - name: Parse Windows PowerShell launch/update scripts
         shell: pwsh
@@ -182,12 +190,12 @@ jobs:
           arduino-cli lib install "Adafruit GPS Library"
           arduino-cli lib install "RadioHead"
       - name: Compile Feather ESP32 V2 from source
-        run: arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --library libraries/GreenIonProtocol --library libraries/GreenIonRecorder --output-dir build/feather Green_Ion_V16_2
+        run: arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --library libraries/GreenIonProtocol --library libraries/GreenIonRecorder --output-dir build/feather Green_Ion_V16_3
       - name: Compile Arduino Uno receiver from source
-        run: arduino-cli compile --fqbn arduino:avr:uno --library libraries/GreenIonProtocol --output-dir build/uno Ground_Receiver_V16_2
+        run: arduino-cli compile --fqbn arduino:avr:uno --library libraries/GreenIonProtocol --output-dir build/uno Ground_Receiver_V16_3
       - uses: actions/upload-artifact@v4
         with:
-          name: green-ion-v16-2-firmware
+          name: green-ion-v16-3-firmware
           path: |
             build/feather/*.bin
             build/uno/*.hex
@@ -200,11 +208,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: green-ion-v16-2-web
+          name: green-ion-v16-3-web
           path: built-web
       - uses: actions/download-artifact@v4
         with:
-          name: green-ion-v16-2-firmware
+          name: green-ion-v16-3-firmware
           path: built-firmware
       - uses: actions/download-artifact@v4
         with:
@@ -223,9 +231,9 @@ jobs:
         run: |
           test -s v16-release-smoke/GREEN_ION_V16_WINDOWS.zip
           test -s v16-release-smoke/GREEN_ION_V16_WEB.zip
-          test -s v16-release-smoke/Green_Ion_V16_2.ino.bin
-          test -s v16-release-smoke/Ground_Receiver_V16_2.ino.hex
-          test -s v16-release-smoke/GREEN_ION_V16_2_SOURCE.zip
+          test -s v16-release-smoke/Green_Ion_V16_3.ino.bin
+          test -s v16-release-smoke/Ground_Receiver_V16_3.ino.hex
+          test -s v16-release-smoke/GREEN_ION_V16_3_SOURCE.zip
           test -s v16-release-smoke/SHA256_MANIFEST.json
           python3 - <<'PY'
           import hashlib,json
@@ -235,8 +243,8 @@ jobs:
           assert manifest["schema"]=="GREEN-ION-V16-RELEASE-1"
           assert manifest["safety"]["loraReceiveOnly"] is True
           assert manifest["safety"]["autonomousSdRecorderPreserved"] is True
-          assert manifest["firmwareGeneration"]=="V16.2"
-          assert manifest["receiverGeneration"]=="V16.2"
+          assert manifest["firmwareGeneration"]=="V16.3"
+          assert manifest["receiverGeneration"]=="V16.3"
           assert manifest["radioProtocolVersion"]==2
           assert manifest["radioPacketBytes"]==70
           for name,item in manifest["artifacts"].items():
@@ -252,7 +260,7 @@ jobs:
           if-no-files-found: error
 
 
-  publish-v16-2:
+  publish-v16-3:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [app-tests, firmware-build, windows-package, v16-release-smoke]
     permissions:
@@ -262,24 +270,24 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: green-ion-v16-2-web
+          name: green-ion-v16-3-web
           path: built-web
       - uses: actions/download-artifact@v4
         with:
-          name: green-ion-v16-2-firmware
+          name: green-ion-v16-3-firmware
           path: built-firmware
       - uses: actions/download-artifact@v4
         with:
           name: GREEN_ION_V16_WINDOWS
           path: windows-release
-      - name: Assemble final V16.2 release assets
+      - name: Assemble final V16.3 release assets
         run: |
           python3 tools/assemble_v16_release.py \
             --web built-web \
             --firmware built-firmware \
             --windows windows-release \
             --output release \
-            --tag "v16.2.0" \
+            --tag "v16.3.0" \
             --commit "$GITHUB_SHA"
       - name: Verify final release manifest before publication
         run: |
@@ -288,9 +296,9 @@ jobs:
           from pathlib import Path
           root=Path("release")
           m=json.loads((root/"SHA256_MANIFEST.json").read_text())
-          assert m["tag"]=="v16.2.0"
-          assert m["firmwareGeneration"]=="V16.2"
-          assert m["receiverGeneration"]=="V16.2"
+          assert m["tag"]=="v16.3.0"
+          assert m["firmwareGeneration"]=="V16.3"
+          assert m["receiverGeneration"]=="V16.3"
           assert m["radioProtocolVersion"]==2
           assert m["radioPacketBytes"]==70
           for name,item in m["artifacts"].items():
@@ -299,15 +307,15 @@ jobs:
               assert hashlib.sha256(p.read_bytes()).hexdigest()==item["sha256"], name
               assert p.stat().st_size==item["size"], name
           PY
-      - name: Publish immutable V16.2 release once
+      - name: Publish immutable V16.3 release once
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v16.2.0 >/dev/null 2>&1; then
-            echo "v16.2.0 already exists; refusing to replace an existing stable release."
+          if gh release view v16.3.0 >/dev/null 2>&1; then
+            echo "v16.3.0 already exists; refusing to replace an existing stable release."
             exit 0
           fi
-          gh release create v16.2.0 release/* \
+          gh release create v16.3.0 release/* \
             --target "$GITHUB_SHA" \
-            --title "GREEN ION V16.2" \
+            --title "GREEN ION V16.3" \
             --notes-file docs/V16_RELEASE_NOTES.md

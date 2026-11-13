@@ -1,24 +1,27 @@
-# GREEN ION V16.2
+# GREEN ION V16.3
 
-GREEN ION V16.2 preserves the existing dark-blue five-tab application and autonomous recorder while upgrading both the application and hardware firmware generation.
+GREEN ION V16.3 finishes the shared-SPI reliability work for the Feather ESP32 V2 perfboard while preserving the V16.2 application experience.
 
 ## Highlights
 
-- **Feather V16.2:** explicit firmware/session/reset identity, stronger SD/sensor diagnostics and safe idle recovery without changing RKT4 v2 or GIS1.
-- **Uno V16.2:** explicit receiver version; receive-only protocol v2 remains fixed at 70 bytes.
-- **Windows reliability:** brief status delays keep last-known evidence visible while hardware commands immediately require fresh verification.
-- **Clean Dashboard:** Balanced default, smart next action and a polished sensor-based/estimated 2D rocket visualization with clearly illustrative effects.
-- **True 3D:** WebGL perspective/depth, real ENU trajectory geometry, generic 3D rocket, interactive cameras, timestamp replay, phase jumps, point selection and synchronized analysis.
-- **Recovery:** optional embedded Google Maps with confirmed raw GPS trail and existing offline fallback.
-- **SD safety:** completion state plus browser/Windows/cloud evidence before exact-name deletion; interrupted/recovery evidence is retained.
-- **Flights & Analysis:** rocket/motor/date/status/backup filters, local annotations, reports, data-quality scorecard and multi-flight comparison.
-- **Testing:** one Run Full Home Test front door plus expanded System Health and human-readable troubleshooting.
-- **Packaging:** verified Windows ZIP/SHA/manifest, offline web ZIP, Feather BIN, Uno HEX, complete V16.2 source ZIP and release SHA manifest.
+- **Feather V16.3:** shared microSD + RFM9x SPI ownership, deferred DIO0 servicing, recorder-first scheduling, bounded radio recovery and stronger reset/SD/radio diagnostics.
+- **Uno V16.3:** receive-only protocol-v2 receiver with packet integrity, RSSI/SNR, bench evidence and explicit receiver version.
+- **Full Home Test:** real 50 Hz temporary RKT4 recording, SD readback/cleanup, bounded concurrent LoRa traffic and actual Uno receiver evidence when connected.
+- **Truthful radio results:** no receiver means NOT TESTED; transmitter activity alone is never receiver PASS.
+- **Existing V16.2 features preserved:** clean five-tab #081420 UI, live rocket visualization, genuine WebGL 3D replay, embedded Maps/offline recovery, flight history/comparison, backup-aware SD cleanup, optional Supabase and Windows auto-reconnect.
+- **Verified updater:** official V16.3 Feather application image + SHA manifest are checked before the separate deliberate bench OTA prompt.
+- **Packaging:** Windows ZIP/SHA/manifest, offline web ZIP, Feather V16.3 BIN, Uno V16.3 HEX, complete V16.3 source ZIP and release SHA manifest.
 
-## Important limits
+## Compatibility
 
-The rocket visual, flame, parachute and ground-contact depictions are not physical confirmation. Relative gyro attitude is not absolute attitude. GPS/radio failure never blocks primary SD recording.
+- RKT4 v2 BIN unchanged.
+- GIS1 SEN unchanged.
+- LoRa protocol v2 remains 70 bytes.
+- Ground LoRa remains receive-only.
+- Windows data stays under `%USERPROFILE%\GREEN_ION_Data`.
+- Existing V16.2 recordings, history and cloud data remain compatible.
+- Windows update/rollback and Feather firmware update/rollback remain separate operations.
 
-Real RF range, physical sensor behavior, SD timing, LiPo/brownout behavior, wiring/mechanical installation, OTA interruption/rollback and real flight remain **NOT TESTED** until measured on the assembled hardware.
+## Physical validation still required
 
-See `docs/V16_2_WINDOWS_SETUP.md`, `docs/V16_2_FIRMWARE_UPDATE.md`, `docs/V16_2_UNO_RECEIVER.md`, `docs/V16_2_GOOGLE_MAPS.md` and `docs/V16_2_HARDWARE_VALIDATION.md`.
+CI and compilation do not prove the assembled perfboard, RF range, GPS performance, LiPo/brownout margin, mechanical installation, OTA interruption recovery or real-flight behavior. Follow `docs/V16_3_SHARED_SPI_PERFBOARD.md` and `docs/V16_3_HARDWARE_VALIDATION.md` before treating hardware as validated.

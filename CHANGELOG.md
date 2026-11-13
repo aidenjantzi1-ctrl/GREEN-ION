@@ -1,3 +1,20 @@
+# V16.3 — Shared-SPI reliability and full home verification — November 12, 2026
+
+- Added GREEN ION Feather V16.3 and Uno receiver V16.3 source/build identities while preserving RKT4 v2, GIS1 and protocol-v2 70-byte receive-only LoRa.
+- Added explicit shared-SPI ownership for the Feather perfboard: SD and RFM9x keep independent CS lines; radio SPI is deferred when SD/recording work owns the bus.
+- Removed RadioHead SPI work from DIO0 interrupt context; the ISR records an event and loop-time servicing honors sample-deadline margin.
+- Prioritized sampling, primary BIN flush/checkpoints and SEN work ahead of bounded radio dispatch/recovery.
+- Added shared-SPI/radio counters, TX start/completion/timeout evidence, reset/brownout diagnostics and safe recovery counters.
+- Extended Full Home Test with a real 30-second 50 Hz temporary RKT4 recording plus bounded LoRa activity and actual Uno packet evidence when connected.
+- Receiver PASS requires actual received bench packets; absent receiver remains NOT TESTED and missing evidence is never promoted to PASS.
+- Preserved V16.2 live Dashboard rocket, true WebGL 3D viewer, Maps recovery, flight library/comparison, backup-aware SD management, cloud integrity and five-tab #081420 design.
+- Fixed duplicated hidden tab semantics that caused the V16.3 browser regression while retaining historical internal route compatibility.
+- Updated the verified browser firmware updater to recognize versioned V16.3 Feather assets and the V16 release SHA manifest.
+- Added native shared-SPI scheduler tests, Python fault/contract tests, browser/WebGL regression coverage, Windows packaging and V16.3 release/source packaging.
+- Physical perfboard concurrency, RF range, GPS, power/brownout, mechanical install, OTA interruption and real-flight validation remain pending.
+
+---
+
 # V16.2 — Full application + firmware upgrade — November 12, 2026
 
 - Added explicit GREEN ION Feather V16.2 and Uno V16.2 source generations while preserving RKT4 v2, GIS1 and protocol-v2 70-byte receive-only LoRa.
