@@ -2,7 +2,7 @@ name: GREEN ION V16.3 - verified release
 
 on:
   push:
-    tags: ["v16.*"]
+    tags: ["v16.3.*"]
   workflow_dispatch:
 
 permissions:
