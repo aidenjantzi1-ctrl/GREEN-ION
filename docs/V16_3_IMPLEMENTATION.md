@@ -39,18 +39,26 @@ Status vocabulary: **COMPLETE**, **PARTIAL**, **MISSING**, **BLOCKED**, **REQUIR
 
 ## V16.3 work
 
-- [ ] Centralize shared SPI ownership and defer RFM9x DIO0 SPI work out of interrupt context.
-- [ ] Give sensor sampling / BIN / checkpoints / SEN priority over radio.
-- [ ] Add shared-SPI diagnostics and bounded radio recovery evidence.
-- [ ] Extend Full Home Test with concurrent SD + LoRa evidence and actual Windows Uno receipt when available.
-- [ ] Add host fault-injection / scheduler / protocol regression tests and physical perfboard stress procedure.
-- [ ] Improve radio recovery without reset storms or recorder interaction.
-- [ ] Simplify the five existing tabs further without changing visual identity.
-- [ ] Verify/improve WebGL, live rocket, Maps, library/report and mobile behavior without replacing working V16.2 code.
-- [ ] Improve power/reset/sensor recovery evidence.
-- [ ] Add `docs/V16_3_SHARED_SPI_PERFBOARD.md`.
-- [ ] Update Windows/app/firmware identities to V16.3 and preserve rollback.
-- [ ] Full CI → PR → main → verified `v16.3.0` release if all mandatory software gates pass.
+- [x] Centralize shared SPI ownership and defer RFM9x DIO0 SPI work out of interrupt context.
+- [x] Give sensor sampling / BIN / checkpoints / SEN priority over radio.
+- [x] Add shared-SPI diagnostics and bounded radio recovery evidence.
+- [x] Extend Full Home Test with concurrent SD + LoRa evidence and actual Windows Uno receipt when available.
+- [x] Add host scheduler/protocol regressions and a physical perfboard stress procedure.
+- [x] Improve radio recovery without reset storms or recorder interaction.
+- [x] Preserve the simplified five-tab #081420 application and remove duplicate primary-tab semantics from hidden legacy routing.
+- [x] Revalidate WebGL, live rocket, Maps, library/report and mobile behavior without replacing working V16.2 code.
+- [x] Improve power/reset/sensor recovery evidence.
+- [x] Add `docs/V16_3_SHARED_SPI_PERFBOARD.md`, update/Home Test and V16.3 physical-validation guides.
+- [x] Update Windows/app/Feather/Uno identities to stable V16.3 and preserve rollback.
+- [ ] Full final CI → PR → main → verified `v16.3.0` release. This remains open until GitHub confirms the merged checks and published assets.
+
+## Current software validation
+
+The feature branch has already passed Python regressions, the native shared-SPI C++ scheduler test, Node/browser tests, headless WebGL rendering, JavaScript syntax, the offline web build, Windows package verification, Feather ESP32 V2 compile, Arduino Uno compile and release-bundle smoke assembly on an RC-labelled head. Stable identity/documentation/updater changes require one final full run before merge.
+
+## Physical validation status
+
+**REQUIRES PHYSICAL TEST:** assembled perfboard SD+LoRa concurrency, RF range/link loss, outdoor GPS, LiPo/USB/brownout behavior, OTA interruption/rollback on real hardware, mechanical/RF installation and supervised real flight. Software/CI results must not be entered as physical PASS.
 
 ## Nonnegotiable compatibility
 
