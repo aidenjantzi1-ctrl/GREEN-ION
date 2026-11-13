@@ -12,7 +12,7 @@ function releaseList(payload){
   .sort((a,b)=>compareVersions(b.tag_name,a.tag_name)||0):[];
 }
 // Notify once per published release, including builds deployed before the user visits.
-const notifiedKey="green-ion-v14-last-notified-release";
+const notifiedKey="green-ion-v16-last-notified-release";
 let notifiedInSession=null;
 function releaseReady(release){
  if(!release)return false;
@@ -47,7 +47,7 @@ export async function checkUpdates(showAll=false){
   });
   if(!response.ok)throw Error("GitHub returned HTTP "+response.status);
   const releases=releaseList(await response.json());
-  if(!releases.length){setText("v14UpdateCheck","No published V14 firmware package yet.");return;}
+  if(!releases.length){setText("v14UpdateCheck","No published V16 firmware package yet.");return;}
   const newest=releases[0];
   setText("v14UpdateCheck","Latest release: "+newest.tag_name+" · installed website "+APP_VERSION);
   let dismissed=null;
