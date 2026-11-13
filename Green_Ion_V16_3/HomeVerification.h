@@ -309,11 +309,19 @@ static void homeFinish() {
     homeReply(409, false, "No active home session"); return;
   }
   homeLogActive = false;
-  homeCloseFile();
   if (state.sdOk) {
     SdSpiScope bus;
-    homeCleanupOk = bus && (!SD.exists(HOME_TEST_PATH) || SD.remove(HOME_TEST_PATH));
-  } else homeCleanupOk = false;
+    if (bus) {
+      homeCloseFile();
+      homeCleanupOk = !SD.exists(HOME_TEST_PATH) || SD.remove(HOME_TEST_PATH);
+    } else {
+      homeCleanupOk = false;
+    }
+  } else {
+    // The handle may still exist after a card fault. Do not attempt an
+    // uncoordinated flush; mark cleanup unverified and require inspection.
+    homeCleanupOk = false;
+  }
   orphanHomeFile = !homeCleanupOk;
   if (homeResult == 1) homeResult = 3;
   radioBenchPacketsRemaining = 0;
