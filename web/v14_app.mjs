@@ -217,8 +217,8 @@ function renderBrowserInfo(){
   "Web Serial is unavailable in this browser. Feather Wi-Fi and saved files still work.");
 }
 async function init(){
- document.querySelector("header small").textContent="Flight logger · V16.3 RC1 · shared-SPI reliability";
- text("v14AppBuild","GREEN ION V16.3 RC1 · shared SD + LoRa reliability · verify installed Feather/Uno versions in System Health");
+ document.querySelector("header small").textContent="Flight logger · V16.3 · shared-SPI reliability";
+ text("v14AppBuild","GREEN ION V16.3 · shared SD + LoRa reliability · verify installed Feather/Uno versions in System Health");
  renderBrowserInfo();
  initLayout();
  initPreferences();
