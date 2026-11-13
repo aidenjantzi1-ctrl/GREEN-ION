@@ -228,7 +228,7 @@ function paint(){
  for(let i=1;i<5;i++){const yy=h-(h-48)*i/5-26;ctx.beginPath();ctx.moveTo(12,yy);ctx.lineTo(w-12,yy);ctx.stroke();ctx.fillText(Math.round(observedMax*i/5)+" m",16,yy-4);}
  const groundY=h-34;ctx.fillStyle="#132a2f";ctx.fillRect(0,groundY,w,h-groundY);ctx.strokeStyle="#72e5ab";ctx.beginPath();ctx.moveTo(0,groundY);ctx.lineTo(w,groundY);ctx.stroke();
  const rocketY=groundY-38-level*(h-110),rocketX=w*.5;
- const visualTilt=state.mode==="fake"?(pose.roll+pose.pitch*.35)*Math.PI/180:angle;
+ const visualTilt=(pose.roll+pose.pitch*.35)*Math.PI/180;
  drawRocket(ctx,rocketX,rocketY,Math.max(.65,Math.min(1,w/520)),visualTilt,state.flameIllustrative,state.parachuteIllustrative);
  ctx.fillStyle="#eff8ff";ctx.font="700 14px system-ui";ctx.fillText(state.phase,16,24);
  ctx.font="12px system-ui";ctx.fillStyle="#a5bbcd";
@@ -279,7 +279,7 @@ function injectDashboard(){
  card.innerHTML='<h2>'+V162_VISUAL_LABEL+'</h2>'+
   '<canvas id="v162RocketCanvas" height="360" role="img" aria-label="Animated side-view rocket visualization using live or replay telemetry"></canvas>'+
   '<div class="actions"><button id="v162FakeFlight" class="secondary">FAKE FLIGHT</button></div>'+
-  '<div class="card" style="margin-top:10px;padding:10px"><h3 style="margin-top:0">Orientation in room</h3><canvas id="v162RoomCanvas" height="190" role="img" aria-label="Rocket orientation shown inside a simple room reference"></canvas><p id="v162RoomNote" class="muted">Pitch 0.0° · Roll 0.0° · Yaw 0.0°</p></div>'+
+  '<div style="margin-top:10px;padding:10px 12px;max-width:430px;border:1px solid rgba(123,219,255,.22);border-radius:18px;background:rgba(9,27,45,.62)"><h3 style="margin:0 0 6px">Orientation in room</h3><canvas id="v162RoomCanvas" height="190" role="img" aria-label="Rocket orientation shown inside a simple room reference"></canvas><p id="v162RoomNote" class="muted" style="margin:6px 0 0">Pitch 0.0° · Roll 0.0° · Yaw 0.0°</p></div>'+
   '<div class="row"><span>Visualization evidence</span><strong id="v162RocketEvidence">Waiting for telemetry</strong></div>'+
   '<p id="v162RocketStatus" class="muted" role="status">Live mode. Visual effects are never flight-control evidence.</p>'+
   '<details><summary>What does this animation mean?</summary><p class="muted">Altitude, timestamps, battery and sensor readings use received/recorded data when valid. Flight phase, velocity and gyro-integrated orientation are estimates. Flame, smoke, parachute and ground contact are illustrative unless separate hardware evidence exists. Stale telemetry freezes the observed state instead of inventing a trajectory.</p>'+
