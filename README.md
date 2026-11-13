@@ -1,6 +1,11 @@
 # GREEN ION — Rocket Flight Recorder
 
-**Current target: GREEN ION V16.3.** It keeps the exact dark-blue `#081420` interface and exactly five visible tabs: **Dashboard, Flight, Flights & Analysis, Testing, Settings & Advanced**.
+> **CURRENT RELEASE: GREEN ION V16.3 (`v16.3.0`)**  
+> **Current Feather firmware:** [`Green_Ion_V16_3/`](Green_Ion_V16_3/) · **Current Uno receiver:** [`Ground_Receiver_V16_3/`](Ground_Receiver_V16_3/) · **Downloads:** [V16.3.0 release](https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases/tag/v16.3.0)
+>
+> Older V12/V13/V14/V16.2 folders remain for regression tests, rollback/reference, and historical build workflows. They are **not the current flight version**.
+
+GREEN ION V16.3 keeps the exact dark-blue `#081420` interface and exactly five visible tabs: **Dashboard, Flight, Flights & Analysis, Testing, Settings & Advanced**.
 
 GREEN ION is a **flight recorder and recovery aid**, not a flight-control computer. It does not control ignition, staging, deployment, guidance or pyrotechnics. Primary RKT4/GIS1 recording remains autonomous on the Feather and does not depend on Windows, LoRa, maps, cloud or visualization.
 
