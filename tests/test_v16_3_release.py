@@ -5,10 +5,10 @@ import unittest
 ROOT=Path(__file__).resolve().parents[1]
 
 class V163ReleaseContractTests(unittest.TestCase):
-    def test_windows_identity_is_v163_release_candidate(self):
+    def test_windows_identity_is_stable_v163(self):
         v=json.loads((ROOT/"Ground_Station/version.json").read_text())
-        self.assertEqual(v["version"],"16.3.0-rc.1")
-        self.assertEqual(v["channel"],"release-candidate")
+        self.assertEqual(v["version"],"16.3.0")
+        self.assertEqual(v["channel"],"stable")
         self.assertEqual(v["data_dir"],r"%USERPROFILE%\GREEN_ION_Data")
 
     def test_release_assembler_uses_v163_hardware_and_source_assets(self):
@@ -17,6 +17,8 @@ class V163ReleaseContractTests(unittest.TestCase):
             "Green_Ion_V16_3.ino.bin",
             "Ground_Receiver_V16_3.ino.hex",
             "GREEN_ION_V16_3_SOURCE.zip",
+            '"board": "Adafruit Feather ESP32 V2"',
+            '"firmwareFormat": "ESP32 .ino.bin app image"',
             '"firmwareGeneration": "V16.3"',
             '"receiverGeneration": "V16.3"',
             '"radioProtocolVersion": 2',
@@ -38,6 +40,17 @@ class V163ReleaseContractTests(unittest.TestCase):
         self.assertIn("gh release create v16.3.0",main)
         self.assertIn('--target "$GITHUB_SHA"',main)
         self.assertNotIn("GREEN_ION_V14_COMPLETE.zip",main)
+
+    def test_browser_verified_updater_targets_v163_assets(self):
+        utils=(ROOT/"web/v14_utils.mjs").read_text()
+        updates=(ROOT/"web/v14_updates.mjs").read_text()
+        relay=(ROOT/"web/api/firmware.js").read_text()
+        self.assertIn('APP_VERSION = "16.3.0"',utils)
+        self.assertIn('"Green_Ion_V16_"+version.minor+".ino.bin"',utils)
+        self.assertIn('manifest?.firmwareGeneration===expectedGeneration',utils)
+        self.assertIn('/^v16\\./.test',updates)
+        self.assertIn('Green_Ion_V16_',relay)
+        self.assertIn('SHA256_MANIFEST.json',relay)
 
     def test_protocol_and_user_data_contract_are_preserved(self):
         p=(ROOT/"libraries/GreenIonProtocol/src/GreenIonProtocol.h").read_text()
