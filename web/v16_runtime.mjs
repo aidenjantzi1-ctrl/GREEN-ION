@@ -52,6 +52,6 @@ export function initV16Runtime(){
   system.prepend(card);
  }
  $("v16RuntimeRefresh").onclick=load;
- $("v16RuntimeUpdates").onclick=()=>document.querySelector('#v16LegacyTabs [data-tab="updates"]')?.click();
+ $("v16RuntimeUpdates").onclick=()=>document.querySelector('#v16LegacyTabs [data-legacy-tab="updates"]')?.click();
  load();checkWindowsRelease();
 }
