@@ -1,21 +1,24 @@
 "use strict";
-// Same-origin Vercel relay for two public, allowlisted GitHub V14 release assets.
-// GitHub's release CDN may reject browser cross-origin fetches; do not relay
-// arbitrary URLs or allow this endpoint to contact the Feather.
+// Same-origin Vercel relay for allowlisted public GREEN ION Feather release assets.
+// It never accepts arbitrary URLs and never contacts the Feather itself.
 const REPO="aidenjantzi1-ctrl/GREEN-ION";
-const NAMES=new Map([
- ["Green_Ion_V14.ino.bin",{max:8388608,type:"application/octet-stream"}],
- ["SHA256_MANIFEST.json",{max:200000,type:"application/json; charset=utf-8"}]
-]);
+const MANIFEST={max:200000,type:"application/json; charset=utf-8"};
+const IMAGE={max:8388608,type:"application/octet-stream"};
+function imageForTag(tag){
+ const m=/^v(16)\.(\d+)\.\d+(?:-[a-zA-Z0-9.-]+)?$/.exec(tag);
+ if(m)return "Green_Ion_V16_"+Number(m[2])+".ino.bin";
+ if(/^v14\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(tag))return "Green_Ion_V14.ino.bin";
+ return null;
+}
 module.exports=async function handler(req,res){
  res.setHeader("Cache-Control","no-store");
  res.setHeader("X-Content-Type-Options","nosniff");
  if(req.method!=="GET"){res.setHeader("Allow","GET");return res.status(405).end("Method not allowed");}
  const tag=typeof req.query?.tag==="string"?req.query.tag:"";
  const name=typeof req.query?.name==="string"?req.query.name:"";
- const policy=NAMES.get(name);
- if(!/^v14\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(tag)||!policy)
-  return res.status(400).end("Unsupported release or firmware asset");
+ const imageName=imageForTag(tag);
+ const policy=name==="SHA256_MANIFEST.json"?MANIFEST:name===imageName?IMAGE:null;
+ if(!imageName||!policy)return res.status(400).end("Unsupported release or firmware asset");
  try{
   const meta=await fetch("https://api.github.com/repos/"+REPO+"/releases/tags/"+encodeURIComponent(tag),{
    headers:{"Accept":"application/vnd.github+json","User-Agent":"GREEN-ION-firmware-relay"},redirect:"error",
