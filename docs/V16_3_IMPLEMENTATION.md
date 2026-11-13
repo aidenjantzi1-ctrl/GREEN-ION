@@ -51,11 +51,11 @@ Status vocabulary: **COMPLETE**, **PARTIAL**, **MISSING**, **BLOCKED**, **REQUIR
 - [x] Add `docs/V16_3_SHARED_SPI_PERFBOARD.md`, update/Home Test and V16.3 physical-validation guides.
 - [x] Update Windows/app/Feather/Uno identities to stable V16.3 and preserve rollback.
 - [x] Final stable feature-branch CI passed: Python, native shared-SPI C++, Node/browser, headless WebGL, JS syntax, offline web build, Windows packaging, Feather compile, Uno compile and release-bundle smoke.
-- [ ] PR → main → verified `v16.3.0` release. This remains open until GitHub confirms the merged checks and published assets.
+- [x] PR → main → verified `v16.3.0` release. Merged-main run `43443530326` passed app tests, Feather/Uno builds, Windows packaging, release smoke, and publication; GitHub release `v16.3.0` targets `e54ff44727387143f747b261b16138ad7b7deafe`.
 
 ## Current software validation
 
-Stable feature-branch run `43345164016` passed the complete configured software/compile/package matrix. PR checks, merged-main verification and release publication still remain separate required gates.
+Stable feature-branch run `43345164016` passed the complete configured software/compile/package matrix. The subsequent merged-main run `43443530326` also passed all configured V16.3 jobs and published release `v16.3.0` from commit `e54ff44727387143f747b261b16138ad7b7deafe`. Physical validation remains a separate required gate.
 
 ## Physical validation status
 
