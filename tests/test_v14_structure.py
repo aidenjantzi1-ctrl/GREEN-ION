@@ -113,12 +113,12 @@ class V14ImplementationTests(unittest.TestCase):
  def test_github_automatically_builds_current_firmware_and_verified_source_release(self):
   ci=(ROOT/".github/workflows/build-v14.yml").read_text()
   assembler=(ROOT/"tools/assemble_v16_release.py").read_text()
-  self.assertIn("Green_Ion_V16_2",ci)
-  self.assertIn("Ground_Receiver_V16_2",ci)
+  self.assertIn("Green_Ion_V16_3",ci)
+  self.assertIn("Ground_Receiver_V16_3",ci)
   self.assertIn("arduino-cli compile",ci)
-  self.assertIn("GREEN_ION_V16_2_SOURCE.zip",ci)
-  self.assertIn('"Green_Ion_V16_2"',assembler)
-  self.assertIn('"Ground_Receiver_V16_2"',assembler)
+  self.assertIn("GREEN_ION_V16_3_SOURCE.zip",ci)
+  self.assertIn('"Green_Ion_V16_3"',assembler)
+  self.assertIn('"Ground_Receiver_V16_3"',assembler)
   self.assertIn('"libraries/GreenIonRecorder"',assembler)
   self.assertIn('"libraries/GreenIonProtocol"',assembler)
  def test_complete_feather_binary_contains_local_dashboard_and_headers(self):
