@@ -112,6 +112,10 @@ static const char FIRMWARE_NAME[] = "GREEN ION Feather V16.3";
 static const char FIRMWARE_VERSION[] = "16.3.0";
 static uint32_t bootSessionId = 0;
 static esp_reset_reason_t bootResetReason = ESP_RST_UNKNOWN;
+static uint32_t persistentBootCount = 0;
+static uint32_t persistentBrownoutCount = 0;
+static uint32_t persistentWatchdogCount = 0;
+static bool resetEvidencePersisted = false;
 static uint32_t lastSdRecoveryAttemptMs = 0;
 static uint32_t lastImuRecoveryAttemptMs = 0;
 static uint32_t lastGpsRecoveryAttemptMs = 0;
@@ -130,6 +134,26 @@ static const char *resetReasonName(esp_reset_reason_t reason) {
     case ESP_RST_SDIO: return "sdio_reset";
     default: return "unknown";
   }
+}
+
+static void persistBootResetEvidence() {
+  // One NVS update at boot only. Never write this evidence during recording.
+  Preferences prefs;
+  if (!prefs.begin("giopower", false)) return;
+  persistentBootCount = prefs.getUInt("boots", 0) + 1;
+  persistentBrownoutCount = prefs.getUInt("brownouts", 0);
+  persistentWatchdogCount = prefs.getUInt("watchdogs", 0);
+  if (bootResetReason == ESP_RST_BROWNOUT) ++persistentBrownoutCount;
+  if (bootResetReason == ESP_RST_INT_WDT ||
+      bootResetReason == ESP_RST_TASK_WDT ||
+      bootResetReason == ESP_RST_WDT) ++persistentWatchdogCount;
+  const bool bootSaved = prefs.putUInt("boots", persistentBootCount) == sizeof(uint32_t);
+  const bool brownoutSaved =
+      prefs.putUInt("brownouts", persistentBrownoutCount) == sizeof(uint32_t);
+  const bool watchdogSaved =
+      prefs.putUInt("watchdogs", persistentWatchdogCount) == sizeof(uint32_t);
+  prefs.end();
+  resetEvidencePersisted = bootSaved && brownoutSaved && watchdogSaved;
 }
 
 class SdFileSink : public green_ion::recorder::ByteSink {
@@ -2536,6 +2560,7 @@ void setup() {
   Serial.begin(config::SERIAL_BAUD);
   bootSessionId = esp_random();
   bootResetReason = esp_reset_reason();
+  persistBootResetEvidence();
   pinMode(config::PIN_SD_CS, OUTPUT);
   pinMode(config::PIN_LORA_CS, OUTPUT);
   pinMode(config::PIN_BUZZER, OUTPUT);
