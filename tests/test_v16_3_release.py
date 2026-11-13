@@ -39,6 +39,8 @@ class V163ReleaseContractTests(unittest.TestCase):
         self.assertIn("needs: [app-tests, firmware-build, windows-package, v16-release-smoke]",main)
         self.assertIn("gh release create v16.3.0",main)
         self.assertIn('--target "$GITHUB_SHA"',main)
+        tagged=(ROOT/".github/workflows/release-v16.yml").read_text()
+        self.assertIn('tags: ["v16.3.*"]',tagged)
         self.assertNotIn("GREEN_ION_V14_COMPLETE.zip",main)
 
     def test_browser_verified_updater_targets_v163_assets(self):
