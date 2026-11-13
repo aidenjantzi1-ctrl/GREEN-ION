@@ -15,7 +15,7 @@ test("V16.3 keeps the exact five-tab dark-blue shell",()=>{
 });
 
 test("V16.3 shared-SPI evidence adds status, not another control panel",()=>{
- assert.match(spi,/Shared SD + LoRa SPI/);
+ assert.match(spi,/Shared SD \+ LoRa SPI/);
  assert.match(spi,/Uno packets during SPI stress/);
  assert.match(spi,/NOT TESTED — LoRa receiver not connected/);
  assert.match(spi,/home_shared_spi_result/);
