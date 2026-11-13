@@ -50,11 +50,12 @@ Status vocabulary: **COMPLETE**, **PARTIAL**, **MISSING**, **BLOCKED**, **REQUIR
 - [x] Improve power/reset/sensor recovery evidence.
 - [x] Add `docs/V16_3_SHARED_SPI_PERFBOARD.md`, update/Home Test and V16.3 physical-validation guides.
 - [x] Update Windows/app/Feather/Uno identities to stable V16.3 and preserve rollback.
-- [ ] Full final CI → PR → main → verified `v16.3.0` release. This remains open until GitHub confirms the merged checks and published assets.
+- [x] Final stable feature-branch CI passed: Python, native shared-SPI C++, Node/browser, headless WebGL, JS syntax, offline web build, Windows packaging, Feather compile, Uno compile and release-bundle smoke.
+- [ ] PR → main → verified `v16.3.0` release. This remains open until GitHub confirms the merged checks and published assets.
 
 ## Current software validation
 
-The feature branch has already passed Python regressions, the native shared-SPI C++ scheduler test, Node/browser tests, headless WebGL rendering, JavaScript syntax, the offline web build, Windows package verification, Feather ESP32 V2 compile, Arduino Uno compile and release-bundle smoke assembly on an RC-labelled head. Stable identity/documentation/updater changes require one final full run before merge.
+Stable feature-branch run `43345164016` passed the complete configured software/compile/package matrix. PR checks, merged-main verification and release publication still remain separate required gates.
 
 ## Physical validation status
 
