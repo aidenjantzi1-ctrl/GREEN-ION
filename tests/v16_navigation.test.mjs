@@ -41,7 +41,7 @@ test("legacy destinations map into the five visible tabs",()=>{
 test("legacy tab aliases remain hidden for compatibility only",()=>{
  const hidden=html.match(/<nav id="v16LegacyTabs" hidden[^>]*>([\s\S]*?)<\/nav>/)?.[1]||"";
  for(const page of ["field","storage","connections","recovery","cloud","updates","help"]){
-  assert.match(hidden,new RegExp('data-tab="'+page+'"'));
+  assert.match(hidden,new RegExp('data-legacy-tab="'+page+'"'));
  }
  assert.match(nav,/Alt\+1|altKey/);
 });
