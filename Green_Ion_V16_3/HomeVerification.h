@@ -120,7 +120,6 @@ static void homeVerifyFile() {
   homeCloseFile();
   homeMissed = sampleClock.missedPeriods() - homeMissedStart;
   bool good = false;
-  digitalWrite(config::PIN_LORA_CS, HIGH);
   File f = SD.open(HOME_TEST_PATH, FILE_READ);
   if (f) {
     uint8_t raw[green_ion::rkt4::kHeaderBytes] = {};
@@ -149,9 +148,16 @@ static void homeVerifyFile() {
   }
   homeCleanupOk = SD.remove(HOME_TEST_PATH);
   orphanHomeFile = !homeCleanupOk;
+  const auto &spiEvidence = sharedSpi.evidence();
+  const bool sharedRadioPass = !homeRadioConcurrentExpected ||
+      (radioBenchPacketsSent - homeRadioStartSent >=
+           config::HOME_CONCURRENT_RADIO_PACKETS &&
+       radioSendFailures == homeRadioStartFailures &&
+       radioTxTimeouts == homeRadioTimeoutsStart &&
+       spiEvidence.ownershipErrors == homeOwnershipErrorsStart);
   good = good && homeCleanupOk && homeSamples >= 1400 &&
       homeValidSamples >= (static_cast<uint32_t>(homeSamples) * 9UL) / 10UL &&
-      homeMissed <= 30;
+      homeMissed <= 30 && sharedRadioPass;
   homeResult = good ? 2 : 3;
   Serial.printf("[HOME] Temporary 50 Hz RKT4 %s | samples=%u valid=%u missed=%lu | Wi-Fi disconnected=%s | temp deleted=%s\n",
     good ? "PASS" : "FAIL", homeSamples, homeValidSamples,
@@ -168,7 +174,14 @@ static void homeCapture(uint32_t timestampUs, bool valid) {
     timestampUs, state.pressurePa, state.temperatureC, state.batteryMv, valid};
   green_ion::rkt4::encodeRecord(bytes, record);
   SdSpiScope bus;
-  if (!bus || !homeFile || homeFile.write(bytes, sizeof(bytes)) != sizeof(bytes)) {
+  if (!bus) {
+    homeLogActive = false;
+    homeCleanupOk = false;
+    homeResult = 3;
+    Serial.println("[HOME] Shared SPI ownership unavailable during temporary record; cleanup requires review.");
+    return;
+  }
+  if (!homeFile || homeFile.write(bytes, sizeof(bytes)) != sizeof(bytes)) {
     homeLogActive = false;
     homeCloseFile();
     homeCleanupOk = SD.remove(HOME_TEST_PATH);
