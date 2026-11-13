@@ -1701,6 +1701,44 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs) {
   return true;
 }
 
+static void startManualFlightRecording() {
+  if (state.recording || recorderCore.recording() || logFile || sensorLogFile ||
+      recorderMode == RECORDER_RECORDING || recorderMode == RECORDER_HOME_TEST ||
+      recorderMode == RECORDER_MAINTENANCE || otaUploadInProgress) {
+    dashboardServer.send(409, "application/json",
+      "{\"success\":false,\"message\":\"Recorder is busy; finish the active flight, home test or firmware maintenance first\"}");
+    return;
+  }
+  if (!state.sdOk) {
+    dashboardServer.send(409, "application/json",
+      "{\"success\":false,\"message\":\"Manual start blocked: microSD is not ready\"}");
+    return;
+  }
+  if (!state.barometerOk || !isfinite(calibrationBaselinePa) ||
+      calibrationBaselinePa <= 30000.0f || !isfinite(calibrationNoiseM)) {
+    dashboardServer.send(409, "application/json",
+      "{\"success\":false,\"message\":\"Manual start blocked: finish stationary barometer calibration first\"}");
+    return;
+  }
+  const uint32_t nowMs = millis();
+  const uint32_t nowUs = micros();
+  flightWatcher.cancel();
+  if (!openRawLog(nowMs, nowUs)) {
+    recorderMode = RECORDER_FAULT;
+    dashboardServer.send(500, "application/json",
+      "{\"success\":false,\"message\":\"Manual start failed: could not open the primary SD recording\"}");
+    return;
+  }
+  recorderMode = RECORDER_RECORDING;
+  flightState = green_ion::STATE_ASCENT;
+  if (!landingWatcher.begin(nowMs, {
+        config::SENSOR_RATE_HZ, 0.0f, calibrationNoiseM}))
+    ++finalizationFailures;
+  state.recording = true;
+  dashboardServer.send(200, "application/json",
+    "{\"success\":true,\"message\":\"Manual flight recording started. Primary RKT4 SD logging is active; STOP & SAVE finalizes it.\"}");
+}
+
 static green_ion::sensor_log::Record makeSensorLogRecord(uint32_t nowUs,
                                                           uint32_t nowMs) {
   uint16_t flags = 0;
@@ -2443,6 +2481,7 @@ static void initializeDashboard() {
     dashboardServer.send(202, "application/json",
                          "{\"success\":true,\"message\":\"Stationary pressure calibration restarted\"}");
   });
+  dashboardServer.on("/api/manual-start", HTTP_POST, startManualFlightRecording);
   dashboardServer.on("/api/stop", HTTP_POST, []() {
     if (!state.recording || recorderMode != RECORDER_RECORDING) {
       dashboardServer.send(409, "application/json",
