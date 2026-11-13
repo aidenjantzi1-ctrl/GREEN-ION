@@ -8,11 +8,11 @@ function feedback(message){
  setText("v14UpdateCheck",message);
 }
 function releaseList(payload){
- return Array.isArray(payload)?payload.filter(r=>!r.draft && /^v14\./.test(r.tag_name||"") && !!assetForRelease(r))
+ return Array.isArray(payload)?payload.filter(r=>!r.draft && /^v16\./.test(r.tag_name||"") && !!assetForRelease(r))
   .sort((a,b)=>compareVersions(b.tag_name,a.tag_name)||0):[];
 }
 // Notify once per published release, including builds deployed before the user visits.
-const notifiedKey="green-ion-v16-last-notified-release";
+const notifiedKey="green-ion-v14-last-notified-release"; // legacy key retained so existing clients do not lose notification state
 let notifiedInSession=null;
 function releaseReady(release){
  if(!release)return false;
@@ -67,7 +67,7 @@ function manualDownload(){
 }
 async function currentFeatherStatus(){
  if(!t.wifiFresh() || t.source()!=="wifi")
-  throw Error("Feather Wi-Fi is not verified. Connect to GREEN-ION-V14, refresh Status, then retry. The hosted browser may block private-network connections.");
+  throw Error("Feather Wi-Fi is not verified. Connect to GREEN-ION-V16-3 (or the installed compatible Feather network), refresh Status, then retry. The hosted browser may block private-network connections.");
  const response=await t.nativeFetch(t.apiUrl("/api/status"),{cache:"no-store"});
  if(!response.ok)throw Error("Cannot verify Feather hardware (HTTP "+response.status+")");
  const s=await response.json();
