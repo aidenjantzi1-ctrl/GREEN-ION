@@ -99,7 +99,9 @@ function pointAt(t){
 }
 function orientationAt(t){
  const series=data?.orientation;if(!series?.length)return null;
- let best=series[0];for(const item of series){if(item.timeS>t)break;best=item;}return best.q;
+ let lo=0,hi=series.length-1;
+ while(lo<hi){const mid=Math.ceil((lo+hi)/2);if(series[mid].timeS<=t)lo=mid;else hi=mid-1;}
+ return series[lo].q;
 }
 function phaseAt(t){
  const markers=data?.phaseMarkers||[];let name=t<=0?"prelaunch":"flight";
@@ -213,7 +215,21 @@ function tick(now){
  if(currentTime>=duration){playing=false;$("v1623dPlay").textContent="Play";return;}
  frame=requestAnimationFrame(tick);
 }
-function playToggle(){playing=!playing;$("v1623dPlay").textContent=playing?"Pause":"Play";lastTick=0;if(playing)frame=requestAnimationFrame(tick);}
+export function replaySampleStep(times,t,direction){
+ if(!Array.isArray(times)||!times.length)return t;
+ if(direction<0){
+  for(let i=times.length-1;i>=0;i--)if(Number.isFinite(times[i].timeS)&&times[i].timeS<t-0.00001)return times[i].timeS;
+  return times[0].timeS;
+ }
+ for(const item of times)if(Number.isFinite(item.timeS)&&item.timeS>t+0.00001)return item.timeS;
+ return times.at(-1).timeS;
+}
+function playToggle(){
+ if(!data)return;
+ if(currentTime>=Math.max(0,data.points.at(-1)?.timeS||0))setTime(0);
+ playing=!playing;$("v1623dPlay").textContent=playing?"Pause":"Play";
+ lastTick=0;if(playing)frame=requestAnimationFrame(tick);
+}
 function jump(name){const m=data?.phaseMarkers?.find(x=>x.name===name);if(m)setTime(m.timeS);}
 function installPointer(canvas){
  let down=null;
@@ -281,13 +297,15 @@ function inject(){
   '<canvas id="v1623dCanvas" height="520" tabindex="0" role="img" aria-label="Interactive WebGL 3D rocket trajectory. Drag to orbit, Shift-drag to pan, wheel or pinch to zoom."></canvas>'+
   '<div class="actions v162-camera"><button data-camera="free" class="secondary">Free</button><button data-camera="follow" class="secondary">Follow rocket</button><button data-camera="ground" class="secondary">Ground</button><button data-camera="top" class="secondary">Top-down</button><button data-camera="side" class="secondary">Side</button><button id="v1623dReset" class="secondary">Reset</button></div>'+
   '<label>Replay timeline <input id="v1623dTimeline" type="range" min="0" max="1" step=".01" value="0"></label>'+
-  '<div class="actions"><button id="v1623dPlay">Play</button><button id="v1623dBack" class="secondary">Step back</button><button id="v1623dForward" class="secondary">Step forward</button><select id="v1623dSpeed" aria-label="Replay speed"><option>.25</option><option>.5</option><option selected>1</option><option>2</option><option>5</option></select></div>'+
+  '<div class="actions"><button id="v1623dPlay">Play</button><button id="v1623dRestart" class="secondary">Restart</button><button id="v1623dBack" class="secondary">Step back</button><button id="v1623dForward" class="secondary">Step forward</button><select id="v1623dSpeed" aria-label="Replay speed"><option>.25</option><option>.5</option><option selected>1</option><option>2</option><option>4</option></select></div>'+
   '<div class="actions"><button data-jump="launch" class="secondary">Launch</button><button data-jump="apogee" class="secondary">Apogee</button><button data-jump="descent" class="secondary">Descent</button><button data-jump="landing" class="secondary">Landing</button></div>'+
   '<div class="row"><span>Replay</span><strong id="v1623dTime">--</strong></div><div class="row"><span>Altitude</span><strong id="v1623dAlt">--</strong></div><div class="row"><span>Velocity</span><strong id="v1623dVel">--</strong></div><div class="row"><span>Acceleration</span><strong id="v1623dAccel">--</strong></div><div class="row"><span>G evidence</span><strong id="v1623dG">--</strong></div><div class="row"><span>Pressure</span><strong id="v1623dPressure">--</strong></div><div class="row"><span>GPS</span><strong id="v1623dGps">--</strong></div>'+
   '<p id="v1623dStatus" role="status">Choose a saved flight.</p><details><summary>Evidence and limitations</summary><p id="v1623dLimits" class="muted">No flight loaded.</p><p class="muted">Raw and lightly smoothed GPS tracks are both drawn when GPS exists. Exhaust/parachute effects are illustrative only.</p></details>';
  history.append(card);
  $("v1623dLoad").onclick=load;$("v1623dPlay").onclick=playToggle;$("v1623dTimeline").oninput=e=>setTime(e.target.value);
- $("v1623dBack").onclick=()=>setTime(currentTime-.2);$("v1623dForward").onclick=()=>setTime(currentTime+.2);
+ $("v1623dRestart").onclick=()=>{playing=false;$("v1623dPlay").textContent="Play";setTime(0);};
+ $("v1623dBack").onclick=()=>setTime(replaySampleStep(data?.timeline,currentTime,-1));
+ $("v1623dForward").onclick=()=>setTime(replaySampleStep(data?.timeline,currentTime,1));
  $("v1623dSpeed").onchange=e=>speed=Number(e.target.value)||1;$("v1623dEffects").onclick=e=>{effects=!effects;e.target.textContent="Effects: "+(effects?"ON":"OFF");render();};
  card.querySelectorAll("[data-camera]").forEach(b=>b.onclick=()=>cameraMode(b.dataset.camera));
  card.querySelectorAll("[data-jump]").forEach(b=>b.onclick=()=>jump(b.dataset.jump));
@@ -299,6 +317,54 @@ function inject(){
  window.addEventListener("pagehide",dispose);
  refresh().catch(error=>$("v1623dStatus").textContent=error.message);
 }
+/* Live orientation preview reuses this same WebGL rocket mesh and shader,
+ * not a second rocket model. Unlike replay this has no simulated trajectory. */
+const previewContexts=new WeakMap();
+function eulerQuaternion(pitch=0,roll=0,yaw=0){
+ const a=pitch*Math.PI/360,b=roll*Math.PI/360,c=yaw*Math.PI/360;
+ const x=[Math.cos(a),Math.sin(a),0,0],y=[Math.cos(b),0,Math.sin(b),0],z=[Math.cos(c),0,0,Math.sin(c)];
+ const mul=(u,v)=>[u[0]*v[0]-u[1]*v[1]-u[2]*v[2]-u[3]*v[3],
+  u[0]*v[1]+u[1]*v[0]+u[2]*v[3]-u[3]*v[2],
+  u[0]*v[2]-u[1]*v[3]+u[2]*v[0]+u[3]*v[1],
+  u[0]*v[3]+u[1]*v[2]-u[2]*v[1]+u[3]*v[0]];
+ return mul(mul(z,y),x);
+}
+export function renderLiveRocketModel(canvas,angles={pitch:0,roll:0,yaw:0},view={yaw:-.8,pitch:.45,follow:false}){
+ if(!canvas)return false;
+ try{
+  let state=previewContexts.get(canvas);
+  if(!state){
+   const gl=canvas.getContext("webgl",{antialias:true,alpha:false,preserveDrawingBuffer:false});
+   if(!gl)return false;
+   state={gl,shader:createProgram(gl),axes:[
+    buffer(gl,[0,0,0,1.2,0,0]),buffer(gl,[0,0,0,0,1.2,0]),buffer(gl,[0,0,0,0,0,1.2])
+   ]};previewContexts.set(canvas,state);
+  }
+  const {gl,shader}=state,dpr=Math.min(2,window.devicePixelRatio||1),
+   w=Math.max(180,Math.round((canvas.clientWidth||320)*dpr)),h=Math.max(140,Math.round((canvas.clientHeight||230)*dpr));
+  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+  gl.viewport(0,0,w,h);gl.enable(gl.DEPTH_TEST);
+  gl.clearColor(.03,.08,.12,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  const pitch=clamp(view.pitch??.45,-1.2,1.2),
+   yaw=(view.yaw??-.8)+(view.follow?(angles.yaw||0)*Math.PI/180:0),
+   eye=[4*Math.cos(pitch)*Math.cos(yaw),4*Math.cos(pitch)*Math.sin(yaw),4*Math.sin(pitch)];
+  const mvp=multiplyMatrix(perspectiveMatrix(Math.PI/3,w/h,.1,100),lookAtMatrix(eye,[0,0,0]));
+  function paint(buf,count,kind,color){
+   gl.useProgram(shader.program);gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+   gl.enableVertexAttribArray(shader.pos);gl.vertexAttribPointer(shader.pos,3,gl.FLOAT,false,0,0);
+   gl.uniformMatrix4fv(shader.mvp,false,mvp);
+   gl.uniform4fv(shader.color,new Float32Array(color));gl.uniform1f(shader.pointSize,1);
+   gl.drawArrays(kind,0,count);
+  }
+  const axesColor=[[1,.5,.53,1],[.45,.91,.69,1],[.48,.86,1,1]];
+  state.axes.forEach((b,i)=>paint(b,2,gl.LINES,axesColor[i]));
+  const q=eulerQuaternion(angles.pitch||0,angles.roll||0,angles.yaw||0);
+  const vertices=transformedRocket({x:0,y:0,z:0},q,1.55),mesh=buffer(gl,vertices,gl.DYNAMIC_DRAW);
+  paint(mesh,vertices.length/3,gl.TRIANGLES,[.86,.94,1,1]);gl.deleteBuffer(mesh);
+  return true;
+ }catch{return false;}
+}
+
 export function runWebglSelfTest(canvas){
  const gl=canvas?.getContext?.("webgl",{antialias:false,alpha:false});
  if(!gl)return {supported:false,passed:false,reason:"no-webgl-context"};
