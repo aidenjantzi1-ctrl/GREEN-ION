@@ -18,8 +18,8 @@ integration-branch name.
 | Source | Role | Inspection status |
 | --- | --- | --- |
 | `integration/v12` | Integration / CI guardrails | Owned by integration manager; do not put unfinished features here |
-| `v16.3/home-wifi-ap-sta` | Codex 1, home Wi-Fi/AP+STA | [PR #47](https://github.com/aidenjantzi1-ctrl/GREEN-ION/pull/47); inspect updated head/CI before merging |
-| `codex2/v16-3-visual-replay-recovery-20261113` | Codex 2, live graphs/replay/comparison/recovery | Work observed progressing; inspect updated head and create/review PR before merging |
+| `v16.3/home-wifi-ap-sta` | Codex 1, home Wi-Fi/AP+STA | [PR #50](https://github.com/aidenjantzi1-ctrl/GREEN-ION/pull/50) staged into integration with reviewed SHA `b002c360`; [source PR #47](https://github.com/aidenjantzi1-ctrl/GREEN-ION/pull/47) remains open against main; software CI passed |
+| `codex2/v16-3-visual-replay-recovery-20261113` | Codex 2, live graphs/replay/comparison/recovery | [Draft staging PR #51](https://github.com/aidenjantzi1-ctrl/GREEN-ION/pull/51), source head still advancing; not merged |
 | `v16.3/shared-spi-reliability` | Historical SPI reliability work | Already behind main at initial inspection; do not merge indiscriminately |
 | Prior V9/V12 PRs | Historical/stacked proposals | Do not merge wholesale into V16.3 |
 
@@ -41,10 +41,26 @@ during review; earlier checks do not certify a later head.
 ## Review finding requiring resolution
 
 - [Issue #49](https://github.com/aidenjantzi1-ctrl/GREEN-ION/issues/49):
-  comparison headings currently interpolate imported flight filenames into
-  `innerHTML` (both baseline and Codex 2 branch). Use `textContent` for
-  each dynamic heading and test with an HTML-like filename before integration.
-  Do not overwrite Codex 2's unfinished comparison work.
+  comparison headings on the historical baseline and ongoing Codex 2 branch
+  interpolated imported filenames into `innerHTML`. The integration branch
+  already has the `textContent`-based fix and hostile-filename regression
+  in [commit 36c6e88](https://github.com/aidenjantzi1-ctrl/GREEN-ION/commit/36c6e88f7f981fc69ba9e52e8c317774bc9e78b1).
+  Codex 2's enhanced comparison logic must be reconciled with this fix before
+  merging. The fix is **not** on `main` yet.
+
+## Current integration status
+
+- Codex 1's reviewed source has been merged **only into integration staging**.
+  [Staged merge commit 3a4bec3](https://github.com/aidenjantzi1-ctrl/GREEN-ION/commit/3a4bec33abffb50b0d337e622306d37b89ba97ae)
+  passed its full configured GitHub Actions matrix
+  ([run 43553855493](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/43553855493)).
+- Integration CI also runs for `pull_request` targeting `integration/**`.
+- Codex 2's source branch is not stable yet; no merged result or complete
+  combined validation exists.
+- **GitHub currently reports `main` as unprotected**. Review/CI gates in this
+  document are integration policy, not enforceable GitHub branch protection
+  until an administrator configures branch/ruleset protections. Do not rely on
+  optional CI alone to prevent manual pushes.
 
 ## Gate before any feature merge to main
 
