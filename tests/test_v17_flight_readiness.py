@@ -66,6 +66,9 @@ class V17FlightReadiness(unittest.TestCase):
         self.assertIn("RegVersion", PREP)
         self.assertIn("antenna_detectable", PREP)
         self.assertIn("Transmission refused", PREP)
+        self.assertIn("radioTransmitAuthorized = true", PREP)
+        self.assertIn("!radioTransmitAuthorized", FW)
+        self.assertIn("radio_tx_authorized", FW)
 
     def test_flight_phase_and_apogee_tracking(self):
         self.assertIn("STATE_COAST", FW)
