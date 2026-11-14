@@ -1,4 +1,4 @@
-/* GREEN ION V16.3 shared-SPI evidence.
+/* GREEN ION V17 shared-SPI evidence.
  * Presentation only: never changes recorder/radio state and never turns software
  * evidence into physical launch approval. */
 const $=id=>document.getElementById(id);
@@ -69,7 +69,7 @@ function finishStress(w){
 }
 function guide(w,evidence){
  if(!w||!String(w.firmware_version||"").startsWith("16.3"))
-  return "Install GREEN ION Feather V16.3 before using the shared-SPI evidence check.";
+  return "Install GREEN ION Feather V17 before using the shared-SPI evidence check.";
  if(w.sd_ok===false)return "SD unavailable — verify the microSD card is inserted and the SD CS/wiring are correct.";
  if(w.radio_ok===false)return "LoRa transmitter unavailable — check the RFM9x wiring, antenna, reset/DIO0, and matching radio configuration. SD recording remains the priority.";
  if(String(w.home_record_result||"").toUpperCase()==="RUNNING")
