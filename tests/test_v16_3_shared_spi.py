@@ -34,7 +34,7 @@ class V163SharedSpiTests(unittest.TestCase):
         )
         assigned = {}
         for role in hardware_roles:
-            match = re.search(rf"\\b{role}\\s*=\\s*(\\d+)\\s*;", CFG)
+            match = re.search(rf"\b{role}\s*=\s*(\d+)\s*;", CFG)
             self.assertIsNotNone(match, f"{role} must be a documented numeric GPIO")
             assigned[role] = int(match.group(1))
         self.assertEqual(len(set(assigned.values())), len(assigned),
