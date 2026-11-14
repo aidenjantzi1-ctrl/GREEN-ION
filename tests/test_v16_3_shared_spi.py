@@ -23,6 +23,23 @@ class V163SharedSpiTests(unittest.TestCase):
         for name,value in expected.items():
             self.assertRegex(CFG,rf"{name}\s*=\s*{value}\s*;")
 
+    def test_configured_feather_gpio_roles_do_not_overlap(self):
+        # Independent of exact numeric pin values: catch future changes that
+        # accidentally assign two physical interfaces to the same Feather GPIO.
+        hardware_roles = (
+            "PIN_I2C_SDA", "PIN_I2C_SCL",
+            "PIN_SPI_SCK", "PIN_SPI_MOSI", "PIN_SPI_MISO",
+            "PIN_SD_CS", "PIN_LORA_CS", "PIN_LORA_RST",
+            "PIN_LORA_DIO0", "PIN_BUZZER", "PIN_BATTERY",
+        )
+        assigned = {}
+        for role in hardware_roles:
+            match = re.search(rf"\b{role}\s*=\s*(\d+)\s*;", CFG)
+            self.assertIsNotNone(match, f"{role} must be a documented numeric GPIO")
+            assigned[role] = int(match.group(1))
+        self.assertEqual(len(set(assigned.values())), len(assigned),
+                         f"Feather GPIO collision in Config.h: {assigned}")
+
     def test_file_and_radio_formats_remain_backward_compatible(self):
         self.assertIn('static const uint8_t kProtocolVersion = 2;',PROTO)
         self.assertIn('static_assert(sizeof(TelemetryPacket) == 70',PROTO)

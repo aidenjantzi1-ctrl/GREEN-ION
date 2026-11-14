@@ -197,6 +197,9 @@ static void homeCapture(uint32_t timestampUs, bool valid) {
 }
 
 static void homeStart() {
+  if (wifiManagementSessionActive() || homeWifiOperationActive()) {
+    homeReply(409, false, "Finish Wi-Fi setup before starting the home test"); return;
+  }
   if (recorderMode == RECORDER_HOME_TEST) {
     homeReply(409, false, "Home test already active; finish first"); return;
   }

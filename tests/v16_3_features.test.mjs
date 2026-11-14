@@ -50,9 +50,9 @@ test("diagnostic export contains shared-SPI evidence and human guidance",()=>{
  assert.match(diag,/LoRa transmissions timed out/);
 });
 
-test("V16.3 module is initialized and cached offline",()=>{
+test("shared-SPI module remains initialized and cached in V17",()=>{
  assert.match(app,/initV163SharedSpiEvidence/);
- assert.match(app,/V16\.3 · shared-SPI reliability/);
- assert.match(sw,/green-ion-v16-3-shared-spi/);
+ assert.match(app,/V17 · integrated launch operations/);
+ assert.match(sw,/green-ion-v17-/);
  assert.match(sw,/\.\/v16_3_shared_spi\.mjs/);
 });

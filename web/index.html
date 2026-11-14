@@ -7,7 +7,7 @@
  content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#081420">
 <link rel="manifest" href="/manifest.webmanifest">
-<title>GREEN ION V16 · Flight Dashboard</title>
+<title>GREEN ION V17 · Flight Dashboard</title>
 <style>
 :root{
  --bg:#081420;
@@ -601,6 +601,58 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 </section>
 
 <section id="system" class="page">
+ <div class="card" id="wifiSettingsCard">
+  <h2>Wi-Fi settings</h2>
+  <p class="muted">GREEN ION always keeps its direct access point available. Home Wi-Fi uses the Feather ESP32 V2's 2.4 GHz radio; a 5 GHz-only network will not appear or connect.</p>
+  <div class="row"><span>Current mode</span><strong id="wifiMode">CHECKING</strong></div>
+  <div class="row"><span>Home Wi-Fi</span><strong id="wifiHomeStatus">CHECKING</strong></div>
+  <div class="row"><span>Saved home network</span><strong id="wifiSavedSsid">None</strong></div>
+  <div class="row"><span>Signal</span><strong id="wifiRssi">--</strong></div>
+
+  <label for="wifiDirectAddress">Direct GREEN ION address</label>
+  <div class="actions">
+    <input id="wifiDirectAddress" readonly value="http://192.168.4.1" aria-label="Direct GREEN ION address">
+    <button id="wifiCopyDirect" class="secondary">COPY</button>
+  </div>
+
+  <label for="wifiHomeAddress">Home-network address</label>
+  <div class="actions">
+    <input id="wifiHomeAddress" readonly value="Not connected" aria-label="Home-network GREEN ION address">
+    <button id="wifiCopyHome" class="secondary">COPY</button>
+  </div>
+
+  <div class="notice" id="wifiAuthNotice">For credential changes, press the physical <strong>SW38</strong> button on the Feather, then tap AUTHORIZE WI-FI CHANGES. This is separate from the direct Wi-Fi password.</div>
+  <div class="actions">
+    <button id="wifiAuthorize" class="warning">AUTHORIZE WI-FI CHANGES</button>
+    <button id="wifiFinishSetup" class="secondary">FINISH WI-FI SETUP</button>
+  </div>
+
+  <details open>
+    <summary>Home Wi-Fi</summary>
+    <button id="wifiScan" class="secondary" style="width:100%">SCAN 2.4 GHz NETWORKS</button>
+    <label for="wifiNetworkList">Scan results</label>
+    <select id="wifiNetworkList"><option value="">Scan first, or enter SSID manually</option></select>
+    <label for="wifiSsid">Network name (SSID)</label>
+    <input id="wifiSsid" maxlength="32" autocomplete="off" placeholder="Home Wi-Fi name; type hidden SSIDs here">
+    <label for="wifiPassword">Wi-Fi password</label>
+    <input id="wifiPassword" type="password" maxlength="63" autocomplete="new-password" placeholder="8-63 characters; blank for open network">
+    <p class="muted">If you reconnect to the already-saved SSID, you may leave the password blank to reuse the saved password. Saved passwords are never returned by the Feather API.</p>
+    <div class="actions">
+      <button id="wifiConnect" class="green">CONNECT</button>
+      <button id="wifiDisconnectHome" class="secondary">DISCONNECT HOME WI-FI</button>
+      <button id="wifiForget" class="danger">FORGET SAVED NETWORK</button>
+    </div>
+  </details>
+
+  <details>
+    <summary>Direct GREEN ION Wi-Fi password</summary>
+    <label for="wifiApPassword">New direct access-point password</label>
+    <input id="wifiApPassword" type="password" minlength="8" maxlength="63" autocomplete="new-password" placeholder="8-63 characters">
+    <button id="wifiSaveApPassword" class="secondary" style="width:100%">SAVE DIRECT WI-FI PASSWORD</button>
+    <p class="muted">For safety, a new direct password is stored now and takes effect after the next Feather reboot, so the phone is not disconnected in the middle of setup.</p>
+  </details>
+  <div class="notice" id="wifiFeedback" role="status" aria-live="polite">Checking Wi-Fi status...</div>
+</div>
  <div class="card" id="v12AvailabilityCard">
   <h2>V13 feature availability</h2>
   <div class="notice">The blue V11 experience is restored around the V13 recorder. Recording, live sensors, hardware tests, SD verification, downloads, browser CSV/PDF analysis, calibration, and safe stop are connected to real V12 firmware.</div>
@@ -906,7 +958,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <p id="v14AppBuild">Website version loading...</p>
   <p id="v14UpdateCheck">Checking official GitHub releases...</p>
   <div class="actions"><button id="v14CheckUpdates">Check for updates</button><a href="https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases" target="_blank" rel="noopener noreferrer">View GitHub releases</a></div>
-  <p class="muted">For direct OTA, the official <code>Green_Ion_V16_3.ino.bin</code> must match the V16.3 release SHA-256 manifest. Remove the motor, finish recording, use USB power and a charged LiPo. Browser network restrictions may require manual download and upload through the Feather dashboard at 192.168.4.1. Preserve your previous firmware for recovery.</p>
+  <p class="muted">For direct OTA, the official <code>Green_Ion_V17.ino.bin</code> must match the V16.3 release SHA-256 manifest. Remove the motor, finish recording, use USB power and a charged LiPo. Browser network restrictions may require manual download and upload through the Feather dashboard at 192.168.4.1. Preserve your previous firmware for recovery.</p>
  </div>
 </section>
 
@@ -2438,6 +2490,219 @@ setInterval(v12Poll,1200);v12Poll();
 </script>
 
 <script>
+/* GREEN ION V17 local AP+STA Wi-Fi settings. Passwords are write-only. */
+(function(){
+"use strict";
+const n=id=>document.getElementById(id);
+if(!n("wifiSettingsCard"))return;
+
+function randomToken(bytes=18){
+ const data=new Uint8Array(bytes);
+ if(globalThis.crypto&&crypto.getRandomValues)crypto.getRandomValues(data);
+ else for(let i=0;i<data.length;i++)data[i]=Math.floor(Math.random()*256);
+ return Array.from(data,b=>b.toString(16).padStart(2,"0")).join("");
+}
+let csrf="";
+let management="";
+try{
+ csrf=sessionStorage.getItem("greenIonWifiCsrf")||"";
+ management=sessionStorage.getItem("greenIonWifiManagement")||"";
+}catch(e){}
+if(!csrf){
+ csrf=randomToken();
+ try{sessionStorage.setItem("greenIonWifiCsrf",csrf);}catch(e){}
+}
+const setFeedback=(message,ok=null)=>{
+ const node=n("wifiFeedback");if(!node)return;
+ node.textContent=message;
+ node.style.color=ok===true?"#72e5ab":ok===false?"#ff91a0":"#ffdd88";
+};
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+
+async function request(path,method="GET",body=null){
+ const controller=new AbortController();
+ const timeout=setTimeout(()=>controller.abort(),12000);
+ try{
+  const headers={"X-Green-Ion-CSRF":csrf};
+  if(management)headers["X-Green-Ion-Management"]=management;
+  const options={method,cache:"no-store",headers,signal:controller.signal};
+  if(body){
+   headers["Content-Type"]="application/x-www-form-urlencoded";
+   options.body=new URLSearchParams(body).toString();
+  }
+  const response=await fetch("/api/wifi/"+path,options);
+  let data;
+  try{data=await response.json();}catch{throw Error("Invalid Wi-Fi API response");}
+  if(!response.ok||data.success===false)throw Error(data.message||("HTTP "+response.status));
+  return data;
+ }finally{clearTimeout(timeout);}
+}
+
+function authorizedControls(enabled,busy=false){
+ for(const id of ["wifiScan","wifiConnect","wifiDisconnectHome","wifiForget","wifiSaveApPassword"])
+  n(id).disabled=!enabled||busy;
+ n("wifiFinishSetup").disabled=!enabled;
+}
+
+function renderStatus(s){
+ n("wifiMode").textContent=s.mode||"UNKNOWN";
+ n("wifiSavedSsid").textContent=s.home_configured?(s.home_ssid||"Saved network"):"None";
+ n("wifiHomeStatus").textContent=s.station_connected?"CONNECTED":
+   s.connecting?"CONNECTING":s.station_paused?"DISCONNECTED · SAVED":"NOT CONNECTED";
+ n("wifiRssi").textContent=s.rssi_dbm==null?"--":s.rssi_dbm+" dBm";
+ n("wifiDirectAddress").value="http://"+(s.ap_ip||"192.168.4.1");
+ n("wifiHomeAddress").value=s.station_connected&&s.station_ip?"http://"+s.station_ip:"Not connected";
+ if(s.home_configured&&!n("wifiSsid").value)n("wifiSsid").value=s.home_ssid||"";
+ if(s.management_authorized){
+  n("wifiAuthNotice").textContent="AUTHORIZED · Wi-Fi setup is temporarily allowed on this browser. Launch watching is paused until you finish setup.";
+ }else if(s.management_button_window){
+  n("wifiAuthNotice").textContent="SW38 press detected. Tap AUTHORIZE WI-FI CHANGES now.";
+ }else{
+  n("wifiAuthNotice").innerHTML='For credential changes, press the physical <strong>SW38</strong> button on the Feather, then tap AUTHORIZE WI-FI CHANGES. This is separate from the direct Wi-Fi password.';
+  if(management){
+   management="";
+   try{sessionStorage.removeItem("greenIonWifiManagement");}catch(e){}
+  }
+ }
+ authorizedControls(!!s.management_authorized,!!s.connecting||!!s.scan_active);
+ n("wifiAuthorize").disabled=!!s.management_authorized;
+}
+
+async function refresh(){
+ try{
+  const s=await request("status");
+  renderStatus(s);
+  return s;
+ }catch(error){
+  setFeedback("Wi-Fi status unavailable: "+error.message,false);
+  return null;
+ }
+}
+
+async function authorize(){
+ setFeedback("Checking for a recent SW38 button press...");
+ try{
+  const result=await request("authorize","POST");
+  management=result.token;
+  try{sessionStorage.setItem("greenIonWifiManagement",management);}catch(e){}
+  setFeedback(result.message,true);
+  await refresh();
+ }catch(error){setFeedback(error.message,false);}
+}
+
+async function scan(){
+ setFeedback("Scanning 2.4 GHz networks asynchronously...");
+ try{
+  await request("scan","POST");
+  for(let attempt=0;attempt<30;attempt++){
+   await sleep(500);
+   const result=await request("scan","GET");
+   if(result.scanning)continue;
+   const select=n("wifiNetworkList");
+   select.replaceChildren();
+   const first=document.createElement("option");
+   first.value="";first.textContent="Choose a network, or type SSID manually";
+   select.appendChild(first);
+   let visible=0;
+   for(const network of result.networks||[]){
+    if(!network.ssid)continue;
+    const option=document.createElement("option");
+    option.value=network.ssid;
+    option.textContent=network.ssid+" · "+network.rssi_dbm+" dBm · ch "+network.channel+(network.open?" · open":"");
+    select.appendChild(option);visible++;
+   }
+   setFeedback(visible?("Found "+visible+" visible 2.4 GHz network(s). Hidden networks can be entered manually."):"No visible 2.4 GHz networks found. You can enter a hidden SSID manually.",visible>0);
+   await refresh();return;
+  }
+  throw Error("Wi-Fi scan timed out; retry after checking that flight recording is inactive");
+ }catch(error){setFeedback("SCAN: "+error.message,false);await refresh();}
+}
+
+async function connect(){
+ const ssid=n("wifiSsid").value.trim(),password=n("wifiPassword").value;
+ if(!ssid){setFeedback("Enter or select a Wi-Fi network name.",false);return;}
+ if(password.length>0&&password.length<8){setFeedback("Password must be 8-63 characters, or blank for an open/already-saved network.",false);return;}
+ setFeedback("Starting home Wi-Fi connection. Direct GREEN ION Wi-Fi stays available...");
+ try{
+  const result=await request("connect","POST",{ssid,password});
+  n("wifiPassword").value="";
+  setFeedback(result.message,true);
+  for(let i=0;i<20;i++){
+   await sleep(600);
+   const s=await refresh();
+   if(s?.station_connected){setFeedback("Connected through home Wi-Fi. Both dashboard addresses are active.",true);return;}
+   if(s&&!s.connecting&&String(s.last_result||"").includes("failed")){
+    setFeedback("Home Wi-Fi connection failed; credentials were not saved. Direct GREEN ION Wi-Fi is still available.",false);return;
+   }
+  }
+  setFeedback("Connection attempt is still unresolved. Direct GREEN ION Wi-Fi remains available.",false);
+ }catch(error){setFeedback("CONNECT: "+error.message,false);await refresh();}
+}
+
+async function disconnectHome(){
+ if(!confirm("Disconnect GREEN ION from the home router? Saved settings will be kept and direct GREEN ION Wi-Fi will stay active."))return;
+ try{const r=await request("disconnect","POST");setFeedback(r.message,true);await refresh();}
+ catch(error){setFeedback("DISCONNECT: "+error.message,false);}
+}
+
+async function forget(){
+ if(!confirm("Forget the saved home Wi-Fi network? This removes the saved SSID/password from GREEN ION and leaves direct Wi-Fi active."))return;
+ try{
+  const r=await request("forget","POST");
+  n("wifiPassword").value="";n("wifiSsid").value="";
+  setFeedback(r.message,true);await refresh();
+ }catch(error){setFeedback("FORGET: "+error.message,false);}
+}
+
+async function saveApPassword(){
+ const password=n("wifiApPassword").value;
+ if(password.length<8||password.length>63){setFeedback("Direct Wi-Fi password must be 8-63 characters.",false);return;}
+ try{
+  const r=await request("ap-password","POST",{password});
+  n("wifiApPassword").value="";
+  setFeedback(r.message,true);
+ }catch(error){setFeedback("DIRECT PASSWORD: "+error.message,false);}
+}
+
+async function finish(){
+ try{
+  const r=await request("release","POST");
+  management="";
+  try{sessionStorage.removeItem("greenIonWifiManagement");}catch(e){}
+  setFeedback(r.message,true);
+  await refresh();
+ }catch(error){setFeedback("FINISH SETUP: "+error.message,false);}
+}
+
+async function copyAddress(id){
+ const value=n(id).value;
+ if(!value||value==="Not connected"){setFeedback("That address is not available yet.",false);return;}
+ try{
+  if(navigator.clipboard&&globalThis.isSecureContext)await navigator.clipboard.writeText(value);
+  else{
+   n(id).focus();n(id).select();
+   if(!document.execCommand("copy"))throw Error("copy unavailable");
+  }
+  setFeedback("Copied "+value,true);
+ }catch(error){setFeedback("Copy manually: "+value,false);}
+}
+
+n("wifiAuthorize").onclick=authorize;
+n("wifiScan").onclick=scan;
+n("wifiNetworkList").onchange=()=>{if(n("wifiNetworkList").value)n("wifiSsid").value=n("wifiNetworkList").value;};
+n("wifiConnect").onclick=connect;
+n("wifiDisconnectHome").onclick=disconnectHome;
+n("wifiForget").onclick=forget;
+n("wifiSaveApPassword").onclick=saveApPassword;
+n("wifiFinishSetup").onclick=finish;
+n("wifiCopyDirect").onclick=()=>copyAddress("wifiDirectAddress");
+n("wifiCopyHome").onclick=()=>copyAddress("wifiHomeAddress");
+authorizedControls(false);
+refresh();
+setInterval(refresh,4000);
+})();
+</script>
+<script>
 /* GREEN ION V13 guided home verification; actual evidence, no simulated rocket flight. */
 (function(){
 "use strict";
@@ -2450,7 +2715,7 @@ const steps=[
  {title:"5. Temporary SD read/write/cleanup",guide:"Press Run to write, read, compare and delete a test pattern. Existing real flight recordings are left alone.",kind:"sd"},
  {title:"6. LoRa transmitter and Uno receiver",guide:"Connect both 900/915 MHz antennas, Uno USB and Windows ground station. Press Run to transmit five bench packets. Confirm five valid packets arrived at the actual Uno.",kind:"radio",confirm:"I saw five valid bench packets arrive on my Uno/Windows receiver."},
  {title:"7. LiPo operation without USB",guide:"With a correctly wired protected LiPo, briefly unplug USB without disconnecting the battery or moving wiring. Verify the Feather remains powered, then reconnect USB.",kind:"manual",confirm:"Feather stayed running on LiPo and USB is safely reconnected."},
- {title:"8. Shared SD + LoRa 50 Hz stress + Wi-Fi disconnect",guide:"Press Run for 30 seconds of real 50 Hz pressure recording. When the Feather radio is available, V16.3 also schedules bounded LoRa bench packets through the shared SPI bus. Briefly disconnect PHONE Wi-Fi for at least five seconds, rejoin GREEN-ION-V16-3 and watch the result. Do not remove Feather power.",kind:"record"},
+ {title:"8. Shared SD + LoRa 50 Hz stress + Wi-Fi disconnect",guide:"Press Run for 30 seconds of real 50 Hz pressure recording. When the Feather radio is available, V16.3 also schedules bounded LoRa bench packets through the shared SPI bus. Briefly disconnect PHONE Wi-Fi for at least five seconds, rejoin GREEN-ION-V17 and watch the result. Do not remove Feather power.",kind:"record"},
  {title:"9. Final physical readiness review",guide:"Check the payload's secure mount, balance and recovery clearance for Green Eggs and So Long separately. RF range, hardware power-loss recovery, OTA/rollback, launch and landing detection, and flight conditions are NOT tested by this routine.",kind:"manual",confirm:"I reviewed remaining physical and range tests; I understand bench PASS is not flight approval."}
 ];
 let active=false,step=-1,busy=false,pending="",results={},evidence=[],radioStarted=false,message="",autoRunning=false;
@@ -2613,7 +2878,7 @@ async function poll(){
      ". Confirm five valid packets arrived at the UNO, then press RUN.");
   }
  }catch(e){
-  setMessage("Dashboard connection interrupted. Reconnect to GREEN-ION-V16-3 Wi-Fi. The Feather's temporary recording continues without the phone.");
+  setMessage("Dashboard connection interrupted. Reconnect to GREEN-ION-V17 Wi-Fi. The Feather's temporary recording continues without the phone.");
  }
 }
 function next(){
@@ -2663,7 +2928,7 @@ async function finish(){
  busy=false;paint();
 }
 function report(){
- const payload={project:"GREEN ION V16.3",test:"guided bench verification",flight_ready:false,
+ const payload={project:"GREEN ION V17",test:"guided bench verification",flight_ready:false,
   limits:"No real launch/landing, RF range, vibration, OTA rollback, power interruption or mechanical recovery verification.",
   created:new Date().toISOString(),checks:evidence};
  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});

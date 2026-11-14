@@ -71,3 +71,17 @@ Stable feature-branch run `43345164016` passed the complete configured software/
 - No ignition, staging, deployment, pyrotechnic or guidance controls.
 - `#081420` and exactly five visible tabs remain regression-locked.
 - Physical hardware results are never inferred from CI.
+
+## Home Wi-Fi / dual-network extension
+
+- [x] AP-only fallback preserves `GREEN-ION-V16-3` at `192.168.4.1`.
+- [x] Optional AP+STA joins a saved 2.4 GHz router while retaining the direct AP.
+- [x] Station association/retry is bounded and nonblocking; asynchronous scans are capped and deleted after use.
+- [x] Network reconfiguration, scans, credential writes and reconnect attempts are blocked while launch watching, flight recording, Home Test, OTA or maintenance are active.
+- [x] Home SSID/password and optional custom AP password use Preferences/NVS; passwords are write-only from the dashboard and are not included in status/report/export responses.
+- [x] Credential management requires a recent physical SW38 press plus a temporary RAM-only management token and per-browser CSRF header.
+- [x] Embedded and hosted dashboards show direct/home addresses, RSSI, connection mode, scan/manual SSID, connect/disconnect/forget and AP-password controls.
+- [x] Software regression coverage added for AP-only, success/failure, unavailable router, reconnect policy, forget, dual-interface dashboard, authorization, recording lockout and reboot persistence.
+- [ ] **NOT VERIFIED ON HARDWARE:** real AP+STA association, router disconnect/rejoin, iPhone access through both interfaces, SW38 flow, RSSI, reboot persistence and 50 Hz recording during network loss still require the assembled Feather/router bench test.
+
+See [V16.3 Home Wi-Fi + AP+STA](V16_3_HOME_WIFI.md).

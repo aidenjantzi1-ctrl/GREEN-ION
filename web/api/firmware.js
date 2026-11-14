@@ -5,6 +5,7 @@ const REPO="aidenjantzi1-ctrl/GREEN-ION";
 const MANIFEST={max:200000,type:"application/json; charset=utf-8"};
 const IMAGE={max:8388608,type:"application/octet-stream"};
 function imageForTag(tag){
+ if(/^v17\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(tag))return "Green_Ion_V17.ino.bin";
  const m=/^v(16)\.(\d+)\.\d+(?:-[a-zA-Z0-9.-]+)?$/.exec(tag);
  if(m)return "Green_Ion_V16_"+Number(m[2])+".ino.bin";
  if(/^v14\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(tag))return "Green_Ion_V14.ino.bin";

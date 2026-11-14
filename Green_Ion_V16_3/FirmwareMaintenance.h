@@ -35,6 +35,10 @@ static void otaReply(int code, bool success, const String &message) {
 }
 
 static void startFirmwareMaintenance() {
+  if (wifiManagementSessionActive() || homeWifiOperationActive()) {
+    otaReply(409, false, "Finish Wi-Fi setup before entering firmware maintenance");
+    return;
+  }
   if (otaUploadInProgress) {
     otaReply(409, false, "Firmware upload already in progress");
     return;

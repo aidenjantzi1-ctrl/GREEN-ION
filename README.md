@@ -1,19 +1,19 @@
 # GREEN ION — Rocket Flight Recorder
 
-> **CURRENT RELEASE: GREEN ION V16.3 (`v16.3.0`)**  
-> **Current Feather firmware:** [`Green_Ion_V16_3/`](Green_Ion_V16_3/) · **Current Uno receiver:** [`Ground_Receiver_V16_3/`](Ground_Receiver_V16_3/) · **Downloads:** [V16.3.0 release](https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases/tag/v16.3.0)
+> **CURRENT RELEASE: GREEN ION V17 (`v17.0.0`)**  
+> **Current Feather firmware:** [`Green_Ion_V17/`](Green_Ion_V17/) · **Current Uno receiver:** [`Ground_Receiver_V17/`](Ground_Receiver_V17/) · **Downloads:** V17 release assets are produced only after the V17 CI gate passes.
 >
 > Older V12/V13/V14/V16.2 folders remain for regression tests, rollback/reference, and historical build workflows. They are **not the current flight version**.
 
-GREEN ION V16.3 keeps the exact dark-blue `#081420` interface and exactly five visible tabs: **Dashboard, Flight, Flights & Analysis, Testing, Settings & Advanced**.
+GREEN ION V17 keeps the exact dark-blue `#081420` interface and exactly five visible tabs: **Dashboard, Flight, Flights & Analysis, Testing, Settings & Advanced**.
 
 GREEN ION is a **flight recorder and recovery aid**, not a flight-control computer. It does not control ignition, staging, deployment, guidance or pyrotechnics. Primary RKT4/GIS1 recording remains autonomous on the Feather and does not depend on Windows, LoRa, maps, cloud or visualization.
 
 [**GitHub releases**](https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases) · [**Automated tests**](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/workflows/build-v14.yml)
 
-## V16.3
+## V17
 
-V16.3 focuses on the real Feather perfboard where the microSD card and RFM9x share SPI. It adds explicit bus ownership, defers radio DIO0 SPI work out of interrupt context, gives sampling/SD/checkpoints priority over radio, bounds radio recovery, adds shared-SPI diagnostics, and extends **Run Full Home Test** with concurrent temporary 50 Hz SD + LoRa evidence and actual Uno receiver confirmation when connected.
+V17 combines the V16.3 recorder/shared-SPI reliability baseline with protected AP+STA home Wi-Fi, bounded live sensor graphs, WebGL orientation and timestamp replay, multi-flight comparison, GPS freshness/offline recovery tools, and the comparison-filename security fix. The autonomous 50 Hz recorder remains the highest-priority system.
 
 It preserves:
 
@@ -26,15 +26,19 @@ It preserves:
 
 Software validation does **not** prove actual perfboard wiring, RF range, GPS reception, battery margin, SD timing on hardware or flight readiness.
 
+## Codex 2 visual and recovery candidate (unmerged)
+
+These visualization, replay, comparison, GPS recovery and home-Wi-Fi features are integrated into V17. They do not change the RKT4 v2/GIS1 formats or add flight-control behavior.
+
 ## Start here
 
 | Goal | Guide |
 |---|---|
-| Install/update Windows, Feather and Uno | [V16.3 update & rollback](docs/V16_3_UPDATE_GUIDE.md) |
+| Install/update Windows, Feather and Uno | [V17 update & rollback](docs/V17_UPDATE_GUIDE.md) |
 | Run the one-button bench test | [V16.3 Full Home Test](docs/V16_3_HOME_TEST.md) |
 | Wire/test shared SD + LoRa SPI | [V16.3 shared-SPI perfboard](docs/V16_3_SHARED_SPI_PERFBOARD.md) |
-| Record remaining physical validation | [V16.3 hardware validation](docs/V16_3_HARDWARE_VALIDATION.md) |
-| See implementation status | [V16.3 implementation checklist](docs/V16_3_IMPLEMENTATION.md) |
+| Record remaining physical validation | [V17 hardware validation](docs/V17_HARDWARE_VALIDATION.md) |
+| See implementation status | [V17 implementation status](docs/V17_IMPLEMENTATION.md) |
 | Configure the recovery map | [V16.2 Google Maps](docs/V16_2_GOOGLE_MAPS.md) |
 | Use the WebGL 3D viewer | [V16.2 3D viewer](docs/V16_2_3D_VIEWER.md) |
 | Safely manage Feather SD flights | [V16.2 SD management](docs/V16_2_SD_FILE_MANAGEMENT.md) |
@@ -43,7 +47,7 @@ Software validation does **not** prove actual perfboard wiring, RF range, GPS re
 
 1. Run `START_GREEN_ION.cmd`.
 2. Plug in the Uno receiver; Windows auto-discovers/reconnects it.
-3. Join Feather `GREEN-ION-V16-3` Wi-Fi for live status, tests, SD transfer or deliberate OTA.
+3. Join Feather `GREEN-ION-V17` Wi-Fi for live status, tests, SD transfer or deliberate OTA.
 4. Use **Prepare for Flight**, then **Run Full Home Test** on the bench with motors removed.
 5. During flight the Feather records autonomously; Wi-Fi/LoRa loss does not stop primary SD recording.
 6. After landing use Recovery, reconnect Feather Wi-Fi, import/verify the flight, then open reports/comparison/WebGL replay.
@@ -64,4 +68,4 @@ GPS, pressure, battery and recorded IMU values are measured when valid. Barometr
 - [Quality / physical validation](docs/V14_QUALITY_PLAN.md)
 - [Version archive](Past_Versions/README.md)
 
-Historical V16.2 documentation and release source remain in the repository for rollback/reference.
+V16.3 and older source/documentation remain in the repository for rollback/reference.

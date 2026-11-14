@@ -1,0 +1,183 @@
+name: GREEN ION V17 - verified release
+
+on:
+  push:
+    tags: ["v17.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python regression suite
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Native shared-SPI scheduler regression
+        run: |
+          g++ -std=c++17 -Wall -Wextra -pedantic \
+            -I libraries/GreenIonProtocol/src \
+            tests/cpp/test_v16_3_shared_spi.cpp \
+            -o /tmp/test-v16-3-shared-spi
+          /tmp/test-v16-3-shared-spi
+      - name: Node browser and analysis tests
+        run: node --test tests/*.test.mjs
+      - name: Headless browser WebGL rendering smoke test
+        run: node tests/v16_2_render_browser.mjs
+      - name: JavaScript syntax verification
+        run: |
+          for f in web/*.mjs web/analysis/*.mjs web/v14_boot.js web/service-worker.js web/build.mjs; do
+            node --check "$f"
+          done
+      - name: Build offline website
+        run: node web/build.mjs
+      - name: Validate five-tab blue V17 app
+        run: |
+          test -s web/dist/index.html
+          grep -q 'data-tab="status">Dashboard</button>' web/dist/index.html
+          grep -q 'data-tab="flight">Flight</button>' web/dist/index.html
+          grep -q 'data-tab="history">Flights &amp; Analysis</button>' web/dist/index.html
+          grep -q 'data-tab="testing">Testing</button>' web/dist/index.html
+          grep -q 'data-tab="system">Settings &amp; Advanced</button>' web/dist/index.html
+          test -s web/dist/v16_1_diagnostics.mjs
+          test -s web/dist/v16_1_guided_test.mjs
+          test -s web/dist/v16_1_analysis_core.mjs
+          test -s web/dist/v16_2_dashboard.mjs
+          test -s web/dist/v16_2_webgl.mjs
+          test -s web/dist/v16_2_map.mjs
+          test -s web/dist/v16_2_sd_manager.mjs
+          test -s web/dist/v16_2_compare.mjs
+          test -s web/dist/v16_2_compare_worker.mjs
+          test -s web/dist/v16_2_testing.mjs
+          test -s web/dist/v16_2_experience.mjs
+          test -s web/dist/v16_2_scorecard.mjs
+          test -s web/dist/v16_3_shared_spi.mjs
+          grep -q -- '--bg:#081420' web/dist/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v17-web
+          path: web/dist/
+          if-no-files-found: error
+
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Install board cores
+        run: |
+          arduino-cli config init
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install arduino:avr
+      - name: Install firmware libraries
+        run: |
+          arduino-cli lib install "Adafruit BMP3XX Library"
+          arduino-cli lib install "Adafruit LSM6DS"
+          arduino-cli lib install "Adafruit GPS Library"
+          arduino-cli lib install "RadioHead"
+      - name: Compile Feather ESP32 V2
+        run: arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --library libraries/GreenIonProtocol --library libraries/GreenIonRecorder --output-dir build/feather Green_Ion_V17
+      - name: Compile Arduino Uno receiver
+        run: arduino-cli compile --fqbn arduino:avr:uno --library libraries/GreenIonProtocol --output-dir build/uno Ground_Receiver_V17
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v17-firmware
+          path: |
+            build/feather/*.bin
+            build/uno/*.hex
+          if-no-files-found: error
+
+  package:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: v17-web
+          path: built-web
+      - name: Parse Windows scripts
+        shell: pwsh
+        run: |
+          foreach ($path in @(
+            "Ground_Station/Start-GreenIon.ps1",
+            "Ground_Station/Update-GreenIon.ps1",
+            "Ground_Station/Rollback-GreenIon.ps1"
+          )) {
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$null,[ref]$errors)
+            if ($errors.Count) { $errors | Format-List | Out-String | Write-Error; exit 1 }
+          }
+      - name: Build verified Windows package
+        run: python3 tools/build_v17_windows_package.py --website built-web --output windows-release --commit "$GITHUB_SHA"
+      - name: Recheck Windows package SHA-256
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          root=Path("windows-release")
+          z=root/"GREEN_ION_V17_WINDOWS.zip"
+          expected=(root/"GREEN_ION_V17_WINDOWS.sha256").read_text().split()[0]
+          assert hashlib.sha256(z.read_bytes()).hexdigest()==expected
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v17-windows
+          path: windows-release/
+          if-no-files-found: error
+
+  release:
+    needs: [verify, firmware, package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: v17-web
+          path: built-web
+      - uses: actions/download-artifact@v4
+        with:
+          name: v17-firmware
+          path: built-firmware
+      - uses: actions/download-artifact@v4
+        with:
+          name: v17-windows
+          path: windows-release
+      - name: Assemble release assets and SHA manifest
+        run: |
+          python3 tools/assemble_v17_release.py \
+            --web built-web \
+            --firmware built-firmware \
+            --windows windows-release \
+            --output release \
+            --tag "${{ github.ref_name }}" \
+            --commit "${{ github.sha }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GREEN_ION_V17_RELEASE
+          path: release/
+          if-no-files-found: error
+      - name: Publish tagged V17 release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRERELEASE=""
+          case "$GITHUB_REF_NAME" in
+            *-rc.*|*-beta.*|*-alpha.*) PRERELEASE="--prerelease" ;;
+          esac
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" release/* \
+              --target "$GITHUB_SHA" \
+              --title "GREEN ION $GITHUB_REF_NAME" \
+              --notes-file docs/V17_RELEASE_NOTES.md \
+              $PRERELEASE
+          fi

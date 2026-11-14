@@ -1,7 +1,7 @@
 name: GREEN ION V16.3 - verify, compile and package
 on:
   push:
-    branches: [main, "v14/**", "v16.2/**", "v16.3/**"]
+    branches: ["v14/**", "v16.2/**", "v16.3/**"]
     paths:
       - "web/**"
       - "Green_Ion_V14/**"
@@ -21,8 +21,7 @@ on:
       - "docs/V14_*"
       - "docs/V16_*"
       - "README.md"
-  pull_request:
-    branches: [main]
+      - "CHANGELOG.md"
   workflow_dispatch:
 
 permissions:
@@ -46,8 +45,15 @@ jobs:
             tests/cpp/test_v16_3_shared_spi.cpp \
             -o /tmp/test-v16-3-shared-spi
           /tmp/test-v16-3-shared-spi
+      - name: Native AP+STA Wi-Fi policy regression
+        run: |
+          g++ -std=c++17 -Wall -Wextra -pedantic \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v16_3_wifi_policy.cpp \
+            -o /tmp/test-v16-3-wifi-policy
+          /tmp/test-v16-3-wifi-policy
       - name: Node browser tests
-        run: node --test tests/v14_browser.test.mjs tests/v14_analysis.test.mjs tests/v14_ui.test.mjs tests/v14_sensor.test.mjs tests/v14_gis1.test.mjs tests/v15_features.test.mjs tests/v15_hosted_link.test.mjs tests/v16_windows_reliability.test.mjs tests/v16_unified_telemetry.test.mjs tests/v16_mission.test.mjs tests/v16_navigation.test.mjs tests/v16_layout.test.mjs tests/v16_data_cloud.test.mjs tests/v16_visualization.test.mjs tests/v16_validation.test.mjs tests/v16_1_improvements.test.mjs tests/v16_1_sd_delete.test.mjs tests/v16_2_features.test.mjs tests/v16_2_webgl.test.mjs tests/v16_3_features.test.mjs
+        run: node --test tests/*.test.mjs
       - name: Headless browser WebGL rendering smoke test
         run: node tests/v16_2_render_browser.mjs
       - name: JavaScript syntax verification
