@@ -11,17 +11,34 @@ PROTO=(ROOT/"libraries/GreenIonProtocol/src/GreenIonProtocol.h").read_text(encod
 SPI=(ROOT/"libraries/GreenIonProtocol/src/GreenIonSharedSpi.h").read_text(encoding="utf-8")
 
 class V163SharedSpiTests(unittest.TestCase):
-    def test_v163_identity_and_pins_preserved(self):
-        self.assertIn('FIRMWARE_NAME[] = "GREEN ION Feather V16.3"',FW)
-        self.assertIn('FIRMWARE_VERSION[] = "16.3.0"',FW)
-        self.assertIn('"GREEN-ION-V16-3"',CFG)
-        self.assertIn('RECEIVER_FIRMWARE_VERSION[] = "16.3.0"',UNO)
+    def test_v17_identity_and_v163_hardware_pins_preserved(self):
+        self.assertIn('FIRMWARE_NAME[] = "GREEN ION Feather V17.0"',FW)
+        self.assertIn('FIRMWARE_VERSION[] = "17.0.0"',FW)
+        self.assertIn('"GREEN-ION-V17"',CFG)
+        self.assertIn('RECEIVER_FIRMWARE_VERSION[] = "17.0.0"',UNO)
         expected={
           "PIN_SPI_SCK":"5","PIN_SPI_MOSI":"19","PIN_SPI_MISO":"21",
           "PIN_SD_CS":"33","PIN_LORA_CS":"27","PIN_LORA_RST":"15","PIN_LORA_DIO0":"32",
         }
         for name,value in expected.items():
             self.assertRegex(CFG,rf"{name}\s*=\s*{value}\s*;")
+
+    def test_configured_feather_gpio_roles_do_not_overlap(self):
+        # Independent of exact numeric pin values: catch future changes that
+        # accidentally assign two physical interfaces to the same Feather GPIO.
+        hardware_roles = (
+            "PIN_I2C_SDA", "PIN_I2C_SCL",
+            "PIN_SPI_SCK", "PIN_SPI_MOSI", "PIN_SPI_MISO",
+            "PIN_SD_CS", "PIN_LORA_CS", "PIN_LORA_RST",
+            "PIN_LORA_DIO0", "PIN_BUZZER", "PIN_BATTERY",
+        )
+        assigned = {}
+        for role in hardware_roles:
+            match = re.search(rf"\b{role}\s*=\s*(\d+)\s*;", CFG)
+            self.assertIsNotNone(match, f"{role} must be a documented numeric GPIO")
+            assigned[role] = int(match.group(1))
+        self.assertEqual(len(set(assigned.values())), len(assigned),
+                         f"Feather GPIO collision in Config.h: {assigned}")
 
     def test_file_and_radio_formats_remain_backward_compatible(self):
         self.assertIn('static const uint8_t kProtocolVersion = 2;',PROTO)

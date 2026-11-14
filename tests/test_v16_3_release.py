@@ -5,10 +5,10 @@ import unittest
 ROOT=Path(__file__).resolve().parents[1]
 
 class V163ReleaseContractTests(unittest.TestCase):
-    def test_windows_identity_is_stable_v163(self):
+    def test_windows_identity_is_v17_candidate_and_data_dir_stable(self):
         v=json.loads((ROOT/"Ground_Station/version.json").read_text())
-        self.assertEqual(v["version"],"16.3.0")
-        self.assertEqual(v["channel"],"stable")
+        self.assertEqual(v["version"],"17.0.0")
+        self.assertEqual(v["channel"],"candidate")
         self.assertEqual(v["data_dir"],r"%USERPROFILE%\GREEN_ION_Data")
 
     def test_release_assembler_uses_v163_hardware_and_source_assets(self):

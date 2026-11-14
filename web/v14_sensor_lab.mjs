@@ -1,5 +1,6 @@
 /* Optional GREEN ION Sensor Lab. Read-only and removable in Settings. */
 import {SENSOR_GROUPS,sensorRows,SENSOR_KEYS} from "./v14_sensor_catalog.mjs";
+import {initV163LiveGraphs} from "./v16_3_live_graphs.mjs";
 import {preference,onPreferences} from "./v14_preferences.mjs";
 const $=id=>document.getElementById(id);
 const groups=new Map(),samples=[];
@@ -64,6 +65,7 @@ function exportJSON(value){
 }
 export function initSensorLab(t){
  const root=$("v14SensorGroups");if(!root)return;
+ initV163LiveGraphs(t);
  for(const [index,group] of SENSOR_GROUPS.entries())root.append(groupEl(group,index));
  const schedule=()=>{
   if(queued)return;queued=true;

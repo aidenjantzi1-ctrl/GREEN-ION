@@ -18,6 +18,7 @@ static const uint8_t PIN_LORA_RST = 15;
 static const uint8_t PIN_LORA_DIO0 = 32;
 static const uint8_t PIN_BUZZER = 14;  // Drives a transistor, never the buzzer directly.
 static const uint8_t PIN_BATTERY = 35;
+static const uint8_t PIN_MANAGEMENT_BUTTON = 38;  // Feather V2 SW38, input-only with onboard pull-up.
 static const uint8_t PIN_I2C_POWER = NEOPIXEL_I2C_POWER;
 
 static const uint32_t SERIAL_BAUD = 115200;
@@ -64,8 +65,14 @@ static const uint8_t LORA_SPREADING_FACTOR = green_ion::radio_config::kSpreading
 static const long LORA_SIGNAL_BANDWIDTH_HZ = green_ion::radio_config::kSignalBandwidthHz;
 static const uint8_t LORA_CODING_RATE_DENOMINATOR = green_ion::radio_config::kCodingRateDenominator;
 
-static const char DASHBOARD_SSID[] = "GREEN-ION-V16-3";
+static const char DASHBOARD_SSID[] = "GREEN-ION-V17";
 static const char DASHBOARD_PASSWORD[] = "GreenIon2026";
+static const uint32_t WIFI_CONNECT_TIMEOUT_MS = 8000;
+static const uint32_t WIFI_RETRY_INTERVAL_MS = 30000;
+static const uint32_t WIFI_SCAN_MAX_MS_PER_CHANNEL = 120;
+static const uint8_t WIFI_SCAN_RESULT_LIMIT = 20;
+static const uint32_t WIFI_PHYSICAL_AUTH_WINDOW_MS = 60000;
+static const uint32_t WIFI_MANAGEMENT_SESSION_MS = 300000;
 
 static const bool BUZZER_ENABLED = true;
 static const uint16_t BUZZER_FREQUENCY_HZ = 2500;
@@ -74,7 +81,7 @@ static_assert(PIN_SD_CS != PIN_LORA_CS, "SD and LoRa require separate chip selec
 static_assert(PIN_LORA_DIO0 != PIN_SD_CS && PIN_LORA_DIO0 != PIN_LORA_CS,
               "LoRa DIO0 must not share a chip-select pin");
 static_assert(SENSOR_RATE_HZ > 0 && SENSOR_RATE_HZ <= 200, "Unsupported sensor rate");
-static_assert(PREBUFFER_RECORDS == 150, "V16.3 prebuffer must retain exactly three seconds at 50 Hz");
+static_assert(PREBUFFER_RECORDS == 150, "V17 prebuffer must retain exactly three seconds at 50 Hz");
 
 }  // namespace config
 

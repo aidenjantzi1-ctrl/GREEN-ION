@@ -1,5 +1,5 @@
 /*
-  GREEN ION Feather V16.3 firmware
+  GREEN ION Feather V17.0 firmware
   Flight-data recorder and recovery aid only.
   It must never control ignition, staging, or recovery deployment.
 
@@ -40,6 +40,7 @@
 #include <GreenIonSensorHealth.h>
 #include <GreenIonBenchTests.h>
 #include <GreenIonSharedSpi.h>
+#include <GreenIonWifiPolicy.h>
 
 #include "Config.h"
 #include "SensorState.h"
@@ -108,8 +109,8 @@ class RadioSpiScope {
   bool active_;
 };
 
-static const char FIRMWARE_NAME[] = "GREEN ION Feather V16.3";
-static const char FIRMWARE_VERSION[] = "16.3.0";
+static const char FIRMWARE_NAME[] = "GREEN ION Feather V17.0";
+static const char FIRMWARE_VERSION[] = "17.0.0";
 static uint32_t bootSessionId = 0;
 static esp_reset_reason_t bootResetReason = ESP_RST_UNKNOWN;
 static uint32_t persistentBootCount = 0;
@@ -253,6 +254,9 @@ static bool homeSdVerified = false;
 // Prevent stale IMU/GPS results from prior sessions being certified as new.
 static bool homeImuTestStarted = false;
 static bool homeGpsTestStarted = false;
+
+static void resetCalibration(uint32_t nowMs);
+#include "HomeWifi.h"
 float calibrationSamples[config::CALIBRATION_TARGET_SAMPLES];
 uint16_t calibrationWarmup = 0;
 uint16_t calibrationAttempts = 0;
@@ -1403,6 +1407,10 @@ static void processCalibration(uint32_t nowMs, bool valid) {
   watcherAltitudeM = watcherPreviousAltitudeM = NAN;
   watcherSpeedMps = NAN;
   watcherPreviousMs = 0;
+  // A physically authorized Wi-Fi setup session deliberately holds launch
+  // watching off. Async scan/connection work must also finish before the
+  // automatic watcher can become active.
+  if (wifiManagementSessionActive(nowMs) || homeWifiOperationActive()) return;
   const bool watching = flightWatcher.begin({
       config::SENSOR_RATE_HZ, 0.0f, calibrationBaselinePa, calibrationNoiseM});
   recorderMode = watching ? RECORDER_WATCHING : RECORDER_FAULT;
@@ -1702,6 +1710,11 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs) {
 }
 
 static void startManualFlightRecording() {
+  if (homeWifiOperationActive() || wifiManagementSessionActive()) {
+    dashboardServer.send(409, "application/json",
+      "{\"success\":false,\"message\":\"Finish Wi-Fi setup before starting a flight recording\"}");
+    return;
+  }
   if (state.recording || recorderCore.recording() || logFile || sensorLogFile ||
       recorderMode == RECORDER_RECORDING || recorderMode == RECORDER_HOME_TEST ||
       recorderMode == RECORDER_MAINTENANCE || otaUploadInProgress) {
@@ -2104,6 +2117,18 @@ static void sendDashboardStatus() {
   body += orphanHomeFile ? "true" : "false";
   body += ",\"sample_rate_hz\":" + String(config::SENSOR_RATE_HZ);
   body += ",\"firmware_build\":\"" + String(FIRMWARE_VERSION) + " " + String(__DATE__) + " " + String(__TIME__) + "\"";
+  body += ",\"wifi_mode\":\"";
+  body += (homeWifiConfigured && !homeWifiPaused) || WiFi.status() == WL_CONNECTED ||
+          homeWifiAttemptInProgress || homeWifiScanActive ? "AP+STA" : "AP";
+  body += "\"";
+  body += ",\"wifi_ap_ip\":\"" + WiFi.softAPIP().toString() + "\"";
+  body += ",\"wifi_home_configured\":";
+  body += homeWifiConfigured ? "true" : "false";
+  body += ",\"wifi_home_connected\":";
+  body += WiFi.status() == WL_CONNECTED ? "true" : "false";
+  body += ",\"wifi_home_ip\":\"";
+  body += WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : String("");
+  body += "\"";
   body += ",\"maintenance_mode\":";
   body += recorderMode == RECORDER_MAINTENANCE ? "true" : "false";
   body += ",\"update_in_progress\":";
@@ -2408,12 +2433,19 @@ static void initializeDashboard() {
   // another web origin. Never enable wildcard CORS: telemetry contains GPS,
   // and some API endpoints can change recorder state.
   // This is browser-origin defense, NOT authentication on the Feather AP.
-  const char *requestHeaders[] = {"Origin", "Access-Control-Request-Private-Network"};
-  dashboardServer.collectHeaders(requestHeaders, 2);
+  const char *requestHeaders[] = {
+    "Origin", "Access-Control-Request-Private-Network", "Host",
+    "X-Green-Ion-CSRF", "X-Green-Ion-Management"
+  };
+  dashboardServer.collectHeaders(requestHeaders, 5);
   dashboardServer.addMiddleware([](WebServer &server, Middleware::Callback next) -> bool {
     const String origin = server.header("Origin");
-    // Preserve same-origin Feather dashboard, as well as native bridge calls.
-    if (origin.isEmpty() || origin == "http://192.168.4.1") return next();
+    const String host = server.header("Host");
+    const bool sameOrigin = origin.isEmpty() ||
+        (!host.isEmpty() && (origin == "http://" + host || origin == "https://" + host));
+    // Preserve same-origin access through either 192.168.4.1 or the router-assigned STA IP,
+    // as well as native bridge calls. Only the production hosted dashboard is cross-origin.
+    if (sameOrigin) return next();
     if (origin != "https://green-ion-beta.vercel.app") {
       server.send(403, "application/json",
                   "{\"success\":false,\"message\":\"Untrusted website origin\"}");
@@ -2421,7 +2453,8 @@ static void initializeDashboard() {
     }
     server.sendHeader("Access-Control-Allow-Origin", "https://green-ion-beta.vercel.app");
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+    server.sendHeader("Access-Control-Allow-Headers",
+                      "Content-Type, X-Green-Ion-CSRF, X-Green-Ion-Management");
     server.sendHeader("Access-Control-Allow-Private-Network", "true");
     server.sendHeader("Vary", "Origin");
     if (server.method() == HTTP_OPTIONS) {
@@ -2430,8 +2463,7 @@ static void initializeDashboard() {
     }
     return next();
   });
-  WiFi.mode(WIFI_AP);
-  WiFi.softAP(config::DASHBOARD_SSID, config::DASHBOARD_PASSWORD);
+  initializeHomeWifi();
   dashboardServer.on("/", []() {
     dashboardServer.send_P(200, "text/html", DASHBOARD_HTML);
   });
@@ -2452,6 +2484,15 @@ static void initializeDashboard() {
         ".catch(()=>caches.match(e.request).then(r=>r||caches.match('/'))));});");
   });
   dashboardServer.on("/api/status", sendDashboardStatus);
+  dashboardServer.on("/api/wifi/status", HTTP_GET, sendHomeWifiStatus);
+  dashboardServer.on("/api/wifi/authorize", HTTP_POST, authorizeWifiManagement);
+  dashboardServer.on("/api/wifi/release", HTTP_POST, releaseWifiManagement);
+  dashboardServer.on("/api/wifi/scan", HTTP_POST, startHomeWifiScan);
+  dashboardServer.on("/api/wifi/scan", HTTP_GET, sendHomeWifiScanResults);
+  dashboardServer.on("/api/wifi/connect", HTTP_POST, connectHomeWifi);
+  dashboardServer.on("/api/wifi/disconnect", HTTP_POST, disconnectHomeWifi);
+  dashboardServer.on("/api/wifi/forget", HTTP_POST, forgetHomeWifi);
+  dashboardServer.on("/api/wifi/ap-password", HTTP_POST, saveDirectApPassword);
   dashboardServer.on("/api/profile", HTTP_POST, saveFlightProfile);
   dashboardServer.on("/api/maintenance", HTTP_POST, startFirmwareMaintenance);
   dashboardServer.on("/api/maintenance/exit", HTTP_POST, exitFirmwareMaintenance);
@@ -2617,11 +2658,12 @@ void setup() {
   initializeDashboard();
   Serial.println();
   Serial.println("==================================================");
-  Serial.println(" GREEN ION Feather V16.3 | rocket flight recorder");
+  Serial.println(" GREEN ION Feather V17.0 | rocket flight recorder");
   Serial.println("==================================================");
   Serial.printf(" Firmware: %s | session=%lu | reset=%s\n", FIRMWARE_VERSION,
                 static_cast<unsigned long>(bootSessionId), resetReasonName(bootResetReason));
-  Serial.printf(" Wi-Fi: %s | http://192.168.4.1\n", config::DASHBOARD_SSID);
+  Serial.printf(" Direct Wi-Fi: %s | http://192.168.4.1\n", config::DASHBOARD_SSID);
+  Serial.printf(" Home Wi-Fi: %s\n", homeWifiConfigured ? "configured (AP+STA attempt is nonblocking)" : "not configured (AP-only)");
   Serial.println(" Mode: automatic calibration and launch watching");
   Serial.println(" Type 'help' for commands or 'status' for health.");
   Serial.println(" LoRa requires a suitable antenna before transmitting.");
@@ -2675,6 +2717,7 @@ void loop() {
   queueTelemetry(nowMs);
   serviceTelemetry(nowMs, micros());
   printConsoleSummary(nowMs);
+  serviceHomeWifi(nowMs);
   dashboardServer.handleClient();
   yield();
 }

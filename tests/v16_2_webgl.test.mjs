@@ -24,7 +24,7 @@ test("viewer source uses genuine WebGL depth shaders, camera modes, timestamp sp
  assert.match(source,/getContext\("webgl"/);assert.match(source,/gl\.DEPTH_TEST/);assert.match(source,/VERTEX_SHADER/);
  assert.match(source,/perspectiveMatrix/);assert.match(source,/lookAtMatrix/);
  for(const mode of ["follow","ground","top","side","free"])assert.ok(source.includes(mode),mode);
- for(const speed of [".25",".5","1","2","5"])assert.ok(source.includes(">"+speed+"</option>"),speed);
+ for(const speed of [".25",".5","1","2","4"])assert.ok(source.includes(">"+speed+"</option>"),speed);
  for(const jump of ["launch","apogee","descent","landing"])assert.ok(source.includes('data-jump="'+jump+'"'),jump);
  assert.match(source,/deleteBuffer/);assert.match(source,/deleteProgram/);assert.match(source,/pagehide/);
  assert.match(source,/green-ion-v16-replay-time/);assert.match(source,/green-ion-v16-graph-progress/);

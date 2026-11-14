@@ -94,7 +94,9 @@ test("recovery finder uses Google Maps and permission-based current location",()
  assert.match(src,/google\.com\/maps\/search\/\?api=1/);
  assert.match(src,/google\.com\/maps\/dir\/\?api=1/);
  assert.match(src,/Distance \/ direction to last GPS/);
- assert.match(src,/gps_status!==\"live\"/);
+ const helper=readFileSync(new URL("../web/v16_3_recovery_data.mjs",import.meta.url),"utf8");
+ assert.match(helper,/gps_status!==\"live\"/);
+ assert.match(helper,/validFix\(raw\.latitude,raw\.longitude\)/);
 });
 
 test("guided test reuses real one-button preflight instead of simulating pass",()=>{
