@@ -402,7 +402,8 @@ static void sendHomeWifiScanResults() {
   }
 
   String body = "{\"success\":true,\"scanning\":false,\"networks\":[";
-  const int16_t limited = min<int16_t>(count, config::WIFI_SCAN_RESULT_LIMIT);
+  const int16_t limited = count < static_cast<int16_t>(config::WIFI_SCAN_RESULT_LIMIT) ?
+      count : static_cast<int16_t>(config::WIFI_SCAN_RESULT_LIMIT);
   for (int16_t i = 0; i < limited; ++i) {
     if (i) body += ',';
     body += "{\"ssid\":\"" + wifiJsonEscape(WiFi.SSID(i)) + "\"";
