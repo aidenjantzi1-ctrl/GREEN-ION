@@ -216,9 +216,7 @@ function drawRoomOrientation(state){
  ctx.fillStyle="#eff8ff";ctx.font="700 12px system-ui";ctx.fillText("ROOM ORIENTATION",16,28);
  ctx.fillStyle="#a5bbcd";ctx.font="11px system-ui";
  ctx.fillText("Pitch "+orientation.pitch.toFixed(1)+"°  ·  Roll "+orientation.roll.toFixed(1)+"°  ·  Yaw "+orientation.yaw.toFixed(1)+"°",16,h-12);
- const note=$("v162RoomNote");if(note)note.textContent=
-  (state?.mode==="fake"?"FAKE FLIGHT · ":"")+
-  "Pitch "+orientation.pitch.toFixed(1)+"° · Roll "+orientation.roll.toFixed(1)+"° · Yaw "+orientation.yaw.toFixed(1)+"°";
+ // Fallback drawing intentionally retains the same quality-aware readout above.
 }
 function paint(){
  const canvas=$("v162RocketCanvas");if(!canvas||!visible)return;
