@@ -1,7 +1,7 @@
 name: GREEN ION V16.3 - verify, compile and package
 on:
   push:
-    branches: [main, "integration/**", "codex2/**", "v14/**", "v16.2/**", "v16.3/**"]
+    branches: ["v14/**", "v16.2/**", "v16.3/**"]
     paths:
       - "web/**"
       - "Green_Ion_V14/**"
