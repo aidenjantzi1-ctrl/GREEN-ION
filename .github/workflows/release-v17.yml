@@ -33,7 +33,7 @@ jobs:
           done
       - name: Build offline website
         run: node web/build.mjs
-      - name: Validate five-tab blue V16 app
+      - name: Validate five-tab blue V17 app
         run: |
           test -s web/dist/index.html
           grep -q 'data-tab="status">Dashboard</button>' web/dist/index.html
