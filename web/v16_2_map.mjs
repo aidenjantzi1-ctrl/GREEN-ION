@@ -1,7 +1,7 @@
 /* GREEN ION V16.2 optional embedded Google Maps recovery view.
  * Raw confirmed rocket fixes remain authoritative; offline recovery never depends on this module. */
 const $=id=>document.getElementById(id);
-let map=null,track=null,rocketCircle=null,userCircle=null,lastDetail=null,loading=null;
+let map=null,track=null,rocketCircle=null,userCircle=null,launchCircle=null,radioCircle=null,lastDetail=null,loading=null;
 function config(){return window.GREEN_ION_CONFIG||{};}
 function hasInternet(){return navigator.onLine!==false;}
 function addScript(key){
@@ -64,6 +64,18 @@ async function render(detail){
   .map(x=>({lat:x.lat,lng:x.lon}));
  if(track)track.setMap(null);
  track=new google.maps.Polyline({map,path,geodesic:true,strokeColor:"#7bdbff",strokeOpacity:.85,strokeWeight:3});
+ launchCircle=clearShape(launchCircle);
+ radioCircle=clearShape(radioCircle);
+ const prelaunch=(lastDetail.fixes||[]).find(f=>f.flightState===2&&Number.isFinite(f.lat)&&Number.isFinite(f.lon));
+ if(prelaunch)launchCircle=new google.maps.Circle({
+  map,center:{lat:prelaunch.lat,lng:prelaunch.lon},radius:7,strokeColor:"#72e5ab",
+  strokeOpacity:1,strokeWeight:2,fillColor:"#72e5ab",fillOpacity:.35
+ });
+ const radio=[...(lastDetail.fixes||[])].reverse().find(f=>f.source==="LoRa"&&Number.isFinite(f.lat)&&Number.isFinite(f.lon));
+ if(radio)radioCircle=new google.maps.Circle({
+  map,center:{lat:radio.lat,lng:radio.lon},radius:7,strokeColor:"#d2abff",
+  strokeOpacity:1,strokeWeight:2,fillColor:"#d2abff",fillOpacity:.3
+ });
  rocketCircle=clearShape(rocketCircle);
  rocketCircle=new google.maps.Circle({
   map,center:{lat:latest.lat,lng:latest.lon},radius:6,strokeColor:"#ffdd88",
@@ -87,6 +99,7 @@ function inject(){
   '<p class="muted">Uses only confirmed received rocket GPS fixes. A reported landing phase does not create or move a GPS marker.</p>'+
   '<div id="v162RecoveryMap" class="v162-map" role="application" aria-label="Interactive Google map showing confirmed rocket GPS trail and optional user location"></div>'+
   '<div class="row"><span>Map evidence</span><strong id="v162MapEvidence">No confirmed rocket GPS fix received.</strong></div>'+
+  '<p class="muted">Yellow: latest confirmed GPS; green: recorded prelaunch fix (when available); purple: last valid LoRa position, which may be stale.</p>'+
   '<p id="v162MapStatus" class="muted" role="status">Checking optional Google Maps configuration...</p>'+
   '<details><summary>Map privacy and fallback</summary><p class="muted">Your current location is requested only after you choose Use my current location and is not added to flight history. If the embedded map is enabled, Google Maps receives map requests and may process location information needed to display/navigation features. If no key or internet is available, GREEN ION keeps the local offline plot, raw coordinates, distance/bearing and external directions link.</p></details>';
  const offline=$("v15RecoveryTrack");if(offline)offline.after(block);else card.append(block);
