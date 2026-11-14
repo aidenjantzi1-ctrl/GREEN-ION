@@ -38,5 +38,7 @@ The application retains the dark-blue `#081420` theme and five main tabs: **Dash
 - [Recovery map and GPS](docs/V16_2_GOOGLE_MAPS.md)
 - [Historical versions index](Past_Versions/README.md)
 - [Version history](VERSIONS.md) · [Changelog](CHANGELOG.md) · [GitHub Actions](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions)
+- [Historical wiring guide](docs/V14_WIRING_SOLDER.md) · [Sensor capabilities](docs/V14_SENSOR_CAPABILITIES.md) · [Devices](docs/V14_DEVICES.md)
+- [Historical cloud guide](docs/V14_CLOUD.md) · [Improvement plan](docs/V14_IMPROVEMENT_PLAN.md) · [Development reference](docs/V14_DEVELOPMENT.md) · [Quality plan](docs/V14_QUALITY_PLAN.md)
 
 Historical guides in `docs/` are retained where current tests, user help or recovery references still link to them; a version number in a filename is not proof the file is unused. Older tags and releases remain published for rollback. Flight readiness always requires independent mechanical, electrical and RF checks on the actual assembled rocket.
