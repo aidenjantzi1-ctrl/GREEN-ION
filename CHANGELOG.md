@@ -1,3 +1,12 @@
+# V17 — integrated release — November 13, 2026
+
+- Integrated AP+STA home Wi-Fi with bounded nonblocking reconnect and protected credential management.
+- Integrated bounded live sensor graphs, WebGL orientation/replay, multi-flight comparison and GPS recovery improvements.
+- Preserved the 50 Hz recorder, 3-second prelaunch buffer, RKT4 v2, GIS1, shared-SPI recorder priority, LoRa protocol and OTA/rollback behavior.
+- Added literal-text rendering for imported comparison filenames plus a malicious-filename regression test.
+- Added V17 Feather and Uno identities, V17 Windows/PWA identity, V17 release packaging and gated V17 CI workflows.
+- Physical hardware validation remains required; software CI is not a flight-readiness certificate.
+
 # V16.3 AP+STA home Wi-Fi extension — November 13, 2026
 
 - Added optional simultaneous direct AP + 2.4 GHz home-router station mode while retaining `GREEN-ION-V16-3` at `192.168.4.1`.
