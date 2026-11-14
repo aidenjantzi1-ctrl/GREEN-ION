@@ -1,4 +1,4 @@
-name: GREEN ION V17.0 - verify, compile, package and publish
+name: GREEN ION V17.0.1 - verify, compile, package and publish
 on:
   push:
     branches: [main, "integration/**", "codex2/**", "v14/**", "v16.2/**", "v16.3/**", "v17/**", "release/**"]
@@ -435,7 +435,7 @@ jobs:
             --firmware built-firmware \
             --windows windows-release \
             --output release \
-            --tag v17.0.0 \
+            --tag v17.0.1 \
             --commit "$GITHUB_SHA"
       - name: Verify final V17 manifest on exact commit
         run: |
@@ -444,7 +444,7 @@ jobs:
           import hashlib, json, os
           root=Path("release")
           m=json.loads((root/"SHA256_MANIFEST.json").read_text())
-          assert m["tag"]=="v17.0.0"
+          assert m["tag"]=="v17.0.1"
           assert m["commit"]==os.environ["GITHUB_SHA"]
           assert m["firmwareGeneration"]==m["receiverGeneration"]=="V17.0"
           assert m["radioProtocolVersion"]==2 and m["radioPacketBytes"]==70
@@ -457,12 +457,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v17.0.0 >/dev/null 2>&1; then
-            echo "v17.0.0 already exists; refusing to replace any release."
+          if gh release view v17.0.1 >/dev/null 2>&1; then
+            echo "v17.0.1 already exists; refusing to replace any release."
             exit 0
           fi
-          gh release create v17.0.0 release/* \
+          gh release create v17.0.1 release/* \
             --target "$GITHUB_SHA" \
-            --title "GREEN ION V17.0 (software CI verified; hardware testing required)" \
+            --title "GREEN ION V17.0.1 (SD-first software CI verified; hardware testing required)" \
             --notes-file docs/V17_RELEASE_NOTES.md \
             --latest
