@@ -87,13 +87,13 @@ test("firmware owns full and quick preparation truth",()=>{
 test("firmware status and files APIs expose Quick Fly evidence",()=>{
  for(const token of [
    '"/api/preflight/start"',
-   '"flight_prep_mode"',
-   '"flight_prep_progress"',
-   '"flight_prep_ready"',
-   '"flight_prep_failure"',
-   '"launch_simulation_cached"',
-   '"next_sequence"',
-   'flightSequenceOccupied'
+   "flight_prep_mode",
+   "flight_prep_progress",
+   "flight_prep_ready",
+   "flight_prep_failure",
+   "launch_simulation_cached",
+   "next_sequence",
+   "flightSequenceOccupied"
  ]) assert.ok(ino.includes(token),token);
  assert.ok(ino.includes('dashboardServer.on("/quick-fly"'));
  assert.ok(ino.includes("QUICK_FLY_HTML"));
@@ -117,6 +117,7 @@ test("Quick Fly pages are mobile, offline-oriented, and keep advanced tools sepa
  assert.ok(hosted.includes("./index.html#history"));
  assert.ok(sw.includes("./quick-fly.html"));
  assert.ok(sw.includes("./v17_quick_fly.mjs"));
+ assert.ok(app.includes('serviceWorker.register("./service-worker.js")'));
  assert.equal(manifest.start_url,"./quick-fly.html");
 });
 
