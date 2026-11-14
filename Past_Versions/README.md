@@ -12,7 +12,7 @@
 | V12 | `V12/Green_Ion_V12/` original Feather firmware, `V12/Ground_Receiver/` shared legacy Uno sketch, and `V12/CHATGPT_TRANSFER.txt` snapshot |
 | V13 | `V13/Green_Ion_V13/` original Feather firmware; `V13_README_ARCHIVE.md` preserves earlier project overview |
 | V14 | `V14/Green_Ion_V14/` original Feather firmware |
-| V15 | V15 design and hosted/local-first historical notes remain in `docs/V15_*.md` because versioned project documentation is cross-linked; there is **no V15 firmware snapshot to invent** |
+| V15 | The three authentic V15 design/hosted/local-first notes are preserved under `V15/docs/`. There is **no V15 firmware snapshot to invent** |
 | V16 | `V16/Green_Ion_V16_2/` and `V16/Ground_Receiver_V16_2/` historical firmware/receiver pair. **V16.3 is the code-line inherited by active V17, so its source stays at root.** |
 
 Archives are intentionally immutable source snapshots, not current release targets. Version numbers V8.1, V8.2, V8.3, V8.4, V8.5, V8.6, V8.7, V8.8, V9.1, V9.2, and V16.2 are preserved distinctly; no versions were fabricated or removed.

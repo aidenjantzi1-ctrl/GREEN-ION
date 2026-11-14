@@ -134,7 +134,7 @@ Feather and Uno firmware remain the V14 generation in this phase. RKT4 v2, GIS1,
 
 **Important firmware distinction:** the Feather ESP32 V2 and Uno firmware remain the V14 generation. V15 is an application/ground-station release, not a newly flashed V15 firmware image. Do not use the website version as proof that Feather hardware was updated or bench-tested.
 
-[Open V15 website](https://green-ion-beta.vercel.app/) · [V15 local-first setup guide](docs/V15_LOCAL_FIRST.md) · [V15 3D and digital twin plan (not yet implemented)](docs/V15_3D_TWIN_PLAN.md) · [Merged V15 PR #28](https://github.com/aidenjantzi1-ctrl/GREEN-ION/pull/28)
+[Open V15 website](https://green-ion-beta.vercel.app/) · [V15 local-first setup guide](Past_Versions/V15/docs/V15_LOCAL_FIRST.md) · [V15 3D and digital twin plan (not yet implemented)](Past_Versions/V15/docs/V15_3D_TWIN_PLAN.md) · [Merged V15 PR #28](https://github.com/aidenjantzi1-ctrl/GREEN-ION/pull/28)
 
 ---
 
