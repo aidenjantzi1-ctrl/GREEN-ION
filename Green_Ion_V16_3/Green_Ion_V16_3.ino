@@ -46,6 +46,7 @@
 #include "Config.h"
 #include "SensorState.h"
 #include "Dashboard.h"
+#include "QuickFlyDashboard.h"
 
 Adafruit_BMP3XX barometer;
 Adafruit_LSM6DSO32 imu;
@@ -2154,6 +2155,9 @@ static void sendDashboardStatus() {
   const auto flightPrep = currentFlightReadinessResult();
   body += ",\"flight_prep_active\":";
   body += flightReadinessActive ? "true" : "false";
+  body += ",\"flight_prep_mode\":\"";
+  body += flightReadinessQuick ? "quick" : "full";
+  body += "\"";
   body += ",\"flight_prep_phase\":\"" + String(flightReadinessPhaseName()) + "\"";
   body += ",\"flight_prep_progress\":" + String(flightReadinessProgress());
   body += ",\"flight_prep_ready\":";
@@ -2165,6 +2169,8 @@ static void sendDashboardStatus() {
   body += flightReadinessSdIntegrityPassed ? "true" : "false";
   body += ",\"launch_simulation_verified\":";
   body += flightReadinessSimulationPassed ? "true" : "false";
+  body += ",\"launch_simulation_cached\":";
+  body += flightReadinessSimulationVerifiedThisBoot ? "true" : "false";
   body += ",\"sd_total_bytes\":" + String(static_cast<unsigned long long>(sdTotalBytesCached));
   body += ",\"sd_used_bytes\":" + String(static_cast<unsigned long long>(sdUsedBytesCached));
   body += ",\"sd_free_bytes\":" +
@@ -2385,8 +2391,21 @@ static void sendDashboardFiles() {
                          "{\"success\":false,\"message\":\"Shared SPI busy; retry shortly\"}");
     return;
   }
+  unsigned nextSequence = green_ion::storage::kSequenceLimit;
+  for (unsigned sequence = 0;
+       sequence < green_ion::storage::kSequenceLimit; ++sequence) {
+    const bool occupied = green_ion::storage::flightSequenceOccupied(
+        sequence, [](const char *path) { return SD.exists(path); });
+    if (!occupied) {
+      nextSequence = sequence;
+      break;
+    }
+  }
   String body = "{\"success\":true,\"used\":" + String(SD.usedBytes()) +
-                ",\"total\":" + String(SD.totalBytes()) + ",\"files\":[";
+                ",\"total\":" + String(SD.totalBytes()) + ",\"next_sequence\":";
+  if (nextSequence < green_ion::storage::kSequenceLimit) body += String(nextSequence);
+  else body += "null";
+  body += ",\"files\":[";
   bool first = true;
   File root = SD.open("/");
   if (root) {
@@ -2533,17 +2552,23 @@ static void initializeDashboard() {
   dashboardServer.on("/", []() {
     dashboardServer.send_P(200, "text/html", DASHBOARD_HTML);
   });
+  dashboardServer.on("/quick-fly", []() {
+    dashboardServer.send_P(200, "text/html", QUICK_FLY_HTML);
+  });
+  dashboardServer.on("/quick-fly/", []() {
+    dashboardServer.send_P(200, "text/html", QUICK_FLY_HTML);
+  });
   dashboardServer.on("/manifest.webmanifest", []() {
     dashboardServer.send(200, "application/manifest+json",
-        "{\"name\":\"GREEN ION V17.0\",\"short_name\":\"GREEN ION\","
-        "\"start_url\":\"/\",\"display\":\"standalone\","
+        "{\"name\":\"GREEN ION V17.0 · Quick Fly\",\"short_name\":\"GREEN ION\","
+        "\"start_url\":\"/quick-fly\",\"display\":\"standalone\","
         "\"background_color\":\"#081420\",\"theme_color\":\"#081420\"}");
   });
   dashboardServer.on("/service-worker.js", []() {
     dashboardServer.sendHeader("Service-Worker-Allowed", "/");
     dashboardServer.send(200, "application/javascript",
-        "const C='green-ion-v17-0-dashboard-v1';"
-        "self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.add('/'))));"
+        "const C='green-ion-v17-0-quick-fly-v1';"
+        "self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(['/','/quick-fly']))));"
         "self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));"
         "self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||new URL(e.request.url).pathname.startsWith('/api/'))return;"
         "e.respondWith(fetch(e.request).then(r=>{const x=r.clone();caches.open(C).then(c=>c.put(e.request,x));return r;})"
