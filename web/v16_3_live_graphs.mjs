@@ -99,7 +99,17 @@ export function initV163LiveGraphs(transport){
    "Unavailable/stale · no fresh "+LIVE_GRAPH_FIELDS[key].label.toLowerCase()+" reading";
  }
  metric.onchange=paint;$("v163GraphWindow").onchange=paint;
- window.addEventListener("green-ion-v16-telemetry",event=>accept(liveGraphSample(event.detail)));
+ window.addEventListener("green-ion-v16-telemetry",event=>{
+  const s=liveGraphSample(event.detail),raw=transport?.state?.lastWifiStatus??transport?.state?.lastStatus;
+  // Full Feather status may include a barometric vertical estimator that is not
+  // carried by receive-only radio telemetry or the unified telemetry schema.
+  // Do not reuse GPS ground speed for this graph.
+  if(transport?.wifiFresh?.()&&raw&&event.detail?.primary_source==="wifi"){
+   const v=raw.vertical_velocity_mps??raw.velocity_mps;
+   if(typeof v==="number"&&Number.isFinite(v))s.values.vertical_velocity_mps=v;
+  }
+  accept(s);
+ });
  window.addEventListener("green-ion-link",()=>{
   if(window.GREEN_ION_UNIFIED_TELEMETRY)return;
   const src=transport.source(),raw=src==="wifi"?transport.state.lastWifiStatus??transport.state.lastStatus:

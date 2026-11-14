@@ -1,5 +1,5 @@
 /* Only cache same-origin app assets, never sensor endpoints, auth or cloud data. */
-const VERSION="green-ion-v16-3-shared-spi-1";
+const VERSION="green-ion-v16-3-codex2-visual-1";
 const ASSETS=["./","./index.html","./config.js","./manifest.webmanifest","./icon.svg",
  "./v14_boot.js","./v14_layout.css","./v14_ui.mjs","./v14_app.mjs","./v14_utils.mjs","./v14_serial.mjs",
  "./v14_store.mjs","./v14_preferences.mjs","./v14_sensor_catalog.mjs","./v14_sensor_lab.mjs","./v14_sensor_history.mjs","./sensor-worker.mjs","./analysis/gis1.mjs","./v14_analysis.mjs","./v14_cloud.mjs","./v14_updates.mjs",
@@ -7,7 +7,7 @@ const ASSETS=["./","./index.html","./config.js","./manifest.webmanifest","./icon
  "./v15_recovery.mjs","./v15_advanced.mjs","./v15_analysis_core.mjs","./v15_report_worker.mjs",
  "./v15_local.mjs","./v15_battery.mjs","./v15_link.mjs","./v15_help.mjs","./v16_telemetry.mjs","./v16_mission.mjs","./v16_layout.mjs","./v16_navigation.mjs","./v16_data.mjs","./v16_runtime.mjs","./v16_visualization.mjs","./v16_visualization_worker.mjs","./v16_validation.mjs","./v16_1_diagnostics.mjs","./v16_1_guided_test.mjs","./v16_1_analysis_core.mjs",
  "./v16_2_dashboard.mjs","./v16_2_webgl.mjs","./v16_2_map.mjs","./v16_2_sd_manager.mjs",
- "./v16_2_compare.mjs","./v16_2_compare_worker.mjs","./v16_2_testing.mjs","./v16_2_experience.mjs","./v16_2_scorecard.mjs","./v16_3_shared_spi.mjs"];
+ "./v16_2_compare.mjs","./v16_2_compare_worker.mjs","./v16_3_live_graphs.mjs","./v16_3_recovery_data.mjs","./v16_3_recovery_tools.mjs","./v16_2_testing.mjs","./v16_2_experience.mjs","./v16_2_scorecard.mjs","./v16_3_shared_spi.mjs"];
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(VERSION).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
 });
