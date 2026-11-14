@@ -109,7 +109,7 @@ class V163SharedSpiTests(unittest.TestCase):
     def test_home_test_exercises_sd_and_optional_lora_concurrently(self):
         self.assertIn("HOME_CONCURRENT_RADIO_PACKETS = 8",CFG)
         self.assertIn("radioBenchPacketsRemaining = config::HOME_CONCURRENT_RADIO_PACKETS",HOME)
-        self.assertIn("homeRadioConcurrentExpected = state.radioOk",HOME)
+        self.assertIn("homeRadioConcurrentExpected = state.radioOk && radioTransmitAuthorized",HOME)
         self.assertIn("50 Hz SD + optional LoRa shared-SPI stress test",HOME)
         self.assertIn("home_shared_spi_result",FW)
         for field in (
