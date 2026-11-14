@@ -41,6 +41,7 @@
 #include <GreenIonBenchTests.h>
 #include <GreenIonSharedSpi.h>
 #include <GreenIonWifiPolicy.h>
+#include <GreenIonFlightReadiness.h>
 
 #include "Config.h"
 #include "SensorState.h"
@@ -110,7 +111,7 @@ class RadioSpiScope {
 };
 
 static const char FIRMWARE_NAME[] = "GREEN ION Feather V17.0";
-static const char FIRMWARE_VERSION[] = "17.0.0";
+static const char FIRMWARE_VERSION[] = "17.0.1";
 static uint32_t bootSessionId = 0;
 static esp_reset_reason_t bootResetReason = ESP_RST_UNKNOWN;
 static uint32_t persistentBootCount = 0;
@@ -256,6 +257,8 @@ static bool homeImuTestStarted = false;
 static bool homeGpsTestStarted = false;
 
 static void resetCalibration(uint32_t nowMs);
+static bool configureRadioHardware();
+static bool validFlightProfileValue(const String &value, bool optional);
 #include "HomeWifi.h"
 float calibrationSamples[config::CALIBRATION_TARGET_SAMPLES];
 uint16_t calibrationWarmup = 0;
@@ -302,6 +305,9 @@ uint32_t sensorLogCommittedBytes = 0;
 uint32_t sensorLogCommittedRecords = 0;
 bool sensorLogCheckpointable = false;
 uint32_t recordingStartedMs = 0;
+float flightPeakAltitudeEstimateM = NAN;
+float apogeeEstimateM = NAN;
+bool apogeeDetected = false;
 bool checkpointSlotB = false;
 uint32_t recoveredLogs = 0;
 uint32_t recoveredRecords = 0;
@@ -312,6 +318,8 @@ uint32_t recoveryPending = 0;
 String recoveryStatus = "Not scanned";
 uint16_t healthBits = 0;
 green_ion::FlightState flightState = green_ion::STATE_IDLE;
+
+#include "FlightPreparation.h"
 
 enum BenchMode : uint8_t {
   BENCH_OFF = 0,
@@ -416,6 +424,10 @@ static void initializeStorage() {
   ++state.sdMountAttempts;
   state.sdOk = SD.begin(config::PIN_SD_CS, SPI);
   if (!state.sdOk) healthBits |= green_ion::HEALTH_SD_INIT_ERROR;
+  if (state.sdOk) {
+    sdTotalBytesCached = SD.totalBytes();
+    sdUsedBytesCached = SD.usedBytes();
+  }
   orphanHomeFile = state.sdOk && SD.exists("/GIHOME.BIN");
   if (orphanHomeFile)
     Serial.println("[HOME] Interrupted temporary file found. Run home verification cleanup; do not consider preflight complete.");
@@ -1410,11 +1422,15 @@ static void processCalibration(uint32_t nowMs, bool valid) {
   // A physically authorized Wi-Fi setup session deliberately holds launch
   // watching off. Async scan/connection work must also finish before the
   // automatic watcher can become active.
-  if (wifiManagementSessionActive(nowMs) || homeWifiOperationActive()) return;
+  if (wifiManagementSessionActive(nowMs) || homeWifiOperationActive() ||
+      flightReadinessActive) return;
   const bool watching = flightWatcher.begin({
       config::SENSOR_RATE_HZ, 0.0f, calibrationBaselinePa, calibrationNoiseM});
   recorderMode = watching ? RECORDER_WATCHING : RECORDER_FAULT;
-  if (watching) calibratedAtMs = nowMs;
+  if (watching) {
+    calibratedAtMs = nowMs;
+    flightState = green_ion::STATE_ARMED;
+  }
   if (!watching) calibrationRetryAtMs = nowMs + config::CALIBRATION_RETRY_MS;
 }
 
@@ -1645,6 +1661,9 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs) {
   sensorLogCommittedRecords = 0;
   sensorLogCheckpointable = false;
   recordingStartedMs = nowMs;
+  flightPeakAltitudeEstimateM = 0.0f;
+  apogeeEstimateM = NAN;
+  apogeeDetected = false;
   logFile = SD.open(logFilename, FILE_WRITE);
   if (!logFile) {
     logFilename = "";
@@ -1843,6 +1862,22 @@ static void appendLog(uint32_t nowUs, uint32_t nowMs, bool valid) {
       recorderMode = RECORDER_FAULT;
     }
   }
+  if (recorderMode == RECORDER_RECORDING && valid &&
+      isfinite(watcherAltitudeM) && isfinite(watcherSpeedMps)) {
+    if (!isfinite(flightPeakAltitudeEstimateM) ||
+        watcherAltitudeM > flightPeakAltitudeEstimateM)
+      flightPeakAltitudeEstimateM = watcherAltitudeM;
+    const uint32_t flightElapsedMs = nowMs - recordingStartedMs;
+    if (flightState == green_ion::STATE_ASCENT && flightElapsedMs > 500 &&
+        watcherSpeedMps < 4.0f)
+      flightState = green_ion::STATE_COAST;
+    if (!apogeeDetected && flightElapsedMs > 1000 &&
+        flightPeakAltitudeEstimateM >= 5.0f && watcherSpeedMps <= -1.0f) {
+      apogeeDetected = true;
+      apogeeEstimateM = flightPeakAltitudeEstimateM;
+      flightState = green_ion::STATE_DESCENT;
+    }
+  }
   if (recorderMode == RECORDER_RECORDING &&
       landingWatcher.update({nowMs, watcherAltitudeM, watcherSpeedMps, valid}))
     finalizeRecording(nowMs);
@@ -1963,8 +1998,8 @@ static void sendDashboardStatus() {
     return isfinite(value) ? String(value, static_cast<unsigned int>(decimals)) : String("null");
   };
   String body;
-  body.reserve(4400);
-  body += "{\"version\":16,\"firmware_name\":\"" + String(FIRMWARE_NAME) + "\"";
+  body.reserve(5600);
+  body += "{\"version\":17,\"firmware_name\":\"" + String(FIRMWARE_NAME) + "\"";
   body += ",\"firmware_version\":\"" + String(FIRMWARE_VERSION) + "\"";
   body += ",\"radio_protocol\":" + String(green_ion::kProtocolVersion);
   body += ",\"boot_session_id\":" + String(bootSessionId);
@@ -1982,6 +2017,9 @@ static void sendDashboardStatus() {
   body += state.gpsOk ? "true" : "false";
   body += ",\"radio_ok\":";
   body += state.radioOk ? "true" : "false";
+  body += ",\"armed\":";
+  body += recorderMode == RECORDER_WATCHING &&
+          flightWatcher.state() == green_ion::flight::WATCHING ? "true" : "false";
   body += ",\"log_file\":\"" + logFilename + "\",\"pressure_pa\":";
   body += numberOrNull(state.pressurePa, 0);
   body += ",\"altitude_m\":" + numberOrNull(state.altitudeM, 2);
@@ -2098,6 +2136,10 @@ static void sendDashboardStatus() {
   body += state.lastBatteryReadMs ? String(millis() - state.lastBatteryReadMs) : "null";
   body += ",\"finalization_failures\":" + String(finalizationFailures);
   body += ",\"landing_peak_m\":" + numberOrNull(landingWatcher.peakAltitudeM(), 2);
+  body += ",\"flight_peak_estimate_m\":" + numberOrNull(flightPeakAltitudeEstimateM, 2);
+  body += ",\"apogee_detected\":";
+  body += apogeeDetected ? "true" : "false";
+  body += ",\"apogee_estimate_m\":" + numberOrNull(apogeeEstimateM, 2);
   body += ",\"missed_sample_periods\":" + String(sampleClock.missedPeriods());
   body += ",\"recovered_logs\":" + String(recoveredLogs);
   body += ",\"recovered_records\":" + String(recoveredRecords);
@@ -2109,6 +2151,30 @@ static void sendDashboardStatus() {
   const auto preflight = currentPreflight();
   body += ",\"preflight_state\":\"" + String(preflight.label) + "\"";
   body += ",\"preflight_flags\":" + String(preflight.flags);
+  const auto flightPrep = currentFlightReadinessResult();
+  body += ",\"flight_prep_active\":";
+  body += flightReadinessActive ? "true" : "false";
+  body += ",\"flight_prep_phase\":\"" + String(flightReadinessPhaseName()) + "\"";
+  body += ",\"flight_prep_progress\":" + String(flightReadinessProgress());
+  body += ",\"flight_prep_ready\":";
+  body += flightReadinessPhase == FLIGHT_PREP_READY && flightPrep.ready ? "true" : "false";
+  body += ",\"flight_prep_failure\":\"" + flightReadinessFailure + "\"";
+  body += ",\"flight_prep_critical_flags\":" + String(flightPrep.criticalFlags);
+  body += ",\"flight_prep_warning_flags\":" + String(flightPrep.warningFlags);
+  body += ",\"sd_integrity_verified\":";
+  body += flightReadinessSdIntegrityPassed ? "true" : "false";
+  body += ",\"launch_simulation_verified\":";
+  body += flightReadinessSimulationPassed ? "true" : "false";
+  body += ",\"sd_total_bytes\":" + String(static_cast<unsigned long long>(sdTotalBytesCached));
+  body += ",\"sd_used_bytes\":" + String(static_cast<unsigned long long>(sdUsedBytesCached));
+  body += ",\"sd_free_bytes\":" +
+      String(static_cast<unsigned long long>(
+          sdTotalBytesCached >= sdUsedBytesCached ? sdTotalBytesCached - sdUsedBytesCached : 0));
+  body += ",\"lora_diag_code\":\"" + loraDiagnosticCode + "\"";
+  body += ",\"lora_chip_version\":" + String(loraDiagnosticVersion);
+  body += ",\"lora_spi_ok\":";
+  body += loraDiagnosticSpiOk ? "true" : "false";
+  body += ",\"lora_diag_problem\":\"" + loraDiagnosticProblem + "\"";
   body += ",\"selected_rocket\":\"" + selectedRocket + "\"";
   body += ",\"selected_motor\":\"" + selectedMotor + "\"";
   body += ",\"calibration_age_s\":" +
@@ -2484,6 +2550,8 @@ static void initializeDashboard() {
         ".catch(()=>caches.match(e.request).then(r=>r||caches.match('/'))));});");
   });
   dashboardServer.on("/api/status", sendDashboardStatus);
+  dashboardServer.on("/api/preflight/start", HTTP_POST, beginFlightReadiness);
+  dashboardServer.on("/api/radio/diagnostic", HTTP_POST, runLoraDiagnosticEndpoint);
   dashboardServer.on("/api/wifi/status", HTTP_GET, sendHomeWifiStatus);
   dashboardServer.on("/api/wifi/authorize", HTTP_POST, authorizeWifiManagement);
   dashboardServer.on("/api/wifi/release", HTTP_POST, releaseWifiManagement);
@@ -2658,7 +2726,7 @@ void setup() {
   initializeDashboard();
   Serial.println();
   Serial.println("==================================================");
-  Serial.println(" GREEN ION Feather V17.0 | rocket flight recorder");
+  Serial.println(" GREEN ION Feather V17.0.1 | SD-first rocket flight recorder");
   Serial.println("==================================================");
   Serial.printf(" Firmware: %s | session=%lu | reset=%s\n", FIRMWARE_VERSION,
                 static_cast<unsigned long>(bootSessionId), resetReasonName(bootResetReason));
@@ -2683,6 +2751,7 @@ void loop() {
   }
   serviceGps(nowMs);
   serviceHardwareTests(nowMs);
+  serviceFlightReadiness(nowMs);
   serviceSerialBench(nowMs);
 
   if (state.sdOk && recorderCore.recording() && nowMs - lastFlushMs >= config::LOG_FLUSH_INTERVAL_MS) {
