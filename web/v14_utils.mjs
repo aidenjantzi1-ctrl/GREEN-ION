@@ -63,7 +63,7 @@ export function checkFirmwareManifest(release, manifest, image) {
   const expectedSize=Number(entry?.size);
   const expectedGeneration=parsed?.major===17 && parsed.minor===0 ? "V17.0" :
     parsed?.major===16 ? "V16."+parsed.minor : null;
-  const legacy=manifest?.version===release?.tag_name;
+  const legacy=parsed?.major===14 && manifest?.version===release?.tag_name;
   const modern=manifest?.tag===release?.tag_name &&
     manifest?.firmwareGeneration===expectedGeneration;
   if((!legacy&&!modern) ||
