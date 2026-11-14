@@ -86,8 +86,12 @@ jobs:
       - name: Validate hosted site assets
         run: |
           test -s web/dist/index.html
+          test -s web/dist/quick-fly.html
+          test -s web/dist/v17_quick_fly.mjs
           test -s web/dist/config.js
           test -s web/dist/service-worker.js
+          grep -q 'PREPARE &amp; ARM' web/dist/quick-fly.html
+          grep -q 'QUICK FLY' web/dist/quick-fly.html
           grep -q 'data-tab="status">Dashboard</button>' web/dist/index.html
           grep -q 'data-tab="flight">Flight</button>' web/dist/index.html
           grep -q 'data-tab="history">Flights &amp; Analysis</button>' web/dist/index.html
