@@ -289,6 +289,7 @@ uint32_t lastRadioAttemptMs = 0;
 uint16_t radioBenchPacketsSent = 0;
 uint8_t radioBenchPacketsRemaining = 0;
 bool radioManualRetryRequested = false;
+bool radioTransmitAuthorized = false;  // RAM-only; explicit antenna confirmation required after every reboot.
 uint32_t lastGpsServiceMs = 0;
 uint32_t lastBenchOutputMs = 0;
 uint32_t lastTelemetryMs = 0;
@@ -2017,6 +2018,8 @@ static void sendDashboardStatus() {
   body += state.gpsOk ? "true" : "false";
   body += ",\"radio_ok\":";
   body += state.radioOk ? "true" : "false";
+  body += ",\"radio_tx_authorized\":";
+  body += radioTransmitAuthorized ? "true" : "false";
   body += ",\"armed\":";
   body += recorderMode == RECORDER_WATCHING &&
           flightWatcher.state() == green_ion::flight::WATCHING ? "true" : "false";
@@ -2631,7 +2634,7 @@ static void initializeDashboard() {
 }
 
 static void queueTelemetry(uint32_t nowMs) {
-  if (recorderMode == RECORDER_MAINTENANCE) return;
+  if (recorderMode == RECORDER_MAINTENANCE || !radioTransmitAuthorized) return;
   if (nowMs - lastTelemetryMs < config::TELEMETRY_INTERVAL_MS) return;
   lastTelemetryMs = nowMs;
   const uint32_t age = gpsAgeMs(nowMs);
@@ -2668,7 +2671,8 @@ static void queueTelemetry(uint32_t nowMs) {
 }
 
 static void serviceTelemetry(uint32_t nowMs, uint32_t nowUs) {
-  if (recorderMode == RECORDER_MAINTENANCE || radioTxAwaitingCompletion) return;
+  if (recorderMode == RECORDER_MAINTENANCE || !radioTransmitAuthorized ||
+      radioTxAwaitingCompletion) return;
   if (nowMs - lastRadioAttemptMs < config::RADIO_RETRY_INTERVAL_MS) return;
   const bool radioBusy = state.radioOk && radio.mode() == RHGenericDriver::RHModeTx;
   if (!green_ion::radioDispatchAllowed(
@@ -2734,7 +2738,7 @@ void setup() {
   Serial.printf(" Home Wi-Fi: %s\n", homeWifiConfigured ? "configured (AP+STA attempt is nonblocking)" : "not configured (AP-only)");
   Serial.println(" Mode: automatic calibration and launch watching");
   Serial.println(" Type 'help' for commands or 'status' for health.");
-  Serial.println(" LoRa requires a suitable antenna before transmitting.");
+  Serial.println(" LoRa TX is LOCKED after reboot until a suitable antenna is explicitly confirmed on the bench.");
   Serial.println(" OTA / rollback: use System tab, on the bench only.");
   printConsoleSummary(millis(), true);
   sampleClock.start(micros());
