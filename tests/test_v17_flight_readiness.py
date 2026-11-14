@@ -39,6 +39,8 @@ class V17FlightReadiness(unittest.TestCase):
             "STATE_ARMED",
         ):
             self.assertIn(token, PREP+FW)
+        self.assertIn("RecorderCore<8> simulatedRecorder", PREP)
+        self.assertIn("validateHeader(simulatedSink.data()", PREP)
         self.assertIn("PREPARE FOR FLIGHT", DASH)
         self.assertIn("ARMED — READY FOR LAUNCH", DASH)
 
