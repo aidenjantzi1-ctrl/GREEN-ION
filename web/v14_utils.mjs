@@ -1,4 +1,4 @@
-export const APP_VERSION = "16.3.0";
+export const APP_VERSION = "17.0.0";
 export const REPOSITORY = "aidenjantzi1-ctrl/GREEN-ION";
 export const FEATHER_ADDRESS = "http://192.168.4.1";
 export function parseVersion(input) {
@@ -34,6 +34,7 @@ export function safeFirmwareAsset(asset, releaseTag) {
 export function firmwareImageNameForTag(tag) {
   const version=parseVersion(tag);
   if(!version)return null;
+  if(version.major===17)return "Green_Ion_V17.ino.bin";
   if(version.major===16)return "Green_Ion_V16_"+version.minor+".ino.bin";
   if(version.major===14)return "Green_Ion_V14.ino.bin";
   return null;
@@ -60,7 +61,7 @@ export function checkFirmwareManifest(release, manifest, image) {
   const parsed=parseVersion(release?.tag_name);
   const entry=manifest?.artifacts?.[image?.name];
   const expectedSize=Number(entry?.size);
-  const expectedGeneration=parsed?.major===16 ? "V16."+parsed.minor : null;
+  const expectedGeneration=parsed?.major===17 ? "V17" : parsed?.major===16 ? "V16."+parsed.minor : null;
   const legacy=manifest?.version===release?.tag_name;
   const modern=manifest?.tag===release?.tag_name &&
     manifest?.firmwareGeneration===expectedGeneration;
