@@ -1,7 +1,7 @@
 name: GREEN ION V17.0 - verify, compile, package and publish
 on:
   push:
-    branches: [main, "integration/**", "codex2/**", "v14/**", "v16.2/**", "v16.3/**", "release/**"]
+    branches: [main, "integration/**", "codex2/**", "v14/**", "v16.2/**", "v16.3/**", "v17/**", "release/**"]
     paths:
       - "web/**"
       - "Past_Versions/V14/Green_Ion_V14/**"
