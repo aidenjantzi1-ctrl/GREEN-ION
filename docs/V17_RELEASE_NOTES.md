@@ -1,8 +1,17 @@
-# GREEN ION V17.0 — software release notes
+# GREEN ION V17.0.1 — SD-first flight readiness release notes
 
-**Current software version:** `17.0.0` (Feather, Uno receiver, Windows, web dashboard).
+**Current software version:** `17.0.1` (Feather, Uno receiver, Windows, web dashboard).
 
 **Verification scope:** GitHub Actions software tests, firmware compilation, Windows/OTA packaging and SHA-256 manifest checks. **No hardware flight-test results are claimed. This release is NOT flight-certified and NOT a launch authorization.**
+
+## V17.0.1 flight-readiness upgrade
+
+- Makes the 50 Hz RKT4 v2 microSD recorder the explicit authoritative flight-data path; GPS, LoRa, Wi-Fi and an active phone remain optional.
+- Adds firmware-owned **PREPARE FOR FLIGHT**: RKT4 SD write/read/delete integrity, critical sensor/battery checks, optional GPS/LoRa diagnostics, fresh calibration, synthetic launch/landing self-test and automatic launch-watcher arming.
+- Adds passive SX127x RegVersion/SPI diagnostics with exact Feather pins and probable wiring faults. Any transmit check remains explicit and requires antenna confirmation.
+- Adds ascent/coast/apogee/descent status while preserving automatic landing finalization and interrupted-flight recovery.
+- Fixes stale Uno receiver version output and adds receive-side chip/settings diagnostics.
+- Hardware-dependent behavior remains **NOT VERIFIED** until tested on the real Feather, SD card, RFM95W, Uno, battery, rocket and launch range.
 
 ## Features integrated into V17
 
