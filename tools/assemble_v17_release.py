@@ -60,8 +60,8 @@ def main() -> None:
         raise SystemExit("Windows ZIP SHA-256 mismatch")
 
     metadata = json.loads((ROOT / "Ground_Station/version.json").read_text(encoding="utf-8"))
-    if metadata["version"] != "17.0.0" or metadata["channel"] != "stable":
-        raise SystemExit("V17 release requires version.json 17.0.0 stable software channel")
+    if metadata["version"] != "17.0.1" or metadata["channel"] != "stable":
+        raise SystemExit("V17 release requires version.json 17.0.1 stable software channel")
 
     feather = require_one(args.firmware, "Green_Ion_V16_3.ino.bin")
     uno = require_one(args.firmware, "Ground_Receiver_V16_3.ino.hex")
