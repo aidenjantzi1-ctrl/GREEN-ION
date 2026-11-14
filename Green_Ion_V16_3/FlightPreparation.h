@@ -281,7 +281,7 @@ static green_ion::readiness::Result currentFlightReadinessResult() {
     state.radioOk,
     sensorLogFailures == 0,
     true,  // Preflight-internal SD work is not a flight missed-sample failure.
-    validFlightProfileValue(selectedRocket)
+    validFlightProfileValue(selectedRocket, false)
   });
 }
 
