@@ -448,6 +448,7 @@ static void runLoraDiagnosticEndpoint() {
         "{\"success\":false,\"message\":\"Radio did not initialize, so no packet was transmitted\"}");
       return;
     }
+    radioTransmitAuthorized = true;
     radioBenchPacketsRemaining = 3;
     lastTelemetryMs = millis() - config::TELEMETRY_INTERVAL_MS;
   }
@@ -464,6 +465,7 @@ static void runLoraDiagnosticEndpoint() {
   body += ",\"spreading_factor\":" + String(config::LORA_SPREADING_FACTOR);
   body += ",\"coding_rate\":\"4/" + String(config::LORA_CODING_RATE_DENOMINATOR) + "\"}";
   body += ",\"antenna_detectable\":false";
+  body += ",\"transmit_authorized\":" + String(radioTransmitAuthorized ? "true" : "false");
   body += ",\"transmit_started\":" + String(transmit && state.radioOk ? "true" : "false");
   body += ",\"probable_problem\":\"" + loraDiagnosticProblem + "\"}";
   dashboardServer.send(200, "application/json", body);
