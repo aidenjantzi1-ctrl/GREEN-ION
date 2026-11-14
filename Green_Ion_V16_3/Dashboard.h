@@ -177,6 +177,33 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 </nav>
 
 <section id="status" class="page active">
+<div class="card" id="v17PrepareCard" style="border:2px solid rgba(114,229,171,.55)">
+ <h2>Flight readiness</h2>
+ <button id="v17PrepareFlight" class="green" style="width:100%;font-size:1.08rem;padding:16px">PREPARE FOR FLIGHT</button>
+ <div class="progress" aria-label="Preflight progress"><div id="v17PrepProgress"></div></div>
+ <div class="row"><span>Preflight</span><strong id="v17PrepState">IDLE</strong></div>
+ <div class="row"><span>microSD / integrity</span><strong id="v17PrepSd">CHECKING</strong></div>
+ <div class="row"><span>Storage free</span><strong id="v17PrepStorage">--</strong></div>
+ <div class="row"><span>BMP388 / IMU</span><strong id="v17PrepSensors">--</strong></div>
+ <div class="row"><span>Battery</span><strong id="v17PrepBattery">--</strong></div>
+ <div class="row"><span>Altitude calibration</span><strong id="v17PrepCalibration">--</strong></div>
+ <div class="row"><span>GPS</span><strong id="v17PrepGps">OPTIONAL</strong></div>
+ <div class="row"><span>LoRa</span><strong id="v17PrepLora">OPTIONAL</strong></div>
+ <div class="row"><span>Recorder state</span><strong id="v17PrepRecorder">--</strong></div>
+ <div class="row"><span>Saved flight files</span><strong id="v17PrepFiles">--</strong></div>
+ <div class="notice" id="v17PrepMessage">One press verifies the local recorder, sensors and launch detector, then arms automatically. GPS and LoRa are warnings only; microSD recording is authoritative.</div>
+ <div class="notice" id="v17PrepAdvice">Keep GREEN ION stationary on a safe bench. Software readiness does not approve the physical rocket, recovery system, motor, or launch range.</div>
+ <details>
+  <summary>LoRa diagnostics</summary>
+  <p class="muted">Passive diagnostics read the SX127x chip ID and initialization state without transmitting. Software cannot prove every wire is physically connected or detect an antenna reliably.</p>
+  <div class="actions">
+   <button id="v17LoraDiag" class="secondary">RUN PASSIVE LORA DIAGNOSTIC</button>
+   <button id="v17LoraTx" class="warning">TRANSMIT 3 BENCH PACKETS</button>
+  </div>
+  <div class="notice" id="v17LoraDetail">Feather pins: SCK 5 · MOSI 19 · MISO 21 · SD CS 33 · LoRa CS/NSS 27 · RESET 15 · DIO0 32. Never transmit without a suitable antenna.</div>
+ </details>
+ <button id="v17OpenFlights" class="secondary" style="width:100%">OPEN SAVED FLIGHTS &amp; ANALYSIS</button>
+</div>
 <div class="metrics">
  <div class="metric">
   <div class="label">LIVE ALTITUDE</div>
@@ -2392,6 +2419,109 @@ setInterval(refresh,4000);
 })();
 </script>
 
+<script>
+/* GREEN ION V17.0.1 SD-first firmware-owned flight readiness UI. */
+(function(){
+"use strict";
+const node=id=>document.getElementById(id);
+if(!node("v17PrepareCard"))return;
+let prepBusy=false,lastFilesAt=0;
+const bytes=value=>{
+ const n=Number(value);if(!Number.isFinite(n)||n<0)return "--";
+ if(n>=1073741824)return (n/1073741824).toFixed(2)+" GB";
+ if(n>=1048576)return (n/1048576).toFixed(1)+" MB";
+ if(n>=1024)return (n/1024).toFixed(1)+" KB";
+ return n+" B";
+};
+async function req(path,method="GET",body=null){
+ const options={method,cache:"no-store"};
+ if(body){options.headers={"Content-Type":"application/x-www-form-urlencoded"};options.body=new URLSearchParams(body);}
+ const response=await fetch("/api/"+path,options);
+ const text=await response.text();let data={};
+ try{data=JSON.parse(text);}catch{data={message:text};}
+ if(!response.ok||data.success===false)throw Error(data.message||data.error||("HTTP "+response.status));
+ return data;
+}
+function recoveryAdvice(s){
+ const reason=String(s.flight_prep_failure||"");
+ if(reason.includes("microSD"))return "NOT READY: reseat the microSD card, confirm 3V/GND and shared SPI wiring (SCK 5, MOSI 19, MISO 21, SD CS 33), then retry.";
+ if(reason.includes("BMP388"))return "NOT READY: check the BMP388 STEMMA QT/I2C connection and power, keep the board stationary, then retry.";
+ if(reason.includes("IMU"))return "NOT READY: check the LSM6DSO32 connection and keep the payload motionless during the IMU test.";
+ if(reason.includes("battery"))return "NOT READY: charge/use a known-good protected LiPo and stable power. Preflight requires at least 3.60 V measured.";
+ if(reason.includes("recovery"))return "NOT READY: inspect/recover the interrupted flight evidence before creating another flight.";
+ if(reason.includes("cleanup"))return "NOT READY: finish the Home Test cleanup so no temporary verification file is left behind.";
+ if(reason.includes("calibration"))return "NOT READY: place GREEN ION on a stable surface away from airflow/vibration and run PREPARE FOR FLIGHT again.";
+ if(reason.includes("launch"))return "NOT READY: the software launch/landing detector self-test failed. Do not launch until the firmware/test failure is resolved.";
+ if(s.flight_prep_ready)return "ARMED — READY FOR LAUNCH in software. You still must physically verify the rocket, recovery system, motor installation, mounting, antennas and launch range.";
+ return "Keep GREEN ION stationary during preparation. GPS/LoRa can warn without blocking the local SD recorder.";
+}
+async function refreshFiles(s){
+ if(s.recording||s.flight_prep_active||Date.now()-lastFilesAt<7000)return;
+ lastFilesAt=Date.now();
+ try{const f=await req("files");node("v17PrepFiles").textContent=String((f.files||[]).length)+" saved package(s)";}
+ catch{node("v17PrepFiles").textContent="Unavailable while recorder is busy";}
+}
+function render(s){
+ const ready=!!s.flight_prep_ready;
+ node("v17PrepState").textContent=s.recording?"RECORDING FLIGHT":ready?"ARMED — READY FOR LAUNCH":String(s.flight_prep_phase||"IDLE");
+ node("v17PrepState").style.color=ready?"#72e5ab":s.flight_prep_failure?"#ff91a0":"#ffdd88";
+ node("v17PrepProgress").style.width=Math.max(0,Math.min(100,Number(s.flight_prep_progress||0)))+"%";
+ node("v17PrepSd").textContent=!s.sd_ok?"NOT READY":s.sd_integrity_verified?"PASS · RKT4 VERIFIED":"MOUNTED · TEST PENDING";
+ node("v17PrepStorage").textContent=bytes(s.sd_free_bytes)+" free";
+ node("v17PrepSensors").textContent=(s.barometer_ready?"BMP PASS":"BMP FAIL")+" · "+(s.imu_ok?"IMU PRESENT":"IMU FAIL")+(s.imu_range_32g?" · ±32g":"");
+ node("v17PrepBattery").textContent=Number.isFinite(Number(s.battery_v))?Number(s.battery_v).toFixed(3)+" V":"--";
+ node("v17PrepCalibration").textContent=Number.isFinite(Number(s.calibration_baseline_pa))?
+   Number(s.calibration_baseline_pa).toFixed(0)+" Pa · noise "+Number(s.calibration_noise_m||0).toFixed(3)+" m":"IN PROGRESS";
+ node("v17PrepGps").textContent=s.gps_status==="live"?"READY · "+String(s.satellites||0)+" sat":"WARNING · "+String(s.gps_status||"missing").toUpperCase();
+ node("v17PrepGps").style.color=s.gps_status==="live"?"#72e5ab":"#ffdd88";
+ node("v17PrepLora").textContent=s.radio_ok?"READY · "+String(s.lora_diag_code||"radio initialized"):"WARNING · "+String(s.lora_diag_code||"MISSING");
+ node("v17PrepLora").style.color=s.radio_ok?"#72e5ab":"#ffdd88";
+ node("v17PrepRecorder").textContent=s.recording?("RECORDING "+(s.log_file||"RKT4")):s.armed?"ARMED · 50 Hz SD":"NOT ARMED";
+ node("v17PrepMessage").textContent=s.flight_prep_failure?("NOT READY — "+s.flight_prep_failure):
+   s.recording?"Primary 50 Hz RKT4 recording is active. Wi-Fi/GPS/LoRa loss cannot stop it.":
+   ready?"ARMED — READY FOR LAUNCH. The next detected launch creates a fresh RKT4 flight file automatically.":
+   s.flight_prep_active?String(s.flight_prep_phase||"Preparing")+" · "+String(s.flight_prep_progress||0)+"%":
+   "Press PREPARE FOR FLIGHT to run the complete local recorder readiness sequence.";
+ node("v17PrepAdvice").textContent=recoveryAdvice(s);
+ node("v17LoraDetail").textContent="Feather pins: SCK 5 · MOSI 19 · MISO 21 · SD CS 33 · LoRa CS/NSS 27 · RESET 15 · DIO0 32. "+
+   (s.lora_diag_problem||"Passive diagnostic not run.")+" Antenna attachment is NOT detectable by software.";
+ node("v17PrepareFlight").disabled=prepBusy||s.recording||s.flight_prep_active||s.maintenance_mode||s.home_test_active;
+ node("v17PrepareFlight").textContent=s.flight_prep_active?"PREPARING…":ready?"RUN PREPARE AGAIN":"PREPARE FOR FLIGHT";
+ node("v17LoraDiag").disabled=s.recording||s.flight_prep_active||s.maintenance_mode||s.home_test_active;
+ node("v17LoraTx").disabled=node("v17LoraDiag").disabled;
+ refreshFiles(s);
+}
+async function poll(){
+ try{render(await req("status"));}
+ catch(e){node("v17PrepMessage").textContent="Dashboard link unavailable: "+e.message+". Autonomous SD recording does not depend on this page.";}
+}
+async function prepare(){
+ if(prepBusy)return;
+ if(!confirm("BENCH PREP: remove all motors from the rocket, keep GREEN ION stationary, and verify the physical rocket/recovery system separately. Start automatic recorder preparation?"))return;
+ prepBusy=true;
+ try{const r=await req("preflight/start","POST");node("v17PrepMessage").textContent=r.message;}
+ catch(e){node("v17PrepMessage").textContent="NOT READY — "+e.message;}
+ finally{prepBusy=false;poll();}
+}
+async function lora(transmit){
+ if(transmit&&!confirm("TRANSMIT ONLY if suitable antennas are attached to BOTH the Feather radio and Uno receiver. Confirm antennas are attached and start 3 bench packets?"))return;
+ try{
+  const r=await req("radio/diagnostic","POST",transmit?{transmit:"1",antenna:"confirmed"}:{});
+  node("v17LoraDetail").textContent="Diagnostic "+r.code+" · chip version 0x"+Number(r.chip_version||0).toString(16).padStart(2,"0")+
+    " · "+r.probable_problem+(r.transmit_started?" · 3 bench packets queued; verify reception on the Uno.":"");
+ }catch(e){node("v17LoraDetail").textContent="LoRa diagnostic: "+e.message;}
+ poll();
+}
+node("v17PrepareFlight").onclick=prepare;
+node("v17LoraDiag").onclick=()=>lora(false);
+node("v17LoraTx").onclick=()=>lora(true);
+node("v17OpenFlights").onclick=()=>{
+ const b=document.querySelector('[data-tab="history"]')||document.querySelector('[data-tab="storage"]');
+ if(b)b.click();
+};
+poll();setInterval(poll,1200);
+})();
+</script>
 <script>
 /* GREEN ION V14 guided home verification; actual evidence, no simulated rocket flight. */
 (function(){
