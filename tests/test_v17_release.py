@@ -22,11 +22,11 @@ class V17ReleaseAndArchiveTests(unittest.TestCase):
             self.assertTrue((ROOT / path).is_file(), path)
         firmware = (ROOT / "Green_Ion_V16_3/Green_Ion_V16_3.ino").read_text()
         uno = (ROOT / "Ground_Receiver_V16_3/Ground_Receiver_V16_3.ino").read_text()
-        self.assertIn('FIRMWARE_VERSION[] = "17.0.0"', firmware)
-        self.assertIn('RECEIVER_FIRMWARE_VERSION[] = "17.0.0"', uno)
-        self.assertIn('APP_VERSION = "17.0.0"', (ROOT / "web/v14_utils.mjs").read_text())
+        self.assertIn('FIRMWARE_VERSION[] = "17.0.1"', firmware)
+        self.assertIn('RECEIVER_FIRMWARE_VERSION[] = "17.0.1"', uno)
+        self.assertIn('APP_VERSION = "17.0.1"', (ROOT / "web/v14_utils.mjs").read_text())
         metadata = json.loads((ROOT / "Ground_Station/version.json").read_text())
-        self.assertEqual(metadata["version"], "17.0.0")
+        self.assertEqual(metadata["version"], "17.0.1")
         self.assertEqual(metadata["channel"], "stable")
         self.assertEqual(metadata["data_dir"], r"%USERPROFILE%\GREEN_ION_Data")
 
@@ -57,7 +57,7 @@ class V17ReleaseAndArchiveTests(unittest.TestCase):
             "arduino-cli compile", "Green_Ion_V16_3",
             "Ground_Receiver_V16_3", "publish-v17:",
             "v17-release-smoke:", "needs: [app-tests, firmware-build, windows-package, v17-release-smoke]",
-            "gh release create v17.0.0", "--notes-file docs/V17_RELEASE_NOTES.md",
+            "gh release create v17.0.1", "--notes-file docs/V17_RELEASE_NOTES.md",
         ):
             self.assertIn(token, workflow)
         assembler = (ROOT / "tools/assemble_v17_release.py").read_text()
