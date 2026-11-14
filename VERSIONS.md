@@ -1,6 +1,6 @@
-# V17.0 software integration candidate — hardware validation pending
+# V17.0 — official software release; physical launch validation pending
 
-V17 integrates dual AP+STA Wi-Fi, bounded live sensor graphs, WebGL orientation/replay, enhanced GPS recovery, multi-flight comparisons and secure filename rendering on the V16.3 shared-SPI recorder baseline. Feather and Uno report firmware 17.0.0; recorder serialization, 70-byte LoRa protocol, pin mapping, 50 Hz sampling and three-second prelaunch buffer remain unchanged. Historical source folder names stay `Green_Ion_V16_3` and `Ground_Receiver_V16_3` until a separately verified path/package migration. Windows metadata uses `candidate`, not `stable`. No real-hardware launch acceptance has been recorded.
+V17 integrates dual AP+STA Wi-Fi, bounded live sensor graphs, WebGL orientation/replay, enhanced GPS recovery, multi-flight comparisons and secure filename rendering on the V16.3 shared-SPI recorder baseline. Feather and Uno report firmware 17.0.0; recorder serialization, 70-byte LoRa protocol, pin mapping, 50 Hz sampling and three-second prelaunch buffer remain unchanged. Historical source folder names stay `Green_Ion_V16_3` and `Ground_Receiver_V16_3` until a separately verified path/package migration. Windows metadata uses software channel `stable`; this is **not** a hardware flight-readiness claim. No real-hardware launch acceptance has been recorded.
 
 [Release and hardware gates](docs/V17_RELEASE_CANDIDATE.md)
 
@@ -8,7 +8,7 @@ V17 integrates dual AP+STA Wi-Fi, bounded live sensor graphs, WebGL orientation/
 
 # V16.3 — shared-SPI reliability
 
-V16.3 is the current GREEN ION application/firmware/receiver generation. It hardens the Feather ESP32 V2 shared SPI bus used by the microSD and RFM9x on the perfboard without changing RKT4 v2, GIS1, the 70-byte LoRa packet or receive-only ground-radio behavior.
+V16.3 was the preceding GREEN ION application/firmware/receiver generation, and its Arduino source folders remain the active V17-compatible build entrypoints. It hardens the Feather ESP32 V2 shared SPI bus used by the microSD and RFM9x on the perfboard without changing RKT4 v2, GIS1, the 70-byte LoRa packet or receive-only ground-radio behavior.
 
 The recorder remains authoritative: sensor sampling, BIN writes, checkpoints and companion logging take priority; DIO0 never performs SPI inside interrupt context; radio work is bounded/deferred and cannot be treated as proof of SD success. Full Home Test adds real temporary 50 Hz SD + LoRa scheduling evidence and only credits Uno reception when actual receiver packets are observed.
 

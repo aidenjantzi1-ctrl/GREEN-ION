@@ -2485,12 +2485,12 @@ v12ShowFlight=async function(name){
 };
 loadFiles=v12LoadFiles;
 v12ConfigureUi();
-notice('GREEN ION V16 Windows reliability mode. Connecting without resetting the mission...');
+notice('GREEN ION V17 Windows reliability mode. Connecting without resetting the mission...');
 setInterval(v12Poll,1200);v12Poll();
 </script>
 
 <script>
-/* GREEN ION V16.3 local AP+STA Wi-Fi settings. Passwords are write-only. */
+/* GREEN ION V17.0 local AP+STA Wi-Fi settings. Passwords are write-only. */
 (function(){
 "use strict";
 const n=id=>document.getElementById(id);
@@ -2715,7 +2715,7 @@ const steps=[
  {title:"5. Temporary SD read/write/cleanup",guide:"Press Run to write, read, compare and delete a test pattern. Existing real flight recordings are left alone.",kind:"sd"},
  {title:"6. LoRa transmitter and Uno receiver",guide:"Connect both 900/915 MHz antennas, Uno USB and Windows ground station. Press Run to transmit five bench packets. Confirm five valid packets arrived at the actual Uno.",kind:"radio",confirm:"I saw five valid bench packets arrive on my Uno/Windows receiver."},
  {title:"7. LiPo operation without USB",guide:"With a correctly wired protected LiPo, briefly unplug USB without disconnecting the battery or moving wiring. Verify the Feather remains powered, then reconnect USB.",kind:"manual",confirm:"Feather stayed running on LiPo and USB is safely reconnected."},
- {title:"8. Shared SD + LoRa 50 Hz stress + Wi-Fi disconnect",guide:"Press Run for 30 seconds of real 50 Hz pressure recording. When the Feather radio is available, V16.3 also schedules bounded LoRa bench packets through the shared SPI bus. Briefly disconnect PHONE Wi-Fi for at least five seconds, rejoin GREEN-ION-V16-3 and watch the result. Do not remove Feather power.",kind:"record"},
+ {title:"8. Shared SD + LoRa 50 Hz stress + Wi-Fi disconnect",guide:"Press Run for 30 seconds of real 50 Hz pressure recording. When the Feather radio is available, V17 also schedules bounded LoRa bench packets through the shared SPI bus. Briefly disconnect PHONE Wi-Fi for at least five seconds, rejoin GREEN-ION-V16-3 and watch the result. Do not remove Feather power.",kind:"record"},
  {title:"9. Final physical readiness review",guide:"Check the payload's secure mount, balance and recovery clearance for Green Eggs and So Long separately. RF range, hardware power-loss recovery, OTA/rollback, launch and landing detection, and flight conditions are NOT tested by this routine.",kind:"manual",confirm:"I reviewed remaining physical and range tests; I understand bench PASS is not flight approval."}
 ];
 let active=false,step=-1,busy=false,pending="",results={},evidence=[],radioStarted=false,message="",autoRunning=false;
@@ -2928,7 +2928,7 @@ async function finish(){
  busy=false;paint();
 }
 function report(){
- const payload={project:"GREEN ION V16.3",test:"guided bench verification",flight_ready:false,
+ const payload={project:"GREEN ION V17.0",test:"guided bench verification",flight_ready:false,
   limits:"No real launch/landing, RF range, vibration, OTA rollback, power interruption or mechanical recovery verification.",
   created:new Date().toISOString(),checks:evidence};
  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});

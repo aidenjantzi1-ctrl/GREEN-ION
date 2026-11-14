@@ -1,4 +1,4 @@
-"""Local, dependency-light GREEN ION V16.3 telemetry ground station.
+"""Local, dependency-light GREEN ION V17.0 telemetry ground station.
 
 Run sample data:
     py -3 ground_station.py --sample
@@ -52,7 +52,7 @@ PUBLIC_CLOUD = {
 try:
     APP_INFO = json.loads((ROOT / "version.json").read_text(encoding="utf-8"))
 except (OSError, ValueError, TypeError):
-    APP_INFO = {"schema": "GREEN-ION-V16-WINDOWS-1", "version": "unknown", "channel": "unknown"}
+    APP_INFO = {"schema": "GREEN-ION-V17-WINDOWS-1", "version": "unknown", "channel": "unknown"}
 RUNTIME = {
     "started_utc": datetime.now(timezone.utc).isoformat(),
     "receiver_port": None,
@@ -778,11 +778,11 @@ def main() -> None:
                 webbrowser.open(url)
             return
         raise
-    print(f"GREEN ION V16 Windows Ground Station {APP_INFO.get('version', 'unknown')}: {url}")
+    print(f"GREEN ION V17.0 Windows Ground Station {APP_INFO.get('version', 'unknown')}: {url}")
     print(f"Automatic computer flight archive: {FLIGHT_DIR}")
     print("Mode: SIMULATED DATA — NOT HARDWARE" if use_sample else
           f"Mode: Feather Wi-Fi + {('Uno radio on ' + selected_port) if selected_port else ('watching USB for Uno' if auto_receiver else 'Wi-Fi only')}")
-    print("Feather Wi-Fi: http://192.168.4.1 (join GREEN-ION-V16-3 or a compatible older AP)")
+    print("Feather Wi-Fi: http://192.168.4.1 (join GREEN-ION-V17 or a compatible older AP)")
     print(f"Telemetry log: {log_path}")
     print("Keep this window open while using the website. Press Ctrl+C to stop.")
     if not args.no_browser:

@@ -1,3 +1,15 @@
+# V17.0 — official software release and historical archive — November 13, 2026
+
+- Promoted Feather, Uno receiver, Windows and offline dashboard runtime identities to **17.0.0**. Kept their original V16.3 Arduino sketch source directory names for build/update compatibility.
+- Integrated physically authorized AP+STA home Wi-Fi, bounded live sensor graphs, WebGL/3D replay, GPS/LoRa recovery and multi-flight comparison features.
+- Hardened V17 OTA release manifest checking against mismatched firmware generations; preserved SHA-256 validation and deliberate bench-only firmware updates.
+- Archived historical V12/V13/V14/V16.2 firmware and Uno source trees under `Past_Versions/`, plus existing V11 and V15 historical design notes; updated legacy tests, workflows and links.
+- Added V17-tagged firmware, receiver, source, web and Windows distribution artifacts, with verified release manifest and one-time CI-gated publication.
+- Preserved RKT4 v2, GIS1, 50 Hz autonomous recording, 3 s prebuffer, separate SD/LoRa chip selects, 70-byte LoRa v2 and receive-only Uno.
+- **Hardware launch checks are still outstanding.** Software verification is not flight certification.
+
+---
+
 # V16.3 AP+STA home Wi-Fi extension — November 13, 2026
 
 - Added optional simultaneous direct AP + 2.4 GHz home-router station mode while retaining `GREEN-ION-V16-3` at `192.168.4.1`.
