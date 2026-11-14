@@ -1,3 +1,11 @@
+# V17 — integrated Wi-Fi, visualization, replay and recovery
+
+V17 is the current GREEN ION software generation. It integrates the V16.3 recorder/shared-SPI baseline with protected AP+STA home Wi-Fi, live sensor graphs, WebGL attitude/replay, multi-flight comparison, GPS freshness/offline recovery tools and the comparison-filename security fix.
+
+It preserves 50 Hz recording, the three-second prelaunch buffer, RKT4 v2, GIS1, protocol-v2 70-byte LoRa, receive-only ground radio and recorder independence from Wi-Fi.
+
+**Software validation and hardware validation are separate.** See [V17 implementation](docs/V17_IMPLEMENTATION.md), [update guide](docs/V17_UPDATE_GUIDE.md), [release notes](docs/V17_RELEASE_NOTES.md) and [hardware validation](docs/V17_HARDWARE_VALIDATION.md).
+
 # V16.3 — shared-SPI reliability
 
 V16.3 is the current GREEN ION application/firmware/receiver generation. It hardens the Feather ESP32 V2 shared SPI bus used by the microSD and RFM9x on the perfboard without changing RKT4 v2, GIS1, the 70-byte LoRa packet or receive-only ground-radio behavior.
