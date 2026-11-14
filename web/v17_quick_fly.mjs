@@ -308,6 +308,8 @@ class QuickFlyApp{
 
 function boot(){
  if(!$("quickFlyApp"))return;
+ if("serviceWorker" in navigator)
+  navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
  const app=new QuickFlyApp();
  window.GREEN_ION_QUICK_FLY=app;
  app.start();
