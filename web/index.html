@@ -2851,8 +2851,13 @@ const steps=[
 let active=false,step=-1,busy=false,pending="",results={},evidence=[],radioStarted=false,message="",autoRunning=false;
 const here=()=>steps[step];
 const setMessage=text=>{message=text;node("homeInstructions").textContent=text;};
-async function request(path,method="GET"){
- const r=await fetch("/api/"+path,{method,cache:"no-store"});
+async function request(path,method="GET",body=null){
+ const options={method,cache:"no-store"};
+ if(body){
+  options.headers={"Content-Type":"application/x-www-form-urlencoded"};
+  options.body=new URLSearchParams(body).toString();
+ }
+ const r=await fetch("/api/"+path,options);
  let data;try{data=await r.json();}catch{throw Error("Invalid response or connection lost");}
  if(!r.ok||data.success===false)throw Error(data.message||data.error||("HTTP "+r.status));
  return data;
@@ -2916,7 +2921,7 @@ async function start(){
 async function run(){
  if(!active||busy||!here())return;
  const item=here(),kind=item.kind;
- if(item.confirm&&!node("homeConfirm").checked && !(kind==="radio"&&!radioStarted)){
+ if(item.confirm&&!node("homeConfirm").checked){
   setMessage("Complete the instructed physical check and tick the confirmation box first.");return;
  }
  busy=true;paint();
@@ -2948,7 +2953,7 @@ async function run(){
   }
   if(kind==="radio"){
    if(!radioStarted){
-    await request("home/radio","POST");radioStarted=true;pending="radio";
+    await request("home/radio","POST",{antenna:"confirmed"});radioStarted=true;pending="radio";
     setMessage("Five bench packets queued. Watch the Uno receiver. After reception, tick confirmation and press RUN again.");
     return;
    }
@@ -3094,24 +3099,10 @@ async function autoPreflight(){
    if(item.kind==="manual"){
     await skip(); // No fabricated confirmation of physical checks.
    }else if(item.kind==="radio"){
-    const evidenceStart=Number(window.GREEN_ION_RADIO_EVIDENCE?.benchCount||0);
-    await run(); // Queues five real Feather RF packets, never radio commands.
-    let sent=false,received=false;
-    for(let n=0;n<24;n++){
-     const st=await request("status");
-     sent=Number(st.home_radio_sent)>=5 && Number(st.home_radio_remaining)===0 &&
-       Number(st.home_radio_failures)===0;
-     received=Number(window.GREEN_ION_RADIO_EVIDENCE?.benchCount||0)-evidenceStart>=5;
-     if(sent&&received)break;
-     await sleep(600);
-    }
-    if(sent&&received){
-     node("homeConfirm").checked=true;
-     await run(); // Firmware checks the five transmitter packets too.
-    }else{
-     await skip();
-     feedback("LoRa transmitter/Uno reception not jointly verified; recorded as NOT VERIFIED.");
-    }
+    // Automatic preflight must never infer antenna attachment. Leave RF transmit
+    // unverified and require the guided, explicit antenna-confirmed step instead.
+    await skip();
+    feedback("LoRa transmit skipped automatically. Use the guided radio step only after physically confirming both suitable antennas.");
    }else{
     await run();
    }
