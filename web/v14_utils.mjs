@@ -1,4 +1,4 @@
-export const APP_VERSION = "17.0.0";
+export const APP_VERSION = "17.0.1";
 export const REPOSITORY = "aidenjantzi1-ctrl/GREEN-ION";
 export const FEATHER_ADDRESS = "http://192.168.4.1";
 export function parseVersion(input) {
