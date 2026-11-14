@@ -8,6 +8,66 @@ const finite=Number.isFinite;
 let data=null,glState=null,currentTime=0,playing=false,lastTick=0,speed=1,frame=0,visible=true;
 let camera={yaw:-.8,pitch:.45,distance:120,target:[0,0,0],pan:[0,0,0],mode:"free"};
 let pointerMap=new Map(),gesture=null,lastMvp=null,effects=true;
+let replayGraphSeries=[];
+function replayDuration(){
+ return Math.max(0,data?.timeline?.at(-1)?.timeS||0,
+  data?.sensorTimeline?.at(-1)?.timeS||0,data?.points?.at(-1)?.timeS||0);
+}
+function prepareReplayGraphSeries(){
+ const axes=[
+  ["Altitude (estimated)","m",data?.timeline||[],s=>s.altitudeM],
+  ["Vertical speed (estimated)","m/s",data?.timeline||[],s=>s.velocityMps],
+  ["Acceleration (estimated)","m/s²",data?.timeline||[],s=>s.accelerationMps2],
+  ["Angular rate (measured IMU)","°/s",data?.sensorTimeline||[],
+   s=>[s.gyroXDps,s.gyroYDps,s.gyroZDps].every(finite)?
+    Math.hypot(s.gyroXDps,s.gyroYDps,s.gyroZDps):null]
+ ];
+ replayGraphSeries=axes.map(([label,unit,raw,value])=>{
+  const stride=Math.max(1,Math.ceil(raw.length/450)),samples=[];
+  for(let i=0;i<raw.length;i+=stride){
+   const n=value(raw[i]),timeS=raw[i].timeS;
+   samples.push({timeS,value:finite(n)?n:null});
+  }
+  if(raw.length&&raw.at(-1)!==raw[Math.floor((raw.length-1)/stride)*stride]){
+   const tail=raw.at(-1),n=value(tail);samples.push({timeS:tail.timeS,value:finite(n)?n:null});
+  }
+  const valid=samples.map(s=>s.value).filter(finite),min=Math.min(0,...valid),max=Math.max(0,...valid);
+  return {label,unit,samples,min,max:max>min?max:min+1};
+ });
+}
+function drawReplayGraphs(){
+ const canvas=$("v163ReplayGraphs");if(!canvas||!data||!replayGraphSeries.length||document.hidden)return;
+ const dpr=Math.min(2,window.devicePixelRatio||1),
+  w=Math.max(220,Math.round(canvas.clientWidth||320)),h=330;
+ if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){
+  canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+ }
+ const ctx=canvas.getContext("2d");if(!ctx)return;
+ ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle="#0b1c2b";ctx.fillRect(0,0,w,h);
+ const duration=Math.max(.01,replayDuration()),left=48,right=w-12,colors=["#7bdbff","#72e5ab","#ffdd88","#ff91a0"];
+ const gx=t=>left+clamp(t/duration,0,1)*(right-left);
+ replayGraphSeries.forEach((series,index)=>{
+  const top=8+index*80,bottom=top+58;
+  ctx.strokeStyle="#35536e";ctx.lineWidth=1;ctx.strokeRect(left,top,right-left,bottom-top);
+  ctx.fillStyle="#d9efff";ctx.font="11px system-ui";
+  ctx.fillText(series.label+" ("+series.unit+")",left+5,top+12);
+  ctx.strokeStyle=colors[index];ctx.lineWidth=1.75;ctx.beginPath();
+  let open=false;
+  for(const p of series.samples){
+   if(!finite(p.value)||!finite(p.timeS)){open=false;continue;}
+   const y=bottom-5-(p.value-series.min)/(series.max-series.min)*(bottom-top-16);
+   if(open)ctx.lineTo(gx(p.timeS),y);else ctx.moveTo(gx(p.timeS),y);
+   open=true;
+  }
+  ctx.stroke();
+  ctx.strokeStyle="#eff8ff";ctx.lineWidth=1;const marker=gx(currentTime);
+  ctx.beginPath();ctx.moveTo(marker,top);ctx.lineTo(marker,bottom);ctx.stroke();
+  ctx.fillStyle="#b3cada";ctx.fillText(series.max.toFixed(1),3,top+12);
+  ctx.fillText(series.min.toFixed(1),3,bottom-5);
+ });
+ ctx.fillStyle="#b3cada";ctx.fillText("Synchronized replay "+currentTime.toFixed(2)+" / "+duration.toFixed(2)+" s",left,h-5);
+}
+
 
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function v3sub(a,b){return [a[0]-b[0],a[1]-b[1],a[2]-b[2]]}
@@ -176,6 +236,7 @@ function render(){
  if(fx.flame.length){const b=buffer(gl,fx.flame,gl.DYNAMIC_DRAW);drawBuffer(gl,b,3,gl.TRIANGLES,[1,.48,.13,.75],mvp);gl.deleteBuffer(b);}
  if(fx.chute.length){const b=buffer(gl,fx.chute,gl.DYNAMIC_DRAW);drawBuffer(gl,b,fx.chute.length/3,gl.LINE_STRIP,[.72,.9,1,.75],mvp);gl.deleteBuffer(b);}
  updateReadout(point,phase);
+ drawReplayGraphs();
 }
 function updateReadout(point,phase){
  const t=nearest(data.timeline,currentTime)||{},sen=nearest(data.sensorTimeline,currentTime)||{};
@@ -187,6 +248,8 @@ function updateReadout(point,phase){
  set("v1623dG",finite(sen.accelerationG)?sen.accelerationG.toFixed(2)+" g measured":finite(t.estimatedVerticalG)?t.estimatedVerticalG.toFixed(2)+" g estimated":"Unavailable");
  set("v1623dGps",sen.gpsCurrent&&finite(sen.latitude)?sen.latitude.toFixed(6)+", "+sen.longitude.toFixed(6)+" measured":"No current GPS sample at this time");
  set("v1623dPressure",finite(t.pressurePa)?Math.round(t.pressurePa)+" Pa measured":"Unavailable");
+ const r=[sen.gyroXDps,sen.gyroYDps,sen.gyroZDps];
+ set("v163ReplayRotation",r.every(finite)?Math.hypot(...r).toFixed(2)+" °/s measured":"Unavailable");
  const slider=$("v1623dTimeline");if(slider&&document.activeElement!==slider)slider.value=String(currentTime);
 }
 function dispose(){
@@ -205,13 +268,13 @@ function buildGl(canvas){
  camera.distance=Math.max(40,extent*2.4);camera.target=[0,0,Math.max(0,(data.maxAltitudeM||0)*.35)];camera.pan=[0,0,0];
 }
 function setTime(value,{emit=true}={}){
- if(!data)return;const duration=Math.max(0,data.points.at(-1)?.timeS||0);currentTime=clamp(Number(value)||0,0,duration);
+ if(!data)return;const duration=replayDuration();currentTime=clamp(Number(value)||0,0,duration);
  if(emit)window.dispatchEvent(new CustomEvent("green-ion-v16-replay-time",{detail:{timeS:currentTime,ratio:duration?currentTime/duration:0,source:"3d"}}));
  render();
 }
 function tick(now){
  if(!playing||!data)return;const dt=lastTick?Math.min(.15,(now-lastTick)/1000):0;lastTick=now;
- const duration=data.points.at(-1)?.timeS||0;setTime(currentTime+dt*speed);
+ const duration=replayDuration();setTime(currentTime+dt*speed);
  if(currentTime>=duration){playing=false;$("v1623dPlay").textContent="Play";return;}
  frame=requestAnimationFrame(tick);
 }
@@ -226,7 +289,7 @@ export function replaySampleStep(times,t,direction){
 }
 function playToggle(){
  if(!data)return;
- if(currentTime>=Math.max(0,data.points.at(-1)?.timeS||0))setTime(0);
+ if(currentTime>=replayDuration())setTime(0);
  playing=!playing;$("v1623dPlay").textContent=playing?"Pause":"Play";
  lastTick=0;if(playing)frame=requestAnimationFrame(tick);
 }
@@ -276,7 +339,8 @@ async function load(){
    const bb=bin.bytes.slice(0),sb=sen?.bytes?.slice(0)||null;worker.postMessage({id:1,name:bin.name,bin:bb,sen:sb},sb?[bb,sb]:[bb]);
   });
   currentTime=0;playing=false;$("v1623dPlay").textContent="Play";
-  const duration=Math.max(0,data.points.at(-1)?.timeS||0),slider=$("v1623dTimeline");slider.min="0";slider.max=String(duration);slider.step=".01";slider.value="0";
+  prepareReplayGraphSeries();
+  const duration=replayDuration(),slider=$("v1623dTimeline");slider.min="0";slider.max=String(duration);slider.step=".01";slider.value="0";
   buildGl($("v1623dCanvas"));status.textContent=(data.mode==="gps+pressure"?"3D GPS + pressure reconstruction":"Pressure-only vertical 3D replay")+
    " · "+data.points.length+" display point(s). Raw originals remain unchanged.";
   $("v1623dLimits").textContent=[...(data.sensorWarnings||[]),...(data.limitations||[])].join(" · ");render();
@@ -297,8 +361,10 @@ function inject(){
   '<canvas id="v1623dCanvas" height="520" tabindex="0" role="img" aria-label="Interactive WebGL 3D rocket trajectory. Drag to orbit, Shift-drag to pan, wheel or pinch to zoom."></canvas>'+
   '<div class="actions v162-camera"><button data-camera="free" class="secondary">Free</button><button data-camera="follow" class="secondary">Follow rocket</button><button data-camera="ground" class="secondary">Ground</button><button data-camera="top" class="secondary">Top-down</button><button data-camera="side" class="secondary">Side</button><button id="v1623dReset" class="secondary">Reset</button></div>'+
   '<label>Replay timeline <input id="v1623dTimeline" type="range" min="0" max="1" step=".01" value="0"></label>'+
+  '<canvas id="v163ReplayGraphs" height="330" style="width:100%;max-width:100%;display:block" aria-label="Four synchronized replay charts: altitude velocity acceleration angular rate"></canvas>'+
   '<div class="actions"><button id="v1623dPlay">Play</button><button id="v1623dRestart" class="secondary">Restart</button><button id="v1623dBack" class="secondary">Step back</button><button id="v1623dForward" class="secondary">Step forward</button><select id="v1623dSpeed" aria-label="Replay speed"><option>.25</option><option>.5</option><option selected>1</option><option>2</option><option>4</option></select></div>'+
   '<div class="actions"><button data-jump="launch" class="secondary">Launch</button><button data-jump="apogee" class="secondary">Apogee</button><button data-jump="descent" class="secondary">Descent</button><button data-jump="landing" class="secondary">Landing</button></div>'+
+  '<div class="row"><span>Angular rate</span><strong id="v163ReplayRotation">--</strong></div>'+
   '<div class="row"><span>Replay</span><strong id="v1623dTime">--</strong></div><div class="row"><span>Altitude</span><strong id="v1623dAlt">--</strong></div><div class="row"><span>Velocity</span><strong id="v1623dVel">--</strong></div><div class="row"><span>Acceleration</span><strong id="v1623dAccel">--</strong></div><div class="row"><span>G evidence</span><strong id="v1623dG">--</strong></div><div class="row"><span>Pressure</span><strong id="v1623dPressure">--</strong></div><div class="row"><span>GPS</span><strong id="v1623dGps">--</strong></div>'+
   '<p id="v1623dStatus" role="status">Choose a saved flight.</p><details><summary>Evidence and limitations</summary><p id="v1623dLimits" class="muted">No flight loaded.</p><p class="muted">Raw and lightly smoothed GPS tracks are both drawn when GPS exists. Exhaust/parachute effects are illustrative only.</p></details>';
  history.append(card);
@@ -312,7 +378,7 @@ function inject(){
  $("v1623dReset").onclick=()=>{camera={yaw:-.8,pitch:.45,distance:Math.max(40,worldExtent()*2.4),target:[0,0,Math.max(0,(data?.maxAltitudeM||0)*.35)],pan:[0,0,0],mode:"free"};render();};
  installPointer($("v1623dCanvas"));
  if("IntersectionObserver" in window)new IntersectionObserver(entries=>{visible=!!entries[0]?.isIntersecting;if(visible)render();}).observe(card);
- window.addEventListener("green-ion-v16-graph-progress",e=>{if(data&&e.detail?.source!=="3d")setTime((data.points.at(-1)?.timeS||0)*clamp(e.detail?.ratio||0,0,1),{emit:false});});
+ window.addEventListener("green-ion-v16-graph-progress",e=>{if(data&&e.detail?.source!=="3d")setTime(replayDuration()*clamp(e.detail?.ratio||0,0,1),{emit:false});});
  window.addEventListener("green-ion-history-change",()=>refresh().catch(()=>{}));
  window.addEventListener("pagehide",dispose);
  refresh().catch(error=>$("v1623dStatus").textContent=error.message);
