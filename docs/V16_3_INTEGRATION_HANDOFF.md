@@ -38,6 +38,14 @@ during review; earlier checks do not certify a later head.
 - Do not change SPI chip selects, LoRa packet length (70 bytes), RKT4 v2
   or GIS1 binary layouts as a side effect of Wi-Fi or UI integration.
 
+## Review finding requiring resolution
+
+- [Issue #49](https://github.com/aidenjantzi1-ctrl/GREEN-ION/issues/49):
+  comparison headings currently interpolate imported flight filenames into
+  `innerHTML` (both baseline and Codex 2 branch). Use `textContent` for
+  each dynamic heading and test with an HTML-like filename before integration.
+  Do not overwrite Codex 2's unfinished comparison work.
+
 ## Gate before any feature merge to main
 
 1. Read the source branch's latest commit, PR diff, reviews and latest check runs.
