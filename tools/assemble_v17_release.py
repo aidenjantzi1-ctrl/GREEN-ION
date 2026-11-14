@@ -45,7 +45,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if not (args.web / "index.html").is_file():
-        raise SystemExit("Built V16 website is missing index.html")
+        raise SystemExit("Built V17 website is missing index.html")
     for name in WINDOWS_FILES:
         if not (args.windows / name).is_file():
             raise SystemExit(f"Windows release input missing {name}")
@@ -96,7 +96,7 @@ def main() -> None:
                     archive.write(path, Path("GREEN_ION_V17_SOURCE") / path.relative_to(ROOT))
         for name in ("README.md", "CHANGELOG.md", "VERSIONS.md"):
             archive.write(ROOT / name, Path("GREEN_ION_V17_SOURCE") / name)
-        for path in sorted((ROOT / "docs").glob("V16_*.md")):
+        for path in sorted(list((ROOT / "docs").glob("V17_*.md")) + list((ROOT / "docs").glob("V16_*.md"))):
             archive.write(path, Path("GREEN_ION_V17_SOURCE/docs") / path.name)
 
     assets = {}
