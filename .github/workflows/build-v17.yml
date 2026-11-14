@@ -19,6 +19,7 @@ on:
       - "libraries/**"
       - "tests/**"
       - ".github/workflows/build-v17.yml"
+      - ".github/workflows/build-v14.yml"
       - ".github/workflows/release-v17.yml"
       - "docs/V14_*"
       - "docs/V17_*"
