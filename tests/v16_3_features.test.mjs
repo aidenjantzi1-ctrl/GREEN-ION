@@ -53,6 +53,6 @@ test("diagnostic export contains shared-SPI evidence and human guidance",()=>{
 test("V16.3 module is initialized and cached offline",()=>{
  assert.match(app,/initV163SharedSpiEvidence/);
  assert.match(app,/V16\.3 · shared-SPI reliability/);
- assert.match(sw,/green-ion-v16-3-shared-spi/);
+ assert.match(sw,/green-ion-v(?:16-3-shared-spi|17-0-integrated)/);
  assert.match(sw,/\.\/v16_3_shared_spi\.mjs/);
 });
