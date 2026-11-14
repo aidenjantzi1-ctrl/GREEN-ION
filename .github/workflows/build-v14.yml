@@ -21,6 +21,7 @@ on:
       - "docs/V14_*"
       - "docs/V16_*"
       - "README.md"
+      - "CHANGELOG.md"
   pull_request:
     branches: [main]
   workflow_dispatch:
