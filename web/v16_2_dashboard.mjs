@@ -2,6 +2,7 @@
  * Rendering is advisory only and never participates in recording or control. */
 import {getLocalFile} from "./v14_store.mjs";
 import {parseRkt4,analyzeFlight} from "./analysis/rkt4.mjs";
+import {renderLiveRocketModel} from "./v16_2_webgl.mjs";
 
 export const V162_VISUAL_LABEL="Flight Visualization — Sensor-Based / Estimated";
 export const V162_VISIBILITY_KEY="green-ion-v16.2-visibility";
@@ -9,6 +10,7 @@ const $=id=>document.getElementById(id);
 const PHASES={0:"Boot",1:"Idle",2:"Prelaunch",3:"Ascent",4:"Coast",5:"Descent",6:"Landed",7:"Recovery"};
 let preset="balanced",latest=null,lastObservationAt=0,observedMax=10,angle=0,lastFrame=0,visible=true;
 let orientation={pitch:0,roll:0,yaw:0};
+const orientationView={yaw:-.8,pitch:.45,follow:false};
 let replay=null,replayStarted=0,replayPausedAt=0,replayRaf=0;
 let fakeFlight=null;
 
@@ -24,13 +26,15 @@ export function visualStateFromTelemetry(data,now=Date.now()){
  const flight=reading(data,"flight_state"),battery=reading(data,"battery_v");
  const rotX=reading(data,"rotation_x_dps"),rotY=reading(data,"rotation_y_dps"),rotZ=reading(data,"rotation_z_dps");
  const rot=rotZ||rotY||rotX;
+ const accel=reading(data,"acceleration_g");
+ const imuFresh=[rotX,rotY,rotZ].every(r=>r?.freshness==="live"&&Number(r.age_ms)<=6500&&finite(r.value));
  const freshness=altitude?.freshness||data?.links?.wifi?.freshness||data?.links?.lora?.freshness||"missing";
  const age=Math.max(0,Number(altitude?.age_ms??data?.links?.wifi?.age_ms??data?.links?.lora?.age_ms??Infinity));
  const live=freshness==="live"&&age<=6500;
  const phase=PHASES[Number(flight?.value)]||"Unknown";
  const p=profile(),recovery=String(p.recoveryType||"").toLowerCase();
  return {
-  mode:"live",live,stale:!live&&freshness!=="missing",phase,
+  mode:"live",live,stale:!live&&freshness!=="missing",phase,imuFresh,accelG:accel?.value,
   altitudeM:finite(altitude?.value)?altitude.value:null,
   speedMps:finite(speed?.value)?speed.value:null,
   batteryV:finite(battery?.value)?battery.value:null,
@@ -172,7 +176,7 @@ function drawRocket(ctx,x,y,scale,tilt,flame,parachute){
 function orientationForState(state,dt){
  if(state?.mode==="fake"&&finite(state.pitchDeg)&&finite(state.rollDeg)&&finite(state.yawDeg)){
   orientation={pitch:state.pitchDeg,roll:state.rollDeg,yaw:state.yawDeg};
- }else if(state?.live){
+ }else if(state?.live&&state.imuFresh){
   if(finite(state.rotationXDps))orientation.pitch+=state.rotationXDps*dt;
   if(finite(state.rotationYDps))orientation.roll+=state.rotationYDps*dt;
   if(finite(state.rotationZDps))orientation.yaw+=state.rotationZDps*dt;
@@ -184,6 +188,15 @@ function orientationForState(state,dt){
 }
 function drawRoomOrientation(state){
  const canvas=$("v162RoomCanvas");if(!canvas)return;
+ const uncertain=state?.mode==="fake"?"FAKE / DEMO — not measured":
+  state?.mode==="replay"?"RKT4-only replay has no IMU attitude; use the saved 3D BIN + SEN viewer":
+  !state?.live||!state?.imuFresh?"Orientation unavailable or stale — showing last estimate":
+  Number.isFinite(state.accelG)&&Math.abs(state.accelG-1)>.25?
+   "High acceleration — gravity-based tilt correction is unreliable":"Relative gyro estimate; yaw drifts, no compass heading";
+ const note=$("v162RoomNote");
+ if(note)note.textContent="Estimated pitch "+orientation.pitch.toFixed(1)+"°, roll "+orientation.roll.toFixed(1)+
+  "°, relative yaw "+orientation.yaw.toFixed(1)+"° · "+uncertain;
+ if(renderLiveRocketModel(canvas,orientation,orientationView))return;
  const dpr=Math.min(2,window.devicePixelRatio||1),rect=canvas.getBoundingClientRect();
  const w=Math.max(260,Math.round(rect.width)),h=190;
  if(canvas.width!==w*dpr||canvas.height!==h*dpr){canvas.width=w*dpr;canvas.height=h*dpr;}
@@ -279,13 +292,27 @@ function injectDashboard(){
  card.innerHTML='<h2>'+V162_VISUAL_LABEL+'</h2>'+
   '<canvas id="v162RocketCanvas" height="360" role="img" aria-label="Animated side-view rocket visualization using live or replay telemetry"></canvas>'+
   '<div class="actions"><button id="v162FakeFlight" class="secondary">FAKE FLIGHT</button></div>'+
-  '<div style="margin-top:10px;padding:10px 12px;max-width:430px;border:1px solid rgba(123,219,255,.22);border-radius:18px;background:rgba(9,27,45,.62)"><h3 style="margin:0 0 6px">Orientation in room</h3><canvas id="v162RoomCanvas" height="190" role="img" aria-label="Rocket orientation shown inside a simple room reference"></canvas><p id="v162RoomNote" class="muted" style="margin:6px 0 0">Pitch 0.0° · Roll 0.0° · Yaw 0.0°</p></div>'+
+  '<div style="margin-top:10px;padding:10px 12px;max-width:100%;min-width:0;border:1px solid rgba(123,219,255,.22);border-radius:18px;background:rgba(9,27,45,.62)"><h3 style="margin:0 0 6px">Live 3D rocket orientation · relative estimate</h3><canvas id="v162RoomCanvas" height="240" role="img" style="width:100%;display:block;touch-action:none" aria-label="Interactive generic 3D rocket orientation with X Y Z axes; drag to orbit camera"></canvas><div class="actions"><button id="v163OrientationReset" class="secondary">Reset view</button><button id="v163OrientationFollow" class="secondary">Follow rocket: OFF</button></div><p class="muted">Axes: X red · Y green · Z blue. Swipe or drag to orbit the camera. Without WebGL, a lightweight 2D fallback is shown.</p><p id="v162RoomNote" class="muted" style="margin:6px 0 0">Waiting for IMU measurements; heading is never absolute.</p></div>'+
   '<div class="row"><span>Visualization evidence</span><strong id="v162RocketEvidence">Waiting for telemetry</strong></div>'+
   '<p id="v162RocketStatus" class="muted" role="status">Live mode. Visual effects are never flight-control evidence.</p>'+
   '<details><summary>What does this animation mean?</summary><p class="muted">Altitude, timestamps, battery and sensor readings use received/recorded data when valid. Flight phase, velocity and gyro-integrated orientation are estimates. Flame, smoke, parachute and ground contact are illustrative unless separate hardware evidence exists. Stale telemetry freezes the observed state instead of inventing a trajectory.</p>'+
   '<div class="actions"><button id="v162RocketReplay" class="secondary">Replay selected flight</button><button id="v162RocketLive" class="secondary" hidden>Return to live</button></div></details>';
  if(summary)summary.after(card);else target.prepend(card);
  $("v162FakeFlight").onclick=toggleFakeFlight;$("v162RocketReplay").onclick=startReplay;$("v162RocketLive").onclick=stopReplay;
+ const preview=$("v162RoomCanvas");
+ let drag=null;
+ preview.addEventListener("pointerdown",e=>{drag=[e.clientX,e.clientY];preview.setPointerCapture(e.pointerId);});
+ preview.addEventListener("pointermove",e=>{
+  if(!drag)return;orientationView.yaw-=(e.clientX-drag[0])*.008;
+  orientationView.pitch=clamp(orientationView.pitch+(e.clientY-drag[1])*.008,-1.15,1.15);
+  drag=[e.clientX,e.clientY];requestFrame();
+ });
+ preview.addEventListener("pointerup",()=>drag=null);preview.addEventListener("pointercancel",()=>drag=null);
+ $("v163OrientationReset").onclick=()=>{orientationView.yaw=-.8;orientationView.pitch=.45;requestFrame();};
+ $("v163OrientationFollow").onclick=e=>{
+  orientationView.follow=!orientationView.follow;e.target.textContent="Follow rocket: "+(orientationView.follow?"ON":"OFF");
+  requestFrame();
+ };
  if("IntersectionObserver" in window)new IntersectionObserver(entries=>{visible=!!entries[0]?.isIntersecting;if(visible)requestFrame();},{rootMargin:"100px"}).observe(card);
 }
 function injectVisibility(){
