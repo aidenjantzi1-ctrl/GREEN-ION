@@ -247,8 +247,11 @@ static void runPassiveLoraDiagnostic(bool allowReinitialize) {
              loraDiagnosticVersion);
     loraDiagnosticProblem = detail;
   } else {
-    if (allowReinitialize && !state.radioOk)
-      radioRecovery.noteInitialize(millis(), configureRadioHardware());
+    if (allowReinitialize && !state.radioOk) {
+      const bool initialized = configureRadioHardware();
+      state.radioOk = initialized;
+      radioRecovery.noteInitialize(millis(), initialized);
+    }
     loraDiagnosticInitOk = state.radioOk;
     if (state.radioOk) {
       loraDiagnosticCode = "READY";
