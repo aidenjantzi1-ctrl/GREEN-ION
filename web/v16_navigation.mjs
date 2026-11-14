@@ -33,7 +33,14 @@ function paint(page){
 }
 
 export function initV16Navigation(){
+ const openHash=()=>{
+  const page=String(location.hash||"").replace(/^#/,"");
+  if(!PRIMARY_TABS.some(([id])=>id===page))return;
+  const target=document.querySelector('nav.tabs [data-tab="'+page+'"]');
+  if(target&&!target.classList.contains("active"))target.click();
+ };
  window.addEventListener("green-ion-v16-page",e=>paint(e.detail?.page||"status"));
+ window.addEventListener("hashchange",openHash);
  document.addEventListener("keydown",event=>{
   if(!(event.altKey&&/^[1-5]$/.test(event.key)))return;
   const item=PRIMARY_TABS[Number(event.key)-1];
@@ -41,4 +48,5 @@ export function initV16Navigation(){
   if(target){event.preventDefault();target.click();target.focus();}
  });
  paint(document.querySelector(".page.active")?.id||"status");
+ queueMicrotask(openHash);
 }
