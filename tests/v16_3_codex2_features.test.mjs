@@ -54,7 +54,8 @@ test("4: GPS fix validity requires real coordinates and non-stale GPS age",()=>{
  assert.equal(validFix("33",-117),false);
  const valid={gps_status:"live",latitude:33.5,longitude:-117.2,gps_fix_age_ms:5000,satellites:9};
  const f=observedFix(valid,"LoRa",20000);
- assert.equal(f.at,15000);assert.equal(f.satellites,9);
+ assert.equal(f.at,15000);assert.equal(f.satellites,9);assert.equal(f.flightState,null);
+ assert.equal(observedFix({...valid,flight_state:2},"LoRa",20000).flightState,2);
  assert.equal(observedFix({...valid,gps_status:"stale"},"LoRa"),null);
  assert.equal(observedFix({...valid,latitude:92},"LoRa"),null);
  assert.equal(observedFix({...valid,gps_fix_age_ms:30001},"LoRa"),null);
@@ -69,7 +70,7 @@ test("5: last-known state stays explicit when link expires or fix absent",()=>{
  assert.equal(recoveryEvidence({...last,archived:true}),"SAVED GPS TRACK · NOT LIVE");
  assert.equal(observedFix({gps_status:"missing",latitude:null,longitude:null},"LoRa"),null);
  assert.deepEqual(last,{lat:33,lon:-117,source:"Wi-Fi",at:98000,receivedAt:100000,
-  satellites:null,hdop:null,gpsAltitudeM:null,gpsSpeedMps:null});
+  satellites:null,hdop:null,gpsAltitudeM:null,gpsSpeedMps:null,flightState:null});
 });
 test("6: saved GPS SEN track excludes invalid points and remains bounded offline",()=>{
  const points=Array.from({length:501},(_,i)=>({gpsCurrent:true,latitude:33+i/10000,longitude:-117,timeS:i}));
@@ -104,6 +105,8 @@ test("8: replay steps are on recorded timestamps, not arbitrary fixed 0.2 s",()=
  assert.match(replay,/green-ion-v16-replay-time/);
  assert.match(replay,/green-ion-v16-graph-progress/);
  assert.match(replay,/v1623dRestart/);
+ assert.match(replay,/v163ReplayGraphs/);
+ assert.match(replay,/drawReplayGraphs/);
  assert.match(replay,/<option>4<\/option>/);
 });
 test("9: worker flight comparisons align launch, include gyro, missing-data states",()=>{
@@ -148,6 +151,7 @@ test("11: mobile + history backwards compatibility and no firmware control regre
   html=source("web/index.html"),db=source("web/v14_store.mjs");
  assert.match(app,/initSensorLab/);assert.match(lab,/initV163LiveGraphs/);
  assert.match(recovery,/initV163RecoveryTools/);
+ assert.match(source("web/v16_2_map.mjs"),/flightState===2/);
  assert.match(sw,/v16_3_live_graphs\.mjs/);assert.match(sw,/v16_3_recovery_data\.mjs/);
  assert.match(sw,/v16_3_recovery_tools\.mjs/);
  assert.match(html,/<meta name="viewport"/);

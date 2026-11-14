@@ -11,7 +11,9 @@ export function observedFix(raw,source,now=Date.now()){
   satellites:Number.isInteger(raw.satellites)?raw.satellites:null,
   hdop:Number.isFinite(raw.gps_hdop)&&raw.gps_hdop>0?raw.gps_hdop:null,
   gpsAltitudeM:Number.isFinite(raw.gps_altitude_m)?raw.gps_altitude_m:null,
-  gpsSpeedMps:Number.isFinite(raw.gps_speed_mps)?raw.gps_speed_mps:null};
+  gpsSpeedMps:Number.isFinite(raw.gps_speed_mps)?raw.gps_speed_mps:null,
+  flightState:raw.flight_state!==null&&raw.flight_state!==undefined&&Number.isInteger(Number(raw.flight_state))&&
+   Number(raw.flight_state)>=0&&Number(raw.flight_state)<=7?Number(raw.flight_state):null};
 }
 export function savedTrack(samples,max=120){
  const fixes=(samples||[]).filter(x=>x.gpsCurrent&&validFix(x.latitude,x.longitude));

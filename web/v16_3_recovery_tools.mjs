@@ -39,11 +39,12 @@ function plot(){
 }
 function render(){
  const age=latest?.at&&Number.isFinite(latest.at)?Math.max(0,Date.now()-latest.at):null,
-  radio=[...received].reverse().find(x=>x.source==="LoRa");
+  radio=[...received].reverse().find(x=>x.source==="LoRa"),prelaunch=received.find(x=>x.flightState===2);
  $("v163GpsEvidence").textContent=recoveryEvidence(latest)+
   (age!==null?" · "+(age/1000).toFixed(1)+" s since fix":"");
  $("v163GpsSatellites").textContent=Number.isInteger(latest?.satellites)?String(latest.satellites)+" satellites":"Unavailable";
  $("v163RadioFix").textContent=radio?coord(radio)+" · "+((Date.now()-radio.at)/1000).toFixed(1)+" s old":"Not received";
+ $("v163LaunchFix").textContent=prelaunch?coord(prelaunch)+" · observed before launch":"Not recorded";
  const t=window.GREEN_ION_TRANSPORT;
  $("v163RadioPacketAt").textContent=t?.state?.radioAt?new Date(t.state.radioAt).toLocaleString():"No LoRa packet received";
  $("v163GpsOther").textContent=latest?
@@ -100,6 +101,7 @@ export function initV163RecoveryTools(){
   '<div class="row"><span>Current GPS evidence</span><strong id="v163GpsEvidence">No fix</strong></div>'+
   '<div class="row"><span>Satellites</span><strong id="v163GpsSatellites">Unavailable</strong></div>'+
   '<div class="row"><span>GPS details</span><strong id="v163GpsOther">Unavailable</strong></div>'+
+  '<div class="row"><span>Recorded prelaunch GPS</span><strong id="v163LaunchFix">Not recorded</strong></div>'+
   '<div class="row"><span>Last LoRa GPS fix</span><strong id="v163RadioFix">Not received</strong></div>'+
   '<div class="row"><span>Last LoRa packet received</span><strong id="v163RadioPacketAt">Not received</strong></div>'+
   '<div class="actions"><button id="v163CopyFix" class="secondary">Copy last GPS</button><a id="v163Apple" aria-disabled="true">Apple Maps</a><a id="v163Google" aria-disabled="true">Google Maps</a></div>'+
