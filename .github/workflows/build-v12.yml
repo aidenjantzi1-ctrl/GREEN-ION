@@ -4,8 +4,8 @@ on:
   push:
     branches: [main, "codex/**", "v12/**"]
     paths:
-      - "Past_Versions/V12/Past_Versions/V12/Green_Ion_V12/**"
-      - "Past_Versions/V12/Past_Versions/V12/Ground_Receiver/**"
+      - "Past_Versions/V12/Green_Ion_V12/**"
+      - "Past_Versions/V12/Ground_Receiver/**"
       - "Ground_Station/**"
       - "libraries/GreenIonProtocol/**"
       - "tests/test_v12_*.py"

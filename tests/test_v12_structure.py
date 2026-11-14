@@ -7,9 +7,9 @@ ROOT = Path(__file__).resolve().parents[1]
 class V12StructureTests(unittest.TestCase):
     def test_required_projects_and_docs_exist(self):
         paths = (
-            "Past_Versions/V12/Past_Versions/V12/Green_Ion_V12/Green_Ion_V12.ino", "Past_Versions/V12/Past_Versions/V12/Green_Ion_V12/Config.h",
-            "Past_Versions/V12/Past_Versions/V12/Green_Ion_V12/Dashboard.h",
-            "Past_Versions/V12/Past_Versions/V12/Ground_Receiver/Ground_Receiver.ino", "Ground_Station/ground_station.py",
+            "Past_Versions/V12/Green_Ion_V12/Green_Ion_V12.ino", "Past_Versions/V12/Green_Ion_V12/Config.h",
+            "Past_Versions/V12/Green_Ion_V12/Dashboard.h",
+            "Past_Versions/V12/Ground_Receiver/Ground_Receiver.ino", "Ground_Station/ground_station.py",
             "Ground_Station/index.html", "Ground_Station/OPEN_GROUND_STATION.cmd",
             "Ground_Station/sensor_log.py",
             "libraries/GreenIonRecorder/src/GreenIonRecorderCore.h",

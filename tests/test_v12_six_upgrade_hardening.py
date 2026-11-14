@@ -89,8 +89,8 @@ class ReceiverSequenceTests(unittest.TestCase):
 class FreshHomeSessionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.fw = (ROOT / "Past_Versions/V12/Past_Versions/V12/Green_Ion_V12/Green_Ion_V12.ino").read_text()
-        cls.home = (ROOT / "Past_Versions/V12/Past_Versions/V12/Green_Ion_V12/HomeVerification.h").read_text()
+        cls.fw = (ROOT / "Past_Versions/V12/Green_Ion_V12/Green_Ion_V12.ino").read_text()
+        cls.home = (ROOT / "Past_Versions/V12/Green_Ion_V12/HomeVerification.h").read_text()
         cls.station = (ROOT / "Ground_Station/ground_station.py").read_text()
 
     def test_imu_and_gps_results_must_be_fresh(self):
@@ -114,7 +114,7 @@ class FreshHomeSessionTests(unittest.TestCase):
         self.assertIn("resetCalibration(millis())", start)
 
     def test_uno_preserves_packet_high_watermark(self):
-        uno = (ROOT / "Past_Versions/V12/Past_Versions/V12/Ground_Receiver/Ground_Receiver.ino").read_text()
+        uno = (ROOT / "Past_Versions/V12/Ground_Receiver/Ground_Receiver.ino").read_text()
         self.assertIn("bool advanceSequence = true;", uno)
         self.assertIn("if (advanceSequence)", uno)
         self.assertIn("lastUptimeMs - packet.uptimeMs >= 1000UL", uno)

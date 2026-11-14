@@ -7,14 +7,14 @@ ROOT=Path(__file__).resolve().parents[1]
 class V162HistoricalReleaseTests(unittest.TestCase):
     def test_v162_versioned_source_remains_available_for_rollback(self):
         for path in (
-            "Past_Versions/V16/Past_Versions/V16/Green_Ion_V16_2/Green_Ion_V16_2.ino",
-            "Past_Versions/V16/Past_Versions/V16/Green_Ion_V16_2/Config.h",
-            "Past_Versions/V16/Past_Versions/V16/Ground_Receiver_V16_2/Ground_Receiver_V16_2.ino",
+            "Past_Versions/V16/Green_Ion_V16_2/Green_Ion_V16_2.ino",
+            "Past_Versions/V16/Green_Ion_V16_2/Config.h",
+            "Past_Versions/V16/Ground_Receiver_V16_2/Ground_Receiver_V16_2.ino",
             "docs/V16_2_IMPLEMENTATION.md",
         ):
             self.assertTrue((ROOT/path).is_file(),path)
-        fw=(ROOT/"Past_Versions/V16/Past_Versions/V16/Green_Ion_V16_2/Green_Ion_V16_2.ino").read_text()
-        uno=(ROOT/"Past_Versions/V16/Past_Versions/V16/Ground_Receiver_V16_2/Ground_Receiver_V16_2.ino").read_text()
+        fw=(ROOT/"Past_Versions/V16/Green_Ion_V16_2/Green_Ion_V16_2.ino").read_text()
+        uno=(ROOT/"Past_Versions/V16/Ground_Receiver_V16_2/Ground_Receiver_V16_2.ino").read_text()
         self.assertIn('FIRMWARE_VERSION[] = "16.2.0"',fw)
         self.assertIn('RECEIVER_FIRMWARE_VERSION[] = "16.2.0"',uno)
 

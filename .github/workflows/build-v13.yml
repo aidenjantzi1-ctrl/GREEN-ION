@@ -3,8 +3,8 @@ on:
   push:
     branches: [main, "v13/**"]
     paths:
-      - "Past_Versions/V13/Past_Versions/V13/Green_Ion_V13/**"
-      - "Past_Versions/V12/Past_Versions/V12/Ground_Receiver/**"
+      - "Past_Versions/V13/Green_Ion_V13/**"
+      - "Past_Versions/V12/Ground_Receiver/**"
       - "Ground_Station/**"
       - "libraries/GreenIonProtocol/**"
       - "libraries/GreenIonRecorder/**"

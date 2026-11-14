@@ -76,10 +76,10 @@ class GroundStationLinkTests(unittest.TestCase):
 class FirmwareSourceContracts(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.fw = (ROOT / "Past_Versions/V12/Past_Versions/V12/Green_Ion_V12/Green_Ion_V12.ino").read_text()
-        cls.home = (ROOT / "Past_Versions/V12/Past_Versions/V12/Green_Ion_V12/HomeVerification.h").read_text()
-        cls.ui = (ROOT / "Past_Versions/V12/Past_Versions/V12/Green_Ion_V12/Dashboard.h").read_text()
-        cls.uno = (ROOT / "Past_Versions/V12/Past_Versions/V12/Ground_Receiver/Ground_Receiver.ino").read_text()
+        cls.fw = (ROOT / "Past_Versions/V12/Green_Ion_V12/Green_Ion_V12.ino").read_text()
+        cls.home = (ROOT / "Past_Versions/V12/Green_Ion_V12/HomeVerification.h").read_text()
+        cls.ui = (ROOT / "Past_Versions/V12/Green_Ion_V12/Dashboard.h").read_text()
+        cls.uno = (ROOT / "Past_Versions/V12/Ground_Receiver/Ground_Receiver.ino").read_text()
         cls.ground = (ROOT / "Ground_Station/ground_station.py").read_text()
 
     def test_profiles_and_flight_file_collision_protection(self) -> None:
