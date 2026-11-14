@@ -56,8 +56,13 @@ class V17FlightReadiness(unittest.TestCase):
         self.assertIn('gpsPositionCurrent(nowMs) ? "READY" : "WARNING"', PREP)
 
     def test_lora_diagnostic_reports_pins_and_never_guesses_antenna(self):
-        for token in ('"sck":5','"mosi":19','"miso":21','"sd_cs":33','"lora_cs":27','"reset":15','"dio0":32'):
-            self.assertIn(token, PREP)
+        expected = {
+            "PIN_SPI_SCK": 5, "PIN_SPI_MOSI": 19, "PIN_SPI_MISO": 21,
+            "PIN_SD_CS": 33, "PIN_LORA_CS": 27, "PIN_LORA_RST": 15,
+            "PIN_LORA_DIO0": 32,
+        }
+        for name, value in expected.items():
+            self.assertIn(f"{name} = {value};", CFG)
         self.assertIn("RegVersion", PREP)
         self.assertIn("antenna_detectable", PREP)
         self.assertIn("Transmission refused", PREP)
