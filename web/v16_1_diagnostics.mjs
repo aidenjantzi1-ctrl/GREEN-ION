@@ -112,7 +112,7 @@ export async function buildDiagnosticReport(){
  catch{}
  const browser=browserSnapshot();
  const issues=[];
- if(!browser.wifi.fresh)issues.push("Feather Wi-Fi: no recent status. Keep the Windows app open, join GREEN-ION-V16-3, and let automatic reconnect continue.");
+ if(!browser.wifi.fresh)issues.push("Feather Wi-Fi: no recent status. Keep the Windows app open, join GREEN-ION-V17, and let automatic reconnect continue.");
  if(!browser.lora.fresh)issues.push("LoRa: no fresh receive-only packet. Check Uno USB, antenna, radio power/wiring and coordinated frequency; SD recording is independent.");
  if(browser.wifi.fresh&&browser.wifi.sd_ok===false)issues.push("SD: Feather reports the card unavailable. Stop mission activity, inspect/reseat the card, and rerun SD/home verification.");
  if(!browser.gps.position_available)issues.push("GPS: no confirmed position received. Move outdoors with a clear sky and wait for a current fix.");
