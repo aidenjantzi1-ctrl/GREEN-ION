@@ -392,6 +392,8 @@ jobs:
           assert manifest["radioPacketBytes"]==70
           assert manifest["safety"]["loraReceiveOnly"] is True
           assert manifest["safety"]["autonomousSdRecorderPreserved"] is True
+          assert manifest["safety"]["sdFirstRecorder"] is True
+          assert manifest["safety"]["optionalRadioDoesNotGateRecorder"] is True
           assert manifest["safety"]["hardwareValidationRequired"] is True
           assert manifest["safety"]["flightCertified"] is False
           for name,item in manifest["artifacts"].items():
@@ -449,6 +451,7 @@ jobs:
           assert m["firmwareGeneration"]==m["receiverGeneration"]=="V17.0"
           assert m["radioProtocolVersion"]==2 and m["radioPacketBytes"]==70
           assert m["safety"]["hardwareValidationRequired"] and not m["safety"]["flightCertified"]
+          assert m["safety"]["sdFirstRecorder"] and m["safety"]["optionalRadioDoesNotGateRecorder"]
           for name,item in m["artifacts"].items():
               p=root/name
               assert p.is_file() and hashlib.sha256(p.read_bytes()).hexdigest()==item["sha256"]
