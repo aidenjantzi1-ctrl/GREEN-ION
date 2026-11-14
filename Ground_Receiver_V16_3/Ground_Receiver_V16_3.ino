@@ -13,7 +13,7 @@ static const uint8_t PIN_CS = 4;
 static const uint8_t PIN_RST = 2;
 static const uint8_t PIN_DIO0 = 3;
 static const uint32_t SERIAL_BAUD = 115200;
-static const char RECEIVER_FIRMWARE_VERSION[] = "17.0.0";
+static const char RECEIVER_FIRMWARE_VERSION[] = "17.0.1";
 
 RH_RF95 radio(PIN_CS, PIN_DIO0);
 uint32_t validPackets = 0;
@@ -26,6 +26,7 @@ uint32_t duplicatePackets = 0, outOfOrderPackets = 0, senderRestarts = 0;
 uint32_t receivedBenchPackets = 0;
 uint32_t lastStatusMs = 0;
 bool radioReady = false;
+uint8_t radioChipVersion = 0;
 bool haveLastSequence = false;
 bool humanReadable = false;
 char serialCommand[20] = {};
@@ -34,6 +35,46 @@ bool haveLastPosition = false;
 int32_t lastLatitudeE7 = 0;
 int32_t lastLongitudeE7 = 0;
 uint32_t lastPositionReceivedMs = 0;
+
+static uint8_t readRadioVersionRegister() {
+  SPI.beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0));
+  digitalWrite(PIN_CS, LOW);
+  SPI.transfer(0x42 & 0x7f);
+  const uint8_t version = SPI.transfer(0);
+  digitalWrite(PIN_CS, HIGH);
+  SPI.endTransaction();
+  return version;
+}
+
+static void printReceiverDiagnostic() {
+  Serial.print(F("{\"type\":\"receiver_diagnostic\",\"receiver_firmware\":\""));
+  Serial.print(RECEIVER_FIRMWARE_VERSION);
+  Serial.print(F("\",\"radio_ready\":"));
+  Serial.print(radioReady ? F("true") : F("false"));
+  Serial.print(F(",\"chip_version\":"));
+  Serial.print(radioChipVersion);
+  Serial.print(F(",\"expected_chip_version\":18,\"pins\":{\"cs\":4,\"rst\":2,\"dio0\":3,\"sck\":13,\"mosi\":11,\"miso\":12}"));
+  Serial.print(F(",\"settings\":{\"frequency_mhz\":"));
+  Serial.print(green_ion::radio_config::kFrequencyMhz,1);
+  Serial.print(F(",\"bandwidth_hz\":"));
+  Serial.print(green_ion::radio_config::kSignalBandwidthHz);
+  Serial.print(F(",\"spreading_factor\":"));
+  Serial.print(green_ion::radio_config::kSpreadingFactor);
+  Serial.print(F(",\"coding_rate\":\"4/"));
+  Serial.print(green_ion::radio_config::kCodingRateDenominator);
+  Serial.print(F("\"},\"receive_only\":true,\"antenna_detectable\":false,\"probable_problem\":\""));
+  if (radioChipVersion == 0x12 && radioReady)
+    Serial.print(F("none detected in software; compare Feather settings and antennas if packets are absent"));
+  else if (radioChipVersion == 0x00)
+    Serial.print(F("0x00 chip ID: check 3.3V/GND, MISO, SCK and CS D4"));
+  else if (radioChipVersion == 0xff)
+    Serial.print(F("0xFF chip ID: MISO may float high or CS D4/power may be wrong"));
+  else if (radioChipVersion != 0x12)
+    Serial.print(F("unexpected SX127x chip ID: check radio model and SPI wiring"));
+  else
+    Serial.print(F("chip ID is valid but init failed: check RST D2, DIO0 D3 and matching radio settings"));
+  Serial.println(F("\"}"));
+}
 
 static void printScaledDegrees(int32_t value) {
   if (value < 0) {
@@ -181,6 +222,9 @@ static void handleSerialCommands() {
       } else if (!strcmp(serialCommand, "human off")) {
         humanReadable = false;
         Serial.println(F("[HELP] Human summaries OFF. JSON telemetry continues."));
+      } else if (!strcmp(serialCommand, "diag")) {
+        radioChipVersion = readRadioVersionRegister();
+        printReceiverDiagnostic();
       } else if (!strcmp(serialCommand, "status")) {
         Serial.print(F("[STATUS] Receiver valid: "));
         Serial.print(validPackets);
@@ -189,7 +233,7 @@ static void handleSerialCommands() {
         Serial.print(F(" | Estimated missed: "));
         Serial.println(estimatedMissingPackets);
       } else if (serialCommandLength) {
-        Serial.println(F("[HELP] Commands: human on | human off | status"));
+        Serial.println(F("[HELP] Commands: human on | human off | status | diag"));
       }
       serialCommandLength = 0;
     } else if (serialCommandLength + 1 < sizeof(serialCommand)) {
@@ -202,14 +246,23 @@ static void handleSerialCommands() {
 
 void setup() {
   Serial.begin(SERIAL_BAUD);
+  pinMode(PIN_CS, OUTPUT);
+  digitalWrite(PIN_CS, HIGH);
+  SPI.begin();
   pinMode(PIN_RST, OUTPUT);
   digitalWrite(PIN_RST, LOW);
   delay(10);
   digitalWrite(PIN_RST, HIGH);
   delay(10);
+  radioChipVersion = readRadioVersionRegister();
 
   if (!radio.init() || !radio.setFrequency(green_ion::radio_config::kFrequencyMhz)) {
-    Serial.println(F("{\"type\":\"receiver_status\",\"ok\":false,\"error\":\"radio_init\"}"));
+    Serial.print(F("{\"type\":\"receiver_status\",\"receiver_firmware\":\""));
+    Serial.print(RECEIVER_FIRMWARE_VERSION);
+    Serial.print(F("\",\"ok\":false,\"error\":\"radio_init\",\"chip_version\":"));
+    Serial.print(radioChipVersion);
+    Serial.println(F("}"));
+    printReceiverDiagnostic();
     return;
   }
   radio.setTxPower(green_ion::radio_config::kTxPowerDbm, false);
@@ -217,7 +270,9 @@ void setup() {
   radio.setSignalBandwidth(green_ion::radio_config::kSignalBandwidthHz);
   radio.setCodingRate4(green_ion::radio_config::kCodingRateDenominator);
   radioReady = true;
-  Serial.print(F("{\"type\":\"receiver_status\",\"ok\":true,\"receiver_firmware\":\"16.3.0\",\"protocol\":"));
+  Serial.print(F("{\"type\":\"receiver_status\",\"ok\":true,\"receiver_firmware\":\""));
+  Serial.print(RECEIVER_FIRMWARE_VERSION);
+  Serial.print(F("\",\"protocol\":"));
   Serial.print(green_ion::kProtocolVersion);
   Serial.print(F(",\"frequency_mhz\":"));
   Serial.print(green_ion::radio_config::kFrequencyMhz, 1);
@@ -236,7 +291,9 @@ void setup() {
 static void printReceiverHeartbeat(uint32_t nowMs) {
   if (nowMs - lastStatusMs < 5000UL) return;
   lastStatusMs = nowMs;
-  Serial.print(F("{\"type\":\"receiver_status\",\"receiver_firmware\":\"16.3.0\",\"ok\":"));
+  Serial.print(F("{\"type\":\"receiver_status\",\"receiver_firmware\":\""));
+  Serial.print(RECEIVER_FIRMWARE_VERSION);
+  Serial.print(F("\",\"ok\":"));
   Serial.print(radioReady ? F("true") : F("false"));
   Serial.print(F(",\"protocol\":")); Serial.print(green_ion::kProtocolVersion);
   Serial.print(F(",\"valid_packets\":")); Serial.print(validPackets);
@@ -245,6 +302,7 @@ static void printReceiverHeartbeat(uint32_t nowMs) {
   Serial.print(F(",\"bench_received\":")); Serial.print(receivedBenchPackets);
   Serial.print(F(",\"last_packet_age_ms\":"));
   if (validPackets) Serial.print(nowMs - lastPacketMs); else Serial.print(F("null"));
+  Serial.print(F(",\"chip_version\":")); Serial.print(radioChipVersion);
   Serial.println(F("}"));
 }
 
