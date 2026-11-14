@@ -304,19 +304,24 @@ static void homeStartLog() {
   homeSensorDroppedStart = sensorLogCore.droppedRecords();
   homeOwnershipErrorsStart = sharedSpi.evidence().ownershipErrors;
   homeRadioTimeoutsStart = radioTxTimeouts;
-  homeRadioConcurrentExpected = state.radioOk;
-  if (state.radioOk) {
+  homeRadioConcurrentExpected = state.radioOk && radioTransmitAuthorized;
+  if (homeRadioConcurrentExpected) {
     radioBenchPacketsRemaining = config::HOME_CONCURRENT_RADIO_PACKETS;
     lastTelemetryMs = homeStartedMs - config::TELEMETRY_INTERVAL_MS;
   }
-  Serial.println("[HOME] Recording 30 seconds at 50 Hz while bounded LoRa bench telemetry is scheduled. Disconnect/reconnect phone Wi-Fi; leave Feather powered.");
+  Serial.println(homeRadioConcurrentExpected ? "[HOME] Recording 30 seconds at 50 Hz with antenna-authorized bounded LoRa traffic." : "[HOME] Recording 30 seconds at 50 Hz; LoRa traffic disabled unless antenna was explicitly confirmed.");
   homeReply(202, true, "30-second 50 Hz SD + optional LoRa shared-SPI stress test started");
 }
 
 static void homeRadio() {
   if (!homeIdle() || homeLogActive || !state.radioOk) {
-    homeReply(409, false, "Home mode/radio not ready; check both antennas"); return;
+    homeReply(409, false, "Home mode/radio not ready; diagnose radio before transmitting"); return;
   }
+  if (dashboardServer.arg("antenna") != "confirmed") {
+    homeReply(400, false, "Radio transmission refused until both suitable antennas are explicitly confirmed");
+    return;
+  }
+  radioTransmitAuthorized = true;
   homeRadioStartSent = radioBenchPacketsSent;
   homeRadioStartFailures = radioSendFailures;
   radioBenchPacketsRemaining = 5;
