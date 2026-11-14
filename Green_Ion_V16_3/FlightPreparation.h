@@ -169,8 +169,27 @@ static bool runFlightReadinessSdIntegrityTest() {
   return ok;
 }
 
+class FlightPrepMemorySink : public green_ion::recorder::ByteSink {
+ public:
+  FlightPrepMemorySink() : size_(0) {}
+  bool write(const uint8_t *data, size_t length) override {
+    if (!data || size_ + length > sizeof(bytes_)) return false;
+    memcpy(bytes_ + size_, data, length);
+    size_ += length;
+    return true;
+  }
+  bool flush() override { return true; }
+  const uint8_t *data() const { return bytes_; }
+  size_t size() const { return size_; }
+ private:
+  uint8_t bytes_[768] = {};
+  size_t size_;
+};
+
 static bool simulateLaunchAndLandingDetectors() {
   green_ion::flight::FlightWatcher simulatedLaunch;
+  green_ion::recorder::RecorderCore<8> simulatedRecorder;
+  FlightPrepMemorySink simulatedSink;
   const bool started = simulatedLaunch.begin({
     config::SENSOR_RATE_HZ, 0.0f, 101325.0f, 0.10f});
   if (!started) return false;
@@ -178,14 +197,30 @@ static bool simulateLaunchAndLandingDetectors() {
   bool launched = false;
   uint32_t t = 0;
   for (uint8_t i = 0; i < 10 && !launched; ++i, t += 20) {
+    simulatedRecorder.observe({t * 1000UL, 101325.0f, 20.0f, 3900, true});
     launched = simulatedLaunch.update({t, 0.0f, 0.0f, 101325.0f, true});
   }
   for (uint8_t i = 0; i < 12 && !launched; ++i, t += 20) {
     const float altitude = 2.0f + static_cast<float>(i) * 0.4f;
-    launched = simulatedLaunch.update(
-        {t, altitude, 20.0f, 101325.0f - altitude * 12.0f, true});
+    const float pressure = 101325.0f - altitude * 12.0f;
+    simulatedRecorder.observe({t * 1000UL, pressure, 20.0f, 3900, true});
+    launched = simulatedLaunch.update({t, altitude, 20.0f, pressure, true});
   }
   if (!launched) return false;
+
+  if (!simulatedRecorder.start(
+          simulatedSink, {config::SENSOR_RATE_HZ, 101325.0f, 3900}))
+    return false;
+  for (uint8_t i = 0; i < 12; ++i, t += 20) {
+    const float altitude = 7.0f + static_cast<float>(i) * 0.5f;
+    simulatedRecorder.observe(
+        {t * 1000UL, 101325.0f - altitude * 12.0f, 20.0f, 3900, true});
+  }
+  if (!simulatedRecorder.flush() || !simulatedRecorder.stop()) return false;
+  if (green_ion::rkt4::validateHeader(simulatedSink.data(), simulatedSink.size()) !=
+          green_ion::rkt4::RKT4_VALID ||
+      green_ion::rkt4::completeRecordCount(simulatedSink.size()) < 16)
+    return false;
 
   green_ion::flight::LandingWatcher simulatedLanding;
   if (!simulatedLanding.begin(0, {config::SENSOR_RATE_HZ, 0.0f, 0.10f}))
