@@ -1,12 +1,9 @@
-# GREEN ION V16.3 — Current Uno Receiver
+# GREEN ION V17 — Current Uno Receiver
 
-**Status: CURRENT RELEASE**
+**Status: CURRENT SOFTWARE RELEASE · HARDWARE VALIDATION REQUIRED**
 
-This folder contains the current Arduino Uno receive-only ground receiver for GREEN ION **v16.3.0**.
+This folder contains the current receive-only Arduino Uno ground receiver for GREEN ION **v17.0.0**.
 
-Main sketch: `Ground_Receiver_V16_3.ino`
+Main sketch: `Ground_Receiver_V17.ino`
 
-Use the official release HEX from:
-https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases/tag/v16.3.0
-
-Older receiver folders remain only for rollback, regression testing, and historical reference.
+Protocol v2 and the 70-byte packet format remain unchanged for compatibility.
