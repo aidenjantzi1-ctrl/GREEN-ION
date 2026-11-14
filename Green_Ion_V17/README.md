@@ -1,14 +1,11 @@
-# GREEN ION V16.3 — Current Feather Firmware
+# GREEN ION V17 — Current Feather Firmware
 
-**Status: CURRENT RELEASE**
+**Status: CURRENT SOFTWARE RELEASE · HARDWARE VALIDATION REQUIRED**
 
-This folder contains the current GREEN ION Feather ESP32 V2 firmware for release **v16.3.0**.
+This folder contains the GREEN ION Feather ESP32 V2 firmware for release **v17.0.0**.
 
-Main sketch: `Green_Ion_V16_3.ino`
+Main sketch: `Green_Ion_V17.ino`
 
-Use the official release binary from:
-https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases/tag/v16.3.0
+V17 integrates AP+STA home Wi-Fi, recorder-first shared-SPI handling, bounded live graphs, GPS recovery, flight comparison, and timestamp-synchronized replay while preserving the 50 Hz recorder, three-second prelaunch buffer, RKT4 v2, GIS1, and protocol-v2 LoRa compatibility.
 
-Do not use the older V12, V13, V14, or V16.2 firmware folders for the current build unless you are intentionally doing rollback or historical regression work.
-
-Software validation does not replace the required physical bench/home test on the assembled hardware.
+Physical hardware/flight validation is still required before a launch-readiness claim.
