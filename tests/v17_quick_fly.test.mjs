@@ -18,6 +18,7 @@ const direct=source("Green_Ion_V16_3/QuickFlyDashboard.h");
 const hosted=source("web/quick-fly.html");
 const app=source("web/v17_quick_fly.mjs");
 const sw=source("web/service-worker.js");
+const navigation=source("web/v16_navigation.mjs");
 const manifest=JSON.parse(source("web/manifest.webmanifest"));
 
 test("Quick Fly exposes exactly the requested live status vocabulary",()=>{
@@ -115,6 +116,8 @@ test("Quick Fly pages are mobile, offline-oriented, and keep advanced tools sepa
  assert.ok(direct.includes("Direct Feather"));
  assert.ok(direct.includes('href="/"'));
  assert.ok(hosted.includes("./index.html#history"));
+ assert.ok(navigation.includes('window.addEventListener("hashchange",openHash)'));
+ assert.ok(navigation.includes("queueMicrotask(openHash)"));
  assert.ok(sw.includes("./quick-fly.html"));
  assert.ok(sw.includes("./v17_quick_fly.mjs"));
  assert.ok(app.includes('serviceWorker.register("./service-worker.js")'));
