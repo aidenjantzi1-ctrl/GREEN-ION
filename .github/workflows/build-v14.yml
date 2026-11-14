@@ -50,6 +50,20 @@ jobs:
             tests/cpp/test_v16_3_shared_spi.cpp \
             -o /tmp/test-v16-3-shared-spi
           /tmp/test-v16-3-shared-spi
+      - name: Native V17 SD-first flight readiness regression
+        run: |
+          g++ -std=c++17 -Wall -Wextra -pedantic \
+            -I libraries/GreenIonRecorder/src \
+            -I libraries/GreenIonProtocol/src \
+            tests/cpp/test_v17_flight_readiness.cpp \
+            -o /tmp/test-v17-flight-readiness
+          /tmp/test-v17-flight-readiness
+          g++ -std=c++17 -Wall -Wextra -pedantic \
+            -I libraries/GreenIonRecorder/src \
+            -I libraries/GreenIonProtocol/src \
+            tests/cpp/test_v17_sd_first.cpp \
+            -o /tmp/test-v17-sd-first
+          /tmp/test-v17-sd-first
       - name: Native AP+STA Wi-Fi policy regression
         run: |
           g++ -std=c++17 -Wall -Wextra -pedantic \
