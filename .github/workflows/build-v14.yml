@@ -1,16 +1,18 @@
-name: GREEN ION V16.3 - verify, compile and package
+name: GREEN ION V17.0 - verify, compile, package and publish
 on:
   push:
-    branches: [main, "integration/**", "codex2/**", "v14/**", "v16.2/**", "v16.3/**"]
+    branches: [main, "integration/**", "codex2/**", "v14/**", "v16.2/**", "v16.3/**", "release/**"]
     paths:
       - "web/**"
-      - "Green_Ion_V14/**"
+      - "Past_Versions/V14/Green_Ion_V14/**"
       - "Green_Ion_V16_3/**"
-      - "Ground_Receiver/**"
+      - "Past_Versions/V12/Ground_Receiver/**"
       - "Ground_Receiver_V16_3/**"
       - "Ground_Station/**"
       - "tools/build_v16_windows_package.py"
       - "tools/assemble_v16_release.py"
+      - "tools/assemble_v17_release.py"
+      - "Past_Versions/**"
       - "START_GREEN_ION.cmd"
       - "UPDATE_GREEN_ION.cmd"
       - "ROLLBACK_GREEN_ION.cmd"
@@ -20,6 +22,7 @@ on:
       - ".github/workflows/release-v16.yml"
       - "docs/V14_*"
       - "docs/V16_*"
+      - "docs/V17_*"
       - "README.md"
       - "CHANGELOG.md"
   pull_request:
@@ -100,14 +103,14 @@ jobs:
           test -s web/dist/v16_3_shared_spi.mjs
           grep -q 'id="homeAuto"' web/dist/index.html
           grep -q 'id="v15ConnectFeather"' web/dist/index.html
-          grep -q 'GREEN ION V16' web/dist/index.html
+          grep -q 'GREEN ION V17' web/dist/index.html
           test -s web/dist/v15_report_worker.mjs
           test -s web/dist/v15_help.mjs
           grep -q 'id="v14SensorLabCard"' web/dist/index.html
           grep -q 'id="v14SensorArchiveCard"' web/dist/index.html
           test -s web/dist/sensor-worker.mjs
           test -s web/dist/analysis/gis1.mjs
-          grep -q 'GREEN ION V16' web/dist/index.html
+          grep -q 'GREEN ION V17' web/dist/index.html
       - uses: actions/upload-artifact@v4
         with:
           name: green-ion-v16-3-web
@@ -327,3 +330,125 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "GREEN ION V16.3" \
             --notes-file docs/V16_RELEASE_NOTES.md
+
+  v17-release-smoke:
+    needs: [app-tests, firmware-build, windows-package]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: green-ion-v16-3-web
+          path: built-web
+      - uses: actions/download-artifact@v4
+        with:
+          name: green-ion-v16-3-firmware
+          path: built-firmware
+      - uses: actions/download-artifact@v4
+        with:
+          name: GREEN_ION_V16_WINDOWS
+          path: windows-release
+      - name: Assemble V17 software assets without publishing
+        run: |
+          python3 tools/assemble_v17_release.py \
+            --web built-web \
+            --firmware built-firmware \
+            --windows windows-release \
+            --output v17-release-smoke \
+            --tag ci-smoke \
+            --commit "$GITHUB_SHA"
+      - name: Verify V17 release assets, integrity and launch hold
+        run: |
+          test -s v17-release-smoke/Green_Ion_V17.ino.bin
+          test -s v17-release-smoke/Ground_Receiver_V17.ino.hex
+          test -s v17-release-smoke/GREEN_ION_V17_WINDOWS.zip
+          test -s v17-release-smoke/GREEN_ION_V17_WINDOWS.sha256
+          test -s v17-release-smoke/GREEN_ION_V17_WEB.zip
+          test -s v17-release-smoke/GREEN_ION_V17_SOURCE.zip
+          test -s v17-release-smoke/SHA256_MANIFEST.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+          root=Path("v17-release-smoke")
+          manifest=json.loads((root/"SHA256_MANIFEST.json").read_text())
+          assert manifest["schema"]=="GREEN-ION-V17-RELEASE-1"
+          assert manifest["firmwareGeneration"]=="V17.0"
+          assert manifest["receiverGeneration"]=="V17.0"
+          assert manifest["radioProtocolVersion"]==2
+          assert manifest["radioPacketBytes"]==70
+          assert manifest["safety"]["loraReceiveOnly"] is True
+          assert manifest["safety"]["autonomousSdRecorderPreserved"] is True
+          assert manifest["safety"]["hardwareValidationRequired"] is True
+          assert manifest["safety"]["flightCertified"] is False
+          for name,item in manifest["artifacts"].items():
+              path=root/name
+              assert path.is_file(),name
+              assert path.stat().st_size==item["size"],name
+              assert hashlib.sha256(path.read_bytes()).hexdigest()==item["sha256"],name
+          checksum=(root/"GREEN_ION_V17_WINDOWS.sha256").read_text().split()[0]
+          assert checksum==manifest["artifacts"]["GREEN_ION_V17_WINDOWS.zip"]["sha256"]
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GREEN_ION_V17_RELEASE_SMOKE
+          path: v17-release-smoke/
+          if-no-files-found: error
+
+  publish-v17:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [app-tests, firmware-build, windows-package, v17-release-smoke]
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: green-ion-v16-3-web
+          path: built-web
+      - uses: actions/download-artifact@v4
+        with:
+          name: green-ion-v16-3-firmware
+          path: built-firmware
+      - uses: actions/download-artifact@v4
+        with:
+          name: GREEN_ION_V16_WINDOWS
+          path: windows-release
+      - name: Assemble official V17 software release
+        run: |
+          python3 tools/assemble_v17_release.py \
+            --web built-web \
+            --firmware built-firmware \
+            --windows windows-release \
+            --output release \
+            --tag v17.0.0 \
+            --commit "$GITHUB_SHA"
+      - name: Verify final V17 manifest on exact commit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, os
+          root=Path("release")
+          m=json.loads((root/"SHA256_MANIFEST.json").read_text())
+          assert m["tag"]=="v17.0.0"
+          assert m["commit"]==os.environ["GITHUB_SHA"]
+          assert m["firmwareGeneration"]==m["receiverGeneration"]=="V17.0"
+          assert m["radioProtocolVersion"]==2 and m["radioPacketBytes"]==70
+          assert m["safety"]["hardwareValidationRequired"] and not m["safety"]["flightCertified"]
+          for name,item in m["artifacts"].items():
+              p=root/name
+              assert p.is_file() and hashlib.sha256(p.read_bytes()).hexdigest()==item["sha256"]
+          PY
+      - name: Publish V17 software release once; never overwrite previous releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v17.0.0 >/dev/null 2>&1; then
+            echo "v17.0.0 already exists; refusing to replace any release."
+            exit 0
+          fi
+          gh release create v17.0.0 release/* \
+            --target "$GITHUB_SHA" \
+            --title "GREEN ION V17.0 (software CI verified; hardware testing required)" \
+            --notes-file docs/V17_RELEASE_NOTES.md \
+            --latest

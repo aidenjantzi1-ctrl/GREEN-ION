@@ -24,7 +24,7 @@ class V12Rkt4Tests(unittest.TestCase):
         self.assertEqual((count, trailing), (3, 4))
 
     def test_v12_firmware_writes_immutable_rkt4_contract(self):
-        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        firmware = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
         header = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonRkt4.h").read_text(encoding="utf-8")
         core = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonRecorderCore.h").read_text(encoding="utf-8")
         self.assertIn("#include <GreenIonRkt4.h>", firmware)

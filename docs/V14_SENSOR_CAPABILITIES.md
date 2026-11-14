@@ -26,6 +26,6 @@ V14's GIS1 parser verifies a **32-byte CRC32 header and 68-byte CRC32 records**,
 
 No magnetometer/true compass, optical distance sensor, thrust load cell, charge-current monitor, direct rocket orientation measurement, independent deployment tracker or ignition/staging control is fitted. Pressure/GPS altitude and barometric derivatives are estimates; a 32 g configured range is not proof of sensor accuracy under shock. A stale GPS fix must never be represented as live.
 
-Sources: [Firmware SensorState.h](../Green_Ion_V14/SensorState.h), [GIS1 record format](../libraries/GreenIonRecorder/src/GreenIonSensorLog.h), [RKT4 v2](RKT4_V2_FORMAT.md), [Ground Receiver](../Ground_Receiver/Ground_Receiver.ino).
+Sources: [Firmware SensorState.h](../Past_Versions/V14/Green_Ion_V14/SensorState.h), [GIS1 record format](../libraries/GreenIonRecorder/src/GreenIonSensorLog.h), [RKT4 v2](RKT4_V2_FORMAT.md), [Ground Receiver](../Past_Versions/V12/Ground_Receiver/Ground_Receiver.ino).
 
 **GPS course is not a magnetic compass:** The RMC course over ground is presented only with a current GPS fix moving at least 0.75 m/s. HDOP expresses relative geometric dilution, **not** meters of accuracy. A GGA fix quality code does not certify a flight-safe GPS fix. They are live status additions; original GIS1 v1 files and LoRa packet layout are intentionally unchanged.

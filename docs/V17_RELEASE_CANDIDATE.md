@@ -1,13 +1,13 @@
-# GREEN ION V17.0 — integrated software candidate
+# GREEN ION V17.0 — official software release; hardware qualification pending
 
-Version: 17.0.0, **software candidate only**, not authorized for launch.
+Version: **17.0.0 software release**, with CI-gated package integrity checks. **Not authorized for launch until actual hardware and rocket safety verification is complete.**
 
 ## Included
 - Feather AP+STA home Wi-Fi, physical management authorization, bounded retry and direct AP fallback.
 - Live bounded sensor graphs, WebGL orientation and recorded-sample replay, flight comparison and GPS recovery enhancements.
 - Filenames are rendered as text in comparison tables; security regression tests added.
 - Shared microSD/LoRa SPI scheduler, separate SD/LoRa CS, and interrupt-safe LoRa handling preserved.
-- Feather/Uno 17.0.0 runtime strings and Windows 17.0.0 candidate metadata; V16.3 historical source directory paths retained for build/package compatibility.
+- Feather/Uno 17.0.0 runtime strings and Windows 17.0.0 software-release metadata; V16.3 historical source directory paths retained for build/package compatibility.
 
 ## Nonnegotiable preserved interfaces
 - RKT4 v2 and GIS1 formats; 50 Hz recording and 3 s prelaunch buffer; autonomous SD recording; receive-only Uno receiver.
@@ -22,4 +22,4 @@ Version: 17.0.0, **software candidate only**, not authorized for launch.
 5. Record pass/fail evidence using [hardware validation](V16_3_HARDWARE_VALIDATION.md). Until passed, call this **software CI verified**, never flight ready.
 
 ## Software verification
-GitHub Actions [build and tests](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/workflows/build-v14.yml). V17 candidate must pass CI on its exact commit before a release artifact or public stable tag is made. V16.3 published release remains intact.
+GitHub Actions [build and tests](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/workflows/build-v14.yml). V17 release must pass CI on its exact commit before a release artifact or public stable tag is made. V16.3 published release remains intact.

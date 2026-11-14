@@ -127,7 +127,7 @@ class UiAndPackageTests(unittest.TestCase):
         self.assertIn('addEventListener("click"', js)
 
     def test_firmware_keeps_old_flight_file_format_for_sd_compatibility(self):
-        sketch = (ROOT / "Green_Ion_V13/Green_Ion_V13.ino").read_text(encoding="utf-8")
+        sketch = (ROOT / "Past_Versions/V13/Green_Ion_V13/Green_Ion_V13.ino").read_text(encoding="utf-8")
         self.assertIn('"/V12D%03u.BIN"', sketch)
         self.assertIn('"Dashboard.h"', sketch)
         self.assertIn('GREEN ION V13', sketch)

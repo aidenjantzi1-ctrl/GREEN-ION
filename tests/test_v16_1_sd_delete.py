@@ -2,8 +2,8 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-FW = (ROOT / "Green_Ion_V14" / "Green_Ion_V14.ino").read_text(encoding="utf-8")
-DASH = (ROOT / "Green_Ion_V14" / "Dashboard.h").read_text(encoding="utf-8")
+FW = (ROOT / "Past_Versions/V14/Green_Ion_V14" / "Green_Ion_V14.ino").read_text(encoding="utf-8")
+DASH = (ROOT / "Past_Versions/V14/Green_Ion_V14" / "Dashboard.h").read_text(encoding="utf-8")
 
 
 class V161SdDeleteTests(unittest.TestCase):

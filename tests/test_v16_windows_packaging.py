@@ -29,7 +29,7 @@ class V16WindowsPackagingTests(unittest.TestCase):
     def test_updater_is_side_by_side_and_checksum_gated(self):
         ps = (ROOT / "Ground_Station" / "Update-GreenIon.ps1").read_text(encoding="utf-8")
         self.assertIn("Get-FileHash -Algorithm SHA256", ps)
-        self.assertIn("GREEN_ION_V16_WINDOWS.sha256", ps)
+        self.assertIn('$ShaName = $AssetPrefix + "_WINDOWS.sha256"', ps)
         self.assertIn("LOCALAPPDATA", ps)
         self.assertIn("current.txt", ps)
         self.assertIn("Move-Item", ps)
@@ -43,7 +43,7 @@ class V16WindowsPackagingTests(unittest.TestCase):
         self.assertIn("Your GREEN_ION_Data folder was not changed", ps)
         self.assertIn("previous.txt", ps)
         self.assertIn('$InstalledTag = "v" + [string]$Version.version', ps)
-        self.assertIn("already the newest published V16 Windows version", ps)
+        self.assertIn("already the newest published Windows version", ps)
         self.assertIn("GitHub is unavailable", ps)
         self.assertIn("GREEN_ION_Data were not changed", ps)
 

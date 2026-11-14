@@ -60,7 +60,7 @@ Add deterministic recorder/storage/time interfaces and a bounded prebuffer so V1
 - Replaced independent radio literals with one transmitter/receiver contract: provisional 920.5 MHz, 125 kHz bandwidth, spreading factor 7, coding rate 4/5, and 13 dBm transmit power.
 - Expanded the CRC-protected protocol to a fixed 70-byte v2 packet carrying pressure, barometric altitude, GPS altitude, acceleration magnitude and axes, rotation axes, battery, and GPS state.
 - Updated the Uno JSON bridge, Python codec, simulator, CSV rows, and ground dashboard to preserve and display the new fields.
-- Added the required `Green_Ion_V12/Dashboard.h` read-only recorder status page and `/api/status`; it exposes recording, log filename, sensors, battery, GPS freshness, and health without flight-control actions.
+- Added the required `Past_Versions/V12/Green_Ion_V12/Dashboard.h` read-only recorder status page and `/api/status`; it exposes recording, log filename, sensors, battery, GPS freshness, and health without flight-control actions.
 - Renamed the test document to the required `docs/V12_TESTING.md` path and documented that 920.5 MHz is provisional pending ROC coordination and applicable FCC review.
 - Changed the existing development automation from every three hours to hourly, with overlap protection and a low-credit wrap-up/commit/push rule; no duplicate automation was created.
 
@@ -750,7 +750,7 @@ Upload the CI-compiled V12 build to the Feather, run Test IMU while motionless, 
 ### Implemented
 
 - Merged the complete V12 development history with the newer documentation cleanup already on `main`.
-- Made `Green_Ion_V12/`, `Ground_Receiver/`, `Ground_Station/`, and both shared libraries visible as the current root-level projects. The repository README now links the Feather firmware and Arduino Uno receiver directly.
+- Made `Past_Versions/V12/Green_Ion_V12/`, `Past_Versions/V12/Ground_Receiver/`, `Ground_Station/`, and both shared libraries visible as the current root-level projects. The repository README now links the Feather firmware and Arduino Uno receiver directly.
 - Moved the complete committed V11 source, dashboard, phone-update instructions, and matching binary to `Past_Versions/Green_Ion_V11/` without changing their contents.
 - Updated V11 regression tests and its archival compile workflow to use the preserved path. Updated version/build/roadmap documentation so V12 is current while remaining explicitly hardware-validation-in-progress.
 

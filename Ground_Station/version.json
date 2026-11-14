@@ -1,7 +1,7 @@
 {
-  "schema": "GREEN-ION-V16-WINDOWS-1",
+  "schema": "GREEN-ION-V17-WINDOWS-1",
   "version": "17.0.0",
-  "channel": "candidate",
+  "channel": "stable",
   "app": "GREEN ION V17.0 Windows Ground Station",
   "data_dir": "%USERPROFILE%\\GREEN_ION_Data",
   "repository": "aidenjantzi1-ctrl/GREEN-ION"

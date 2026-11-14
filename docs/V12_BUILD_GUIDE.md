@@ -6,7 +6,7 @@ V12 is the current root-level development firmware on `main`. The complete V11 r
 
 Install these board packages and libraries through Arduino IDE Library Manager:
 
-- ESP32 board package; select **Adafruit Feather ESP32 V2** for `Green_Ion_V12`.
+- ESP32 board package; select **Adafruit Feather ESP32 V2** for `Past_Versions/V12/Green_Ion_V12`.
 - Adafruit BMP3XX Library
 - Adafruit LSM6DS
 - Adafruit GPS Library
@@ -15,8 +15,8 @@ Install these board packages and libraries through Arduino IDE Library Manager:
 
 Add `libraries/GreenIonProtocol` and `libraries/GreenIonRecorder` to the Arduino library search path, or copy both complete folders into the Arduino sketchbook `libraries` directory. Compile:
 
-- `Green_Ion_V12/Green_Ion_V12.ino` for `esp32:esp32:adafruit_feather_esp32_v2`.
-- `Ground_Receiver/Ground_Receiver.ino` for `arduino:avr:uno`.
+- `Past_Versions/V12/Green_Ion_V12/Green_Ion_V12.ino` for `esp32:esp32:adafruit_feather_esp32_v2`.
+- `Past_Versions/V12/Ground_Receiver/Ground_Receiver.ino` for `arduino:avr:uno`.
 
 CI performs both compilations. A successful compile is not a hardware test.
 

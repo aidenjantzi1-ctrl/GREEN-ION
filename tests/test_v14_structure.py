@@ -4,8 +4,8 @@ import unittest
 ROOT=Path(__file__).resolve().parents[1]
 WEB=ROOT/"web"
 PAGE=(WEB/"index.html").read_text(encoding="utf-8")
-FIRMWARE=(ROOT/"Green_Ion_V14/Green_Ion_V14.ino").read_text(encoding="utf-8")
-CONFIG=(ROOT/"Green_Ion_V14/Config.h").read_text(encoding="utf-8")
+FIRMWARE=(ROOT/"Past_Versions/V14/Green_Ion_V14/Green_Ion_V14.ino").read_text(encoding="utf-8")
+CONFIG=(ROOT/"Past_Versions/V14/Green_Ion_V14/Config.h").read_text(encoding="utf-8")
 class V14ImplementationTests(unittest.TestCase):
  def test_blue_dashboard_and_all_historical_tabs_intact(self):
   self.assertIn("--bg:#081420",PAGE)

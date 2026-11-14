@@ -60,7 +60,7 @@ test("V16 diagnostics show explicit Wi-Fi state and age",()=>{
  assert.match(link,/connection_state/);
  assert.match(link,/active_operation/);
  assert.match(html,/id="v15LinkWifi"/);
- assert.match(html,/GREEN ION V16/);
+ assert.match(html,/GREEN ION V17/);
 });
 
 test("V16.2 direct browser keeps brief Wi-Fi dropout visible but blocks commands",async()=>{

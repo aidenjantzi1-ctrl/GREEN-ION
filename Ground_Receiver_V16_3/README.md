@@ -1,12 +1,10 @@
-# GREEN ION V16.3 — Current Uno Receiver
+# GREEN ION V17.0 — current Arduino Uno LoRa receiver
 
-**Status: CURRENT RELEASE**
+**Current software generation: V17.0 (`17.0.0`)**. Legacy sketch directory name `Ground_Receiver_V16_3/` is retained for Arduino build and compatibility with the source tree.
 
-This folder contains the current Arduino Uno receive-only ground receiver for GREEN ION **v16.3.0**.
+- Active sketch: `Ground_Receiver_V16_3.ino`, reporting receiver firmware `17.0.0`.
+- Receive-only RFM95W ground telemetry, still protocol v2 at **70 bytes**.
+- Official release HEX name: `Ground_Receiver_V17.ino.hex`.
+- [V17 release](https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases/tag/v17.0.0) · [Update guide](../docs/V17_INSTALL_UPDATE.md).
 
-Main sketch: `Ground_Receiver_V16_3.ino`
-
-Use the official release HEX from:
-https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases/tag/v16.3.0
-
-Older receiver folders remain only for rollback, regression testing, and historical reference.
+Confirm reception, power, antenna and frequency coordination on actual hardware; compilation alone is not a range or flight qualification.

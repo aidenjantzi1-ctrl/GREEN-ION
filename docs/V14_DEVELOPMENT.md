@@ -3,8 +3,8 @@
 ## Project map
 
 - [web/](../web/) — classic blue HTML, responsive CSS, offline PWA, Sensor Lab, cloud and GIS1 analyzer
-- [Green_Ion_V14/](../Green_Ion_V14/) — Feather ESP32 V2 autonomous flight recorder and local backup dashboard
-- [Ground_Receiver/](../Ground_Receiver/) — Uno R3 radio receiver, USB telemetry
+- [Past_Versions/V14/Green_Ion_V14/](../Past_Versions/V14/Green_Ion_V14/) — Feather ESP32 V2 autonomous flight recorder and local backup dashboard
+- [Past_Versions/V12/Ground_Receiver/](../Past_Versions/V12/Ground_Receiver/) — Uno R3 radio receiver, USB telemetry
 - [libraries/](../libraries/) — shared radio and original RKT4/GIS1 record formats
 - [tests/](../tests/) — Python/C++/Node regression tests
 - [.github/workflows/build-v14.yml](../.github/workflows/build-v14.yml) — builds both firmware images, tests, packages ZIP + SHA256

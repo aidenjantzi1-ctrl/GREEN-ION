@@ -7,9 +7,9 @@ ROOT = Path(__file__).resolve().parents[1]
 class V12StructureTests(unittest.TestCase):
     def test_required_projects_and_docs_exist(self):
         paths = (
-            "Green_Ion_V12/Green_Ion_V12.ino", "Green_Ion_V12/Config.h",
-            "Green_Ion_V12/Dashboard.h",
-            "Ground_Receiver/Ground_Receiver.ino", "Ground_Station/ground_station.py",
+            "Past_Versions/V12/Green_Ion_V12/Green_Ion_V12.ino", "Past_Versions/V12/Green_Ion_V12/Config.h",
+            "Past_Versions/V12/Green_Ion_V12/Dashboard.h",
+            "Past_Versions/V12/Ground_Receiver/Ground_Receiver.ino", "Ground_Station/ground_station.py",
             "Ground_Station/index.html", "Ground_Station/OPEN_GROUND_STATION.cmd",
             "Ground_Station/sensor_log.py",
             "libraries/GreenIonRecorder/src/GreenIonRecorderCore.h",
@@ -50,15 +50,15 @@ class V12StructureTests(unittest.TestCase):
             self.assertTrue((ROOT / path).is_file(), path)
 
     def test_pin_assignments_are_centralized_and_safe(self):
-        config = (ROOT / "Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
+        config = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
         self.assertIn("PIN_SD_CS = 33", config)
         self.assertIn("PIN_LORA_CS = 27", config)
         self.assertIn("PIN_I2C_POWER = NEOPIXEL_I2C_POWER", config)
         self.assertIn("PIN_SD_CS != PIN_LORA_CS", config)
 
     def test_both_radios_use_the_shared_configuration(self):
-        transmitter = (ROOT / "Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
-        receiver = (ROOT / "Ground_Receiver" / "Ground_Receiver.ino").read_text(encoding="utf-8")
+        transmitter = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
+        receiver = (ROOT / "Past_Versions/V12/Ground_Receiver" / "Ground_Receiver.ino").read_text(encoding="utf-8")
         for name in ("kFrequencyMhz", "kSignalBandwidthHz", "kSpreadingFactor", "kCodingRateDenominator"):
             self.assertIn(name, transmitter)
             self.assertIn(name, receiver)
@@ -75,8 +75,8 @@ class V12StructureTests(unittest.TestCase):
         self.assertNotIn('add_mutually_exclusive_group(required=True)', source)
 
     def test_firmware_uses_bounded_recorder_core(self):
-        config = (ROOT / "Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
-        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        config = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
+        firmware = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
         self.assertIn("PREBUFFER_SECONDS = 3", config)
         self.assertIn("PREBUFFER_RECORDS == 150", config)
         self.assertIn("RecorderCore<config::PREBUFFER_RECORDS>", firmware)
@@ -122,7 +122,7 @@ class V12StructureTests(unittest.TestCase):
         )
         self.assertIn('reportPath.replace(".BIN", ".RCV")', firmware)
         self.assertIn("trailing_partial_bytes", firmware)
-        dashboard = (ROOT / "Green_Ion_V12" / "Dashboard.h").read_text(encoding="utf-8")
+        dashboard = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Dashboard.h").read_text(encoding="utf-8")
         self.assertIn('id="recovery"', dashboard)
         self.assertIn("d.recovery_status", dashboard)
         self.assertIn('id="missed"', dashboard)
@@ -137,15 +137,15 @@ class V12StructureTests(unittest.TestCase):
     def test_no_energetic_device_control_surface(self):
         source = "\n".join(
             path.read_text(encoding="utf-8", errors="ignore")
-            for folder in (ROOT / "Green_Ion_V12", ROOT / "Ground_Receiver")
+            for folder in (ROOT / "Past_Versions/V12/Green_Ion_V12", ROOT / "Past_Versions/V12/Ground_Receiver")
             for path in folder.rglob("*") if path.is_file()
         ).lower()
         for forbidden in ("fire_igniter", "/api/ignition", "deploy_parachute", "stage_separation"):
             self.assertNotIn(forbidden, source)
 
     def test_imu_and_gps_serial_bench_contract(self):
-        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
-        state = (ROOT / "Green_Ion_V12" / "SensorState.h").read_text(encoding="utf-8")
+        firmware = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        state = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "SensorState.h").read_text(encoding="utf-8")
         for token in (
             "BENCH IMU status=OK", "range=+-32g", "rate_hz=104",
             "accel_mps2=", "accel_g=", "gyro_rad_s=", "gyro_dps=",
@@ -160,8 +160,8 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("bool gpsFixCurrent = false", state)
 
     def test_nonblocking_hardware_test_dashboard_contract(self):
-        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
-        dashboard = (ROOT / "Green_Ion_V12" / "Dashboard.h").read_text(encoding="utf-8")
+        firmware = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        dashboard = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Dashboard.h").read_text(encoding="utf-8")
         bench = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonBenchTests.h").read_text(encoding="utf-8")
         for token in ("Test IMU", "Test GPS", "Test All Sensors", "/api/hardware-test"):
             self.assertIn(token, dashboard + firmware)
@@ -170,7 +170,7 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("imu.getAccelRange() == LSM6DSO32_ACCEL_RANGE_32_G", firmware)
         self.assertIn("gpsNmeaSentences", firmware)
         self.assertIn("gpsParsedSentences", firmware)
-        self.assertIn("GPS_SERVICE_INTERVAL_MS = 5", (ROOT / "Green_Ion_V12" / "Config.h").read_text(encoding="utf-8"))
+        self.assertIn("GPS_SERVICE_INTERVAL_MS = 5", (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Config.h").read_text(encoding="utf-8"))
         self.assertIn("recorderMode != RECORDER_RECORDING", firmware)
         self.assertIn("benchMode != BENCH_OFF && recorderMode != RECORDER_RECORDING", firmware)
         self.assertIn("sensorReinitializationAllowed", firmware)
@@ -182,8 +182,8 @@ class V12StructureTests(unittest.TestCase):
 
     def test_first_packet_radio_bench_contract(self):
         protocol = (ROOT / "libraries" / "GreenIonProtocol" / "src" / "GreenIonProtocol.h").read_text(encoding="utf-8")
-        transmitter = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
-        receiver = (ROOT / "Ground_Receiver" / "Ground_Receiver.ino").read_text(encoding="utf-8")
+        transmitter = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        receiver = (ROOT / "Past_Versions/V12/Ground_Receiver" / "Ground_Receiver.ino").read_text(encoding="utf-8")
         self.assertIn("kBenchRadioMarker", protocol)
         self.assertIn("isBenchRadioPacket", protocol)
         self.assertIn('!strcmp(serialCommand, "radio test")', transmitter)
@@ -196,8 +196,8 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn('F(",\\\"antenna_required\\\":true}")', receiver)
 
     def test_recorder_priority_telemetry_queue_contract(self):
-        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
-        config = (ROOT / "Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
+        firmware = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        config = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
         queue = (ROOT / "libraries" / "GreenIonProtocol" / "src" / "GreenIonTelemetryQueue.h").read_text(encoding="utf-8")
         self.assertIn("TELEMETRY_QUEUE_CAPACITY = 3", config)
         self.assertIn("RADIO_SERVICE_GUARD_US = 5000", config)
@@ -212,8 +212,8 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("dropped_", queue)
 
     def test_radio_recovery_never_preempts_critical_recording(self):
-        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
-        config = (ROOT / "Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
+        firmware = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        config = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
         recovery = (ROOT / "libraries" / "GreenIonProtocol" / "src" / "GreenIonRadioRecovery.h").read_text(encoding="utf-8")
         self.assertIn("RADIO_SEND_FAILURE_THRESHOLD = 3", config)
         self.assertIn("RADIO_REINITIALIZE_DELAY_MS = 10000", config)
@@ -240,8 +240,8 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("kVersion = 2", rkt4)
 
     def test_sensor_log_firmware_preserves_primary_recorder_priority(self):
-        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
-        config = (ROOT / "Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
+        firmware = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        config = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
         core = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonSensorLogCore.h").read_text(encoding="utf-8")
         self.assertIn("SENSOR_LOG_QUEUE_RECORDS = 16", config)
         self.assertIn("SENSOR_LOG_SERVICE_GUARD_US = 7000", config)
@@ -265,7 +265,7 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("SENSOR_CORE_FLUSH_FAILED", core)
 
     def test_sensor_recovery_is_read_only_and_bound_to_rkt4(self):
-        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        firmware = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
         recovery = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonSensorRecovery.h").read_text(encoding="utf-8")
         self.assertGreaterEqual(firmware.count("appendSensorRecoveryEvidence("), 2)
         self.assertIn('sensorLeaf.replace(".BIN", ".SEN")', firmware)
@@ -279,8 +279,8 @@ class V12StructureTests(unittest.TestCase):
         self.assertNotIn("sensor.truncate", firmware)
 
     def test_barometer_recovery_is_bounded_and_deferred_while_active(self):
-        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
-        config = (ROOT / "Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
+        firmware = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        config = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Config.h").read_text(encoding="utf-8")
         health = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonSensorHealth.h").read_text(encoding="utf-8")
         self.assertIn("BAROMETER_READ_FAILURE_THRESHOLD = 3", config)
         self.assertIn("BAROMETER_REINITIALIZE_DELAY_MS = 5000", config)
@@ -295,7 +295,7 @@ class V12StructureTests(unittest.TestCase):
         self.assertIn("static_cast<int32_t>(nowMs - nextRetryMs_)", health)
 
     def test_gic2_checkpoints_only_describe_flushed_sensor_bytes(self):
-        firmware = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+        firmware = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
         checkpoint = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonCheckpoint.h").read_text(encoding="utf-8")
         metadata = (ROOT / "libraries" / "GreenIonRecorder" / "src" / "GreenIonMetadata.h").read_text(encoding="utf-8")
         self.assertIn('memcpy(out, "GIC1", 4)', checkpoint)

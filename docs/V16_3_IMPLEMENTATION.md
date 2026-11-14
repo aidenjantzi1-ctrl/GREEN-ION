@@ -8,8 +8,8 @@ Status vocabulary: **COMPLETE**, **PARTIAL**, **MISSING**, **BLOCKED**, **REQUIR
 
 | Requirement | Status | Evidence / V16.3 action |
 |---|---|---|
-| Feather V16.2 firmware generation | COMPLETE | `Green_Ion_V16_2`; compiled and released BIN. |
-| Compatible Uno V16.2 receiver | COMPLETE | `Ground_Receiver_V16_2`; protocol v2 / 70 bytes retained; released HEX. |
+| Feather V16.2 firmware generation | COMPLETE | `Past_Versions/V16/Green_Ion_V16_2`; compiled and released BIN. |
+| Compatible Uno V16.2 receiver | COMPLETE | `Past_Versions/V16/Ground_Receiver_V16_2`; protocol v2 / 70 bytes retained; released HEX. |
 | Windows reconnect / COM-port recovery | COMPLETE | Automatic Feather retry and Uno rediscovery retained. |
 | Exactly five tabs / #081420 | COMPLETE | Regression-locked. |
 | Balanced everyday controls | COMPLETE | Balanced is default; Simple/Advanced affect presentation only. |

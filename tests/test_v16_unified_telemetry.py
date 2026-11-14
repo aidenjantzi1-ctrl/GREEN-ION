@@ -193,7 +193,7 @@ class Phase2SourceContracts(unittest.TestCase):
         self.assertIn("--wifi-only", launcher)
 
     def test_uno_receiver_exports_protocol_rssi_and_snr_without_packet_format_change(self):
-        receiver = (ROOT / "Ground_Receiver" / "Ground_Receiver.ino").read_text(encoding="utf-8")
+        receiver = (ROOT / "Past_Versions/V12/Ground_Receiver" / "Ground_Receiver.ino").read_text(encoding="utf-8")
         protocol = (ROOT / "libraries" / "GreenIonProtocol" / "src" / "GreenIonProtocol.h").read_text(encoding="utf-8")
         self.assertIn("lastSNR()", receiver)
         self.assertIn('snr_db', receiver)
