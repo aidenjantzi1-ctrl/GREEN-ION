@@ -6,10 +6,10 @@ on:
       - "web/**"
       - "Green_Ion_V14/**"
       - "Green_Ion_V17/**"
-      - "Green_Ion_V17/**"
+      - "Green_Ion_V16_3/**"
       - "Ground_Receiver/**"
       - "Ground_Receiver_V17/**"
-      - "Ground_Receiver_V17/**"
+      - "Ground_Receiver_V16_3/**"
       - "Ground_Station/**"
       - "tools/build_v17_windows_package.py"
       - "tools/assemble_v17_release.py"
@@ -103,14 +103,14 @@ jobs:
           test -s web/dist/v16_3_shared_spi.mjs
           grep -q 'id="homeAuto"' web/dist/index.html
           grep -q 'id="v15ConnectFeather"' web/dist/index.html
-          grep -q 'GREEN ION V16' web/dist/index.html
+          grep -q 'GREEN ION V17' web/dist/index.html
           test -s web/dist/v15_report_worker.mjs
           test -s web/dist/v15_help.mjs
           grep -q 'id="v14SensorLabCard"' web/dist/index.html
           grep -q 'id="v14SensorArchiveCard"' web/dist/index.html
           test -s web/dist/sensor-worker.mjs
           test -s web/dist/analysis/gis1.mjs
-          grep -q 'GREEN ION V16' web/dist/index.html
+          grep -q 'GREEN ION V17' web/dist/index.html
       - uses: actions/upload-artifact@v4
         with:
           name: green-ion-v17-web
@@ -138,7 +138,7 @@ jobs:
           $errors = $null
           [void][System.Management.Automation.Language.Parser]::ParseFile("Ground_Station/Rollback-GreenIon.ps1",[ref]$null,[ref]$errors)
           if ($errors.Count) { $errors | Format-List | Out-String | Write-Error; exit 1 }
-      - name: Build V16 Windows package
+      - name: Build V17 Windows package
         run: python3 tools/build_v17_windows_package.py --website built-web --output windows-release --commit "$GITHUB_SHA"
       - name: Validate Windows package
         run: |
@@ -229,7 +229,7 @@ jobs:
         with:
           name: GREEN_ION_V17_WINDOWS
           path: windows-release
-      - name: Assemble V16 release assets without publishing
+      - name: Assemble V17 release assets without publishing
         run: |
           python3 tools/assemble_v17_release.py \
             --web built-web \
@@ -238,7 +238,7 @@ jobs:
             --output v17-release-smoke \
             --tag "ci-smoke" \
             --commit "$GITHUB_SHA"
-      - name: Validate V16 release bundle
+      - name: Validate V17 release bundle
         run: |
           test -s v17-release-smoke/GREEN_ION_V17_WINDOWS.zip
           test -s v17-release-smoke/GREEN_ION_V17_WEB.zip
