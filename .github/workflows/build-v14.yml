@@ -21,6 +21,7 @@ on:
       - "docs/V14_*"
       - "docs/V16_*"
       - "README.md"
+      - "CHANGELOG.md"
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -46,6 +47,13 @@ jobs:
             tests/cpp/test_v16_3_shared_spi.cpp \
             -o /tmp/test-v16-3-shared-spi
           /tmp/test-v16-3-shared-spi
+      - name: Native AP+STA Wi-Fi policy regression
+        run: |
+          g++ -std=c++17 -Wall -Wextra -pedantic \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v16_3_wifi_policy.cpp \
+            -o /tmp/test-v16-3-wifi-policy
+          /tmp/test-v16-3-wifi-policy
       - name: Node browser tests
         run: node --test tests/*.test.mjs
       - name: Headless browser WebGL rendering smoke test

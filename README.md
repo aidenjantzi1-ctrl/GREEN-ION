@@ -21,6 +21,7 @@ It preserves:
 - protocol-v2 70-byte LoRa packets;
 - receive-only ground LoRa;
 - V16.2 live rocket visualization, WebGL 3D replay, Maps recovery, flight history/comparison and optional Supabase backup;
+- optional AP+STA home Wi-Fi while the direct GREEN ION access point remains available;
 - Windows data under `%USERPROFILE%\GREEN_ION_Data`;
 - separate Windows app update/rollback and deliberate Feather firmware update/rollback.
 
@@ -33,6 +34,7 @@ Software validation does **not** prove actual perfboard wiring, RF range, GPS re
 | Install/update Windows, Feather and Uno | [V16.3 update & rollback](docs/V16_3_UPDATE_GUIDE.md) |
 | Run the one-button bench test | [V16.3 Full Home Test](docs/V16_3_HOME_TEST.md) |
 | Wire/test shared SD + LoRa SPI | [V16.3 shared-SPI perfboard](docs/V16_3_SHARED_SPI_PERFBOARD.md) |
+| Connect to home Wi-Fi while keeping direct access | [V16.3 Home Wi-Fi + AP+STA](docs/V16_3_HOME_WIFI.md) |
 | Record remaining physical validation | [V16.3 hardware validation](docs/V16_3_HARDWARE_VALIDATION.md) |
 | See implementation status | [V16.3 implementation checklist](docs/V16_3_IMPLEMENTATION.md) |
 | Configure the recovery map | [V16.2 Google Maps](docs/V16_2_GOOGLE_MAPS.md) |

@@ -1,3 +1,12 @@
+# V16.3 AP+STA home Wi-Fi extension — November 13, 2026
+
+- Added optional simultaneous direct AP + 2.4 GHz home-router station mode while retaining `GREEN-ION-V16-3` at `192.168.4.1`.
+- Added bounded nonblocking station attempts/retries and asynchronous scans that are disabled during recorder-critical states.
+- Added NVS-backed home credentials and optional direct-AP password without exposing saved passwords through APIs, logs or reports.
+- Added physical SW38 + temporary management session + CSRF protection for credential-changing endpoints.
+- Added mobile Wi-Fi Settings UI for scanning, hidden/manual SSID entry, connect/disconnect/forget, RSSI/mode and both dashboard addresses.
+- Added C++/Python/JavaScript regression tests. Physical AP+STA/router/iPhone behavior remains **NOT VERIFIED** until real Feather bench validation.
+
 # V16.3 — Shared-SPI reliability and full home verification — November 12, 2026
 
 - Added GREEN ION Feather V16.3 and Uno receiver V16.3 source/build identities while preserving RKT4 v2, GIS1 and protocol-v2 70-byte receive-only LoRa.
