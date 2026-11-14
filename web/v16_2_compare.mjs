@@ -2,6 +2,14 @@
 import {listLocalMetadata,getLocalFile} from "./v14_store.mjs";
 const $=id=>document.getElementById(id);let results=[];
 function fmt(v,unit="",d=2){return Number.isFinite(v)?v.toFixed(d)+(unit?" "+unit:""):"—";}
+
+export function makeComparisonHeader(names,doc=document){
+ const row=doc.createElement("tr"),metric=doc.createElement("th");
+ metric.textContent="Metric";row.append(metric);
+ for(const name of names){const cell=doc.createElement("th");cell.textContent=String(name);row.append(cell);}
+ return row;
+}
+
 async function analyze(meta,files){
  const bin=await getLocalFile(meta.key),base=meta.name.replace(/\.BIN$/i,""),senMeta=files.find(x=>x.kind==="SEN"&&x.name.replace(/\.SEN$/i,"")===base),sen=senMeta?await getLocalFile(senMeta.key):null;
  return await new Promise((resolve,reject)=>{
@@ -23,7 +31,7 @@ function draw(){
 function render(){
  const table=$("v162CompareTable");table.replaceChildren();if(!results.length)return;
  const metrics=[["Max altitude",x=>fmt(x.maxAltitudeM,"m")],["Flight duration",x=>fmt(x.flightDurationS,"s")],["Max estimated velocity",x=>fmt(x.maxVelocityMps,"m/s")],["Max acceleration",x=>fmt(x.maxAccelerationMps2,"m/s²")],["Max G",x=>fmt(x.maxG,"g")+" · "+x.gSource],["Ascent duration",x=>fmt(x.ascentDurationS,"s")],["Descent duration",x=>fmt(x.descentDurationS,"s")],["GPS track distance",x=>fmt(x.gpsDistanceM,"m")],["Data completeness",x=>fmt(x.completenessPct,"%",1)],["Recovery location",x=>x.recoveryLocation?x.recoveryLocation.latitude.toFixed(6)+", "+x.recoveryLocation.longitude.toFixed(6):"—"]];
- const head=document.createElement("tr");head.innerHTML="<th>Metric</th>"+results.map(x=>"<th>"+x.name+"</th>").join("");table.append(head);
+ const head=makeComparisonHeader(results.map(x=>x.name));table.append(head);
  for(const [label,get] of metrics){const tr=document.createElement("tr"),th=document.createElement("th");th.textContent=label;tr.append(th);for(const r of results){const td=document.createElement("td");td.textContent=get(r.metrics);tr.append(td);}table.append(tr);}
  draw();
 }
