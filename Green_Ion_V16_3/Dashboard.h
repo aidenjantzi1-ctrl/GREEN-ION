@@ -2474,8 +2474,8 @@ function render(s){
    Number(s.calibration_baseline_pa).toFixed(0)+" Pa · noise "+Number(s.calibration_noise_m||0).toFixed(3)+" m":"IN PROGRESS";
  node("v17PrepGps").textContent=s.gps_status==="live"?"READY · "+String(s.satellites||0)+" sat":"WARNING · "+String(s.gps_status||"missing").toUpperCase();
  node("v17PrepGps").style.color=s.gps_status==="live"?"#72e5ab":"#ffdd88";
- node("v17PrepLora").textContent=s.radio_ok?"READY · "+String(s.lora_diag_code||"radio initialized"):"WARNING · "+String(s.lora_diag_code||"MISSING");
- node("v17PrepLora").style.color=s.radio_ok?"#72e5ab":"#ffdd88";
+ node("v17PrepLora").textContent=s.radio_ok&&s.radio_tx_authorized?"READY · TX ENABLED":s.radio_ok?"WARNING · RADIO FOUND · TX LOCKED":"WARNING · "+String(s.lora_diag_code||"MISSING");
+ node("v17PrepLora").style.color=s.radio_ok&&s.radio_tx_authorized?"#72e5ab":"#ffdd88";
  node("v17PrepRecorder").textContent=s.recording?("RECORDING "+(s.log_file||"RKT4")):s.armed?"ARMED · 50 Hz SD":"NOT ARMED";
  node("v17PrepMessage").textContent=s.flight_prep_failure?("NOT READY — "+s.flight_prep_failure):
    s.recording?"Primary 50 Hz RKT4 recording is active. Wi-Fi/GPS/LoRa loss cannot stop it.":
