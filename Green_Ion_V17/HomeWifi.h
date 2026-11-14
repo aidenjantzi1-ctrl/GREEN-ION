@@ -1,6 +1,6 @@
 #pragma once
 
-// GREEN ION V16.3 home Wi-Fi manager.
+// GREEN ION V17 home Wi-Fi manager.
 // All station operations are asynchronous and subordinate to the 50 Hz recorder.
 // No password is ever returned by an API or printed to Serial.
 
