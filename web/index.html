@@ -2766,7 +2766,7 @@ function recoveryAdvice(s){
  return "Keep GREEN ION stationary during preparation. GPS/LoRa can warn without blocking the local SD recorder.";
 }
 async function refreshFiles(s){
- if(s.recording||s.flight_prep_active||Date.now()-lastFilesAt<7000)return;
+ if(s.recording||s.armed||s.flight_prep_active||Date.now()-lastFilesAt<7000)return;
  lastFilesAt=Date.now();
  try{const f=await req("files");node("v17PrepFiles").textContent=String((f.files||[]).length)+" saved package(s)";}
  catch{node("v17PrepFiles").textContent="Unavailable while recorder is busy";}
@@ -2799,6 +2799,7 @@ function render(s){
  node("v17PrepareFlight").textContent=s.flight_prep_active?"PREPARING…":ready?"RUN PREPARE AGAIN":"PREPARE FOR FLIGHT";
  node("v17LoraDiag").disabled=s.recording||s.flight_prep_active||s.maintenance_mode||s.home_test_active;
  node("v17LoraTx").disabled=node("v17LoraDiag").disabled;
+ node("v17OpenFlights").disabled=!!s.recording||!!s.armed||!!s.flight_prep_active;
  refreshFiles(s);
 }
 async function poll(){
