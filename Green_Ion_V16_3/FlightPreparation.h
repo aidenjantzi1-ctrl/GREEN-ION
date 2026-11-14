@@ -35,6 +35,8 @@ static uint8_t loraDiagnosticVersion = 0;
 static bool loraDiagnosticSpiOk = false;
 static bool loraDiagnosticInitOk = false;
 static int loraDiagnosticDio0 = -1;
+static int loraDiagnosticCs = -1;
+static int loraDiagnosticReset = -1;
 static String loraDiagnosticCode = "NOT_RUN";
 static String loraDiagnosticProblem = "Run the passive LoRa diagnostic on the bench.";
 
@@ -264,6 +266,8 @@ static uint8_t readLoraVersionRegister() {
 static void runPassiveLoraDiagnostic(bool allowReinitialize) {
   loraDiagnosticVersion = readLoraVersionRegister();
   loraDiagnosticSpiOk = loraDiagnosticVersion == 0x12;
+  loraDiagnosticCs = digitalRead(config::PIN_LORA_CS);
+  loraDiagnosticReset = digitalRead(config::PIN_LORA_RST);
   loraDiagnosticDio0 = digitalRead(config::PIN_LORA_DIO0);
 
   if (loraDiagnosticVersion == 0x00) {
@@ -316,7 +320,7 @@ static green_ion::readiness::Result currentFlightReadinessResult() {
     recorderMode == RECORDER_WATCHING &&
         flightWatcher.state() == green_ion::flight::WATCHING,
     gpsPositionCurrent(millis()),
-    state.radioOk,
+    state.radioOk && radioTransmitAuthorized,
     sensorLogFailures == 0,
     true,  // Preflight-internal SD work is not a flight missed-sample failure.
     validFlightProfileValue(selectedRocket, false)
@@ -454,7 +458,7 @@ static void serviceFlightReadiness(uint32_t nowMs) {
       flightReadinessWarningFlags = result.warningFlags;
       Serial.printf("[PREFLIGHT] ARMED ready=1 warnings=0x%08lx lora=%s gps=%s sd=PASS\n",
                     static_cast<unsigned long>(result.warningFlags),
-                    state.radioOk ? "READY" : "WARNING",
+                    (state.radioOk && radioTransmitAuthorized) ? "READY" : "WARNING",
                     gpsPositionCurrent(nowMs) ? "READY" : "WARNING");
       break;
     }
@@ -496,7 +500,11 @@ static void runLoraDiagnosticEndpoint() {
   body += ",\"expected_chip_version\":18";
   body += ",\"spi_ok\":" + String(loraDiagnosticSpiOk ? "true" : "false");
   body += ",\"radio_init_ok\":" + String(state.radioOk ? "true" : "false");
+  body += ",\"cs_level\":" + String(loraDiagnosticCs);
+  body += ",\"reset_level\":" + String(loraDiagnosticReset);
   body += ",\"dio0_level\":" + String(loraDiagnosticDio0);
+  body += ",\"settings_source\":\"GreenIonRadioConfig.h shared with Uno receiver\"";
+  body += ",\"software_settings_match_uno\":true";
   body += ",\"feather_pins\":{\"sck\":5,\"mosi\":19,\"miso\":21,\"sd_cs\":33,\"lora_cs\":27,\"reset\":15,\"dio0\":32}";
   body += ",\"settings\":{\"frequency_mhz\":" + String(config::LORA_FREQUENCY_MHZ, 1);
   body += ",\"bandwidth_hz\":" + String(config::LORA_SIGNAL_BANDWIDTH_HZ);
