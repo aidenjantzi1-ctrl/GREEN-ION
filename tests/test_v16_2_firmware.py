@@ -3,10 +3,10 @@ import re
 import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
-FW=(ROOT/"Green_Ion_V16_2/Green_Ion_V16_2.ino").read_text(encoding="utf-8")
-CFG=(ROOT/"Green_Ion_V16_2/Config.h").read_text(encoding="utf-8")
-STATE=(ROOT/"Green_Ion_V16_2/SensorState.h").read_text(encoding="utf-8")
-UNO=(ROOT/"Ground_Receiver_V16_2/Ground_Receiver_V16_2.ino").read_text(encoding="utf-8")
+FW=(ROOT/"Past_Versions/V16/Past_Versions/V16/Green_Ion_V16_2/Green_Ion_V16_2.ino").read_text(encoding="utf-8")
+CFG=(ROOT/"Past_Versions/V16/Past_Versions/V16/Green_Ion_V16_2/Config.h").read_text(encoding="utf-8")
+STATE=(ROOT/"Past_Versions/V16/Past_Versions/V16/Green_Ion_V16_2/SensorState.h").read_text(encoding="utf-8")
+UNO=(ROOT/"Past_Versions/V16/Past_Versions/V16/Ground_Receiver_V16_2/Ground_Receiver_V16_2.ino").read_text(encoding="utf-8")
 PROTOCOL=(ROOT/"libraries/GreenIonProtocol/src/GreenIonProtocol.h").read_text(encoding="utf-8")
 
 class V162FirmwareTests(unittest.TestCase):

@@ -185,7 +185,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  </div>
 </div>
 
-<nav class="tabs v16-tabs" aria-label="GREEN ION V16 primary sections">
+<nav class="tabs v16-tabs" aria-label="GREEN ION V17 primary sections">
  <button class="active" data-tab="status">Dashboard</button>
  <button data-tab="flight">Flight</button>
  <button data-tab="history">Flights &amp; Analysis</button>
@@ -212,7 +212,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
  <strong id="v14SourceStatus">Active source: checking...</strong>
  <strong id="v14WifiStatus">Feather Wi-Fi: checking...</strong>
  <strong id="v14LoraStatus">Uno/LoRa: checking...</strong>
- <p class="muted" id="v14ConnectionNotice">Starting GREEN ION V16...</p>
+ <p class="muted" id="v14ConnectionNotice">Starting GREEN ION V17...</p>
 </div>
 
 <section id="status" class="page active">
@@ -359,7 +359,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
 </section>
 <section id="flight" class="page">
 <div class="card launch-guide" id="v16MissionCard">
- <div class="guide-top"><div><h2>V16 Mission Controller</h2>
+ <div class="guide-top"><div><h2>V17 Mission Controller</h2>
  <p class="muted">Guides one mission from preflight through recovery and analysis. Feather flight detection and SD recording remain authoritative and autonomous.</p></div>
  <strong id="v16MissionState">IDLE</strong></div>
  <div class="notice" id="v16MissionInstruction" role="status" aria-live="polite">Start a mission when the rocket and motor profile are ready.</div>
@@ -958,7 +958,7 @@ body.sunlight .tabs button.active{background:#006c98!important;color:#fff!import
   <p id="v14AppBuild">Website version loading...</p>
   <p id="v14UpdateCheck">Checking official GitHub releases...</p>
   <div class="actions"><button id="v14CheckUpdates">Check for updates</button><a href="https://github.com/aidenjantzi1-ctrl/GREEN-ION/releases" target="_blank" rel="noopener noreferrer">View GitHub releases</a></div>
-  <p class="muted">For direct OTA, the official <code>Green_Ion_V16_3.ino.bin</code> must match the V16.3 release SHA-256 manifest. Remove the motor, finish recording, use USB power and a charged LiPo. Browser network restrictions may require manual download and upload through the Feather dashboard at 192.168.4.1. Preserve your previous firmware for recovery.</p>
+  <p class="muted">For direct OTA, the official <code>Green_Ion_V17.ino.bin</code> must match the V17.0 release SHA-256 manifest. Remove the motor, finish recording, use USB power and a charged LiPo. Browser network restrictions may require manual download and upload through the Feather dashboard at 192.168.4.1. Preserve your previous firmware for recovery.</p>
  </div>
 </section>
 
@@ -2878,7 +2878,7 @@ async function poll(){
      ". Confirm five valid packets arrived at the UNO, then press RUN.");
   }
  }catch(e){
-  setMessage("Dashboard connection interrupted. Reconnect to GREEN-ION-V16-3 Wi-Fi. The Feather's temporary recording continues without the phone.");
+  setMessage("Dashboard connection interrupted. Reconnect to GREEN-ION-V17 Wi-Fi. The Feather's temporary recording continues without the phone.");
  }
 }
 function next(){

@@ -3,8 +3,8 @@ on:
   push:
     branches: [main, "v13/**"]
     paths:
-      - "Green_Ion_V13/**"
-      - "Ground_Receiver/**"
+      - "Past_Versions/V13/Past_Versions/V13/Green_Ion_V13/**"
+      - "Past_Versions/V12/Past_Versions/V12/Ground_Receiver/**"
       - "Ground_Station/**"
       - "libraries/GreenIonProtocol/**"
       - "libraries/GreenIonRecorder/**"
@@ -44,9 +44,9 @@ jobs:
           arduino-cli lib install "Adafruit GPS Library"
           arduino-cli lib install "RadioHead"
       - name: Compile Feather V13
-        run: arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --library libraries/GreenIonProtocol --library libraries/GreenIonRecorder --output-dir build/esp32 Green_Ion_V13
+        run: arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --library libraries/GreenIonProtocol --library libraries/GreenIonRecorder --output-dir build/esp32 Past_Versions/V13/Green_Ion_V13
       - name: Compile Arduino Uno receiver
-        run: arduino-cli compile --fqbn arduino:avr:uno --library libraries/GreenIonProtocol --output-dir build/uno Ground_Receiver
+        run: arduino-cli compile --fqbn arduino:avr:uno --library libraries/GreenIonProtocol --output-dir build/uno Past_Versions/V12/Ground_Receiver
       - uses: actions/upload-artifact@v4
         with:
           name: green-ion-v13-compiled-firmware
@@ -74,8 +74,8 @@ jobs:
           copy2("docs/V13_START_HERE.md", root / "START_HERE.md")
           copy2("docs/V13_UPDATE_GUIDE.md", root / "HOW_TO_UPDATE.md")
           copytree("Ground_Station", root / "Ground_Station", ignore=lambda d, n: {"logs", "__pycache__", ".gitignore"} & set(n))
-          copytree("Green_Ion_V13", root / "Feather_Firmware/Green_Ion_V13")
-          copytree("Ground_Receiver", root / "Uno_Receiver/Ground_Receiver")
+          copytree("Past_Versions/V13/Green_Ion_V13", root / "Feather_Firmware/Green_Ion_V13")
+          copytree("Past_Versions/V12/Ground_Receiver", root / "Uno_Receiver/Ground_Receiver")
           copytree("libraries/GreenIonProtocol", root / "Arduino_Libraries/GreenIonProtocol")
           copytree("libraries/GreenIonRecorder", root / "Arduino_Libraries/GreenIonRecorder")
           feather = list(Path("build").rglob("Green_Ion_V13.ino.bin"))

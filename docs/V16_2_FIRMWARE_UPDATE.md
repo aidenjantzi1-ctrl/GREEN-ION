@@ -2,7 +2,7 @@
 
 Target board: **Adafruit Feather ESP32 V2**.
 
-The V16.2 release asset is `Green_Ion_V16_2.ino.bin`. It is the ESP32 application image compiled from `Green_Ion_V16_2/` plus the shared GreenIonProtocol and GreenIonRecorder libraries.
+The V16.2 release asset is `Green_Ion_V16_2.ino.bin`. It is the ESP32 application image compiled from `Past_Versions/V16/Green_Ion_V16_2/` plus the shared GreenIonProtocol and GreenIonRecorder libraries.
 
 ## Before OTA
 

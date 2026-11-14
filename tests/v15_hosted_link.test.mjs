@@ -4,7 +4,7 @@ import {readFileSync} from "node:fs";
 import {runInNewContext} from "node:vm";
 
 const boot=readFileSync(new URL("../web/v14_boot.js",import.meta.url),"utf8");
-const firmware=readFileSync(new URL("../Green_Ion_V14/Green_Ion_V14.ino",import.meta.url),"utf8");
+const firmware=readFileSync(new URL("../Past_Versions/V14/Green_Ion_V14/Green_Ion_V14.ino",import.meta.url),"utf8");
 const page=readFileSync(new URL("../web/index.html",import.meta.url),"utf8");
 
 test("hosted dashboard directs only Feather API requests to private network with LNA opt-in",async()=>{

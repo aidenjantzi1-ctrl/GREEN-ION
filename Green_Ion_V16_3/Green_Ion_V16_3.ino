@@ -3,7 +3,7 @@
   Flight-data recorder and recovery aid only.
   It must never control ignition, staging, or recovery deployment.
 
-  V16.3 retains the validated recorder and RKT4/GIS1 file compatibility. This generation combines
+  V17 retains the validated recorder and RKT4/GIS1 file compatibility. This generation combines
   RKT4 recording, a bounded prebuffer, stationary pressure calibration, and a
   recorder-only launch watcher, recovery, and bench-only OTA maintenance.
 */
@@ -2469,14 +2469,14 @@ static void initializeDashboard() {
   });
   dashboardServer.on("/manifest.webmanifest", []() {
     dashboardServer.send(200, "application/manifest+json",
-        "{\"name\":\"GREEN ION V16.3\",\"short_name\":\"GREEN ION\","
+        "{\"name\":\"GREEN ION V17.0\",\"short_name\":\"GREEN ION\","
         "\"start_url\":\"/\",\"display\":\"standalone\","
         "\"background_color\":\"#081420\",\"theme_color\":\"#081420\"}");
   });
   dashboardServer.on("/service-worker.js", []() {
     dashboardServer.sendHeader("Service-Worker-Allowed", "/");
     dashboardServer.send(200, "application/javascript",
-        "const C='green-ion-v16-3-dashboard-v1';"
+        "const C='green-ion-v17-0-dashboard-v1';"
         "self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.add('/'))));"
         "self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));"
         "self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||new URL(e.request.url).pathname.startsWith('/api/'))return;"

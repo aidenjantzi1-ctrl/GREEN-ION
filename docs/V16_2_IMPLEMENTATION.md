@@ -15,7 +15,7 @@ V16.2 preserves the autonomous SD recorder, RKT4 v2 BIN, GIS1 SEN, receive-only 
   - Uno auto-rediscovery/COM-port changes and bounded telemetry history are preserved.
   - Automated one-hour and two-hour connection-soak simulations are included.
 - [x] **Phase 2 — Feather/Uno V16.2 firmware generation**
-  - New `Green_Ion_V16_2` and `Ground_Receiver_V16_2` build targets.
+  - New `Past_Versions/V16/Green_Ion_V16_2` and `Past_Versions/V16/Ground_Receiver_V16_2` build targets.
   - Firmware reports V16.2 identity, boot/session/reset evidence, sensor/recorder/radio/SD diagnostics and bounded failure counters.
   - RKT4 v2, GIS1 and the protocol-v2 70-byte LoRa packet remain byte-compatible.
   - GPS/radio failures do not gate the primary recorder.

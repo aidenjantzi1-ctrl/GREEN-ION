@@ -462,7 +462,7 @@ Earlier historical records (not compilable firmware): [V1](Past_Versions/V1/READ
 
 # V12 Development Firmware — Current on Main
 
-- Promoted the complete `Green_Ion_V12/`, `Ground_Receiver/`, `Ground_Station/`, shared protocol/recorder libraries, tests, and documentation to `main`.
+- Promoted the complete `Past_Versions/V12/Green_Ion_V12/`, `Past_Versions/V12/Ground_Receiver/`, `Ground_Station/`, shared protocol/recorder libraries, tests, and documentation to `main`.
 - Added phone/laptop and USB hardware tests for the LSM6DSO32, PA1010D, and BMP388 status while preserving recorder priority and RKT4 v2.
 - Preserved the full V11 release candidate under `Past_Versions/Green_Ion_V11/`.
 - V12 has passed host tests and target compilation, but physical sensor, SD, radio, recovery, and flight validation remain required.

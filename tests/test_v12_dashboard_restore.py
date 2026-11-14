@@ -5,9 +5,9 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-V12_DASHBOARD = (ROOT / "Green_Ion_V12" / "Dashboard.h").read_text(encoding="utf-8")
+V12_DASHBOARD = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Dashboard.h").read_text(encoding="utf-8")
 V11_DASHBOARD = (ROOT / "Past_Versions" / "Green_Ion_V11" / "Dashboard.h").read_text(encoding="utf-8")
-V12_FIRMWARE = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+V12_FIRMWARE = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
 
 
 class V12DashboardRestoreTests(unittest.TestCase):

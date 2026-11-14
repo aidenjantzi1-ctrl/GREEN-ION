@@ -16,8 +16,8 @@ Windows needs Python 3. Live Uno reception also requires a one-time **py -3 -m p
 ## Folder contents
 
 - **Ground_Station/** — one launcher, the full blue Feather dashboard, Wi-Fi/LoRa bridge, radio-only view at /radio.html
-- **Feather_Firmware/Green_Ion_V13/** — Feather ESP32 V2 source
-- **Uno_Receiver/Ground_Receiver/** — Uno receiver source
+- **Feather_Firmware/Past_Versions/V13/Green_Ion_V13/** — Feather ESP32 V2 source
+- **Uno_Receiver/Past_Versions/V12/Ground_Receiver/** — Uno receiver source
 - **Arduino_Libraries/** — both repository-local GreenIon libraries
 - **READY_TO_UPLOAD/FEATHER/** — compiled .ino.bin OTA app
 - **READY_TO_UPLOAD/UNO/** — compiled Uno HEX for suitable AVR flashing tools

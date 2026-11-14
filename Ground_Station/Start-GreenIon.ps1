@@ -67,13 +67,13 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "GREEN ION V16.3 Windows Ground Station $($Version.version)"
+Write-Host "GREEN ION V17.0 Windows Ground Station $($Version.version)"
 Write-Host "Data directory: $env:GREEN_ION_DATA_DIR"
 Write-Host ""
 Write-Host "Simple setup:"
 Write-Host "  1. Leave this window open; the blue dashboard opens automatically."
 Write-Host "  2. Plug the Uno in any time. GREEN ION keeps watching USB and reconnects automatically."
-Write-Host "  3. Join the Feather GREEN-ION-V16-3 Wi-Fi (or compatible older firmware Wi-Fi) when live status, tests or downloads are needed."
+Write-Host "  3. Join the Feather GREEN-ION-V17 Wi-Fi (or compatible older firmware Wi-Fi) when live status, tests or downloads are needed."
 Write-Host "  4. Your saved flights stay in GREEN_ION_Data even when the app is updated or rolled back."
 Write-Host "No COM prompt is required."
 Write-Host ""

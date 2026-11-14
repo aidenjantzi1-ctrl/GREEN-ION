@@ -7,10 +7,10 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-FIRMWARE = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
-MAINTENANCE = (ROOT / "Green_Ion_V12" / "FirmwareMaintenance.h").read_text(encoding="utf-8")
-DASHBOARD = (ROOT / "Green_Ion_V12" / "Dashboard.h").read_text(encoding="utf-8")
-RECEIVER = (ROOT / "Ground_Receiver" / "Ground_Receiver.ino").read_text(encoding="utf-8")
+FIRMWARE = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Green_Ion_V12.ino").read_text(encoding="utf-8")
+MAINTENANCE = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "FirmwareMaintenance.h").read_text(encoding="utf-8")
+DASHBOARD = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Dashboard.h").read_text(encoding="utf-8")
+RECEIVER = (ROOT / "Past_Versions/V12/Ground_Receiver" / "Ground_Receiver.ino").read_text(encoding="utf-8")
 LAUNCHER = (ROOT / "Ground_Station" / "OPEN_GROUND_STATION.cmd").read_text(encoding="utf-8")
 README = (ROOT / "Past_Versions" / "V13_README_ARCHIVE.md").read_text(encoding="utf-8")
 

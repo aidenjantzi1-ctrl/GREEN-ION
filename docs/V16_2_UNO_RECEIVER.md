@@ -2,7 +2,7 @@
 
 Target: **Arduino Uno R3 + matching RFM9x 900 MHz receiver**.
 
-V16.2 receiver source is `Ground_Receiver_V16_2/Ground_Receiver_V16_2.ino`; release HEX is `Ground_Receiver_V16_2.ino.hex`.
+V16.2 receiver source is `Past_Versions/V16/Ground_Receiver_V16_2/Ground_Receiver_V16_2.ino`; release HEX is `Ground_Receiver_V16_2.ino.hex`.
 
 The Uno receiver remains **receive-only**. It does not transmit commands to the rocket.
 

@@ -4,8 +4,8 @@ on:
   push:
     branches: [main, "codex/**", "v12/**"]
     paths:
-      - "Green_Ion_V12/**"
-      - "Ground_Receiver/**"
+      - "Past_Versions/V12/Past_Versions/V12/Green_Ion_V12/**"
+      - "Past_Versions/V12/Past_Versions/V12/Ground_Receiver/**"
       - "Ground_Station/**"
       - "libraries/GreenIonProtocol/**"
       - "tests/test_v12_*.py"
@@ -133,9 +133,9 @@ jobs:
           arduino-cli lib install "Adafruit GPS Library"
           arduino-cli lib install "RadioHead"
       - name: Compile Feather ESP32 V2 firmware
-        run: arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --library libraries/GreenIonProtocol --library libraries/GreenIonRecorder --output-dir build/esp32 Green_Ion_V12
+        run: arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --library libraries/GreenIonProtocol --library libraries/GreenIonRecorder --output-dir build/esp32 Past_Versions/V12/Green_Ion_V12
       - name: Compile Arduino Uno receiver
-        run: arduino-cli compile --fqbn arduino:avr:uno --library libraries/GreenIonProtocol --output-dir build/uno Ground_Receiver
+        run: arduino-cli compile --fqbn arduino:avr:uno --library libraries/GreenIonProtocol --output-dir build/uno Past_Versions/V12/Ground_Receiver
       - name: Upload development binaries
         uses: actions/upload-artifact@v4
         with:

@@ -10,8 +10,8 @@ $CurrentFile = Join-Path $StateRoot "current.txt"
 $PreviousFile = Join-Path $StateRoot "previous.txt"
 New-Item -ItemType Directory -Force -Path $AppRoot | Out-Null
 
-Write-Host "[UPDATE] Checking official GREEN ION V16 GitHub releases..."
-$Headers = @{ "Accept"="application/vnd.github+json"; "User-Agent"="GREEN-ION-V16-Updater" }
+Write-Host "[UPDATE] Checking official GREEN ION V17/V16 GitHub releases..."
+$Headers = @{ "Accept"="application/vnd.github+json"; "User-Agent"="GREEN-ION-V17-Updater" }
 try {
   $Releases = Invoke-RestMethod -Uri $Api -Headers $Headers -Method Get
 } catch {
@@ -20,12 +20,13 @@ try {
   exit 0
 }
 $Release = $Releases | Where-Object {
-  -not $_.draft -and $_.tag_name -match '^v16\.' -and
-  ($_.assets.name -contains "GREEN_ION_V16_WINDOWS.zip") -and
-  ($_.assets.name -contains "GREEN_ION_V16_WINDOWS.sha256")
+  if ($_.draft -or $_.tag_name -notmatch '^v(?:16|17)\\.') { return $false }
+  $Prefix = if ($_.tag_name -match '^v17\\.') { "GREEN_ION_V17" } else { "GREEN_ION_V16" }
+  return ($_.assets.name -contains ($Prefix + "_WINDOWS.zip")) -and
+         ($_.assets.name -contains ($Prefix + "_WINDOWS.sha256"))
 } | Select-Object -First 1
 if (-not $Release) {
-  Write-Host "[UPDATE] No official V16 Windows release package is published yet."
+  Write-Host "[UPDATE] No official V16/V17 Windows release package is published yet."
   exit 0
 }
 
@@ -41,18 +42,21 @@ if ($Release.body) {
 Write-Host "[UPDATE] This installed package reports: $($Version.version)"
 $InstalledTag = "v" + [string]$Version.version
 if ($Tag -eq $InstalledTag) {
-  Write-Host "[UPDATE] This is already the newest published V16 Windows version."
+  Write-Host "[UPDATE] This is already the newest published Windows version."
   exit 0
 }
 if ($CheckOnly) { exit 0 }
 
-$ZipAsset = $Release.assets | Where-Object name -eq "GREEN_ION_V16_WINDOWS.zip" | Select-Object -First 1
-$ShaAsset = $Release.assets | Where-Object name -eq "GREEN_ION_V16_WINDOWS.sha256" | Select-Object -First 1
+$AssetPrefix = if ($Tag -match '^v17\\.') { "GREEN_ION_V17" } else { "GREEN_ION_V16" }
+$ZipName = $AssetPrefix + "_WINDOWS.zip"
+$ShaName = $AssetPrefix + "_WINDOWS.sha256"
+$ZipAsset = $Release.assets | Where-Object name -eq $ZipName | Select-Object -First 1
+$ShaAsset = $Release.assets | Where-Object name -eq $ShaName | Select-Object -First 1
 $TempRoot = Join-Path $env:TEMP ("green-ion-update-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force -Path $TempRoot | Out-Null
 try {
-  $Zip = Join-Path $TempRoot "GREEN_ION_V16_WINDOWS.zip"
-  $Sha = Join-Path $TempRoot "GREEN_ION_V16_WINDOWS.sha256"
+  $Zip = Join-Path $TempRoot $ZipName
+  $Sha = Join-Path $TempRoot $ShaName
   Invoke-WebRequest -Uri $ZipAsset.browser_download_url -Headers $Headers -OutFile $Zip
   Invoke-WebRequest -Uri $ShaAsset.browser_download_url -Headers $Headers -OutFile $Sha
   $Expected = ((Get-Content $Sha -Raw) -split '\s+')[0].Trim().ToLowerInvariant()

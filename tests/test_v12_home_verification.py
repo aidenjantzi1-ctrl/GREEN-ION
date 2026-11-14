@@ -5,10 +5,10 @@ import subprocess
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-FW = (ROOT / "Green_Ion_V12" / "Green_Ion_V12.ino").read_text()
-HOME = (ROOT / "Green_Ion_V12" / "HomeVerification.h").read_text()
-UI = (ROOT / "Green_Ion_V12" / "Dashboard.h").read_text()
-OTA = (ROOT / "Green_Ion_V12" / "FirmwareMaintenance.h").read_text()
+FW = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Green_Ion_V12.ino").read_text()
+HOME = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "HomeVerification.h").read_text()
+UI = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "Dashboard.h").read_text()
+OTA = (ROOT / "Past_Versions/V12/Green_Ion_V12" / "FirmwareMaintenance.h").read_text()
 
 
 class GuidedHomeVerification(unittest.TestCase):
