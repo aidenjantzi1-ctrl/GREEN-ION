@@ -1,6 +1,8 @@
 /* V15 local-first recovery assistant. No web map API or cloud requirement.
  * Coordinates are observed fixes, never fabricated landing predictions. */
 import {validCoordinate} from "./v14_utils.mjs";
+import {observedFix} from "./v16_3_recovery_data.mjs";
+import {initV163RecoveryTools} from "./v16_3_recovery_tools.mjs";
 const KEY="green-ion-v15-recovery-fixes",MAX=120;
 const $=id=>document.getElementById(id);
 const t=window.GREEN_ION_TRANSPORT;
@@ -13,16 +15,11 @@ function load(){
  }catch{fixes=[];}
 }
 function capture(raw,source){
- if(!raw||raw.gps_status!=="live"||!validCoordinate(raw.latitude,raw.longitude))return;
- const age=Number(raw.gps_fix_age_ms);
- if(Number.isFinite(age)&&age>30000)return;
- const at=Date.now()-(Number.isFinite(age)&&age>=0?Math.min(30000,age):0);
- const lat=Number(raw.latitude),lon=Number(raw.longitude),last=fixes.at(-1);
- if(last&&last.source===source&&last.lat===lat&&last.lon===lon&&at-last.at<15000)return;
- fixes.push({lat,lon,source,at,
-  satellites:Number.isFinite(Number(raw.satellites))?Number(raw.satellites):null,
-  hdop:Number.isFinite(Number(raw.gps_hdop))?Number(raw.gps_hdop):null});
- if(fixes.length>MAX)fixes=fixes.slice(-MAX);
+ // Only real, age-bounded fixes may enter the saved recovery trail.
+ const fix=observedFix(raw,source);if(!fix)return;
+ const last=fixes.at(-1);
+ if(last&&last.source===source&&last.lat===fix.lat&&last.lon===fix.lon&&Math.abs(fix.at-last.at)<15000)return;
+ fixes.push(fix);if(fixes.length>MAX)fixes=fixes.slice(-MAX);
  try{localStorage.setItem(KEY,JSON.stringify(fixes));}catch{}
 }
 function radians(v){return v*Math.PI/180;}
@@ -165,7 +162,7 @@ function tick(){
  render();
 }
 export function initRecovery(){
- load();ensureLocationControls();render();
+ load();ensureLocationControls();initV163RecoveryTools();render();
  $("v15RecoveryClear").onclick=()=>{
   if(!confirm("Clear this browser's saved GPS recovery positions? Flight files and cloud backups are not affected."))return;
   fixes=[];try{localStorage.removeItem(KEY);}catch{}
