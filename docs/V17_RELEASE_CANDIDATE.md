@@ -1,13 +1,20 @@
-# GREEN ION V17.0 — official software release; hardware qualification pending
+# GREEN ION V17.0.1 — SD-first software release; hardware qualification pending
 
-Version: **17.0.0 software release**, with CI-gated package integrity checks. **Not authorized for launch until actual hardware and rocket safety verification is complete.**
+Version: **17.0.1 software release**, with CI-gated package integrity checks. **Not authorized for launch until actual hardware and rocket safety verification is complete.**
+
+## V17.0.1 readiness additions
+- Firmware-owned one-press **PREPARE FOR FLIGHT** arms only after critical local-recorder checks pass.
+- Real temporary RKT4 v2 SD write/read/integrity/delete verification.
+- GPS and LoRa are advisory warnings and cannot block the local launch detector/recorder.
+- Passive LoRa chip/SPI diagnostics plus optional antenna-confirmed bench packets.
+- Uno radio diagnostic/version correction and clearer flight phase/apogee status.
 
 ## Included
 - Feather AP+STA home Wi-Fi, physical management authorization, bounded retry and direct AP fallback.
 - Live bounded sensor graphs, WebGL orientation and recorded-sample replay, flight comparison and GPS recovery enhancements.
 - Filenames are rendered as text in comparison tables; security regression tests added.
 - Shared microSD/LoRa SPI scheduler, separate SD/LoRa CS, and interrupt-safe LoRa handling preserved.
-- Feather/Uno 17.0.0 runtime strings and Windows 17.0.0 software-release metadata; V16.3 historical source directory paths retained for build/package compatibility.
+- Feather/Uno 17.0.1 runtime strings and Windows 17.0.1 software-release metadata; V16.3 historical source directory paths retained for build/package compatibility.
 
 ## Nonnegotiable preserved interfaces
 - RKT4 v2 and GIS1 formats; 50 Hz recording and 3 s prelaunch buffer; autonomous SD recording; receive-only Uno receiver.
