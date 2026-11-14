@@ -1,7 +1,7 @@
-name: GREEN ION V17.0 - verify, compile, package and publish
+name: GREEN ION V17.0.1 - verify, compile, package and publish
 on:
   push:
-    branches: [main, "integration/**", "codex2/**", "v14/**", "v16.2/**", "v16.3/**", "release/**"]
+    branches: [main, "integration/**", "codex2/**", "v14/**", "v16.2/**", "v16.3/**", "v17/**", "release/**"]
     paths:
       - "web/**"
       - "Past_Versions/V14/Green_Ion_V14/**"
@@ -50,6 +50,20 @@ jobs:
             tests/cpp/test_v16_3_shared_spi.cpp \
             -o /tmp/test-v16-3-shared-spi
           /tmp/test-v16-3-shared-spi
+      - name: Native V17 SD-first flight readiness regression
+        run: |
+          g++ -std=c++17 -Wall -Wextra -pedantic \
+            -I libraries/GreenIonRecorder/src \
+            -I libraries/GreenIonProtocol/src \
+            tests/cpp/test_v17_flight_readiness.cpp \
+            -o /tmp/test-v17-flight-readiness
+          /tmp/test-v17-flight-readiness
+          g++ -std=c++17 -Wall -Wextra -pedantic \
+            -I libraries/GreenIonRecorder/src \
+            -I libraries/GreenIonProtocol/src \
+            tests/cpp/test_v17_sd_first.cpp \
+            -o /tmp/test-v17-sd-first
+          /tmp/test-v17-sd-first
       - name: Native AP+STA Wi-Fi policy regression
         run: |
           g++ -std=c++17 -Wall -Wextra -pedantic \
@@ -378,6 +392,8 @@ jobs:
           assert manifest["radioPacketBytes"]==70
           assert manifest["safety"]["loraReceiveOnly"] is True
           assert manifest["safety"]["autonomousSdRecorderPreserved"] is True
+          assert manifest["safety"]["sdFirstRecorder"] is True
+          assert manifest["safety"]["optionalRadioDoesNotGateRecorder"] is True
           assert manifest["safety"]["hardwareValidationRequired"] is True
           assert manifest["safety"]["flightCertified"] is False
           for name,item in manifest["artifacts"].items():
@@ -421,7 +437,7 @@ jobs:
             --firmware built-firmware \
             --windows windows-release \
             --output release \
-            --tag v17.0.0 \
+            --tag v17.0.1 \
             --commit "$GITHUB_SHA"
       - name: Verify final V17 manifest on exact commit
         run: |
@@ -430,11 +446,12 @@ jobs:
           import hashlib, json, os
           root=Path("release")
           m=json.loads((root/"SHA256_MANIFEST.json").read_text())
-          assert m["tag"]=="v17.0.0"
+          assert m["tag"]=="v17.0.1"
           assert m["commit"]==os.environ["GITHUB_SHA"]
           assert m["firmwareGeneration"]==m["receiverGeneration"]=="V17.0"
           assert m["radioProtocolVersion"]==2 and m["radioPacketBytes"]==70
           assert m["safety"]["hardwareValidationRequired"] and not m["safety"]["flightCertified"]
+          assert m["safety"]["sdFirstRecorder"] and m["safety"]["optionalRadioDoesNotGateRecorder"]
           for name,item in m["artifacts"].items():
               p=root/name
               assert p.is_file() and hashlib.sha256(p.read_bytes()).hexdigest()==item["sha256"]
@@ -443,12 +460,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v17.0.0 >/dev/null 2>&1; then
-            echo "v17.0.0 already exists; refusing to replace any release."
+          if gh release view v17.0.1 >/dev/null 2>&1; then
+            echo "v17.0.1 already exists; refusing to replace any release."
             exit 0
           fi
-          gh release create v17.0.0 release/* \
+          gh release create v17.0.1 release/* \
             --target "$GITHUB_SHA" \
-            --title "GREEN ION V17.0 (software CI verified; hardware testing required)" \
+            --title "GREEN ION V17.0.1 (SD-first software CI verified; hardware testing required)" \
             --notes-file docs/V17_RELEASE_NOTES.md \
             --latest
