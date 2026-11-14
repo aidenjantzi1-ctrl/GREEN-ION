@@ -79,6 +79,11 @@ class V17FlightReadiness(unittest.TestCase):
         self.assertIn("apogee_estimate_m", FW)
         self.assertIn("finalizeRecording(nowMs)", FW)
 
+    def test_dashboard_sd_browsing_is_blocked_while_armed(self):
+        self.assertIn("static bool dashboardSdBrowseBlocked()", FW)
+        self.assertIn("recorderMode == RECORDER_WATCHING", FW[FW.index("static bool dashboardSdBrowseBlocked"):FW.index("static void deleteDashboardFlight")])
+        self.assertIn("if (dashboardSdBrowseBlocked())", FW[FW.index("static void sendDashboardFiles"):FW.index("static void runDashboardSdTest")])
+
     def test_uno_version_and_diagnostics_are_v17(self):
         self.assertIn('RECEIVER_FIRMWARE_VERSION[] = "17.0.1"', UNO)
         self.assertNotIn('"receiver_firmware":"16.3.0"', UNO)
