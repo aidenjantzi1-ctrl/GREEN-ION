@@ -12,10 +12,10 @@ SPI=(ROOT/"libraries/GreenIonProtocol/src/GreenIonSharedSpi.h").read_text(encodi
 
 class V163SharedSpiTests(unittest.TestCase):
     def test_v17_identity_and_v163_hardware_pins_preserved(self):
-        self.assertIn('FIRMWARE_NAME[] = "GREEN ION Feather V16.3"',FW)
-        self.assertIn('FIRMWARE_VERSION[] = "16.3.0"',FW)
+        self.assertIn('FIRMWARE_NAME[] = "GREEN ION Feather V17.0"',FW)
+        self.assertIn('FIRMWARE_VERSION[] = "17.0.0"',FW)
         self.assertIn('"GREEN-ION-V17"',CFG)
-        self.assertIn('RECEIVER_FIRMWARE_VERSION[] = "16.3.0"',UNO)
+        self.assertIn('RECEIVER_FIRMWARE_VERSION[] = "17.0.0"',UNO)
         expected={
           "PIN_SPI_SCK":"5","PIN_SPI_MOSI":"19","PIN_SPI_MISO":"21",
           "PIN_SD_CS":"33","PIN_LORA_CS":"27","PIN_LORA_RST":"15","PIN_LORA_DIO0":"32",
