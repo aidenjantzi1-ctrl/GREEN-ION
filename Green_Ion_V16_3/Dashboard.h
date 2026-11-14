@@ -2541,8 +2541,13 @@ const steps=[
 let active=false,step=-1,busy=false,pending="",results={},evidence=[],radioStarted=false,message="";
 const here=()=>steps[step];
 const setMessage=text=>{message=text;node("homeInstructions").textContent=text;};
-async function request(path,method="GET"){
- const r=await fetch("/api/"+path,{method,cache:"no-store"});
+async function request(path,method="GET",body=null){
+ const options={method,cache:"no-store"};
+ if(body){
+  options.headers={"Content-Type":"application/x-www-form-urlencoded"};
+  options.body=new URLSearchParams(body).toString();
+ }
+ const r=await fetch("/api/"+path,options);
  let data;try{data=await r.json();}catch{throw Error("Invalid response or connection lost");}
  if(!r.ok||data.success===false)throw Error(data.message||data.error||("HTTP "+r.status));
  return data;
@@ -2637,7 +2642,7 @@ async function run(){
   }
   if(kind==="radio"){
    if(!radioStarted){
-    await request("home/radio","POST");radioStarted=true;pending="radio";
+    await request("home/radio","POST",{antenna:"confirmed"});radioStarted=true;pending="radio";
     setMessage("Five bench packets queued. Watch the Uno receiver. After reception, tick confirmation and press RUN again.");
     return;
    }
