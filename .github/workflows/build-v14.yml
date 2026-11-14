@@ -22,8 +22,6 @@ on:
       - "docs/V16_*"
       - "README.md"
       - "CHANGELOG.md"
-  pull_request:
-    branches: [main, "integration/**"]
   workflow_dispatch:
 
 permissions:
