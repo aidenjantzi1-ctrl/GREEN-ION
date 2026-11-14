@@ -2266,6 +2266,11 @@ static bool dashboardSdDeleteBlocked() {
          homeLogActive || otaUploadInProgress;
 }
 
+static bool dashboardSdBrowseBlocked() {
+  return dashboardSdDeleteBlocked() || recorderMode == RECORDER_WATCHING ||
+         flightReadinessActive;
+}
+
 static void deleteDashboardFlight() {
   if (dashboardSdDeleteBlocked()) {
     dashboardServer.send(409, "application/json",
@@ -2372,7 +2377,7 @@ static void deleteDashboardFlight() {
 }
 
 static void sendDashboardFiles() {
-  if (dashboardSdDeleteBlocked()) {
+  if (dashboardSdBrowseBlocked()) {
     dashboardServer.send(409, "application/json",
                          "{\"success\":false,\"message\":\"SD browsing is deferred during recording, home testing or firmware maintenance\"}");
     return;
@@ -2424,7 +2429,7 @@ static void sendDashboardFiles() {
 }
 
 static void sendDashboardDownload(bool metadata, bool sensors = false) {
-  if (dashboardSdDeleteBlocked()) {
+  if (dashboardSdBrowseBlocked()) {
     dashboardServer.send(409, "application/json",
                          "{\"success\":false,\"message\":\"Downloads are deferred during recording, home testing or firmware maintenance\"}");
     return;
