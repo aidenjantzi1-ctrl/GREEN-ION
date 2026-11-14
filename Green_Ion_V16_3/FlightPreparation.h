@@ -23,6 +23,8 @@ static FlightReadinessPhase flightReadinessPhase = FLIGHT_PREP_IDLE;
 static bool flightReadinessActive = false;
 static bool flightReadinessSdIntegrityPassed = false;
 static bool flightReadinessSimulationPassed = false;
+static bool flightReadinessSimulationVerifiedThisBoot = false;
+static bool flightReadinessQuick = false;
 static uint32_t flightReadinessStartedMs = 0;
 static uint32_t flightReadinessPhaseStartedMs = 0;
 static uint32_t flightReadinessWarningFlags = 0;
@@ -286,6 +288,12 @@ static green_ion::readiness::Result currentFlightReadinessResult() {
 }
 
 static void beginFlightReadiness() {
+  const String requestedMode = dashboardServer.arg("mode");
+  if (!requestedMode.isEmpty() && requestedMode != "full" && requestedMode != "quick") {
+    dashboardServer.send(400, "application/json",
+      "{\"success\":false,\"message\":\"mode must be full or quick\"}");
+    return;
+  }
   if (flightReadinessContextBusy()) {
     dashboardServer.send(409, "application/json",
       "{\"success\":false,\"message\":\"PREPARE FOR FLIGHT is blocked while recording, Home Test, Wi-Fi setup or firmware maintenance is active\"}");
@@ -294,8 +302,13 @@ static void beginFlightReadiness() {
   flightWatcher.cancel();
   recorderCore.resetBuffer();
   flightReadinessFailure = "";
+  flightReadinessQuick = requestedMode == "quick";
   flightReadinessSdIntegrityPassed = false;
-  flightReadinessSimulationPassed = false;
+  // Repeat Quick Fly may reuse only the deterministic launch/landing detector
+  // self-test from this same boot. SD, battery, critical sensors and the
+  // stationary altitude baseline are re-verified every single flight.
+  flightReadinessSimulationPassed =
+      flightReadinessQuick && flightReadinessSimulationVerifiedThisBoot;
   flightReadinessWarningFlags = 0;
   flightReadinessCriticalFlags = 0;
   flightReadinessStartedMs = millis();
@@ -304,8 +317,14 @@ static void beginFlightReadiness() {
   flightReadinessPhase = FLIGHT_PREP_CRITICAL_CHECK;
   flightState = green_ion::STATE_IDLE;
   resetCalibration(flightReadinessStartedMs);
-  dashboardServer.send(202, "application/json",
-    "{\"success\":true,\"message\":\"Flight preparation started. Keep GREEN ION stationary; SD recording is the critical path and GPS/LoRa are optional warnings.\"}");
+  String response = "{\"success\":true,\"mode\":\"";
+  response += flightReadinessQuick ? "quick" : "full";
+  response += "\",\"message\":\"";
+  response += flightReadinessQuick
+      ? "Quick Fly started. microSD, battery, critical sensors and a fresh altitude baseline will be verified before automatic arming."
+      : "Flight preparation started. Keep GREEN ION stationary; SD recording is the critical path and GPS/LoRa are optional warnings.";
+  response += "\"}";
+  dashboardServer.send(202, "application/json", response);
 }
 
 static void serviceFlightReadiness(uint32_t nowMs) {
@@ -336,7 +355,9 @@ static void serviceFlightReadiness(uint32_t nowMs) {
       break;
 
     case FLIGHT_PREP_SENSOR_START:
-      requestHardwareTest(HARDWARE_TEST_ALL);
+      // Full preparation also checks GPS communication/fix evidence. Quick Fly
+      // still runs the critical IMU test but does not wait on optional GPS.
+      requestHardwareTest(flightReadinessQuick ? HARDWARE_TEST_IMU : HARDWARE_TEST_ALL);
       flightReadinessPhase = FLIGHT_PREP_SENSOR_WAIT;
       flightReadinessPhaseStartedMs = nowMs;
       break;
@@ -348,7 +369,7 @@ static void serviceFlightReadiness(uint32_t nowMs) {
                            imuResult != green_ion::bench::RESULT_RUNNING;
       const bool gpsDone = gpsResult != green_ion::bench::RESULT_IDLE &&
                            gpsResult != green_ion::bench::RESULT_RUNNING;
-      if (!imuDone || !gpsDone) {
+      if (!imuDone || (!flightReadinessQuick && !gpsDone)) {
         if (nowMs - flightReadinessPhaseStartedMs < 16000UL) break;
       }
       if (imuHardwareTest.result() != green_ion::bench::RESULT_PASS) {
@@ -361,7 +382,9 @@ static void serviceFlightReadiness(uint32_t nowMs) {
     }
 
     case FLIGHT_PREP_RADIO_DIAGNOSTIC:
-      runPassiveLoraDiagnostic(true);
+      // LoRa is a recovery/telemetry aid, never the primary flight record.
+      // Full preparation refreshes the passive diagnostic. Quick Fly skips it.
+      if (!flightReadinessQuick) runPassiveLoraDiagnostic(true);
       flightReadinessPhase = FLIGHT_PREP_CALIBRATION_START;
       flightReadinessPhaseStartedMs = nowMs;
       break;
@@ -375,7 +398,12 @@ static void serviceFlightReadiness(uint32_t nowMs) {
     case FLIGHT_PREP_CALIBRATION_WAIT:
       if (isfinite(calibrationBaselinePa) && calibrationBaselinePa > 30000.0f &&
           isfinite(calibrationNoiseM)) {
-        flightReadinessPhase = FLIGHT_PREP_SIMULATION;
+        flightReadinessPhase =
+            (flightReadinessQuick && flightReadinessSimulationVerifiedThisBoot)
+                ? FLIGHT_PREP_ARM
+                : FLIGHT_PREP_SIMULATION;
+        if (flightReadinessQuick && flightReadinessSimulationVerifiedThisBoot)
+          flightReadinessSimulationPassed = true;
         flightReadinessPhaseStartedMs = nowMs;
       } else if (nowMs - flightReadinessPhaseStartedMs > 15000UL) {
         failFlightReadiness("stable altitude calibration did not complete");
@@ -388,6 +416,7 @@ static void serviceFlightReadiness(uint32_t nowMs) {
         failFlightReadiness("simulated launch/landing detector self-test failed");
         return;
       }
+      flightReadinessSimulationVerifiedThisBoot = true;
       flightReadinessPhase = FLIGHT_PREP_ARM;
       flightReadinessPhaseStartedMs = nowMs;
       break;

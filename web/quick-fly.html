@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#081420">
+<link rel="manifest" href="./manifest.webmanifest">
+<title>GREEN ION V17 · Quick Fly</title>
+<style>
+:root{--bg:#081420;--card:#152b40;--line:#35536e;--txt:#eff8ff;--muted:#a5bbcd;--blue:#7bdbff;--green:#72e5ab;--yellow:#ffdd88;--red:#ff91a0}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{width:min(760px,100%);margin:auto;padding:max(14px,env(safe-area-inset-top)) 14px max(28px,env(safe-area-inset-bottom))}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+h1{margin:0;font-size:clamp(25px,7vw,36px);letter-spacing:.02em}
+h2{margin:0 0 12px;font-size:18px}
+small,.muted{color:var(--muted);display:block}
+.bad{color:var(--red)!important}.ok{color:var(--green)!important}.warning{color:var(--yellow)!important}
+.pill{border:1px solid var(--line);border-radius:999px;padding:9px 12px;font-size:12px;font-weight:800;white-space:nowrap}
+.state{display:grid;place-items:center;min-height:118px;border:2px solid var(--line);border-radius:20px;background:var(--card);margin-bottom:12px;text-align:center}
+.state-label{font-size:12px;color:var(--muted);letter-spacing:.16em}
+#liveState{font-size:clamp(40px,13vw,70px);font-weight:950;line-height:1}
+#liveState[data-state="ARMED"],#liveState[data-state="SAVED"],#liveState[data-state="READY"]{color:var(--green)}
+#liveState[data-state="TESTING"],#liveState[data-state="SAVING"]{color:var(--yellow)}
+#liveState[data-state="ERROR"]{color:var(--red)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px}
+.progress{height:14px;background:#314d66;border-radius:999px;overflow:hidden;margin:10px 0}
+#progressFill{height:100%;width:0;background:var(--blue);transition:width .2s linear}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.metric{border:1px solid var(--line);border-radius:13px;padding:12px;min-width:0}
+.metric span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.metric strong{display:block;margin-top:6px;overflow-wrap:anywhere}
+.actions{display:grid;gap:10px}
+button,a.button,.mini{border:0;border-radius:14px;min-height:56px;padding:14px 16px;font:850 16px system-ui,-apple-system,sans-serif;text-align:center;text-decoration:none;display:grid;place-items:center;background:var(--blue);color:#07131f;cursor:pointer}
+button.primary{min-height:74px;font-size:20px;background:var(--green)}
+button.quick{min-height:66px;background:var(--blue)}
+button.secondary,a.secondary,.mini.secondary{background:#34546f;color:var(--txt)}
+button:disabled{opacity:.42;cursor:not-allowed}
+#flyAgain{background:var(--green);min-height:68px;font-size:19px}
+.notice{border-radius:12px;background:#233f57;padding:12px;margin-top:10px;overflow-wrap:anywhere}
+.notice.good{border:1px solid #3d8c68}.notice.error{border:1px solid #a64c5e}
+#message:empty,#errorDetail:empty{display:none}
+.warning-box{display:grid;gap:7px;border-left:4px solid var(--yellow)}
+.row{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}.row strong{text-align:right}
+.history-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}
+.history-row>div:first-child{min-width:0}.history-row small{margin-top:3px}
+.history-row>div:last-child{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.mini{min-height:38px;padding:8px 10px;font-size:12px}
+.links{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.footer-note{text-align:center;color:var(--muted);font-size:12px;margin-top:13px}
+@media(max-width:520px){main{padding-left:10px;padding-right:10px}.grid{grid-template-columns:1fr 1fr}.history-row{display:block}.history-row>div:last-child{justify-content:flex-start;margin-top:9px}.links{grid-template-columns:1fr}header{align-items:center}}
+@media(max-width:350px){.grid{grid-template-columns:1fr}}
+@media(pointer:coarse){button,a.button{min-height:60px}}
+</style>
+<script src="./v14_boot.js"></script>
+</head>
+<body>
+<main id="quickFlyApp">
+<header>
+ <div><h1>GREEN ION</h1><small>V17 · Quick Fly</small></div>
+ <div><div id="connection" class="pill">CONNECTING</div><button id="retry" class="secondary" hidden style="min-height:38px;padding:7px 10px;margin-top:6px">Retry</button></div>
+</header>
+
+<section class="state" aria-live="polite">
+ <div><div class="state-label">LIVE FLIGHT STATUS</div><div id="liveState" data-state="ERROR">ERROR</div></div>
+</section>
+
+<section class="card">
+ <h2>Launch preparation</h2>
+ <div class="progress" aria-label="Firmware preparation progress"><div id="progressFill"></div></div>
+ <small id="progressText">Waiting for firmware status</small>
+ <div class="row"><span>Firmware phase</span><strong id="phase">--</strong></div>
+ <div class="actions" style="margin-top:12px">
+  <button id="prepareArm" class="primary">PREPARE &amp; ARM</button>
+  <button id="quickFly" class="quick">QUICK FLY · REPEAT FLIGHT</button>
+  <button id="flyAgain" hidden>FLY AGAIN</button>
+ </div>
+ <div id="message" class="notice" role="status" aria-live="polite"></div>
+ <div id="errorDetail" class="notice error"></div>
+ <small style="margin-top:8px">Both buttons use firmware-owned checks. Quick Fly still verifies microSD writing, battery, barometer/IMU health and a fresh altitude baseline every time; optional checks are shortened only when firmware has valid prior evidence from this boot.</small>
+</section>
+
+<section class="card">
+ <h2>Flight-ready essentials</h2>
+ <div class="grid">
+  <div class="metric"><span>Flight counter</span><strong id="flightCounter">--</strong><small id="flightFile">--</small></div>
+  <div class="metric"><span>microSD · mandatory</span><strong id="sd">--</strong></div>
+  <div class="metric"><span>Battery</span><strong id="battery">--</strong><small id="batteryNote">--</small></div>
+  <div class="metric"><span>Sensors</span><strong id="sensors">--</strong></div>
+  <div class="metric"><span>Storage</span><strong id="storage">--</strong><small id="storageNote">--</small></div>
+  <div class="metric"><span>GPS</span><strong id="gps">--</strong></div>
+  <div class="metric"><span>LoRa</span><strong id="lora">--</strong></div>
+ </div>
+ <div id="warnings" class="notice warning-box"></div>
+</section>
+
+<section id="lastFlight" class="card" hidden>
+ <h2>Last flight saved</h2>
+ <div class="row"><span>File</span><strong id="lastName">--</strong></div>
+ <div class="row"><span>Size</span><strong id="lastSize">--</strong></div>
+ <div class="row"><span>Recording duration</span><strong id="lastDuration">--</strong></div>
+ <div class="row"><span>Verified save</span><strong id="lastVerified">--</strong></div>
+</section>
+
+<section class="card">
+ <h2>Flight history</h2>
+ <div id="history"><div class="muted">Loading Feather SD flights…</div></div>
+ <div class="links" style="margin-top:12px">
+  <button id="refreshHistory" class="secondary">Refresh history</button>
+  <button id="advanced" class="secondary">Replay · Compare · Analyze</button>
+ </div>
+ <small style="margin-top:9px">Downloads come directly from the Feather. Replay, comparison, reports, diagnostics and settings stay in the full dashboard.</small>
+</section>
+
+<p class="footer-note">Works locally with GREEN ION. Internet and home Wi-Fi are not required when you connect directly to the Feather access point.</p>
+</main>
+<script type="module" src="./v17_quick_fly.mjs"></script>
+</body>
+</html>
