@@ -54,7 +54,7 @@ class V17FlightReadiness(unittest.TestCase):
     def test_optional_gps_lora_warn_but_do_not_fail(self):
         self.assertIn("WARNING_GPS", (ROOT/"libraries/GreenIonRecorder/src/GreenIonFlightReadiness.h").read_text())
         self.assertIn("WARNING_LORA", (ROOT/"libraries/GreenIonRecorder/src/GreenIonFlightReadiness.h").read_text())
-        self.assertIn('state.radioOk ? "READY" : "WARNING"', PREP)
+        self.assertIn('(state.radioOk && radioTransmitAuthorized) ? "READY" : "WARNING"', PREP)
         self.assertIn('gpsPositionCurrent(nowMs) ? "READY" : "WARNING"', PREP)
 
     def test_lora_diagnostic_reports_pins_and_never_guesses_antenna(self):
