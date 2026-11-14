@@ -26,6 +26,10 @@ It preserves:
 
 Software validation does **not** prove actual perfboard wiring, RF range, GPS reception, battery margin, SD timing on hardware or flight readiness.
 
+## Codex 2 visual and recovery candidate (unmerged)
+
+A separate development branch adds bounded live graphs, a shared WebGL orientation view, GPS recovery tools, sample-based 3D replay and multi-flight overlays. These changes are **not in the published V16.3 release**; they do not alter Feather/Uno firmware and need CI plus actual hardware validation. See [Codex 2 candidate installation and validation](docs/V16_3_CODEX2_VISUAL_RECOVERY.md).
+
 ## Start here
 
 | Goal | Guide |
