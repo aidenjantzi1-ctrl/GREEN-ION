@@ -1,5 +1,5 @@
 /*
-  GREEN ION V16.3 Arduino Uno ground receiver.
+  GREEN ION V17.0 Arduino Uno ground receiver.
   Wiring is for the Adafruit RFM95W breakout: CS D4, RST D2, DIO0 D3,
   hardware SPI D13/D11/D12. Output is one JSON object per valid packet.
 */
@@ -13,7 +13,7 @@ static const uint8_t PIN_CS = 4;
 static const uint8_t PIN_RST = 2;
 static const uint8_t PIN_DIO0 = 3;
 static const uint32_t SERIAL_BAUD = 115200;
-static const char RECEIVER_FIRMWARE_VERSION[] = "16.3.0";
+static const char RECEIVER_FIRMWARE_VERSION[] = "17.0.0";
 
 RH_RF95 radio(PIN_CS, PIN_DIO0);
 uint32_t validPackets = 0;

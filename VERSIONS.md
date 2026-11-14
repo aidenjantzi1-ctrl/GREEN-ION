@@ -1,3 +1,11 @@
+# V17.0 software integration candidate — hardware validation pending
+
+V17 integrates dual AP+STA Wi-Fi, bounded live sensor graphs, WebGL orientation/replay, enhanced GPS recovery, multi-flight comparisons and secure filename rendering on the V16.3 shared-SPI recorder baseline. Feather and Uno report firmware 17.0.0; recorder serialization, 70-byte LoRa protocol, pin mapping, 50 Hz sampling and three-second prelaunch buffer remain unchanged. Historical source folder names stay `Green_Ion_V16_3` and `Ground_Receiver_V16_3` until a separately verified path/package migration. Windows metadata uses `candidate`, not `stable`. No real-hardware launch acceptance has been recorded.
+
+[Release and hardware gates](docs/V17_RELEASE_CANDIDATE.md)
+
+---
+
 # V16.3 — shared-SPI reliability
 
 V16.3 is the current GREEN ION application/firmware/receiver generation. It hardens the Feather ESP32 V2 shared SPI bus used by the microSD and RFM9x on the perfboard without changing RKT4 v2, GIS1, the 70-byte LoRa packet or receive-only ground-radio behavior.

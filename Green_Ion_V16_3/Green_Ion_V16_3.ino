@@ -1,5 +1,5 @@
 /*
-  GREEN ION Feather V16.3 firmware
+  GREEN ION Feather V17.0 firmware
   Flight-data recorder and recovery aid only.
   It must never control ignition, staging, or recovery deployment.
 
@@ -109,8 +109,8 @@ class RadioSpiScope {
   bool active_;
 };
 
-static const char FIRMWARE_NAME[] = "GREEN ION Feather V16.3";
-static const char FIRMWARE_VERSION[] = "16.3.0";
+static const char FIRMWARE_NAME[] = "GREEN ION Feather V17.0";
+static const char FIRMWARE_VERSION[] = "17.0.0";
 static uint32_t bootSessionId = 0;
 static esp_reset_reason_t bootResetReason = ESP_RST_UNKNOWN;
 static uint32_t persistentBootCount = 0;
@@ -2658,7 +2658,7 @@ void setup() {
   initializeDashboard();
   Serial.println();
   Serial.println("==================================================");
-  Serial.println(" GREEN ION Feather V16.3 | rocket flight recorder");
+  Serial.println(" GREEN ION Feather V17.0 | rocket flight recorder");
   Serial.println("==================================================");
   Serial.printf(" Firmware: %s | session=%lu | reset=%s\n", FIRMWARE_VERSION,
                 static_cast<unsigned long>(bootSessionId), resetReasonName(bootResetReason));
