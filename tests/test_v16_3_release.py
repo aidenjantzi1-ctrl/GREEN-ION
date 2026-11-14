@@ -50,7 +50,7 @@ class V163ReleaseContractTests(unittest.TestCase):
         self.assertIn('APP_VERSION = "17.0.0"',utils)
         self.assertIn('"Green_Ion_V16_"+version.minor+".ino.bin"',utils)
         self.assertIn('manifest?.firmwareGeneration===expectedGeneration',utils)
-        self.assertIn('/^v16\\./.test',updates)
+        self.assertIn('/^v(?:17|16)\\./.test',updates)
         self.assertIn('Green_Ion_V16_',relay)
         self.assertIn('SHA256_MANIFEST.json',relay)
 
