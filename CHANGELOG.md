@@ -1,3 +1,12 @@
+# V17.0.1 — SD-first flight readiness upgrade — November 13, 2026
+
+- Made the 50 Hz RKT4 v2 microSD recorder the explicit flight-critical path; missing GPS or LoRa is advisory and cannot block launch detection or local recording.
+- Added firmware-owned **PREPARE FOR FLIGHT** with real temporary RKT4 SD integrity verification, sensor/battery checks, fresh calibration, synthetic launch/landing detector verification, cleanup and automatic watcher arming.
+- Added passive SX127x/RFM9x chip/SPI diagnostics, exact Feather pin guidance, probable wiring faults and antenna-confirmed optional bench transmission.
+- Fixed Arduino Uno receiver version reporting and added receive-side chip/settings diagnostics while preserving receive-only protocol-v2 telemetry.
+- Added ascent/coast/apogee/descent status, dashboard readiness/recovery guidance, and SD/LoRa-disconnect/power-interruption regression coverage.
+- Software CI verification does **not** replace physical SD, RF, battery, mounting, recovery-system, rocket-stability or launch-range verification.
+
 # V17.0 — official software release and historical archive — November 13, 2026
 
 - Promoted Feather, Uno receiver, Windows and offline dashboard runtime identities to **17.0.0**. Kept their original V16.3 Arduino sketch source directory names for build/update compatibility.
