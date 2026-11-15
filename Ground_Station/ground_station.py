@@ -723,11 +723,14 @@ def main() -> None:
     parser.add_argument("--listen", default="127.0.0.1")
     parser.add_argument("--http-port", type=int, default=8765)
     parser.add_argument("--no-browser", action="store_true", help="do not open the dashboard automatically")
+    parser.add_argument("--v18-offline", action="store_true", help="open the experimental local V18 four-tab app instead of the stable V17 dashboard")
     args = parser.parse_args()
     if args.listen not in ("127.0.0.1", "localhost"):
         raise SystemExit("For security, the ground station may listen only on loopback")
     if not (STATIC_ROOT / "index.html").is_file():
         raise SystemExit("Current blue dashboard not found next to Ground_Station (web/ or Website/)")
+    if args.v18_offline and not (STATIC_ROOT / "v18-offline.html").is_file():
+        raise SystemExit("V18 preview page missing; use an integration build containing web/v18-offline.html")
 
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     log_path = LOG_DIR / f"telemetry-{timestamp}.csv"
@@ -768,6 +771,7 @@ def main() -> None:
         threading.Thread(target=target, args=target_args, daemon=True).start()
     threading.Thread(target=BRIDGE.run, args=(stop,), daemon=True).start()
     url = f"http://{args.listen}:{args.http_port}"
+    browser_url = url + ("/v18-offline.html#flight" if args.v18_offline else "")
     try:
         server = ThreadingHTTPServer((args.listen, args.http_port), Handler)
     except OSError as error:
@@ -775,10 +779,12 @@ def main() -> None:
         if getattr(error, "winerror", None) == 10048 or error.errno in (48, 98):
             print(f"Ground station is already running at {url}")
             if not args.no_browser:
-                webbrowser.open(url)
+                webbrowser.open(browser_url)
             return
         raise
     print(f"GREEN ION V17.0 Windows Ground Station {APP_INFO.get('version', 'unknown')}: {url}")
+    if args.v18_offline:
+        print(f"EXPERIMENTAL V18 offline frontend (NOT a qualified V18 release): {browser_url}")
     print(f"Automatic computer flight archive: {FLIGHT_DIR}")
     print("Mode: SIMULATED DATA — NOT HARDWARE" if use_sample else
           f"Mode: Feather Wi-Fi + {('Uno radio on ' + selected_port) if selected_port else ('watching USB for Uno' if auto_receiver else 'Wi-Fi only')}")
@@ -786,7 +792,7 @@ def main() -> None:
     print(f"Telemetry log: {log_path}")
     print("Keep this window open while using the website. Press Ctrl+C to stop.")
     if not args.no_browser:
-        threading.Timer(0.25, webbrowser.open, args=(url,)).start()
+        threading.Timer(0.25, webbrowser.open, args=(browser_url,)).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
