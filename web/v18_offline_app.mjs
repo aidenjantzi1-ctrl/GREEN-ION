@@ -3,7 +3,7 @@ import {saveLocalFile,listLocalMetadata,getLocalFile,downloadFile,digest,exportA
 import {deriveFlightState,criticalFlightProblem,optionalFlightWarnings,canPrepare,fileSaveEvidence,parseReceiverLine,recoveryView,storageMessage} from "./v18_offline_core.mjs";
 
 const $=id=>document.getElementById(id);
-let currentStatus=null,connected=false,lastFiles=null,saveVerified=false,lastSaved=null,lastLogFile="",pollTimer=null;
+let lastStatusAt=0,currentStatus=null,connected=false,lastFiles=null,saveVerified=false,lastSaved=null,lastLogFile="",pollTimer=null;
 let serialPort=null,serialReader=null,serialStop=false,serialManualDisconnect=false,serialReconnectTimer=null,lastSerialInfo=null,lastPacket=null,lastKnown=null,serialInvalid=0,activeAnalysis=null,compareAnalysis=null;
 
 function text(id,value){const n=$(id);if(n)n.textContent=value==null?"—":String(value);}
@@ -78,7 +78,7 @@ async function verifySave(){
 }
 async function pollFlight(){
  try{
-  const s=await json("/api/status");currentStatus=s;connected=true;
+  const s=await json("/api/status");currentStatus=s;connected=true;lastStatusAt=Date.now();
   if(s.log_file)lastLogFile=s.log_file;
   paintFlight();
   const state=deriveFlightState(s,{saveVerified,connected:true});
@@ -335,6 +335,56 @@ async function saveFlightProfile(){
   await pollFlight();
  }catch(e){text("profileStatus","Profile save failed: "+e.message);}
 }
+// The guided test panel is read-only. Hardware verification is never inferred from mocks or browser status.
+function devCheck(name,result,action){
+ if(!["PASS","FAIL","NOT TESTED"].includes(result))throw Error("Invalid development test result");
+ return {name,result,action};
+}
+async function runDevTests(){
+ const rows=[];
+ const fresh=connected&&currentStatus&&Date.now()-lastStatusAt<=5000;
+ rows.push(devCheck("Windows bridge / Feather status",fresh?"PASS":"FAIL",fresh?"Fresh /api/status response received. This proves only local communication.":"Start the Windows bridge, connect the Feather and check its Wi-Fi/USB connection; retry."));
+ const s=fresh?currentStatus:null;
+ const reported=(label,key,badMessage)=>rows.push(devCheck(label,s?.[key]===true?"PASS":s?.[key]===false?"FAIL":"NOT TESTED",s?.[key]===true?"Firmware reports "+key+"=true; independently verify real hardware.":s?.[key]===false?badMessage:"No explicit firmware "+key+" evidence; inspect Settings → Advanced Feather status."));
+ reported("microSD reported ready","sd_ok","Check the card, seating, formatting and firmware status before any arm attempt.");
+ reported("IMU reported ready","imu_ok","Check IMU wiring, sensor power and firmware diagnostics.");
+ reported("Barometer reported ready","barometer_ready","Check pressure sensor, wiring and firmware diagnostics.");
+ const battery=Number(s?.battery_v);
+ rows.push(devCheck("Battery measurement",s?.battery_v==null?"NOT TESTED":Number.isFinite(battery)&&battery>0?"PASS":"FAIL",s?.battery_v==null?"No measured voltage reported; check power and firmware telemetry.":Number.isFinite(battery)&&battery>0?"Firmware measured "+battery.toFixed(3)+" V. Voltage alone does not certify adequate reserve.":"Invalid battery measurement; inspect power and status."));
+ rows.push(devCheck("Stationary calibration evidence",s?.calibration_age_s!=null&&Number.isFinite(Number(s.calibration_age_s))?"PASS":"NOT TESTED",s?.calibration_age_s!=null?"Firmware reports calibration age. Check actual stability before arming.":"Keep the device stationary; run firmware calibration only when safe and review status."));
+ const swSupported="serviceWorker" in navigator;
+ let reg=null;
+ try{if(swSupported)reg=await navigator.serviceWorker.getRegistration("./v18_service_worker.js");}catch{}
+ rows.push(devCheck("Local offline cache registration",reg?.active?"PASS":"NOT TESTED",reg?.active?"Active V18 service worker found. Manually verify offline restart.":"Start from localhost and wait for cache registration, then manually test an offline restart."));
+ let imported=[];
+ try{imported=await listLocalMetadata();}catch{}
+ const manual=imported.some(x=>x.origin==="manual-v18-import");
+ rows.push(devCheck("Manual original BIN import",manual?"PASS":"NOT TESTED",manual?"A manually imported local flight exists. Review its analysis and download the original for byte comparison.":"Go to Data and import a known-good RKT4 v2 BIN; verify analysis and preserve the original."));
+ const receiver=serialPort&&lastPacket&&recoveryView(lastPacket,lastKnown,Date.now()).signal==="live";
+ rows.push(devCheck("Uno receiver valid fresh packet",receiver?"PASS":"NOT TESTED",receiver?"A valid current protocol-v2 packet was observed. This does not prove RF/GPS accuracy.":"Open Recovery, grant Web Serial permission to the Uno, and verify a fresh protocol-v2 packet."));
+ rows.push(devCheck("Receiver malformed/stale/disconnect behavior","NOT TESTED","Manually send/observe invalid and stale packets and unplug/reconnect the Uno; record the observed UI behavior."));
+ for(const [name,action] of [
+  ["Physical SD write/read/verify/temp-delete","Use the approved firmware temporary-file diagnostic if available; never delete real BINs."],
+  ["Barometer/IMU physical accuracy","Compare actual sensor behavior with a stationary bench reference."],
+  ["GPS/LoRa radio link","Test actual receiver and antennas safely, observing RF restrictions."],
+  ["Wi-Fi loss, recovery wake and timing","Use the motor-free physical test checklist with hardware evidence."],
+  ["Two distinct saved hardware flights","Use only an approved safe test procedure; preserve both original BIN files."],
+  ["Offline restart and BIN reanalysis","Disconnect network, reopen the cached app and reanalyze a preserved BIN."]
+ ])rows.push(devCheck(name,"NOT TESTED",action));
+ const tbody=$("devTestRows");tbody.replaceChildren();
+ for(const row of rows){
+  const tr=document.createElement("tr");
+  for(const value of [row.name,row.result,row.action]){const td=document.createElement("td");td.textContent=value;tr.appendChild(td);}
+  tbody.appendChild(tr);
+ }
+ const pass=rows.filter(r=>r.result==="PASS").length,fail=rows.filter(r=>r.result==="FAIL").length;
+ text("devTestSummary",pass+" PASS · "+fail+" FAIL · "+(rows.length-pass-fail)+" NOT TESTED. No automatic hardware verification or flight approval.");
+}
+function initDevTests(){
+ $("openDevTests").onclick=()=>{setTab("settings");$("devTestCard").scrollIntoView({behavior:"smooth",block:"start"});};
+ $("runDevTests").onclick=()=>{runDevTests().catch(e=>text("devTestSummary","Local check failed: "+e.message));};
+}
+
 async function initSettings(){
  let persisted=false;
  try{persisted=await navigator.storage?.persisted?.()||false;if(!persisted&&navigator.storage?.persist)persisted=await navigator.storage.persist();}catch{}
@@ -358,5 +408,5 @@ async function initOffline(){
  }else text("offlineStatus","Run from the local Windows server to enable offline app caching and Web Serial.");
 }
 
-initTabs();initFlight();initRecovery();initData();initSettings();initOffline();
+initTabs();initDevTests();initFlight();initRecovery();initData();initSettings();initOffline();
 window.addEventListener("beforeunload",()=>{clearInterval(pollTimer);});
