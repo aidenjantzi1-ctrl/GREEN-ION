@@ -4,7 +4,7 @@ export const RADIO_PROTOCOL=2;
 export const PACKET_STALE_MS=3000;
 export const GPS_STALE_MS=15000;
 
-const finite=v=>Number.isFinite(Number(v))?Number(v):null;
+const finite=v=>v!==null&&v!==undefined&&v!==""&&Number.isFinite(Number(v))?Number(v):null;
 export function validCoordinate(lat,lon){
  const a=finite(lat),o=finite(lon);
  return a!==null&&o!==null&&a>=-90&&a<=90&&o>=-180&&o<=180&&!(a===0&&o===0);
@@ -40,7 +40,7 @@ export function parseReceiverLine(line,receivedAt=Date.now()){
 export function recoveryView(packet,lastKnown=null,now=Date.now()){
  const age=packet?Math.max(0,now-packet.receivedAt):null;
  const signal=!packet?"missing":age>PACKET_STALE_MS?"stale":"live";
- const current=packet?.kind==="packet"&&packet.gpsStatus==="live"&&validCoordinate(packet.latitude,packet.longitude);
+ const current=signal==="live"&&packet?.kind==="packet"&&packet.gpsStatus==="live"&&validCoordinate(packet.latitude,packet.longitude);
  const fallback=current?{latitude:packet.latitude,longitude:packet.longitude,at:packet.receivedAt}:lastKnown;
  const positionAge=fallback?Math.max(0,now-fallback.at):null;
  const gps=current?"live":fallback?"stale":"missing";
