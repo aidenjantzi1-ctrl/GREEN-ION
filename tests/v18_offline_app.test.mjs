@@ -88,7 +88,9 @@ test("multi-flight local history, comparison, CSV JSON and print remain local",(
  for(const token of ["listLocalMetadata","compareFlight","analysisCsv","flightReport","window.print()","exportArchive","restoreArchive"])
   assert.ok(app.includes(token),token);
  assert.ok(!app.includes("supabase"));
- assert.ok(!html.includes("remote telemetry upload"));
+ assert.ok(!app.includes("/api/cloud"));
+ assert.ok(!app.includes("fetch(\"https://"));
+ assert.match(html,/No cloud account, remote telemetry upload, subscription, or internet connection is required/);
 });
 
 test("PR #56 regressions are isolated: V18 owns cache version and hash navigation",()=>{
