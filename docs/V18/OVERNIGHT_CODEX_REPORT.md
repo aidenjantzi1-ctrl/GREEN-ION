@@ -6,7 +6,7 @@ Date: 2026-11-14 Pacific. This is software evidence, not hardware flight qualifi
 
 - Starting `main` SHA: `17f517f275be7b52e3e71a1f2d656edbc65a08ea` (V17.0.1 / merged PR #55).
 - Dedicated branch: `worker/v18-codex-overnight`, based directly on that SHA. First completed code commit: `77ffa6c`.
-- Ending SHA before final report update: `01691969d0c7b5762d88bb4790dffac9228565b9` (use PR head for final branch SHA).
+- Ending implementation SHA before the CI-status report update: `d9a5762333d595e526e1d6c66bf83d2407210157`. The report commit follows; use PR #62 head for the branch's final SHA.
 - Exact changed files: `tools/v18_rkt4_audit.py`, `tests/test_v18_rkt4_audit.py`, `docs/V18/OVERNIGHT_CODEX_REPORT.md`.
 - PR: [#62](https://github.com/aidenjantzi1-ctrl/GREEN-ION/pull/62), draft, targeting `worker/v18-integration`.
 - Latest remote fetch found `worker/v18-firmware` at `14d2d6c` (save verification and Wi-Fi policy code), `worker/v18-offline-app` at `7fa01b5`, `worker/v18-integration` at `901caf5`, and `worker/v18-hardware` at the main SHA. These tips may continue moving; fetch before integration.
@@ -31,7 +31,7 @@ Run locally with `python tools/v18_rkt4_audit.py <BIN-or-directory>`. Exit statu
 | V18 offline app tests / Windows packaging | NOT RUN on this branch | Secondary-owned files are on PR #58, not this main-based checkout. |
 | Hardware, real BIN, SD, power, RF | NOT RUN | No physical device or original ROCstock BIN files in this checkout. |
 
-CI status for this PR must be checked on its final head. The existing main, PR #58 and a prior integration branch SHA each returned a successful Vercel status; that status does not establish firmware or hardware results.
+CI check at implementation SHA `d9a5762333d595e526e1d6c66bf83d2407210157`: Vercel combined status **success**; GitHub returned **no Actions workflow runs** for that SHA. Recheck the final PR head after this report commit. The existing main, PR #58 and a prior integration branch SHA also returned a successful Vercel status; that status does not establish firmware or hardware results.
 
 ## Remaining P0/P1 work and hardware blockers
 
