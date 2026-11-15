@@ -204,3 +204,14 @@ test("UX2 private report and safe development UI regression",()=>{
  assert.match(app,/settingsMutationLocked\(\)/);
  assert.doesNotMatch(app,/\/api\/preflight\/start[^\n]*runDevTests/);
 });
+
+test("UX2 diagnostic rejects stale or unaccepted firmware evidence",()=>{
+ const source=readFileSync(new URL("../web/v18_offline_app.mjs",import.meta.url),"utf8");
+ const run=source.slice(source.indexOf("async function runFirmwareDiagnostic()"),source.indexOf("function initDevTests()"));
+ const accepted=run.indexOf("if(result.accepted!==true)throw");
+ const requested=run.indexOf("devFirmwareRequested=true");
+ assert.ok(accepted>=0&&requested>accepted,"only an accepted explicit diagnostic marks the request");
+ const checklist=source.slice(source.indexOf("async function runDevTests()"),source.indexOf("async function runFirmwareDiagnostic()"));
+ assert.match(checklist,/developmentFirmwareDiagnostic\\(connected&&now-lastStatusAt<=5000\\?currentStatus:null/);
+ assert.doesNotMatch(run,/\\/api\\/preflight\\/start/);
+});
