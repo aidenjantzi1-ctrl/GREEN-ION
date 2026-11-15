@@ -101,8 +101,9 @@ class V18FirmwareReliability(unittest.TestCase):
                         begin.index("flightWatcher.cancel()"))
         self.assertIn("previous flight finalization failed", begin)
 
-        critical=PREP[PREP.index("case FLIGHT_PREP_CRITICAL_CHECK"):
-                      PREP.index("case FLIGHT_PREP_SD_INTEGRITY")]
+        service=PREP[PREP.index("static void serviceFlightReadiness"):]
+        critical=service[service.index("case FLIGHT_PREP_CRITICAL_CHECK"):
+                         service.index("case FLIGHT_PREP_SD_INTEGRITY")]
         self.assertIn("if (finalizationFailures)", critical)
         self.assertIn("recovery evidence needs review", critical)
 
