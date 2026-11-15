@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#081420">
+<link rel="manifest" href="./v18.webmanifest">
+<title>GREEN ION V18 Offline</title>
+<style>
+:root{color-scheme:dark;--bg:#081420;--panel:#10263a;--panel2:#17344d;--line:#35536e;--text:#eff8ff;--muted:#a9bfd2;--ok:#72e5ab;--warn:#ffdd88;--bad:#ff91a0;--accent:#7bdbff}*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}button,input,select{font:inherit}
+header{padding:18px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(8,20,32,.97);z-index:5}header h1{margin:0;font-size:24px}header small{color:var(--muted)}
+nav{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}nav button{min-height:46px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:12px;font-weight:800;cursor:pointer}nav button.active{background:var(--accent);color:#07131f}
+main{max-width:1100px;margin:auto;padding:16px}.tab-panel{display:grid;gap:14px}.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px}.card h2,.card h3{margin:0 0 10px}.muted{color:var(--muted)}.hero{display:grid;grid-template-columns:2fr 1fr;gap:14px}.status{min-height:180px;display:grid;place-items:center;text-align:center}.status strong{font-size:clamp(48px,10vw,88px);line-height:1}.status strong[data-state="ERROR"],.status strong[data-state="OFFLINE"]{color:var(--bad)}.status strong[data-state="TESTING"],.status strong[data-state="SAVING"]{color:var(--warn)}.status strong[data-state="ARMED"],.status strong[data-state="SAVED"]{color:var(--ok)}.battery{display:grid;place-items:center;text-align:center}.battery strong{font-size:46px}
+.indicators,.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.pill,.metric{border:1px solid var(--line);background:var(--panel2);border-radius:14px;padding:12px}.pill span,.metric span{display:block;color:var(--muted);font-size:12px;text-transform:uppercase}.pill strong,.metric strong{display:block;margin-top:4px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.primary,.secondary{min-height:60px;border:0;border-radius:14px;font-weight:900;cursor:pointer}.primary{background:var(--ok);color:#07131f}.secondary{background:#34546f;color:var(--text)}button:disabled{opacity:.4;cursor:not-allowed}.notice{padding:12px;border-radius:12px;background:#233f57}.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field{display:grid;gap:6px}.field input,.field select{width:100%;background:#0b1c2b;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid var(--line)}tbody tr{cursor:pointer}tbody tr:hover{background:#17344d}
+canvas{width:100%;height:auto;background:#0b1c2b;border-radius:12px;border:1px solid var(--line)}details{border:1px solid var(--line);border-radius:12px;padding:10px}summary{cursor:pointer;font-weight:800}
+@media(max-width:760px){.hero,.two{grid-template-columns:1fr}.indicators,.metrics{grid-template-columns:1fr 1fr}.actions{grid-template-columns:1fr}nav{grid-template-columns:1fr 1fr}}
+@media print{header,nav,.actions,input,select,#recoveryControls,#backupControls{display:none!important}body{background:#fff;color:#000}.card{border:1px solid #bbb;background:#fff}}
+</style>
+</head>
+<body>
+<header>
+<h1>GREEN ION V18 <small>Local Offline App</small></h1>
+<nav aria-label="Primary">
+<button data-tab="flight" role="tab">Flight</button>
+<button data-tab="recovery" role="tab">Recovery</button>
+<button data-tab="data" role="tab">Data</button>
+<button data-tab="settings" role="tab">Settings</button>
+</nav>
+</header>
+<main>
+<section id="tab-flight" class="tab-panel">
+<div class="hero">
+<div class="card status"><div><div class="muted">FLIGHT STATUS</div><strong id="flightState" data-state="OFFLINE">OFFLINE</strong><div id="flightMessage" class="muted">Connecting to local Windows bridge…</div></div></div>
+<div class="card battery"><div><div class="muted">BATTERY</div><strong id="battery">—</strong></div></div>
+</div>
+<div class="indicators">
+<div class="pill"><span>microSD</span><strong id="sdIndicator">—</strong></div>
+<div class="pill"><span>GPS</span><strong id="gpsIndicator">—</strong></div>
+<div class="pill"><span>LoRa</span><strong id="loraIndicator">—</strong></div>
+</div>
+<div class="card">
+<h2>Prepare and arm</h2>
+<div class="metrics">
+<div class="metric"><span>Firmware phase</span><strong id="prepPhase">—</strong></div>
+<div class="metric"><span>Progress</span><strong id="prepProgress">—</strong></div>
+<div class="metric"><span>Flight file</span><strong id="flightFile">—</strong></div>
+</div>
+<div class="actions" style="margin-top:12px">
+<button id="prepareArm" class="primary">PREPARE &amp; ARM</button>
+<button id="flyAgain" class="primary" hidden>FLY AGAIN</button>
+</div>
+<p class="muted">The app does not simulate readiness. Firmware owns the critical SD, battery, sensor, calibration, and automatic arming sequence.</p>
+</div>
+<div class="card">
+<h2>Last save evidence</h2>
+<div class="metrics">
+<div class="metric"><span>Bytes</span><strong id="flightBytes">—</strong></div>
+<div class="metric"><span>Duration</span><strong id="flightDuration">—</strong></div>
+<div class="metric"><span>Verification</span><strong id="flightVerification">Not yet verified</strong></div>
+</div>
+</div>
+</section>
+
+<section id="tab-recovery" class="tab-panel" hidden>
+<div class="card">
+<h2>Arduino Uno + LoRa receiver</h2>
+<div id="recoveryControls" class="actions">
+<button id="connectReceiver" class="primary">CONNECT RECEIVER</button>
+<button id="disconnectReceiver" class="secondary" disabled>DISCONNECT</button>
+</div>
+<p class="muted">Chrome/Edge will show a serial-port permission picker. Choose the Arduino Uno USB port. GREEN ION reads newline-delimited receiver JSON at 115200 baud and sends no serial flight commands.</p>
+<div id="receiverNote" class="notice">Not connected.</div>
+</div>
+<div class="metrics">
+<div class="metric"><span>Receiver</span><strong id="receiverState">DISCONNECTED</strong></div>
+<div class="metric"><span>Signal</span><strong id="signalStatus">MISSING</strong></div>
+<div class="metric"><span>Packet age</span><strong id="packetAge">—</strong></div>
+<div class="metric"><span>GPS fix</span><strong id="gpsFix">MISSING</strong></div>
+<div class="metric"><span>Last coordinates</span><strong id="coordinates">No valid position</strong></div>
+<div class="metric"><span>Position age</span><strong id="positionAge">—</strong></div>
+</div>
+<details class="card">
+<summary>Advanced receiver details</summary>
+<div class="metrics" style="margin-top:10px">
+<div class="metric"><span>RSSI</span><strong id="rssi">—</strong></div>
+<div class="metric"><span>SNR</span><strong id="snr">—</strong></div>
+<div class="metric"><span>Protocol</span><strong id="receiverProtocol">—</strong></div>
+<div class="metric"><span>Sequence</span><strong id="packetSequence">—</strong></div>
+<div class="metric"><span>Invalid JSON/packets</span><strong id="invalidPackets">0</strong></div>
+</div>
+</details>
+</section>
+
+<section id="tab-data" class="tab-panel" hidden>
+<div class="card">
+<h2>Manual BIN import</h2>
+<div class="field"><label for="binImport">Import original RKT4 v2 BIN files</label><input id="binImport" type="file" accept=".bin,application/octet-stream" multiple></div>
+<p id="importStatus" class="muted">Original files remain unchanged. SHA-256 is used for local deduplication.</p>
+</div>
+<div class="card">
+<h2>Local flight history</h2>
+<p id="historyCount" class="muted">0 local flights</p>
+<div style="overflow:auto"><table><thead><tr><th>Name</th><th>Size</th><th>Checksum</th><th>Imported</th></tr></thead><tbody id="historyRows"></tbody></table></div>
+</div>
+<div class="card">
+<h2>Flight analysis</h2>
+<div class="two">
+<div class="field"><label for="analysisFlight">Primary flight</label><select id="analysisFlight"></select></div>
+<div class="field"><label for="compareFlight">Compare with</label><select id="compareFlight"></select></div>
+</div>
+<p id="analysisSummary" class="notice">Choose a flight.</p>
+<p id="compareSummary" class="muted">No comparison selected.</p>
+<canvas id="analysisCanvas" width="900" height="360" aria-label="Pressure-derived altitude graph"></canvas>
+<p id="analysisWarnings" class="muted"></p>
+<div class="actions">
+<button id="downloadOriginal" class="secondary">DOWNLOAD ORIGINAL BIN</button>
+<button id="exportCsv" class="secondary">EXPORT CSV</button>
+<button id="exportJson" class="secondary">EXPORT JSON REPORT</button>
+<button id="printReport" class="secondary">PRINT REPORT</button>
+</div>
+</div>
+<div class="card" id="backupControls">
+<h2>Backup local history</h2>
+<div class="actions">
+<button id="exportBackup" class="secondary">EXPORT LOCAL BACKUP</button>
+<label class="secondary" style="display:grid;place-items:center;padding:12px">RESTORE BACKUP<input id="restoreBackup" type="file" accept=".json,application/json" hidden></label>
+</div>
+<p id="backupStatus" class="muted">Browser storage can be cleared or evicted; keep exported copies of important flights.</p>
+</div>
+</section>
+
+<section id="tab-settings" class="tab-panel" hidden>
+<div class="card">
+<h2>Local app diagnostics</h2>
+<div class="metrics">
+<div class="metric"><span>Secure context</span><strong id="secureContext">—</strong></div>
+<div class="metric"><span>Web Serial</span><strong id="webSerialSupport">—</strong></div>
+<div class="metric"><span>Service worker</span><strong id="serviceWorkerSupport">—</strong></div>
+<div class="metric"><span>Origin</span><strong id="appOrigin">—</strong></div>
+</div>
+</div>
+<div class="card">
+<h2>Offline and storage</h2>
+<p id="offlineStatus" class="notice">Checking offline cache…</p>
+<p id="storageStatus" class="muted"></p>
+<button id="clearCache" data-lock-during-flight class="secondary">CHECK FOR LOCAL APP CACHE UPDATE</button>
+<p id="cacheStatus" class="muted">This does not contact a cloud service. It only refreshes the local V18 app cache from the same local server.</p>
+</div>
+<details class="card">
+<summary>Advanced configuration notes</summary>
+<p>Normal launch flow intentionally hides diagnostics and configuration. Changes that could affect the app are disabled while recording, armed, or running preparation. Browser serial permission may need to be granted again after browser or Windows changes.</p>
+<p>No cloud account, remote telemetry upload, subscription, or internet connection is required by this V18 frontend.</p>
+</details>
+</section>
+</main>
+<script type="module" src="./v18_offline_app.mjs"></script>
+</body>
+</html>
