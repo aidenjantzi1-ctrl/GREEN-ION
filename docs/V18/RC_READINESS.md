@@ -1,0 +1,53 @@
+# GREEN ION V18 — Release-candidate readiness report
+
+**Assessment: NOT READY FOR RELEASE CANDIDATE APPROVAL.** This is a pre-RC integration audit, not an official release, deployment, firmware update or launch authorization.
+
+## Exact refs and integration trail
+- Stable main: `17f517f275be7b52e3e71a1f2d656edbc65a08ea` (merged PR #55, V17.0.1 SD-first baseline).
+- PR #58 (V18 standalone offline frontend): `9134089367323fe445ff26e043a7a380defd5cbc`, open draft. Seven exact source files staged on integration branch in commit `07119fd99a13edccfe730f13db2283481f328dc9`. Worker branch not changed and PR not merged.
+- Targeted integration-only GPS validity/staleness fixes and two regression tests: commits `935b89ef181517749b7de5e2b9419fef9b591656` and `c2d7a9ed00aaa87ec7b1d95982cf05f124bcadbc`. The fix prevents null coordinates from being treated as numeric zero and prevents aged packets from displaying a live fix.
+- PR #60: integration/planning branch `worker/v18-integration` (draft). Current exact head should be obtained live before review or merge.
+- PR #53 (historic V17 stack) `cc5842f62c19ac71f30174e7c48b58e3a6f71745`, draft/conflicted; PR #56 (old Quick Fly stack) `2a0161364407bbbc999d93f34034df472e57c69a`, draft/conflicted. Do not merge wholesale over PR #55.
+- PR #57 (V17 role prompts) `2702a0d229fbf0d57bf8edc5efe0c213c5c6d516`, open, documentation-only.
+- **No** `worker/v18-firmware` branch or V18 Primary PR was found in the 69-branch head inventory at audit. Heavy coders may have local/unpushed work: do not overwrite or assume complete.
+- Exact full branch-to-SHA preservation snapshot: [BRANCH_AUDIT.md](BRANCH_AUDIT.md). **No branches deleted, refs force-updated, PRs closed or release tags created.**
+
+## Confirmed software CI evidence (historical completed heads, not final combined candidate)
+- Frontend PR #58 head `9134089367323fe445ff26e043a7a380defd5cbc`: [Actions #430](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/43673094793) **success**, including Python regression, native C++ SD/SPI/Wi-Fi, Node browser tests, WebGL smoke, JS syntax, web assets, Feather ESP32 V2 compile, Uno compile, Windows V16 packaging and V17 smoke artifacts. Publish steps skipped.
+- Prior integration documentation head `3c29cbbf58c05f4cdd2b555f2af97c08b5dd8403`: [Actions](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/43682144782) **success** with the same workflow classes. This was before frontend staging.
+- Combined staging head `07119fd99a13edccfe730f13db2283481f328dc9`: [Actions](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/43682679441) **in progress** at audit.
+- Integration fix head `c2d7a9ed00aaa87ec7b1d95982cf05f124bcadbc`: [Actions](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/43682783246) **in progress** at audit.
+- Branch-audit head `bd06424340981ce11e99a47b10dbc25085e1bf85`: [Actions](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/43682809771) **queued** at audit.
+- Example exact commands from verified CI job logs:
+  - `python3 -m unittest discover -s tests -p 'test_*.py' -v`
+  - `node --test tests/*.test.mjs`
+  - `arduino-cli compile --fqbn esp32:esp32:adafruit_feather_esp32_v2 --library libraries/GreenIonProtocol --library libraries/GreenIonRecorder --output-dir build/feather Green_Ion_V16_3`
+  - `arduino-cli compile --fqbn arduino:avr:uno --library libraries/GreenIonProtocol --output-dir build/uno Ground_Receiver_V16_3`
+  - `python3 tools/build_v16_windows_package.py --website built-web --output windows-release --commit "$GITHUB_SHA"`
+  - Native test job used `g++ -std=c++17 -Wall -Wextra -pedantic` (full flags should be copied from workflow).
+  These commands were observed from GitHub Actions logs, **not executed locally by the Integration Manager**.
+
+## Feature readiness and unresolved blockers
+| Feature | Repository evidence | RC gate |
+| --- | --- | --- |
+| V17 SD-first 50 Hz RKT4 v2, autonomous log | Existing main firmware | Preserve in final regression/physical SD write, readback, brownout/reboot |
+| PREPARE & ARM | Existing V17 API + V18 frontend call | Confirm no duplicate command, clean retry, non-destructive temp checks, sequential flights |
+| Flight phases/SAVED | V18 displays V17 recorder status; save evidence uses completion flag + TXT fetch | Verify exact V18 firmware phase/error mapping, no stale save acceptance, independent BIN readback |
+| Wi-Fi ON/off/on | Documented V18 requirement only | Missing firmware branch/implementation and real transition proof |
+| 5-minute recovery and 3-minute hibernation TX | Documented V18 requirement only | Missing firmware behavior, RF-safe TX and measured power proof |
+| Physical wake, safe charging/350 mAh endurance | Documented V18 requirement only | Missing electrical/hardware evidence |
+| Offline four-tab frontend | PR #58 staged in isolation; CI passed on original PR | Verify integrated source CI and actual Windows launcher/packaged entry point |
+| Windows package | Existing CI builds **V16/V17** launcher/package; starter script says V17 | V18 entrypoint + actual offline package launch/install not demonstrated |
+| Manual BIN import | PR #58 source uses original ArrayBuffer, parser and local storage | Test true original-byte round-trip, malformed/truncated files, dedup and storage clear/restore |
+| Uno Web Serial | PR #58 uses 115200-baud Chrome/Edge API; prior Uno protocol-v2 newline JSON contract | Actual receiver + USB permission/disconnect/hardware RF evidence |
+| GPS/LoRa | Frontend parsing and warning semantics; RF previously nonfunctional | Replace damaged antennas, confirm physical radios/pins/range with safe RF setup |
+| So Long bay/stability/recovery | No measured payload/motor evidence supplied | Official manual, measured dimensions/mass, venting, CG/CP, stability, staging/recovery acceptance |
+
+## Priority decisions
+1. Do **not** merge PR #53/#56 wholesale or declare V18 firmware complete. Preserve RKT4 serialization and active Arduino sketch/build paths.
+2. Treat PR #58 as staged for independent integration testing, not production; reconcile with the Primary firmware/receiver contract as soon as that branch is available. Existing V18 frontend consumes V17 status fields and protocol-v2 serial JSON; no V18-only firmware fields are assumed.
+3. Do not label current Windows V16/V17 packaging as a completed V18 installer. Document how V18 is accessed locally; create versioned V18 launcher/package changes only after contracts and smoke tests pass.
+4. After final software CI, perform hardware SD/sensor/cell current/low-voltage, GPS/LoRa antenna/range, Web Serial, pressure-port response, payload mounting, CG/stability, stage coupling and recovery checks with logged actual measurements. CI is not flight authorization.
+5. Recheck main and workers for concurrent movement, require reviewed diffs/checks, and request explicit user approval before a V18 release publication/deployment or any bulk branch/PR cleanup.
+
+**Explicitly not performed:** release/tag publishing, deploying, flashing Feather/Uno, main merge, user-environment hardware tests, branch deletion or PR closure.
