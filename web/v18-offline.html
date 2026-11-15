@@ -14,7 +14,7 @@ nav{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}nav
 main{max-width:1100px;margin:auto;padding:16px}.tab-panel{display:grid;gap:14px}.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px}.card h2,.card h3{margin:0 0 10px}.muted{color:var(--muted)}.hero{display:grid;grid-template-columns:2fr 1fr;gap:14px}.status{min-height:180px;display:grid;place-items:center;text-align:center}.status strong{font-size:clamp(48px,10vw,88px);line-height:1}.status strong[data-state="ERROR"],.status strong[data-state="OFFLINE"]{color:var(--bad)}.status strong[data-state="TESTING"],.status strong[data-state="SAVING"]{color:var(--warn)}.status strong[data-state="ARMED"],.status strong[data-state="SAVED"]{color:var(--ok)}.battery{display:grid;place-items:center;text-align:center}.battery strong{font-size:46px}
 .indicators,.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.pill,.metric{border:1px solid var(--line);background:var(--panel2);border-radius:14px;padding:12px}.pill span,.metric span{display:block;color:var(--muted);font-size:12px;text-transform:uppercase}.pill strong,.metric strong{display:block;margin-top:4px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.primary,.secondary{min-height:60px;border:0;border-radius:14px;font-weight:900;cursor:pointer}.primary{background:var(--ok);color:#07131f}.secondary{background:#34546f;color:var(--text)}button:disabled{opacity:.4;cursor:not-allowed}.notice{padding:12px;border-radius:12px;background:#233f57}.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field{display:grid;gap:6px}.field input,.field select{width:100%;background:#0b1c2b;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px}
 table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid var(--line)}tbody tr{cursor:pointer}tbody tr:hover{background:#17344d}
-canvas{width:100%;height:auto;background:#0b1c2b;border-radius:12px;border:1px solid var(--line)}details{border:1px solid var(--line);border-radius:12px;padding:10px}summary{cursor:pointer;font-weight:800}.timeline{display:flex;gap:8px;overflow:auto;padding:6px 0}.timeline-step{min-width:150px;border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:10px}.timeline-step strong,.timeline-step span{display:block}.timeline-step span{color:var(--muted);font-size:13px;margin-top:3px}pre{white-space:pre-wrap;overflow:auto;max-height:320px;background:#0b1c2b;border:1px solid var(--line);border-radius:12px;padding:12px}
+canvas{width:100%;height:auto;background:#0b1c2b;border-radius:12px;border:1px solid var(--line)}details{border:1px solid var(--line);border-radius:12px;padding:10px}summary{cursor:pointer;font-weight:800}.timeline{display:flex;gap:8px;overflow:auto;padding:6px 0}.timeline-step{min-width:150px;border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:10px}.timeline-step strong,.timeline-step span{display:block}.timeline-step span{color:var(--muted);font-size:13px;margin-top:3px}pre{white-space:pre-wrap;overflow:auto;max-height:320px;background:#0b1c2b;border:1px solid var(--line);border-radius:12px;padding:12px}.dev-result{font-weight:900}.dev-result[data-result="PASS"]{color:var(--ok)}.dev-result[data-result="FAIL"]{color:var(--bad)}.dev-result[data-result="NOT TESTED"]{color:var(--warn)}
 @media(max-width:760px){.hero,.two{grid-template-columns:1fr}.indicators,.metrics{grid-template-columns:1fr 1fr}.actions{grid-template-columns:1fr}nav{grid-template-columns:1fr 1fr}}
 @media print{header,nav,.actions,input,select,#recoveryControls,#backupControls{display:none!important}body{background:#fff;color:#000}.card{border:1px solid #bbb;background:#fff}}
 </style>
@@ -52,6 +52,11 @@ canvas{width:100%;height:auto;background:#0b1c2b;border-radius:12px;border:1px s
 <button id="flyAgain" class="primary" hidden>FLY AGAIN</button>
 </div>
 <p class="muted">The app does not simulate readiness. Firmware owns the critical SD, battery, sensor, calibration, and automatic arming sequence.</p>
+</div>
+<div class="card">
+<h2>Development testing</h2>
+<p class="muted">Motor-free, non-destructive software checks only. Hardware and flight readiness must be verified separately.</p>
+<button id="openDevTests" class="secondary">TEST / CHECK EVERYTHING</button>
 </div>
 <div class="card">
 <h2>Last save evidence</h2>
@@ -134,6 +139,20 @@ canvas{width:100%;height:auto;background:#0b1c2b;border-radius:12px;border:1px s
 </section>
 
 <section id="tab-settings" class="tab-panel" hidden>
+<div class="card" id="devTestCard">
+<h2>TEST / CHECK EVERYTHING</h2>
+<p class="notice">V18 DEVELOPMENT TEST PREVIEW — not a flight safety certification. Disconnect motors/igniters before bench work. This check never arms, transmits radio commands, deletes BIN files, or runs a simulated flight.</p>
+<div class="actions">
+<button id="runDevTests" class="primary">RUN SAFE LOCAL CHECKS</button>
+<button id="runFirmwareDiagnostic" data-lock-during-flight class="secondary">RUN FIRMWARE IMU + GPS DIAGNOSTIC</button>
+</div>
+<p id="devTestSummary" class="muted" role="status" aria-live="polite">Select RUN SAFE LOCAL CHECKS to inspect currently available evidence.</p>
+<p id="devFirmwareStatus" class="muted">Optional explicit bench action. Uses the existing <code>/api/hardware-test</code> IMU+GPS diagnostic only; it does not arm, start recording, transmit LoRa, or delete flight files.</p>
+<div style="overflow:auto"><table><thead><tr><th>Check</th><th>Result</th><th>Next action / evidence</th></tr></thead><tbody id="devTestRows"></tbody></table></div>
+<p class="muted">PASS means this specific software check had direct evidence, not that hardware is flight-ready. FAIL means a checked requirement was not met. NOT TESTED means evidence is absent or a real-device/manual check is required.</p>
+<p class="muted">To test BIN import, use Data → Manual BIN import with an existing original file; inspect analysis and export an unchanged original. To test receiver, use Recovery → CONNECT RECEIVER and select the physical Uno in Chrome/Edge; verify valid, invalid and stale packets, then unplug/reconnect. Test offline restart only after cache registration by disconnecting the network and reopening the local app; the Feather bridge itself may be unavailable offline.</p>
+<p class="muted">Physical microSD write/read/verify/temp-delete, barometer/IMU accuracy, GPS/LoRa RF, wake timing, Wi-Fi interruption and two sequential saved hardware flights remain NOT TESTED until performed with real equipment and separately recorded evidence. Never delete original flight files.</p>
+</div>
 <div class="card">
 <h2>Flight calibration</h2>
 <div class="metrics">

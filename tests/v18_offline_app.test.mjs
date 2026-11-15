@@ -2,9 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {
- V18_TABS,FLIGHT_STATES,RADIO_PROTOCOL,PACKET_STALE_MS,
+ V18_TABS,FLIGHT_STATES,RADIO_PROTOCOL,PACKET_STALE_MS,DEVTEST_STATUS_FRESH_MS,
  deriveFlightState,criticalFlightProblem,optionalFlightWarnings,canPrepare,
- fileSaveEvidence,parseReceiverLine,recoveryView
+ fileSaveEvidence,parseReceiverLine,recoveryView,developmentStatusChecks,
+ developmentReceiverChecks,developmentFirmwareDiagnostic
 } from "../web/v18_offline_core.mjs";
 import {parseRkt4,analyzeFlight} from "../web/analysis/rkt4.mjs";
 
@@ -95,7 +96,7 @@ test("multi-flight local history, comparison, CSV JSON and print remain local",(
 });
 
 test("PR #56 regressions are isolated: V18 owns cache version and hash navigation",()=>{
- assert.match(sw,/const VERSION="green-ion-v18-offline-app-v2"/);
+ assert.match(sw,/const VERSION="green-ion-v18-offline-app-v4"/);
  assert.ok(sw.includes('"./v18-offline.html"'));
  assert.ok(sw.includes('"./analysis/rkt4.mjs"'));
  assert.match(sw,/url\.pathname\.startsWith\("\/api\/"\)/);
@@ -138,9 +139,52 @@ test("Settings exposes firmware-owned calibration, profile metadata and diagnost
  assert.ok(!/\/api\/profile[^\n]*sample_rate_hz/.test(app),"profile API request must not carry recorder-rate data");
 });
 
-test("null and missing GPS coordinates never become a live zero coordinate",()=>{
- const packet={type:"telemetry",protocol:2,altitude_m:5,battery_v:4,gps_status:"live",latitude:null,longitude:-118.1};
- const result=parseReceiverLine(JSON.stringify(packet),1000);
- assert.ok(result);assert.equal(result.gpsStatus,"missing");assert.equal(result.latitude,null);
- assert.equal(parseReceiverLine(JSON.stringify({...packet,latitude:34.1,longitude:null}),1000).gpsStatus,"missing");
+test("guided development status checks use fresh real status and critical battery threshold",()=>{
+ const now=10000,good={sd_ok:true,imu_ok:true,barometer_ready:true,battery_mv:4050};
+ let checks=developmentStatusChecks(good,{connected:true,lastStatusAt:now-500,now});
+ assert.equal(checks.find(x=>x.id==="bridge").state,"PASS");
+ for(const id of ["sd","imu","barometer","battery"])assert.equal(checks.find(x=>x.id===id).state,"PASS",id);
+ checks=developmentStatusChecks({...good,sd_ok:false,battery_mv:3500},{connected:true,lastStatusAt:now-500,now});
+ assert.equal(checks.find(x=>x.id==="sd").state,"FAIL");
+ assert.equal(checks.find(x=>x.id==="battery").state,"FAIL");
+ checks=developmentStatusChecks(good,{connected:true,lastStatusAt:now-DEVTEST_STATUS_FRESH_MS-1,now});
+ assert.equal(checks.find(x=>x.id==="bridge").state,"FAIL");
+ assert.equal(checks.find(x=>x.id==="imu").state,"NOT TESTED");
+});
+
+test("guided receiver checks require a physical port, protocol v2 and fresh accepted packet",()=>{
+ const now=50000;
+ assert.equal(developmentReceiverChecks(null,null,{portConnected:false,now})[0].state,"NOT TESTED");
+ const good=parseReceiverLine(JSON.stringify({type:"telemetry",protocol:2,altitude_m:10,battery_v:4,gps_status:"live",latitude:34.2,longitude:-117.3}),now-200);
+ let checks=developmentReceiverChecks(good,null,{portConnected:true,now});
+ assert.equal(checks.find(x=>x.id==="receiver").state,"PASS");
+ assert.equal(checks.find(x=>x.id==="receiver_gps").state,"PASS");
+ checks=developmentReceiverChecks(good,null,{portConnected:true,now:now+PACKET_STALE_MS+1});
+ assert.equal(checks.find(x=>x.id==="receiver").state,"FAIL");
+ assert.notEqual(checks.find(x=>x.id==="receiver_gps").state,"PASS");
+});
+
+test("firmware diagnostic is explicit and never turns inconclusive evidence into PASS",()=>{
+ assert.equal(developmentFirmwareDiagnostic({imu_test_result:"PASS",gps_test_result:"PASS"},{requested:false}).state,"NOT TESTED");
+ assert.equal(developmentFirmwareDiagnostic({imu_test_result:"PASS",gps_test_result:"PASS",imu_test_message:"ok",gps_test_message:"ok"},{requested:true}).state,"PASS");
+ assert.equal(developmentFirmwareDiagnostic({imu_test_result:"FAIL",gps_test_result:"PASS"},{requested:true}).state,"FAIL");
+ assert.equal(developmentFirmwareDiagnostic({imu_test_result:"PASS",gps_test_result:"INCONCLUSIVE"},{requested:true}).state,"NOT TESTED");
+});
+
+test("development checklist stays in Settings with safe explicit diagnostic only",()=>{
+ assert.equal((html.match(/data-tab="/g)||[]).length,4);
+ for(const id of ["openDevTests","devTestCard","runDevTests","runFirmwareDiagnostic","devTestRows"])assert.ok(html.includes('id="'+id+'"'),id);
+ assert.match(html,/TEST \/ CHECK EVERYTHING/);
+ assert.match(app,/function runDevTests/);
+ assert.match(app,/developmentStatusChecks/);
+ assert.match(app,/developmentReceiverChecks/);
+ assert.match(app,/origin==="manual-v18-import"/);
+ assert.match(app,/parseRkt4\(manual\.bytes\)/);
+ assert.match(app,/caches\.has\(V18_CACHE_VERSION\)/);
+ assert.match(app,/\/api\/hardware-test/);
+ assert.match(app,/new URLSearchParams\(\{sensor:"all"\}\)/);
+ const safe=app.slice(app.indexOf("async function runDevTests"),app.indexOf("async function runFirmwareDiagnostic"));
+ assert.ok(!safe.includes("/api/preflight/start"),"safe checklist must not arm");
+ assert.ok(!safe.includes("/api/hardware-test"),"safe checklist must not auto-run firmware diagnostics");
+ assert.ok(!/delete\(|remove\(/.test(safe),"safe checklist must not delete files");
 });

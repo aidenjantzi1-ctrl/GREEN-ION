@@ -146,3 +146,14 @@ Additional existing APIs now surfaced under Settings:
 Recovery freshness is stricter than the raw receiver label: protocol-v2 JSON can display GPS as LIVE only while the serial packet itself is fresh and a valid coordinate/fix is fresh. A packet older than the UI freshness threshold or a GPS fix age beyond the configured GPS threshold is shown as stale/last-known, never live.
 
 Data now renders the analyzer's estimated phase events as an explicit timeline. Phase names, times, altitudes, and confidence remain analysis estimates from immutable RKT4 v2 data, not recorded measurement fields.
+
+
+## Guided development-test contract (V18-DEVTEST-20261115)
+
+Settings includes **TEST / CHECK EVERYTHING** as a development aid, not flight qualification. The safe checklist is read-only: it does not arm, start recording, simulate flight, request LoRa transmission, create/delete SD files, or modify imported BIN bytes.
+
+Read-only PASS/FAIL/NOT TESTED evidence comes from fresh `/api/status`, firmware-reported SD/IMU/barometer/battery values, the V18 service-worker cache, a BIN actually imported through `manual-v18-import` and reparsed locally, and a physically connected Uno with a fresh accepted protocol-v2 packet.
+
+The separate **RUN FIRMWARE IMU + GPS DIAGNOSTIC** button is an explicit user action using the existing verified `POST /api/hardware-test` endpoint with `sensor=all`. Results are read from existing `imu_test_result/message` and `gps_test_result/message` status fields. RUNNING, INCONCLUSIVE, DEFERRED, stale, missing, or unrequested evidence is never labeled PASS.
+
+Actual offline reload, physical SD write/read/temp-delete, sensor accuracy, GPS/LoRa RF/range, recovery timing/wake and repeated hardware save cycles remain NOT TESTED until performed with real equipment.
