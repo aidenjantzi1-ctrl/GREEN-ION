@@ -42,6 +42,7 @@
 #include <GreenIonSharedSpi.h>
 #include <GreenIonWifiPolicy.h>
 #include <GreenIonFlightReadiness.h>
+#include <GreenIonSaveVerification.h>
 
 #include "Config.h"
 #include "SensorState.h"
@@ -1591,6 +1592,40 @@ static bool writeCompletionMetadata(uint32_t nowMs, uint32_t fileBytes) {
   return saved;
 }
 
+static bool verifyCompletedFlightPackage(uint32_t expectedFileBytes) {
+  SdSpiScope bus;
+  if (!bus) return false;
+
+  uint8_t header[green_ion::rkt4::kHeaderBytes] = {};
+  File bin = SD.open(logFilename, FILE_READ);
+  if (!bin) return false;
+  const size_t fileBytes = static_cast<size_t>(bin.size());
+  const bool headerRead =
+      bin.read(header, sizeof(header)) == static_cast<int>(sizeof(header));
+  bin.close();
+  if (!headerRead) return false;
+
+  char metadata[1024] = {};
+  File meta = SD.open(metadataFilename, FILE_READ);
+  if (!meta) return false;
+  const size_t metadataBytes = static_cast<size_t>(meta.size());
+  if (metadataBytes == 0 || metadataBytes >= sizeof(metadata)) {
+    meta.close();
+    return false;
+  }
+  const bool metadataRead =
+      meta.read(reinterpret_cast<uint8_t *>(metadata), metadataBytes) ==
+          static_cast<int>(metadataBytes);
+  meta.close();
+  if (!metadataRead) return false;
+
+  return green_ion::save_verification::verifyCompletedPackage(
+             header, sizeof(header), fileBytes, expectedFileBytes,
+             metadata, metadataBytes, logFilename.c_str(),
+             config::SENSOR_RATE_HZ) ==
+         green_ion::save_verification::SAVE_VALID;
+}
+
 static bool finalizeRecording(uint32_t nowMs) {
   if (recorderMode != RECORDER_RECORDING || !recorderCore.recording() || !logFile)
     return false;
@@ -1617,6 +1652,13 @@ static bool finalizeRecording(uint32_t nowMs) {
     recorderMode = RECORDER_FAULT;
     return false;  // Journals remain as recovery evidence.
   }
+  // Reopen and verify the authoritative BIN plus completion metadata before
+  // deleting recovery journals or allowing Wi-Fi to restart.
+  if (!verifyCompletedFlightPackage(static_cast<uint32_t>(size))) {
+    ++finalizationFailures;
+    recorderMode = RECORDER_FAULT;
+    return false;  // Journals remain as recovery evidence.
+  }
   if (SD.exists(checkpointFilenameA) && !SD.remove(checkpointFilenameA)) {
     ++finalizationFailures;
     recorderMode = RECORDER_FAULT;
@@ -1630,6 +1672,7 @@ static bool finalizeRecording(uint32_t nowMs) {
   landingWatcher.cancel();
   recorderMode = RECORDER_COMPLETE;
   flightState = green_ion::STATE_LANDED;
+  requestPostFlightWifiRestore();
   return true;
 }
 
@@ -1764,6 +1807,7 @@ static void startManualFlightRecording() {
   }
   recorderMode = RECORDER_RECORDING;
   flightState = green_ion::STATE_ASCENT;
+  requestFlightWifiSuppression(nowMs);
   if (!landingWatcher.begin(nowMs, {
         config::SENSOR_RATE_HZ, 0.0f, calibrationNoiseM}))
     ++finalizationFailures;
@@ -1856,6 +1900,7 @@ static void appendLog(uint32_t nowUs, uint32_t nowMs, bool valid) {
     if (state.sdOk && openRawLog(nowMs, nowUs)) {
       recorderMode = RECORDER_RECORDING;
       flightState = green_ion::STATE_ASCENT;
+      requestFlightWifiSuppression(nowMs);
       if (!landingWatcher.begin(nowMs, {
             config::SENSOR_RATE_HZ, 0.0f, calibrationNoiseM}))
         ++finalizationFailures;
@@ -2786,6 +2831,10 @@ void loop() {
   // BIN flush/checkpoint path has completed.
   serviceSensorLog(nowMs, micros());
   if (sensorLogCore.droppedRecords()) healthBits |= green_ion::HEALTH_SENSOR_LOG_DROPPED;
+
+  // Flight Wi-Fi transitions are optional one-shot power work. They execute
+  // only after primary SD service and only with deadline margin.
+  serviceFlightWifiPower(nowMs, micros());
 
   serviceStorageRecovery(nowMs);
   servicePeripheralRecovery(nowMs);

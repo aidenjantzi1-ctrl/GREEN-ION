@@ -19,6 +19,13 @@ static uint32_t homeWifiRetryAtMs = 0;
 static bool homeWifiScanActive = false;
 static bool homeWifiScanRestoreApOnly = false;
 
+// Flight Wi-Fi power is separate from user Wi-Fi configuration. These flags
+// never gate SD acquisition, writes, launch detection, landing, or finalization.
+static bool homeWifiFlightSuppressed = false;
+static bool homeWifiFlightSuppressionRequested = false;
+static bool homeWifiPostSaveRestoreRequested = false;
+static uint32_t homeWifiFlightSuppressionRequestedMs = 0;
+
 static bool wifiManagementButtonWasDown = false;
 static uint32_t wifiPhysicalAuthorizationUntilMs = 0;
 static String wifiManagementToken;
@@ -196,6 +203,10 @@ static void initializeHomeWifi() {
   pinMode(config::PIN_MANAGEMENT_BUTTON, INPUT);
   loadHomeWifiPreferences();
   WiFi.setAutoReconnect(false);
+  homeWifiFlightSuppressed = false;
+  homeWifiFlightSuppressionRequested = false;
+  homeWifiPostSaveRestoreRequested = false;
+  homeWifiFlightSuppressionRequestedMs = 0;
 
   const bool useSta = green_ion::wifi_policy::shouldUseApSta(homeWifiConfigured, false);
   WiFi.mode(useSta ? WIFI_AP_STA : WIFI_AP);
@@ -206,6 +217,81 @@ static void initializeHomeWifi() {
 
   if (useSta) {
     startHomeWifiAttempt(homeWifiSsid, homeWifiPassword, false, millis());
+  }
+}
+
+static void requestFlightWifiSuppression(uint32_t nowMs) {
+  if (homeWifiFlightSuppressed || homeWifiFlightSuppressionRequested) return;
+  homeWifiFlightSuppressionRequested = true;
+  homeWifiFlightSuppressionRequestedMs = nowMs;
+  homeWifiPostSaveRestoreRequested = false;
+}
+
+static void requestPostFlightWifiRestore() {
+  // Caller sets this only after structural SD package/readback verification.
+  // A very short flight may finish before the delayed Wi-Fi-off transition
+  // executes. In that case Wi-Fi is already on: cancel the stale pending
+  // suppression so normal AP/STA service cannot become permanently blocked.
+  if (!homeWifiFlightSuppressed) {
+    homeWifiFlightSuppressionRequested = false;
+    homeWifiFlightSuppressionRequestedMs = 0;
+    homeWifiPostSaveRestoreRequested = false;
+    homeWifiLastResult = "post_flight_wifi_already_on";
+    return;
+  }
+  homeWifiPostSaveRestoreRequested = true;
+}
+
+static void restoreWifiAfterVerifiedSave(uint32_t nowMs) {
+  const bool useSta =
+      green_ion::wifi_policy::shouldUseApSta(homeWifiConfigured, homeWifiPaused);
+  WiFi.setAutoReconnect(false);
+  WiFi.mode(useSta ? WIFI_AP_STA : WIFI_AP);
+  const IPAddress apIp(192, 168, 4, 1);
+  const IPAddress apMask(255, 255, 255, 0);
+  WiFi.softAPConfig(apIp, apIp, apMask);
+  WiFi.softAP(config::DASHBOARD_SSID, homeWifiApPassword.c_str());
+
+  homeWifiFlightSuppressed = false;
+  homeWifiFlightSuppressionRequested = false;
+  homeWifiPostSaveRestoreRequested = false;
+  homeWifiFlightSuppressionRequestedMs = 0;
+  homeWifiLastResult = "post_flight_wifi_restored";
+
+  if (useSta)
+    startHomeWifiAttempt(homeWifiSsid, homeWifiPassword, false, nowMs);
+}
+
+static void serviceFlightWifiPower(uint32_t nowMs, uint32_t nowUs) {
+  if (green_ion::wifi_policy::shouldDisableForFlight(
+          state.recording || recorderCore.recording(),
+          homeWifiFlightSuppressionRequested,
+          homeWifiFlightSuppressed,
+          nowMs, homeWifiFlightSuppressionRequestedMs,
+          config::WIFI_FLIGHT_OFF_SETTLE_MS)) {
+    if (!green_ion::shared_spi::hasDeadlineMargin(
+            nowUs, sampleClock.nextDeadlineUs(),
+            config::WIFI_TRANSITION_GUARD_US))
+      return;
+    // This is optional power work after the authoritative SD recorder is live.
+    // No return value here can change recorder state or stop a flight.
+    WiFi.disconnect(true, false);
+    WiFi.mode(WIFI_OFF);
+    homeWifiFlightSuppressed = true;
+    homeWifiFlightSuppressionRequested = false;
+    homeWifiLastResult = "flight_wifi_off";
+    return;
+  }
+
+  if (homeWifiPostSaveRestoreRequested &&
+      green_ion::wifi_policy::shouldRestoreAfterVerifiedSave(
+          state.recording || recorderCore.recording(),
+          true, homeWifiFlightSuppressed)) {
+    if (!green_ion::shared_spi::hasDeadlineMargin(
+            nowUs, sampleClock.nextDeadlineUs(),
+            config::WIFI_TRANSITION_GUARD_US))
+      return;
+    restoreWifiAfterVerifiedSave(nowMs);
   }
 }
 
@@ -223,6 +309,10 @@ static void serviceHomeWifi(uint32_t nowMs) {
     if (recorderMode == RECORDER_CALIBRATING && !homeWifiOperationActive())
       resetCalibration(nowMs);
   }
+
+  // The flight-power path owns Wi-Fi while suppression is pending/active.
+  // Automatic STA retry must never wake the radio before save verification.
+  if (homeWifiFlightSuppressed || homeWifiFlightSuppressionRequested) return;
 
   // Never trigger, cancel, scan or reconfigure Wi-Fi while the recorder is
   // watching for launch, recording, running the home test, or in OTA maintenance.
