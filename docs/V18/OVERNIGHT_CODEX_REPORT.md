@@ -26,17 +26,19 @@ Run locally with `python tools/v18_rkt4_audit.py <BIN-or-directory>`. Exit statu
 | Python `unittest` focused suite (`test_v18_rkt4_audit`, `test_rkt4_recovery`, `test_v17_flight_readiness`) | PASS: 29 tests | Synthetic RKT4 edge cases and existing recovery/readiness contracts |
 | `node tests/js/test_rkt4.mjs` | PASS | Existing browser RKT4 parsing/analysis smoke |
 | `node tests/v17_flight_readiness.test.mjs` | PASS: 4 tests | Existing one-press readiness UI contracts |
-| Full Python `unittest discover` | NOT PASSING in this Windows environment | Existing tests use Windows cp1252 default to read UTF-8 sources; local-server tests also hit socket permission error `WinError 10013`. These are outside changed files. |
+| Full Python `unittest discover`, UTF-8 enabled with loopback access | PASS: 229 tests | Default restricted Windows run first hit cp1252 decoding and socket access errors; rerun with UTF-8 and local loopback succeeded. |
+| `node --test tests` | PASS: 126 tests | All Node tests on this main-based branch. |
 | Firmware / Uno compilation | NOT RUN | Arduino CLI, C++ compiler and target boards unavailable in this environment. CI must compile exact PR head. |
-| V18 offline app tests / Windows packaging | NOT RUN on this branch | Secondary-owned files are on PR #58, not this main-based checkout. |
+| V18 offline app tests on detached Secondary head `7fa01b5` | FAIL: 9/11 pass | Two assertions match source strings too narrowly despite safe implementation. Findings sent to [PR #58 comment](https://github.com/aidenjantzi1-ctrl/GREEN-ION/pull/58#issuecomment-6890032927); no worker files edited. |
+| Windows packaging | NOT RUN | No package build performed in this checkout. |
 | Hardware, real BIN, SD, power, RF | NOT RUN | No physical device or original ROCstock BIN files in this checkout. |
 
-CI check at implementation SHA `d9a5762333d595e526e1d6c66bf83d2407210157`: Vercel combined status **success**; GitHub returned **no Actions workflow runs** for that SHA. Recheck the final PR head after this report commit. The existing main, PR #58 and a prior integration branch SHA also returned a successful Vercel status; that status does not establish firmware or hardware results.
+CI checks at implementation SHA `d9a5762333d595e526e1d6c66bf83d2407210157` and subsequent report SHA `2fb5433`: Vercel combined status **success**; GitHub returned **no Actions workflow runs** for either SHA. Recheck the final PR head after this report commit. The existing main, PR #58 and a prior integration branch SHA also returned a successful Vercel status; that status does not establish firmware or hardware results.
 
 ## Remaining P0/P1 work and hardware blockers
 
 - Primary-owned firmware branch now has initial save verification and Wi-Fi policy changes. SD buffering, checkpoint finalization/readback, autonomous sampling, PREPARE & ARM, phase detection and full Wi-Fi/power transitions remain to be implemented or independently verified. No firmware source was edited here to avoid conflicting ownership.
-- Secondary-owned offline UI and Web Serial implementation needs compatibility review with the exact firmware and Uno serial contracts before merge. PR #58 documents its existing V17-compatible contract.
+- Secondary-owned offline UI and Web Serial implementation needs compatibility review with the exact firmware and Uno serial contracts before merge. PR #58 documents its existing V17-compatible contract. Two source-string assertions in its current test file need correction; review comment linked above.
 - An independent checksum or expected byte count captured at recording time would be needed to verify content corruption beyond structural checks. Keep any such evidence in a sidecar/API; do not alter RKT4 v2 records or invent missing samples.
 - Real BIN files C and D, interruption traces, SD hardware, properly vented barometer, IMU, 350 mAh battery measurements, button, Uno/LoRa antenna and serial hardware, and two sequential flights require physical validation. The reported 163 m D altitude is unverified; the unvented Green Eggs bay prevents treating its pressure altitude as a known truth.
 - No software test here establishes LoRa range, antenna reliability, battery endurance, So Long fit/stability or flight readiness.
@@ -52,11 +54,11 @@ CI check at implementation SHA `d9a5762333d595e526e1d6c66bf83d2407210157`: Verce
 ## Exact next actions for Integration Manager
 
 1. Review this branch's audit output semantics and PR checks, then decide whether the read-only checker should join the V18 integration test gate.
-2. Obtain Primary Coder's branch/PR and agree the firmware status, save/readback and Uno packet contracts with Secondary before merging #58.
+2. Review Primary Coder's branch and agree the firmware status, save/readback and Uno packet contracts with Secondary before merging #58. Have Secondary fix the two test assertions reported on PR #58, then rerun on its latest head.
 3. Run firmware/Uno builds and all CI jobs on the exact combined head, and test two distinct flight files plus interrupted-write recovery on disposable SD hardware.
 4. Locate and preserve original C and D BIN/TXT/sidecars, then run the checker on copies and compare its byte hashes to originals. Record pressure-port limitation explicitly.
 5. Complete branch-by-branch unique-value audit; bring any cleanup proposal to the user for approval. Keep release and main merge gated on review and hardware evidence.
 
 ## Summary
 
-**Completed:** independent, read-only RKT4 v2 integrity audit; seven new synthetic regression cases; focused existing tests. **Partial:** V18 integration and broad test coverage await the other worker branches and CI. **Untested:** hardware recorder/receiver, actual flights, firmware compilation, battery endurance and RF performance.
+**Completed:** independent, read-only RKT4 v2 integrity audit; nine new synthetic regression cases; full Python and main-based Node suites. **Partial:** V18 integration and Secondary tests need the documented assertion fixes and CI. **Untested:** hardware recorder/receiver, actual flights, firmware compilation, battery endurance and RF performance.
