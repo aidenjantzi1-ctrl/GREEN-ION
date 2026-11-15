@@ -52,6 +52,10 @@ int main() {
   assert(!shouldDisableForFlight(true, true, false, 0x00000020u, 0xfffffff0u, 64));
   assert(shouldDisableForFlight(true, true, false, 0x00000040u, 0xfffffff0u, 64));
 
+  // A short flight can finish before the delayed suppression executes. Policy must
+  // never pretend Wi-Fi needs restoration unless it was actually suppressed.
+  assert(!shouldRestoreAfterVerifiedSave(false, true, false));
+
   // Restarting Wi-Fi is gated on independent save verification, never on landing alone.
   assert(!shouldRestoreAfterVerifiedSave(true, true, true));
   assert(!shouldRestoreAfterVerifiedSave(false, false, true));

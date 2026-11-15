@@ -58,6 +58,34 @@ class V18FirmwareReliability(unittest.TestCase):
         self.assertNotIn("requestPostFlightWifiRestore", verify_failure)
         self.assertIn("homeWifiFlightSuppressed || homeWifiFlightSuppressionRequested", HOME)
 
+    def test_short_flight_cancels_pending_wifi_suppression(self):
+        fn=HOME[HOME.index("static void requestPostFlightWifiRestore"):
+                HOME.index("static void restoreWifiAfterVerifiedSave")]
+        self.assertIn("if (!homeWifiFlightSuppressed)", fn)
+        self.assertIn("homeWifiFlightSuppressionRequested = false", fn)
+        self.assertIn("homeWifiPostSaveRestoreRequested = false", fn)
+        self.assertIn('homeWifiLastResult = "post_flight_wifi_already_on"', fn)
+
+    def test_repeated_flight_cycles_clear_wifi_transition_state(self):
+        init=HOME[HOME.index("static void initializeHomeWifi"):
+                  HOME.index("static void requestFlightWifiSuppression")]
+        for token in (
+            "homeWifiFlightSuppressed = false",
+            "homeWifiFlightSuppressionRequested = false",
+            "homeWifiPostSaveRestoreRequested = false",
+            "homeWifiFlightSuppressionRequestedMs = 0",
+        ):
+            self.assertIn(token, init)
+        restore=HOME[HOME.index("static void restoreWifiAfterVerifiedSave"):
+                     HOME.index("static void serviceFlightWifiPower")]
+        for token in (
+            "homeWifiFlightSuppressed = false",
+            "homeWifiFlightSuppressionRequested = false",
+            "homeWifiPostSaveRestoreRequested = false",
+            "homeWifiFlightSuppressionRequestedMs = 0",
+        ):
+            self.assertIn(token, restore)
+
     def test_manual_and_automatic_recording_share_wifi_policy(self):
         self.assertGreaterEqual(FW.count("requestFlightWifiSuppression(nowMs);"), 2)
         self.assertIn("startManualFlightRecording", FW)

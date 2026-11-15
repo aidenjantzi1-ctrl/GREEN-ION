@@ -58,9 +58,15 @@ inline Result verifyCompletedPackage(const uint8_t *header,
   const char *leaf = logFilename[0] == '/' ? logFilename + 1 : logFilename;
   char fileToken[32] = {};
   char bytesToken[40] = {};
-  if (snprintf(fileToken, sizeof(fileToken), "file=%s\n", leaf) <= 0 ||
+  const int fileTokenBytes =
+      snprintf(fileToken, sizeof(fileToken), "file=%s\n", leaf);
+  const int bytesTokenBytes =
       snprintf(bytesToken, sizeof(bytesToken), "file_bytes=%lu\n",
-               static_cast<unsigned long>(expectedFileBytes)) <= 0)
+               static_cast<unsigned long>(expectedFileBytes));
+  if (fileTokenBytes <= 0 ||
+      static_cast<size_t>(fileTokenBytes) >= sizeof(fileToken) ||
+      bytesTokenBytes <= 0 ||
+      static_cast<size_t>(bytesTokenBytes) >= sizeof(bytesToken))
     return SAVE_METADATA_INCOMPLETE;
 
   if (!containsBytes(metadata, metadataBytes,

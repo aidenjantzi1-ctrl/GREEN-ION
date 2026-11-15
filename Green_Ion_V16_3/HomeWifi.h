@@ -228,7 +228,17 @@ static void requestFlightWifiSuppression(uint32_t nowMs) {
 }
 
 static void requestPostFlightWifiRestore() {
-  // Caller must set this only after independent SD package readback succeeds.
+  // Caller sets this only after structural SD package/readback verification.
+  // A very short flight may finish before the delayed Wi-Fi-off transition
+  // executes. In that case Wi-Fi is already on: cancel the stale pending
+  // suppression so normal AP/STA service cannot become permanently blocked.
+  if (!homeWifiFlightSuppressed) {
+    homeWifiFlightSuppressionRequested = false;
+    homeWifiFlightSuppressionRequestedMs = 0;
+    homeWifiPostSaveRestoreRequested = false;
+    homeWifiLastResult = "post_flight_wifi_already_on";
+    return;
+  }
   homeWifiPostSaveRestoreRequested = true;
 }
 
