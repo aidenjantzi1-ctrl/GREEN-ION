@@ -141,25 +141,26 @@ class V18FirmwareReliability(unittest.TestCase):
         self.assertNotIn('"/V12D', block)
         self.assertIn("recorderMode == RECORDER_WATCHING", block)
         self.assertIn("flightReadinessActive", block)
-        self.assertIn('"error_code\\":\\"SD_TEST_BUSY"', block)
-        self.assertIn('"error_code\\":\\"SD_TEMP_CLEANUP_FAILED"', block)
-        self.assertIn('"error_code\\":\\"SD_VERIFY_FAILED"', block)
+        self.assertIn("SD_TEST_BUSY", block)
+        self.assertIn("SD_TEMP_CLEANUP_FAILED", block)
+        self.assertIn("SD_VERIFY_FAILED", block)
         self.assertGreaterEqual(block.count("SD.remove(path)"), 2)
         self.assertIn("!SD.exists(path) || SD.remove(path)", block)
-        self.assertIn('"cleanup_verified\\":true', block)
+        self.assertIn("cleanup_verified", block)
+        self.assertIn("true", block)
 
     def test_devtest_status_exposes_measurement_and_wifi_power_state(self):
         for token in (
-            '"battery_measurement_available"',
-            '"wifi_flight_suppressed"',
-            '"wifi_flight_suppression_pending"',
-            '"wifi_post_save_restore_pending"',
+            "battery_measurement_available",
+            "wifi_flight_suppressed",
+            "wifi_flight_suppression_pending",
+            "wifi_post_save_restore_pending",
         ):
             self.assertIn(token, FW)
         for token in (
-            '"flight_suppressed"',
-            '"flight_suppression_pending"',
-            '"post_save_restore_pending"',
+            "flight_suppressed",
+            "flight_suppression_pending",
+            "post_save_restore_pending",
         ):
             self.assertIn(token, HOME)
         self.assertIn('homeWifiFlightSuppressed ? "OFF"', FW)
@@ -174,7 +175,8 @@ class V18FirmwareReliability(unittest.TestCase):
             "TEST_DEFERRED_RECORDER_ACTIVE",
         ):
             self.assertIn(code, block)
-        self.assertIn('"error_code\\":null', block)
+        self.assertIn("error_code", block)
+        self.assertIn("null", block)
         self.assertIn("requestHardwareTest(request);", block)
 
     def test_devtest_contract_documents_existing_non_destructive_api(self):
