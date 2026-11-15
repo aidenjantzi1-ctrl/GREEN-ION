@@ -8,6 +8,8 @@ CFG=(ROOT/"Green_Ion_V16_3"/"Config.h").read_text(encoding="utf-8")
 PROTO=(ROOT/"libraries/GreenIonProtocol/src/GreenIonProtocol.h").read_text(encoding="utf-8")
 RKT4=(ROOT/"libraries/GreenIonRecorder/src/GreenIonRkt4.h").read_text(encoding="utf-8")
 VERIFY=(ROOT/"libraries/GreenIonRecorder/src/GreenIonSaveVerification.h").read_text(encoding="utf-8")
+PREP=(ROOT/"Green_Ion_V16_3"/"FlightPreparation.h").read_text(encoding="utf-8")
+NAMING=(ROOT/"libraries/GreenIonRecorder/src/GreenIonFileNaming.h").read_text(encoding="utf-8")
 
 class V18FirmwareReliability(unittest.TestCase):
     def test_wifi_off_is_requested_only_after_sd_recording_starts(self):
@@ -59,6 +61,32 @@ class V18FirmwareReliability(unittest.TestCase):
     def test_manual_and_automatic_recording_share_wifi_policy(self):
         self.assertGreaterEqual(FW.count("requestFlightWifiSuppression(nowMs);"), 2)
         self.assertIn("startManualFlightRecording", FW)
+
+    def test_two_flights_without_reboot_get_fresh_prepare_and_filename(self):
+        # COMPLETE is intentionally not a busy state for PREPARE & ARM.
+        busy=PREP[PREP.index("static bool flightReadinessContextBusy"):
+                  PREP.index("static void updateSdCapacityCache")]
+        self.assertNotIn("RECORDER_COMPLETE", busy)
+        begin=PREP[PREP.index("static void beginFlightReadiness"):
+                   PREP.index("static void serviceFlightReadiness")]
+        self.assertIn("recorderCore.resetBuffer()", begin)
+        self.assertIn("resetCalibration(flightReadinessStartedMs)", begin)
+
+        open_log=FW[FW.index("static bool openRawLog"):
+                    FW.index("static void startManualFlightRecording")]
+        self.assertIn("for (uint16_t sequence = 0; sequence < 1000; ++sequence)", open_log)
+        self.assertIn("flightSequenceOccupied", open_log)
+        self.assertIn('snprintf(candidate, sizeof(candidate), "/V12D%03u.BIN"', open_log)
+        self.assertNotIn("SD.remove(candidate)", open_log)
+        self.assertIn("flightSequenceOccupied", NAMING)
+
+    def test_power_loss_recovery_runs_before_wifi_startup(self):
+        setup=FW[FW.index("void setup()"):FW.index("void loop()")]
+        self.assertLess(setup.index("initializeStorage();"),
+                        setup.index("recoverInterruptedLogs();"))
+        self.assertLess(setup.index("recoverInterruptedLogs();"),
+                        setup.index("initializeDashboard();"))
+        self.assertIn("recoverInterruptedLogs();", setup)
 
     def test_primary_formats_and_optional_link_contract_are_unchanged(self):
         self.assertIn("kProtocolVersion = 2", PROTO)
