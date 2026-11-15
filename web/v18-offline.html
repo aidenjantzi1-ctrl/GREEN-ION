@@ -54,6 +54,11 @@ canvas{width:100%;height:auto;background:#0b1c2b;border-radius:12px;border:1px s
 <p class="muted">The app does not simulate readiness. Firmware owns the critical SD, battery, sensor, calibration, and automatic arming sequence.</p>
 </div>
 <div class="card">
+<h2>Development testing</h2>
+<p class="muted">Motor-free, non-destructive software checks only. Hardware and flight readiness must be verified separately.</p>
+<button id="openDevTests" class="secondary">TEST / CHECK EVERYTHING</button>
+</div>
+<div class="card">
 <h2>Last save evidence</h2>
 <div class="metrics">
 <div class="metric"><span>Bytes</span><strong id="flightBytes">—</strong></div>
@@ -134,6 +139,16 @@ canvas{width:100%;height:auto;background:#0b1c2b;border-radius:12px;border:1px s
 </section>
 
 <section id="tab-settings" class="tab-panel" hidden>
+<div class="card" id="devTestCard">
+<h2>TEST / CHECK EVERYTHING</h2>
+<p class="notice">V18 DEVELOPMENT TEST PREVIEW — not a flight safety certification. Disconnect motors/igniters before bench work. This check never arms, transmits radio commands, deletes BIN files, or runs a simulated flight.</p>
+<button id="runDevTests" class="primary">RUN SAFE LOCAL CHECKS</button>
+<p id="devTestSummary" class="muted" role="status" aria-live="polite">Select RUN SAFE LOCAL CHECKS to inspect currently available evidence.</p>
+<div style="overflow:auto"><table><thead><tr><th>Check</th><th>Result</th><th>Next action / evidence</th></tr></thead><tbody id="devTestRows"></tbody></table></div>
+<p class="muted">PASS means this specific software check had direct evidence, not that hardware is flight-ready. FAIL means a checked requirement was not met. NOT TESTED means evidence is absent or a real-device/manual check is required.</p>
+<p class="muted">To test BIN import, use Data → Manual BIN import with an existing original file; inspect analysis and export an unchanged original. To test receiver, use Recovery → CONNECT RECEIVER and select the physical Uno in Chrome/Edge; verify valid, invalid and stale packets, then unplug/reconnect. Test offline restart only after cache registration by disconnecting the network and reopening the local app; the Feather bridge itself may be unavailable offline.</p>
+<p class="muted">Physical microSD write/read/verify/temp-delete, barometer/IMU accuracy, GPS/LoRa RF, wake timing, Wi-Fi interruption and two sequential saved hardware flights remain NOT TESTED until performed with real equipment and separately recorded evidence. Never delete original flight files.</p>
+</div>
 <div class="card">
 <h2>Flight calibration</h2>
 <div class="metrics">
