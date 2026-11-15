@@ -14,7 +14,7 @@ nav{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}nav
 main{max-width:1100px;margin:auto;padding:16px}.tab-panel{display:grid;gap:14px}.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px}.card h2,.card h3{margin:0 0 10px}.muted{color:var(--muted)}.hero{display:grid;grid-template-columns:2fr 1fr;gap:14px}.status{min-height:180px;display:grid;place-items:center;text-align:center}.status strong{font-size:clamp(48px,10vw,88px);line-height:1}.status strong[data-state="ERROR"],.status strong[data-state="OFFLINE"]{color:var(--bad)}.status strong[data-state="TESTING"],.status strong[data-state="SAVING"]{color:var(--warn)}.status strong[data-state="ARMED"],.status strong[data-state="SAVED"]{color:var(--ok)}.battery{display:grid;place-items:center;text-align:center}.battery strong{font-size:46px}
 .indicators,.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.pill,.metric{border:1px solid var(--line);background:var(--panel2);border-radius:14px;padding:12px}.pill span,.metric span{display:block;color:var(--muted);font-size:12px;text-transform:uppercase}.pill strong,.metric strong{display:block;margin-top:4px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.primary,.secondary{min-height:60px;border:0;border-radius:14px;font-weight:900;cursor:pointer}.primary{background:var(--ok);color:#07131f}.secondary{background:#34546f;color:var(--text)}button:disabled{opacity:.4;cursor:not-allowed}.notice{padding:12px;border-radius:12px;background:#233f57}.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field{display:grid;gap:6px}.field input,.field select{width:100%;background:#0b1c2b;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px}
 table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid var(--line)}tbody tr{cursor:pointer}tbody tr:hover{background:#17344d}
-canvas{width:100%;height:auto;background:#0b1c2b;border-radius:12px;border:1px solid var(--line)}details{border:1px solid var(--line);border-radius:12px;padding:10px}summary{cursor:pointer;font-weight:800}
+canvas{width:100%;height:auto;background:#0b1c2b;border-radius:12px;border:1px solid var(--line)}details{border:1px solid var(--line);border-radius:12px;padding:10px}summary{cursor:pointer;font-weight:800}.timeline{display:flex;gap:8px;overflow:auto;padding:6px 0}.timeline-step{min-width:150px;border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:10px}.timeline-step strong,.timeline-step span{display:block}.timeline-step span{color:var(--muted);font-size:13px;margin-top:3px}pre{white-space:pre-wrap;overflow:auto;max-height:320px;background:#0b1c2b;border:1px solid var(--line);border-radius:12px;padding:12px}
 @media(max-width:760px){.hero,.two{grid-template-columns:1fr}.indicators,.metrics{grid-template-columns:1fr 1fr}.actions{grid-template-columns:1fr}nav{grid-template-columns:1fr 1fr}}
 @media print{header,nav,.actions,input,select,#recoveryControls,#backupControls{display:none!important}body{background:#fff;color:#000}.card{border:1px solid #bbb;background:#fff}}
 </style>
@@ -112,6 +112,8 @@ canvas{width:100%;height:auto;background:#0b1c2b;border-radius:12px;border:1px s
 </div>
 <p id="analysisSummary" class="notice">Choose a flight.</p>
 <p id="compareSummary" class="muted">No comparison selected.</p>
+<h3>Estimated phase timeline</h3>
+<div id="phaseTimeline" class="timeline"><div class="timeline-step"><strong>No flight selected</strong><span>Phase estimates appear after local BIN analysis.</span></div></div>
 <canvas id="analysisCanvas" width="900" height="360" aria-label="Pressure-derived altitude graph"></canvas>
 <p id="analysisWarnings" class="muted"></p>
 <div class="actions">
@@ -133,12 +135,42 @@ canvas{width:100%;height:auto;background:#0b1c2b;border-radius:12px;border:1px s
 
 <section id="tab-settings" class="tab-panel" hidden>
 <div class="card">
+<h2>Flight calibration</h2>
+<div class="metrics">
+<div class="metric"><span>Pressure baseline</span><strong id="calibrationBaseline">—</strong></div>
+<div class="metric"><span>Altitude noise</span><strong id="calibrationNoise">—</strong></div>
+<div class="metric"><span>Calibration age</span><strong id="calibrationAge">—</strong></div>
+<div class="metric"><span>Relative altitude</span><strong id="relativeAltitude">—</strong></div>
+</div>
+<button id="restartCalibration" data-lock-during-flight class="secondary" style="margin-top:12px">RESTART STATIONARY CALIBRATION</button>
+<p id="calibrationStatus" class="muted">Calibration is firmware-owned. Keep the rocket stationary while it runs.</p>
+</div>
+<div class="card">
+<h2>Recording settings</h2>
+<div class="metrics">
+<div class="metric"><span>Sample rate</span><strong id="sampleRate">—</strong></div>
+<div class="metric"><span>BIN format</span><strong>RKT4 v2</strong></div>
+<div class="metric"><span>Recorder mode</span><strong id="settingsRecorderMode">—</strong></div>
+</div>
+<div class="two" style="margin-top:12px">
+<div class="field"><label for="rocketProfile">Rocket profile</label><input id="rocketProfile" maxlength="24" autocomplete="off" placeholder="Rocket name"></div>
+<div class="field"><label for="motorProfile">Motor label (optional)</label><input id="motorProfile" maxlength="24" autocomplete="off" placeholder="Motor"></div>
+</div>
+<button id="saveProfile" data-lock-during-flight class="secondary">SAVE FLIGHT PROFILE</button>
+<p id="profileStatus" class="muted">Profile labels are metadata only; they do not change RKT4 samples or recorder timing.</p>
+</div>
+<div class="card">
 <h2>Local app diagnostics</h2>
 <div class="metrics">
 <div class="metric"><span>Secure context</span><strong id="secureContext">—</strong></div>
 <div class="metric"><span>Web Serial</span><strong id="webSerialSupport">—</strong></div>
 <div class="metric"><span>Service worker</span><strong id="serviceWorkerSupport">—</strong></div>
 <div class="metric"><span>Origin</span><strong id="appOrigin">—</strong></div>
+<div class="metric"><span>Firmware</span><strong id="firmwareVersion">—</strong></div>
+<div class="metric"><span>Boot session</span><strong id="bootSession">—</strong></div>
+<div class="metric"><span>Reset reason</span><strong id="resetReason">—</strong></div>
+<div class="metric"><span>Missed sample periods</span><strong id="missedSamples">—</strong></div>
+<div class="metric"><span>Wi-Fi mode</span><strong id="wifiMode">—</strong></div>
 </div>
 </div>
 <div class="card">
@@ -149,8 +181,13 @@ canvas{width:100%;height:auto;background:#0b1c2b;border-radius:12px;border:1px s
 <p id="cacheStatus" class="muted">This does not contact a cloud service. It only refreshes the local V18 app cache from the same local server.</p>
 </div>
 <details class="card">
+<summary>Advanced Feather status</summary>
+<p class="muted">Raw local status is diagnostic evidence only. It never overrides firmware readiness or save state.</p>
+<pre id="statusJson">No Feather status.</pre>
+</details>
+<details class="card">
 <summary>Advanced configuration notes</summary>
-<p>Normal launch flow intentionally hides diagnostics and configuration. Changes that could affect the app are disabled while recording, armed, or running preparation. Browser serial permission may need to be granted again after browser or Windows changes.</p>
+<p>Normal launch flow intentionally hides diagnostics and configuration. Changes are disabled while preparation, arming, recording, maintenance, or home-test activity could make them unsafe.</p>
 <p>No cloud account, remote telemetry upload, subscription, or internet connection is required by this V18 frontend.</p>
 </details>
 </section>

@@ -131,3 +131,18 @@ Primary Coder and Integration Manager should explicitly confirm before integrati
 5. No V18 firmware event/state field is added to the UI until its exact meaning and lifecycle are agreed in code/tests.
 
 If another V18 branch lands first, rebase/review this branch rather than copying over concurrent work.
+
+
+## V18 Secondary follow-up (2026-11-14)
+
+After Integration Manager PR #60 published the shared planning constraints, the frontend keeps using verified V17.0.1 APIs until a paired V18 schema is explicitly accepted.
+
+Additional existing APIs now surfaced under Settings:
+- `POST /api/calibrate` restarts firmware-owned stationary calibration. The browser does not calculate or substitute a baseline.
+- `POST /api/profile` accepts existing form fields `rocket` and `motor`; these are metadata labels only and do not alter RKT4 v2 bytes or sample timing.
+- Settings displays existing `calibration_baseline_pa`, `calibration_noise_m`, `calibration_age_s`, `relative_altitude_m`, `selected_rocket`, `selected_motor`, `sample_rate_hz`, firmware/reset/boot evidence, and missed-sample diagnostics when supplied by status.
+- Mutating Settings controls are disabled while disconnected, preparing, armed, recording, firmware maintenance, or home testing; firmware rejection remains authoritative.
+
+Recovery freshness is stricter than the raw receiver label: protocol-v2 JSON can display GPS as LIVE only while the serial packet itself is fresh and a valid coordinate/fix is fresh. A packet older than the UI freshness threshold or a GPS fix age beyond the configured GPS threshold is shown as stale/last-known, never live.
+
+Data now renders the analyzer's estimated phase events as an explicit timeline. Phase names, times, altitudes, and confidence remain analysis estimates from immutable RKT4 v2 data, not recorded measurement fields.

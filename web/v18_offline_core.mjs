@@ -24,11 +24,13 @@ export function normalizeReceiverObject(packet,receivedAt=Date.now()){
  if(altitudeM===null||Math.abs(altitudeM)>100000||batteryV===null||batteryV<0||batteryV>8)return null;
  const gpsStatus=["live","stale","missing"].includes(packet.gps_status)?packet.gps_status:"missing";
  const coords=validCoordinate(packet.latitude,packet.longitude);
+ const gpsFixAgeMs=finite(packet.gps_fix_age_ms);
+ const gpsFresh=gpsStatus==="live"&&coords&&(gpsFixAgeMs===null||gpsFixAgeMs<=GPS_STALE_MS);
  return {kind:"packet",type,protocol:RADIO_PROTOCOL,sequence:Number.isInteger(packet.sequence)?packet.sequence:null,
   uptimeMs:finite(packet.uptime_ms),altitudeM,batteryV,pressurePa:finite(packet.pressure_pa),
-  gpsStatus:gpsStatus==="live"&&coords?"live":coords?"stale":"missing",
+  gpsStatus:gpsFresh?"live":coords?"stale":"missing",
   latitude:coords?Number(packet.latitude):null,longitude:coords?Number(packet.longitude):null,
-  gpsFixAgeMs:finite(packet.gps_fix_age_ms),lastPositionAgeMs:finite(packet.last_position_age_ms),
+  gpsFixAgeMs,lastPositionAgeMs:finite(packet.last_position_age_ms),
   rssiDbm:finite(packet.rssi_dbm),snrDb:finite(packet.snr_db),flightState:finite(packet.flight_state),
   satellites:finite(packet.satellites),receivedAt,raw:packet};
 }
@@ -40,7 +42,8 @@ export function parseReceiverLine(line,receivedAt=Date.now()){
 export function recoveryView(packet,lastKnown=null,now=Date.now()){
  const age=packet?Math.max(0,now-packet.receivedAt):null;
  const signal=!packet?"missing":age>PACKET_STALE_MS?"stale":"live";
- const current=signal==="live"&&packet?.kind==="packet"&&packet.gpsStatus==="live"&&validCoordinate(packet.latitude,packet.longitude);
+ const linkFresh=packet?.kind==="packet"&&age!==null&&age<=PACKET_STALE_MS;
+ const current=linkFresh&&packet.gpsStatus==="live"&&validCoordinate(packet.latitude,packet.longitude);
  const fallback=current?{latitude:packet.latitude,longitude:packet.longitude,at:packet.receivedAt}:lastKnown;
  const positionAge=fallback?Math.max(0,now-fallback.at):null;
  const gps=current?"live":fallback?"stale":"missing";

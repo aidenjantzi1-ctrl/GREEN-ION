@@ -4,7 +4,7 @@ import {deriveFlightState,criticalFlightProblem,optionalFlightWarnings,canPrepar
 
 const $=id=>document.getElementById(id);
 let currentStatus=null,connected=false,lastFiles=null,saveVerified=false,lastSaved=null,lastLogFile="",pollTimer=null;
-let serialPort=null,serialReader=null,serialStop=false,lastPacket=null,lastKnown=null,serialInvalid=0,activeAnalysis=null,compareAnalysis=null;
+let serialPort=null,serialReader=null,serialStop=false,serialManualDisconnect=false,serialReconnectTimer=null,lastSerialInfo=null,lastPacket=null,lastKnown=null,serialInvalid=0,activeAnalysis=null,compareAnalysis=null;
 
 function text(id,value){const n=$(id);if(n)n.textContent=value==null?"—":String(value);}
 function fmt(v,d=1){return Number.isFinite(Number(v))?Number(v).toFixed(d):"—";}
@@ -55,7 +55,8 @@ function paintFlight(){
  prepare.disabled=!canPrepare(s,{saveVerified})||!connected;
  $("flyAgain").hidden=state!=="SAVED";
  $("flyAgain").disabled=state!=="SAVED"||!canPrepare(s,{saveVerified:true});
- document.querySelectorAll("[data-lock-during-flight]").forEach(el=>el.disabled=!!(s?.recording||s?.armed||s?.flight_prep_active));
+ document.querySelectorAll("[data-lock-during-flight]").forEach(el=>el.disabled=settingsMutationLocked(s));
+ paintSettingsStatus(s);
  text("flightFile",s?.log_file||lastSaved?.name||"—");
  text("flightBytes",lastSaved?fmtBytes(lastSaved.size):"—");
  text("flightDuration",lastSaved?.durationMs!=null?(Number(lastSaved.durationMs)/1000).toFixed(1)+" s":"—");
@@ -82,7 +83,7 @@ async function pollFlight(){
   paintFlight();
   const state=deriveFlightState(s,{saveVerified,connected:true});
   if(state==="SAVING"||(!s.recording&&!s.armed&&lastLogFile))await verifySave();
- }catch(e){connected=false;paintFlight();text("flightMessage","Feather status unavailable through the local Windows bridge: "+e.message);}
+ }catch(e){connected=false;currentStatus=null;paintFlight();text("flightMessage","Feather status unavailable through the local Windows bridge: "+e.message);}
 }
 async function prepare(){
  if(!canPrepare(currentStatus,{saveVerified}))return;
@@ -122,16 +123,29 @@ function acceptPacket(item){
  text("receiverNote","Valid protocol-v2 "+item.type+" packet received.");
  paintRecovery();
 }
-async function connectReceiver(){
- if(!navigator.serial){text("receiverNote","Web Serial requires current Chrome or Edge on Windows.");return;}
+function serialInfo(port){try{return port?.getInfo?.()||{};}catch{return {};}}
+function sameSerialDevice(port,info){
+ if(!info)return true;
+ const now=serialInfo(port);
+ if(info.usbVendorId!=null&&now.usbVendorId!==info.usbVendorId)return false;
+ if(info.usbProductId!=null&&now.usbProductId!==info.usbProductId)return false;
+ return true;
+}
+function scheduleReceiverReconnect(){
+ clearTimeout(serialReconnectTimer);
+ if(serialManualDisconnect||!navigator.serial?.getPorts)return;
+ serialReconnectTimer=setTimeout(()=>reconnectGrantedReceiver(),900);
+}
+async function runReceiverPort(port,{automatic=false}={}){
+ if(serialPort)return;
+ serialPort=port;serialStop=false;
  try{
-  serialPort=await navigator.serial.requestPort();
-  await serialPort.open({baudRate:115200,bufferSize:4096});
-  serialStop=false;serialInvalid=0;paintRecovery();
-  text("receiverNote","USB permission granted. Waiting for newline-delimited JSON from the Arduino Uno at 115200 baud.");
+  await port.open({baudRate:115200,bufferSize:4096});
+  lastSerialInfo=serialInfo(port);paintRecovery();
+  text("receiverNote",automatic?"Arduino Uno reconnected using previously granted serial permission.":"USB permission granted. Waiting for newline-delimited JSON from the Arduino Uno at 115200 baud.");
   const decoder=new TextDecoder();let pending="";
-  while(serialPort?.readable&&!serialStop){
-   serialReader=serialPort.readable.getReader();
+  while(port.readable&&!serialStop){
+   serialReader=port.readable.getReader();
    try{
     while(!serialStop){
      const {value,done}=await serialReader.read();if(done)break;
@@ -146,22 +160,43 @@ async function connectReceiver(){
     }
    }finally{serialReader?.releaseLock();serialReader=null;}
   }
- }catch(e){text("receiverNote","Receiver connection failed: "+e.message);}
- finally{
-  try{await serialPort?.close();}catch{}
-  serialPort=null;serialReader=null;paintRecovery();
-  if(!serialStop)text("receiverNote","Receiver disconnected. Reconnect the USB cable, then choose CONNECT RECEIVER again.");
+ }catch(e){
+  if(!serialStop)text("receiverNote","Receiver connection failed: "+e.message);
+ }finally{
+  try{await port.close();}catch{}
+  if(serialPort===port)serialPort=null;
+  serialReader=null;paintRecovery();
+  if(!serialManualDisconnect){text("receiverNote","Receiver disconnected. Reconnect USB; GREEN ION will retry previously granted ports automatically.");scheduleReceiverReconnect();}
  }
 }
+async function connectReceiver(){
+ if(!navigator.serial){text("receiverNote","Web Serial requires current Chrome or Edge on Windows.");return;}
+ serialManualDisconnect=false;serialInvalid=0;
+ try{const port=await navigator.serial.requestPort();lastSerialInfo=serialInfo(port);await runReceiverPort(port);}
+ catch(e){text("receiverNote","Receiver permission/connection failed: "+e.message);}
+}
+async function reconnectGrantedReceiver(){
+ if(serialPort||serialManualDisconnect||!lastSerialInfo||!navigator.serial?.getPorts)return false;
+ try{
+  const ports=(await navigator.serial.getPorts()).filter(p=>sameSerialDevice(p,lastSerialInfo));
+  if(ports.length!==1){if(ports.length>1)text("receiverNote","Multiple previously granted serial ports are available. Choose CONNECT RECEIVER to select the Arduino Uno.");return false;}
+  if(!ports.length)return false;
+  runReceiverPort(ports[0],{automatic:true});return true;
+ }catch{return false;}
+}
 async function disconnectReceiver(){
- serialStop=true;
+ serialManualDisconnect=true;serialStop=true;clearTimeout(serialReconnectTimer);
  try{await serialReader?.cancel();}catch{}
  try{await serialPort?.close();}catch{}
  serialPort=null;serialReader=null;paintRecovery();text("receiverNote","Receiver disconnected by user.");
 }
 function initRecovery(){
  $("connectReceiver").onclick=connectReceiver;$("disconnectReceiver").onclick=disconnectReceiver;
- if(navigator.serial)navigator.serial.addEventListener("disconnect",()=>{serialStop=true;serialPort=null;serialReader=null;paintRecovery();text("receiverNote","Windows reported the Uno was unplugged. Reconnect it and choose CONNECT RECEIVER.");});
+ if(navigator.serial){
+  navigator.serial.addEventListener("disconnect",()=>{serialStop=true;try{serialReader?.cancel();}catch{}paintRecovery();text("receiverNote","Windows reported the Uno was unplugged. Reconnect USB; automatic reconnect will use previously granted permission.");scheduleReceiverReconnect();});
+  navigator.serial.addEventListener("connect",()=>scheduleReceiverReconnect());
+  reconnectGrantedReceiver();
+ }
  paintRecovery();setInterval(paintRecovery,1000);
 }
 
@@ -212,12 +247,24 @@ function drawAnalysis(){
  points.forEach((arr,index)=>{ctx.strokeStyle=index?"#72e5ab":"#7bdbff";ctx.lineWidth=2;ctx.beginPath();const stride=Math.max(1,Math.ceil(arr.length/2500));for(let i=0;i<arr.length;i+=stride){const p=arr[i];i?ctx.lineTo(x(p.timeS),y(p.altitudeM)):ctx.moveTo(x(p.timeS),y(p.altitudeM));}ctx.stroke();});
  ctx.fillStyle="#dcecff";ctx.font="13px system-ui";ctx.fillText("Pressure-derived altitude (m)",55,16);ctx.fillText(maxX.toFixed(1)+" s",w-65,h-10);
 }
+function renderPhaseTimeline(analysis){
+ const root=$("phaseTimeline");if(!root)return;root.replaceChildren();
+ if(!analysis?.phases?.length){const step=document.createElement("div");step.className="timeline-step";const strong=document.createElement("strong");strong.textContent="No reliable phase estimates";const span=document.createElement("span");span.textContent="The analyzer did not find enough pressure evidence.";step.append(strong,span);root.append(step);return;}
+ for(const phase of analysis.phases){
+  const step=document.createElement("div");step.className="timeline-step";
+  const strong=document.createElement("strong");strong.textContent=String(phase.name||"phase").toUpperCase();
+  const at=document.createElement("span");at.textContent=fmt(phase.timeS,2)+" s · "+fmt(phase.altitudeM,2)+" m estimated";
+  const confidence=document.createElement("span");confidence.textContent=String(phase.confidence||"unknown")+" confidence";
+  step.append(strong,at,confidence);root.append(step);
+ }
+}
 function renderAnalysis(){
- if(!activeAnalysis){text("analysisSummary","Choose a flight.");return;}
+ if(!activeAnalysis){text("analysisSummary","Choose a flight.");renderPhaseTimeline(null);return;}
  const a=activeAnalysis.analysis;
  const phases=a.phases.map(p=>p.name+" ("+p.confidence+" confidence)").join(", ")||"not reliably detected";
  text("analysisSummary","Apogee "+fmt(a.peakAltitudeM,2)+" m estimated · samples "+a.samples.length+" · "+a.rateHz+" Hz · phases: "+phases);
  text("analysisWarnings",[...new Set(a.warnings)].join(" · "));
+ renderPhaseTimeline(a);
  if(compareAnalysis)text("compareSummary","Apogee difference: "+fmt(compareAnalysis.analysis.peakAltitudeM-a.peakAltitudeM,2)+" m (comparison minus primary).");
  else text("compareSummary","No comparison selected.");
  drawAnalysis();
@@ -246,6 +293,48 @@ function initData(){
  refreshHistory();
 }
 
+function settingsMutationLocked(s=currentStatus){
+ if(!connected||!s)return true;
+ return !!(s.recording||s.armed||s.flight_prep_active||[2,5,6].includes(Number(s.recorder_mode)));
+}
+function paintSettingsStatus(s=currentStatus){
+ const locked=settingsMutationLocked(s);
+ for(const id of ["restartCalibration","saveProfile","clearCache"]){const el=$(id);if(el)el.disabled=locked;}
+ text("calibrationBaseline",s?.calibration_baseline_pa==null?"—":fmt(s.calibration_baseline_pa,1)+" Pa");
+ text("calibrationNoise",s?.calibration_noise_m==null?"—":fmt(s.calibration_noise_m,3)+" m");
+ text("calibrationAge",s?.calibration_age_s==null?"—":fmtAge(Number(s.calibration_age_s)*1000));
+ text("relativeAltitude",s?.relative_altitude_m==null?"—":fmt(s.relative_altitude_m,2)+" m");
+ text("sampleRate",s?.sample_rate_hz==null?"—":String(s.sample_rate_hz)+" Hz");
+ text("settingsRecorderMode",s?.recorder_mode??"—");
+ text("firmwareVersion",s?.firmware_version||s?.firmware_build||"—");
+ text("bootSession",s?.boot_session_id??"—");
+ text("resetReason",s?.reset_reason||"—");
+ text("missedSamples",s?.missed_sample_periods??"—");
+ text("wifiMode",s?.wifi_mode||"—");
+ if(s&&$("rocketProfile")&&!$("rocketProfile").dataset.dirty)$("rocketProfile").value=s.selected_rocket||"";
+ if(s&&$("motorProfile")&&!$("motorProfile").dataset.dirty)$("motorProfile").value=s.selected_motor||"";
+ text("statusJson",s?JSON.stringify(s,null,2):"No Feather status.");
+}
+async function restartCalibration(){
+ if(settingsMutationLocked()){text("calibrationStatus","Calibration is unavailable while disconnected, preparing, armed, recording, maintenance, or home testing.");return;}
+ try{
+  const result=await json("/api/calibrate",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:""});
+  text("calibrationStatus",result.message||"Stationary calibration restarted. Keep the rocket still.");
+  await pollFlight();
+ }catch(e){text("calibrationStatus","Calibration request failed: "+e.message);}
+}
+async function saveFlightProfile(){
+ if(settingsMutationLocked()){text("profileStatus","Profile changes are unavailable while disconnected or flight activity is active.");return;}
+ const rocket=$("rocketProfile").value.trim(),motor=$("motorProfile").value.trim();
+ if(!rocket||rocket.length>24||motor.length>24){text("profileStatus","Rocket must be 1–24 characters; motor may be 0–24 characters.");return;}
+ const body=new URLSearchParams({rocket,motor}).toString();
+ try{
+  const result=await json("/api/profile",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body});
+  $("rocketProfile").dataset.dirty="";$("motorProfile").dataset.dirty="";
+  text("profileStatus",result.message||"Flight profile saved. Firmware restarted stationary calibration.");
+  await pollFlight();
+ }catch(e){text("profileStatus","Profile save failed: "+e.message);}
+}
 async function initSettings(){
  let persisted=false;
  try{persisted=await navigator.storage?.persisted?.()||false;if(!persisted&&navigator.storage?.persist)persisted=await navigator.storage.persist();}catch{}
@@ -254,8 +343,14 @@ async function initSettings(){
  text("webSerialSupport",navigator.serial?"YES":"NO");
  text("serviceWorkerSupport","serviceWorker" in navigator?"YES":"NO");
  text("appOrigin",location.origin);
- $("clearCache").onclick=async()=>{if(currentStatus?.recording||currentStatus?.armed)return;text("cacheStatus","Refreshing V18 offline cache…");try{const reg=await navigator.serviceWorker?.getRegistration("./v18_service_worker.js");await reg?.update();text("cacheStatus","Offline cache update check complete.");}catch(e){text("cacheStatus","Cache update failed: "+e.message);}};
+ $("rocketProfile").oninput=()=>{$("rocketProfile").dataset.dirty="1";};
+ $("motorProfile").oninput=()=>{$("motorProfile").dataset.dirty="1";};
+ $("restartCalibration").onclick=restartCalibration;
+ $("saveProfile").onclick=saveFlightProfile;
+ $("clearCache").onclick=async()=>{if(settingsMutationLocked())return;text("cacheStatus","Refreshing V18 offline cache…");try{const reg=await navigator.serviceWorker?.getRegistration("./v18_service_worker.js");await reg?.update();text("cacheStatus","Offline cache update check complete.");}catch(e){text("cacheStatus","Cache update failed: "+e.message);}};
+ paintSettingsStatus();
 }
+
 async function initOffline(){
  if("serviceWorker" in navigator&&(location.protocol==="https:"||location.hostname==="localhost"||location.hostname==="127.0.0.1")){
   try{await navigator.serviceWorker.register("./v18_service_worker.js");text("offlineStatus","Offline app cache registered.");}
