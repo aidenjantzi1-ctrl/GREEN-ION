@@ -28,3 +28,10 @@ RKT4 v2 serialization and autonomous nominal 50 Hz SD recorder remain immutable.
 
 ## Approval boundaries
 No force-push, automatic branch deletion, PR closure, historical source removal, V18 deployment or release publication. Preserve all historical versions in Past_Versions and maintain active V16_3 build paths pending verified migration.
+
+
+## Subsequent live checks (same audit)
+- **PR #58** is the Secondary Coder V18 offline app, open draft, reported mergeable, head `9134089367323fe445ff26e043a7a380defd5cbc`, 7 changed files. Its recorded Actions run [#430](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/43673094793) completed **success**; the commit's Vercel status is success. Neither proves its new V18 UI is mutually compatible with unreleased firmware or physical hardware. No PR reviews were returned for #58.
+- **PR #60** is this planning PR, open draft, head originally `045c7bd15dcbe96f879528bdc9e877d227737588`, initially reported mergeable. Workflow run [#431](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/43682105895) was **in progress** at audit; do not assume success. No PR reviews returned.
+- `docs/V18_FRONTEND_CONTRACT.md` on the Secondary branch describes actual V17.0.1 fields, same-origin Windows bridge, direct Web Serial at 115200 baud, newline JSON protocol 2 and RKT4 v2 32-byte header/16-byte records. The integration manager's proposed extra fields are **not** currently implemented or agreed; reconcile before worker merge.
+- Initial branch inventory contained no `worker/v18-firmware`; this may change as Primary Coder creates it. PR #59 was not confirmed by connector (no reliable metadata returned), so no status is asserted.
