@@ -23,7 +23,9 @@ jobs:
         run: |
           python -m unittest discover -s tests -p "test_*.py"
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          node --test tests/*.test.mjs
+          $nodeTests = @(Get-ChildItem -Path tests -Filter "*.test.mjs" -File | ForEach-Object { $_.FullName })
+          if ($nodeTests.Count -eq 0) { Write-Error "No Node test files found"; exit 1 }
+          node --test @nodeTests
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Build offline web
         shell: pwsh
