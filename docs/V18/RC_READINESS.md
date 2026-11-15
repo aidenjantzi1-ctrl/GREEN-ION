@@ -70,3 +70,17 @@
 - PR #62 RKT4 audit remains draft awaiting no-files/metadata correctness and a passing integrated test. No RKT4 format changes made.
 - No evidence yet for five-minute recovery transmitter window, every-three-minute hibernation transmissions, working wake button, measured 350 mAh mission endurance, repaired LoRa antennas/range, measured So Long fit/stability or true barometric altitude. These are P0 hardware/feature blockers to release.
 - **Status remains NOT RC-READY**, no deployment, no V18 release publication, no main merge, no branch deletion or PR closure.
+
+
+## 2026-11-15 UX2 development preview integration — current authoritative status
+
+**DEV-TEST BLOCKED pending exact combined-head CI and a real Windows launch/package smoke. NOT a release candidate and NOT flight ready.** This section supersedes stale historical branch-status statements above; retain earlier entries as an audit trail.
+
+- Stable `main`: `17f517f275be7b52e3e71a1f2d656edbc65a08ea` (unchanged).
+- Read-only RKT4 audit from PR #62 exact worker `e08412cd8ed32a1c179ad12ca53ac108185ccbda` plus physical motor-free checklist from PR #61 `36c80296671f45464e8ee20139dbb1de32e6af7d`: staged in integration commit `9f7b0b7304101e97de6f658262485e38b5363975`. The audit has source-worker reported 232/232 Python PASS; do not mistake this for combined CI or full BIN sample checksum.
+- Firmware diagnostics from PR #63 exact worker `e80e90203bdab5bff361d9c8f1d66dfed67b6a53`: staged in integration commit `990de0db1d8e869a78327c440229059c94c48979`; [source exact-head CI success](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/43737455168). Includes guarded reserved-temp SD test and diagnostic status; no new endpoint or destructive flight-file test.
+- Blue/navy four-tab guided test UI from PR #58 exact worker `3f13564a174d7be8011fd3e907e332045a31e510`: staged in integration commit `2ad658ad268645b349eff12a5ef379cca4349e0a`; [source exact-head CI success](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/43737633465). The source core's GPS coordinate-null and fix-age checks were inspected against the earlier integration-only implementation before staging; do not infer full behavioral regression PASS without combined tests.
+- Combined integration CI for `2ad658ad268645b349eff12a5ef379cca4349e0a` must pass Python, Node, native C++, browser/asset checks, Feather ESP32 V2 and Uno compile, and Windows packaging. A previous successful source or intermediate integration run does **not** qualify the combined head. Check [integration Actions](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions?query=branch%3Aworker%2Fv18-integration) and record exact run ID/results before marking DEV-TEST READY.
+- Still unverified: actual extracted Windows ZIP launch, Chrome/Edge permissions and local bridge connectivity, real SD temporary readback, physical battery/SD/IMU/barometer, Uno/LoRa/GPS RF, 5-minute recovery/3-minute hibernation/physical wake, So Long dimensions/CG/static ports and flight safety. These remain **NOT TESTED**.
+
+**Next gate:** inspect exact-head CI and package ZIP contents, exercise the opt-in `Ground_Station/START_V18_PREVIEW.cmd` on a real Windows Chrome/Edge machine, then update beginner guide and this status with exact artifacts and real test evidence. No release/deploy/main merge/flash/force push/deletion/PR closure.
