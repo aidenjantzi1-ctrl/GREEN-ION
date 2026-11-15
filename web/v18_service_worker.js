@@ -1,5 +1,5 @@
 "use strict";
-const VERSION="green-ion-v18-offline-app-v2";
+const VERSION="green-ion-v18-offline-app-v3";
 const APP="./v18-offline.html";
 const ASSETS=[
  APP,
