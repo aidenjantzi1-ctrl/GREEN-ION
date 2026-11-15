@@ -112,3 +112,15 @@ test("offline startup has no cloud dependency and settings are locked during act
  assert.match(app,/data-lock-during-flight/);
  assert.match(app,/s\?\.recording\|\|s\?\.armed\|\|s\?\.flight_prep_active/);
 });
+
+test("null and absent GPS coordinates cannot masquerade as a valid fix",()=>{
+ const p={type:"telemetry",protocol:2,altitude_m:10,battery_v:4,gps_status:"live",latitude:null,longitude:-118.1};
+ const v=parseReceiverLine(JSON.stringify(p),1000);
+ assert.ok(v);assert.equal(v.gpsStatus,"missing");assert.equal(v.latitude,null);
+ assert.equal(parseReceiverLine(JSON.stringify({...p,latitude:34.1,longitude:null}),1000).gpsStatus,"missing");
+});
+test("a previously live GPS packet becomes stale when telemetry ages out",()=>{
+ const p=parseReceiverLine(JSON.stringify({type:"telemetry",protocol:2,altitude_m:10,battery_v:4,gps_status:"live",latitude:34.1,longitude:-118.1}),1000);
+ const v=recoveryView(p,{latitude:34.1,longitude:-118.1,at:1000},1000+PACKET_STALE_MS+1);
+ assert.equal(v.signal,"stale");assert.equal(v.gps,"stale");
+});
