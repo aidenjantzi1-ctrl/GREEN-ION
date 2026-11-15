@@ -86,3 +86,17 @@ Snapshot: 2026-11-14/15 UTC; `main` at `17f517f275be7b52e3e71a1f2d656edbc65a08ea
 
 ## Follow-up verification
 Before proposing any precise deletion execution, confirm per-branch unique commit list and changed files; map open and stacked PR bases/heads, historical releases/tags and CI references; confirm archived refs exist and exactly match captured SHA; recheck latest head and approval; then delete only explicitly approved names.
+
+
+## Live addendum — concurrent V18 branches
+The original snapshot counted 69 branches; a subsequent live ref inventory counted **71** because two more worker branches were created while the audit was in progress. The original exact SHA table remains a historical snapshot; do not use its tips for deletion without refreshing.
+
+| Newly observed / moved branch | Most recently observed SHA | Disposition |
+|---|---|---|
+| `worker/v18-firmware` | `486418d6619fcd8f7cb5b357c3c18158c23866f1` | KEEP; Primary draft PR #63; active and unmerged |
+| `worker/v18-hardware` | `36c0d9d6695c3418794a7b3db7e87d25c54b613f` | KEEP pending PR #61 documentation integration/approval |
+| `worker/v18-codex-overnight` | `d9a5762333d595e526e1d6c66bf83d2407210157` | KEEP; heavy coder PR #62 is draft and may be moving |
+| `worker/v18-offline-app` | `378b824bfc33c40532a6f23d5c64c9f5aabbac80` | KEEP; recent Secondary commits, staged in integration separately |
+| `worker/v18-integration` | `6b5e32f20c761951edb1531ccc037544ac484dc3` | KEEP; this branch is moving as audit/integration progresses |
+
+No archive or deletion actions have been performed. The cleanup plan must be regenerated against live refs after worker activity stops.
