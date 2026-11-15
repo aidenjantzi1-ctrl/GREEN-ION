@@ -6,16 +6,16 @@ Date: 2026-11-14 Pacific. This is software evidence, not hardware flight qualifi
 
 - Starting `main` SHA: `17f517f275be7b52e3e71a1f2d656edbc65a08ea` (V17.0.1 / merged PR #55).
 - Dedicated branch: `worker/v18-codex-overnight`, based directly on that SHA. First completed code commit: `77ffa6c`.
-- Ending code SHA at report preparation: `77ffa6c` (report/PR commits follow; use PR head for final branch SHA).
+- Ending SHA before final report update: `01691969d0c7b5762d88bb4790dffac9228565b9` (use PR head for final branch SHA).
 - Exact changed files: `tools/v18_rkt4_audit.py`, `tests/test_v18_rkt4_audit.py`, `docs/V18/OVERNIGHT_CODEX_REPORT.md`.
-- PR: pending push/opening at report preparation.
+- PR: [#62](https://github.com/aidenjantzi1-ctrl/GREEN-ION/pull/62), draft, targeting `worker/v18-integration`.
 - Latest remote fetch found `worker/v18-firmware` at `14d2d6c` (save verification and Wi-Fi policy code), `worker/v18-offline-app` at `7fa01b5`, `worker/v18-integration` at `901caf5`, and `worker/v18-hardware` at the main SHA. These tips may continue moving; fetch before integration.
 
 ## Completed work and bugs fixed
 
 Added a read-only offline RKT4 v2 audit command. It scans one BIN or a directory of BINs, emits JSON with original-byte SHA-256, counts complete records and partial trailing bytes, validates the immutable 32-byte header/16-byte records, flags invalid sample rates/physical fields and sensor validity codes, and reports timestamp gaps. It handles the 32-bit microsecond clock wrap. It checks TXT completion evidence and `.JRA`/`.JRB`/`.RCV` recovery evidence per flight without changing or deleting any original files. Multiple flights are reported separately.
 
-The checker distinguishes `invalid`, `incomplete`, `unverified` and `structurally_complete`. A TXT sidecar plus structurally sound BIN does **not** prove all raw bytes are correct: RKT4 v2 has no per-record checksum. The result includes `no_per_record_checksum` warning instead of inventing a clean integrity result. An initial regression caught an incorrectly classified invalid header; fixed before the code commit.
+The checker distinguishes `invalid`, `incomplete`, `unverified` and `structurally_complete`. It now verifies the V17 completion TXT marker, status, file identity, byte count and record count against the BIN, catching truncation even at a complete-record boundary. Matching metadata does **not** prove all raw bytes are correct: RKT4 v2 has no per-record checksum. The result includes `no_per_record_checksum` warning instead of inventing a clean integrity result. An initial regression caught an incorrectly classified invalid header; fixed before the first code commit.
 
 Run locally with `python tools/v18_rkt4_audit.py <BIN-or-directory>`. Exit status 0 requires every supplied file to be structurally complete; exit status 1 means further review is needed. The command does not alter BIN, TXT, journal or recovery files.
 
@@ -23,7 +23,7 @@ Run locally with `python tools/v18_rkt4_audit.py <BIN-or-directory>`. Exit statu
 
 | Check | Result | Scope |
 | --- | --- | --- |
-| Python `unittest` focused suite (`test_v18_rkt4_audit`, `test_rkt4_recovery`, `test_v17_flight_readiness`) | PASS: 27 tests | Synthetic RKT4 edge cases and existing recovery/readiness contracts |
+| Python `unittest` focused suite (`test_v18_rkt4_audit`, `test_rkt4_recovery`, `test_v17_flight_readiness`) | PASS: 29 tests | Synthetic RKT4 edge cases and existing recovery/readiness contracts |
 | `node tests/js/test_rkt4.mjs` | PASS | Existing browser RKT4 parsing/analysis smoke |
 | `node tests/v17_flight_readiness.test.mjs` | PASS: 4 tests | Existing one-press readiness UI contracts |
 | Full Python `unittest discover` | NOT PASSING in this Windows environment | Existing tests use Windows cp1252 default to read UTF-8 sources; local-server tests also hit socket permission error `WinError 10013`. These are outside changed files. |
@@ -31,7 +31,7 @@ Run locally with `python tools/v18_rkt4_audit.py <BIN-or-directory>`. Exit statu
 | V18 offline app tests / Windows packaging | NOT RUN on this branch | Secondary-owned files are on PR #58, not this main-based checkout. |
 | Hardware, real BIN, SD, power, RF | NOT RUN | No physical device or original ROCstock BIN files in this checkout. |
 
-CI status for this PR must be checked after push. The existing main, PR #58 and current integration branch SHA each returned a successful Vercel status; that status does not establish firmware or hardware results.
+CI status for this PR must be checked on its final head. The existing main, PR #58 and a prior integration branch SHA each returned a successful Vercel status; that status does not establish firmware or hardware results.
 
 ## Remaining P0/P1 work and hardware blockers
 

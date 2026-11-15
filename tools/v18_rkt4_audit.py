@@ -20,7 +20,8 @@ UINT32 = 1 << 32
 
 
 def audit_bytes(data: bytes, *, metadata: str | None = None,
-                recovery: str | None = None, journal_present: bool = False) -> dict:
+                recovery: str | None = None, journal_present: bool = False,
+                expected_name: str | None = None) -> dict:
     result = {
         "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data),
         "complete_records": 0, "trailing_bytes": 0,
@@ -86,8 +87,24 @@ def audit_bytes(data: bytes, *, metadata: str | None = None,
         issues.append("interrupted_recovery_report")
     if metadata is None:
         warnings.append("missing_completion_metadata")
-    # A TXT sidecar is completion evidence in the V17 file-list contract, but
-    # its mere presence cannot prove every record byte is unmodified.
+    else:
+        lines = metadata.splitlines()
+        fields = {}
+        for line in lines[1:]:
+            if "=" in line:
+                key, value = line.split("=", 1)
+                fields[key] = value
+        try:
+            metadata_matches = (lines[0] == "GREEN-ION-COMPLETION-1" and
+                                fields.get("status") == "complete" and
+                                int(fields["file_bytes"]) == len(data) and
+                                int(fields["complete_records"]) == count and
+                                (expected_name is None or fields.get("file") == expected_name))
+        except (IndexError, KeyError, ValueError):
+            metadata_matches = False
+        if not metadata_matches:
+            issues.append("invalid_completion_metadata")
+    # Even matching completion metadata cannot prove unchecksummed record bytes.
     if issues:
         result["status"] = "invalid" if any(issue in issues for issue in (
             "invalid_sample_rate", "invalid_baseline_pressure", "invalid_record_fields")) else "incomplete"
@@ -108,7 +125,8 @@ def audit_file(path: Path) -> dict:
         path.read_bytes(),
         metadata=txt.read_text(errors="replace") if txt.exists() else None,
         recovery=rcv.read_text(errors="replace") if rcv.exists() else None,
-        journal_present=any(p.exists() for p in journals))}
+        journal_present=any(p.exists() for p in journals),
+        expected_name=path.name)}
 
 
 def main() -> int:
