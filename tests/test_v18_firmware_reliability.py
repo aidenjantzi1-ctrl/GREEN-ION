@@ -90,6 +90,22 @@ class V18FirmwareReliability(unittest.TestCase):
         self.assertGreaterEqual(FW.count("requestFlightWifiSuppression(nowMs);"), 2)
         self.assertIn("startManualFlightRecording", FW)
 
+    def test_failed_finalization_blocks_new_prepare_until_recovery(self):
+        result=PREP[PREP.index("static green_ion::readiness::Result currentFlightReadinessResult"):
+                    PREP.index("static void beginFlightReadiness")]
+        self.assertIn("recoveryPending == 0 && finalizationFailures == 0", result)
+
+        begin=PREP[PREP.index("static void beginFlightReadiness"):
+                   PREP.index("static void serviceFlightReadiness")]
+        self.assertLess(begin.index("finalizationFailures != 0"),
+                        begin.index("flightWatcher.cancel()"))
+        self.assertIn("previous flight finalization failed", begin)
+
+        critical=PREP[PREP.index("case FLIGHT_PREP_CRITICAL_CHECK"):
+                      PREP.index("case FLIGHT_PREP_SD_INTEGRITY")]
+        self.assertIn("if (finalizationFailures)", critical)
+        self.assertIn("recovery evidence needs review", critical)
+
     def test_two_flights_without_reboot_get_fresh_prepare_and_filename(self):
         # COMPLETE is intentionally not a busy state for PREPARE & ARM.
         busy=PREP[PREP.index("static bool flightReadinessContextBusy"):
