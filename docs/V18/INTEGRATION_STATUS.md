@@ -1,0 +1,30 @@
+# GREEN ION V18 — Integration status
+
+Updated 2026-11-14. Status: **planning only; no V18 release or hardware flight qualification**.
+
+## Verified baseline / PR inventory
+- main V17.0.1 commit: `17f517f275be7b52e3e71a1f2d656edbc65a08ea`; PR #55 merged.
+- PR #53: open draft, unmergeable, head `cc5842f62c19ac71f30174e7c48b58e3a6f71745`, base main; contains 72 changed files including shared firmware/web. Preserve and review before reuse.
+- PR #56: open draft, unmergeable, head `2a0161364407bbbc999d93f34034df472e57c69a`, base `v17/flight-readiness-upgrade` (old PR #55 branch); includes Quick Fly API, caching, filename and UI changes. Needs reconciliation with current main.
+- PR #57: open, non-draft, reported mergeable, head `2702a0d229fbf0d57bf8edc5efe0c213c5c6d516`; documentation-only role prompts.
+- `worker/v18-offline-app`: compared 18 commits ahead, zero behind main; new web/v18 modules and `docs/V18_FRONTEND_CONTRACT.md`; preserve work, check branch tip, tests and CI separately.
+- Branch search returned 67 historic/active branches. No branch deletion, closure, archival tag or bulk modification performed. Unique SHA mappings, dependencies, review status, CI and other branch tips require a follow-up audit.
+- `worker/v18-integration` created from V17.0.1 baseline for this planning log; `worker/v18-firmware` was not found in initial branch inventory. Re-check because collaborators may create it.
+
+## Status board
+| Workstream | State | Next action |
+|---|---|---|
+| Master V18 planning files | In progress | Review docs/V18/REQUIREMENTS.md, ROCSTOCK_LESSONS.md, DECISIONS.md and this board via draft PR |
+| Primary firmware | Not integrated | Agree status/state/Wi-Fi/power/SD contracts and verify branch/PR |
+| Secondary offline app | Work observed; not integrated | Review frontend contract, serial schema, UI/tests, avoid overlapping edits |
+| So Long Build Helper | Evidence pending | Obtain manual, approved motors, actual dimensions, mass, CG, static ports, sled, antennas and recovery clearance |
+| Historic branch preservation | Audit incomplete | Map unique commits and branch dependencies; archive only after assessment; seek approval before deletion/PR closure |
+| Software test/CI evidence | Not run by Integration Manager | Record actual commands and CI URLs for firmware, Uno, Python, JS, parser, RF/serial, packaging, two-flight, interrupted writes |
+| Hardware validation | Unverified | SD/reboot, real sensors, pressure venting, measured battery, physical antenna/LoRa/GPS, receiver, fit/stability and launch safety |
+| Release | Blocked | No deployment, merge into main, or V18 publication before appropriate review/checks; release requires user approval |
+
+## Contract blockers and principles
+RKT4 v2 serialization and autonomous nominal 50 Hz SD recorder remain immutable. Optional GPS/LoRa absence is advisory; critical SD/barometer/IMU/unsafe battery block preparation. PREPARE & ARM should be firmware-owned, safe/idempotent, with verified save and distinct FLY AGAIN filename. UI must never infer success from a stale response. The V18 Windows Chrome/Edge four-tab app must function locally with manual BIN import, no cloud. Wi-Fi transitions, five-minute recovery interval, three-minute hibernation TX intervals, 350 mAh power policy, physical wake, LoRa packet and Uno Web Serial format require coordinated contract and physical tests.
+
+## Approval boundaries
+No force-push, automatic branch deletion, PR closure, historical source removal, V18 deployment or release publication. Preserve all historical versions in Past_Versions and maintain active V16_3 build paths pending verified migration.
