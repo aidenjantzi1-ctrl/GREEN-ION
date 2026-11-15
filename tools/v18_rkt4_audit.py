@@ -11,6 +11,7 @@ import hashlib
 import json
 import math
 import struct
+import sys
 from pathlib import Path
 
 HEADER = 32
@@ -99,7 +100,8 @@ def audit_bytes(data: bytes, *, metadata: str | None = None,
                                 fields.get("status") == "complete" and
                                 int(fields["file_bytes"]) == len(data) and
                                 int(fields["complete_records"]) == count and
-                                (expected_name is None or fields.get("file") == expected_name))
+                                (expected_name is None or
+                                 fields.get("file", "").casefold() == expected_name.casefold()))
         except (IndexError, KeyError, ValueError):
             metadata_matches = False
         if not metadata_matches:
@@ -117,15 +119,18 @@ def audit_bytes(data: bytes, *, metadata: str | None = None,
 
 
 def audit_file(path: Path) -> dict:
-    base = path.with_suffix("")
-    txt = base.with_suffix(".TXT")
-    rcv = base.with_suffix(".RCV")
-    journals = [base.with_suffix(s) for s in (".JRA", ".JRB")]
+    # Resolve sidecars by name, without changing names or source bytes. This
+    # also works for lowercase exports on case-sensitive test machines.
+    siblings = {p.name.casefold(): p for p in path.parent.iterdir() if p.is_file()}
+    def sidecar(extension: str) -> Path | None:
+        return siblings.get((path.stem + extension).casefold())
+    txt, rcv = sidecar(".TXT"), sidecar(".RCV")
+    journals = [sidecar(s) for s in (".JRA", ".JRB")]
     return {"file": path.name, **audit_bytes(
         path.read_bytes(),
-        metadata=txt.read_text(errors="replace") if txt.exists() else None,
-        recovery=rcv.read_text(errors="replace") if rcv.exists() else None,
-        journal_present=any(p.exists() for p in journals),
+        metadata=txt.read_text(errors="replace") if txt else None,
+        recovery=rcv.read_text(errors="replace") if rcv else None,
+        journal_present=any(p is not None for p in journals),
         expected_name=path.name)}
 
 
@@ -134,8 +139,22 @@ def main() -> int:
     parser.add_argument("paths", nargs="+", type=Path,
                         help="RKT4 BIN files or directories containing them")
     args = parser.parse_args()
-    files = sorted({p for item in args.paths for p in
-                    (item.glob("*.BIN") if item.is_dir() else [item])})
+    files = set()
+    unmatched = []
+    for item in args.paths:
+        if item.is_dir():
+            found = {p for p in item.iterdir() if p.is_file() and p.suffix.casefold() == ".bin"}
+        elif item.is_file() and item.suffix.casefold() == ".bin":
+            found = {item}
+        else:
+            found = set()
+        if not found:
+            unmatched.append(str(item))
+        files.update(found)
+    if unmatched:
+        print("No RKT4 .BIN files found in: " + ", ".join(unmatched), file=sys.stderr)
+        return 2
+    files = sorted(files)
     reports = [audit_file(p) for p in files]
     print(json.dumps(reports, indent=2))
     return 1 if any(r["status"] != "structurally_complete" for r in reports) else 0

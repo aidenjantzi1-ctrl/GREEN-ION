@@ -1,12 +1,17 @@
 """Synthetic byte-level RKT4 integrity regressions; no hardware claims."""
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
+import json
+import hashlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from v18_rkt4_audit import audit_bytes, audit_file
+
+AUDIT = Path(__file__).resolve().parents[1] / "tools/v18_rkt4_audit.py"
 
 
 def fixture(stamps=(0, 20_000, 40_000), valid=1):
@@ -53,6 +58,15 @@ class Rkt4AuditTests(unittest.TestCase):
         self.assertIn("invalid_completion_metadata", audit_bytes(data, metadata="done")["issues"])
         result = audit_bytes(data, metadata=completion(data), expected_name="FLT0002.BIN")
         self.assertIn("invalid_completion_metadata", result["issues"])
+        good = completion(data)
+        for bad in (
+            good.replace("GREEN-ION-COMPLETION-1", "GREEN-ION-METADATA-1"),
+            good.replace("status=complete", "status=recording"),
+            good.replace(f"file_bytes={len(data)}", "file_bytes=999"),
+            good.replace("complete_records=3", "complete_records=2"),
+        ):
+            with self.subTest(bad=bad):
+                self.assertIn("invalid_completion_metadata", audit_bytes(data, metadata=bad)["issues"])
 
     def test_timestamp_gap_and_wrap(self):
         gap_data = fixture((0, 20_000, 500_000))
@@ -88,6 +102,43 @@ class Rkt4AuditTests(unittest.TestCase):
             b.write_bytes(fixture((0, 20_000, 60_000)))
             self.assertNotEqual(audit_file(a)["sha256"], audit_file(b)["sha256"])
             self.assertEqual(a.read_bytes(), fixture())
+
+    def test_cli_empty_directory_is_explicit_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run = subprocess.run([sys.executable, str(AUDIT), directory],
+                                 capture_output=True, text=True, check=False)
+            self.assertNotEqual(run.returncode, 0)
+            self.assertIn("No RKT4 .BIN files found", run.stderr)
+            self.assertEqual(run.stdout, "")
+
+    def test_cli_lowercase_and_batch_preserve_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = root / "FLT0001.bin"
+            second = root / "FLT0002.BIN"
+            first.write_bytes(fixture())
+            second.write_bytes(fixture((0, 20_000, 60_000)))
+            (root / "FLT0001.txt").write_text(completion(first.read_bytes(), "FLT0001.BIN"))
+            (root / "FLT0002.TXT").write_text(completion(second.read_bytes(), second.name))
+            before = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                      for p in root.iterdir()}
+            run = subprocess.run([sys.executable, str(AUDIT), directory],
+                                 capture_output=True, text=True, check=False)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            reports = json.loads(run.stdout)
+            self.assertEqual({r["file"] for r in reports}, {first.name, second.name})
+            self.assertTrue(all(r["status"] == "structurally_complete" for r in reports))
+            self.assertEqual(before, {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                                      for p in root.iterdir()})
+
+    def test_cli_unverified_file_is_nonzero(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "FLT0003.bin"
+            path.write_bytes(fixture())
+            run = subprocess.run([sys.executable, str(AUDIT), str(path)],
+                                 capture_output=True, text=True, check=False)
+            self.assertEqual(run.returncode, 1)
+            self.assertEqual(json.loads(run.stdout)[0]["status"], "unverified")
 
 
 if __name__ == "__main__":
