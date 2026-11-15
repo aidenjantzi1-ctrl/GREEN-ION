@@ -111,7 +111,9 @@ test("offline startup has no cloud dependency and settings are locked during act
  assert.match(app,/serviceWorker\.register\("\.\/v18_service_worker\.js"\)/);
  assert.match(html,/No cloud account, remote telemetry upload, subscription, or internet connection is required/);
  assert.match(app,/data-lock-during-flight/);
- assert.match(app,/s\?\.recording\|\|s\?\.armed\|\|s\?\.flight_prep_active/);
+ assert.match(app,/function settingsMutationLocked/);
+ assert.match(app,/s\.recording\|\|s\.armed\|\|s\.flight_prep_active/);
+ assert.match(app,/\[2,5,6\]\.includes\(Number\(s\.recorder_mode\)\)/);
 });
 
 
@@ -132,5 +134,6 @@ test("Settings exposes firmware-owned calibration, profile metadata and diagnost
  assert.match(app,/sample_rate_hz/);
  assert.match(app,/settingsMutationLocked/);
  assert.match(app,/serialManualDisconnect\|\|!lastSerialInfo\|\|!navigator\.serial\?\.getPorts/);
- assert.ok(!app.includes("sample_rate_hz="),"frontend must not attempt to change firmware recorder rate");
+ assert.ok(!/URLSearchParams\([^)]*sample_rate_hz/.test(app),"frontend must not submit a recorder-rate setting");
+ assert.ok(!/\/api\/profile[^\n]*sample_rate_hz/.test(app),"profile API request must not carry recorder-rate data");
 });
