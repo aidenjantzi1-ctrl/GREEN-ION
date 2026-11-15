@@ -62,3 +62,11 @@
 - Late branch snapshot counted **71** branches; original 69-head audit and late additions are in [BRANCH_AUDIT.md](BRANCH_AUDIT.md). The user has not approved branch deletion or PR closure.
 
 **Revised stop-ship:** resolve Primary PR #63 state edge case and clarify save verification scope, review PR #62 audit correctness, obtain final independent CI on the **combined exact head**, verify Windows V18 package/default entry point, then complete physical SD/antenna/GPS/battery/So Long acceptance. This document intentionally does not label V18 RC ready.
+
+
+## Latest integration staging revision
+- Firmware PR #63 head `70fc016080ee7a1d733456880a2f9e189cb6c2ac` was **staged only to integration** as `1f3fa497e0cb828f2a14c2961d380c9f5f7155f0` after short-flight Wi-Fi flag and metadata-buffer fixes were reviewed. The original Primary branch/PR remains unmerged. Firmware code still needs software CI on the exact combined head and real SD/ESP32 tests; readback remains structural, not cryptographic sample-by-sample proof.
+- Preview launcher code and tests added on integration: `Ground_Station/ground_station.py --v18-offline` opens `/v18-offline.html#flight`; `Ground_Station/START_V18_PREVIEW.cmd` is an opt-in Windows entry point. The normal V17 dashboard stays the default. Web site build copies V18 source assets to `web/dist`; Windows packaging copies the website and Ground_Station tree. This is a compatibility preview, **not** official V18 Windows release branding or physical qualification.
+- PR #62 RKT4 audit remains draft awaiting no-files/metadata correctness and a passing integrated test. No RKT4 format changes made.
+- No evidence yet for five-minute recovery transmitter window, every-three-minute hibernation transmissions, working wake button, measured 350 mAh mission endurance, repaired LoRa antennas/range, measured So Long fit/stability or true barometric altitude. These are P0 hardware/feature blockers to release.
+- **Status remains NOT RC-READY**, no deployment, no V18 release publication, no main merge, no branch deletion or PR closure.

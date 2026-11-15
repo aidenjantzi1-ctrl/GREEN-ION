@@ -46,3 +46,12 @@ No force-push, automatic branch deletion, PR closure, historical source removal,
 - V18 frontend is a standalone `web/v18-offline.html` entry point. Existing Windows launcher still identifies as V17 and opens existing default dashboard; V18 standalone package/default Windows launch has NOT been qualified.
 - No V18 firmware branch, V18 power/Wi-Fi transition implementation, measured 350 mAh endurance, physical wake, LoRa RF repair, So Long structural fit, or hardware acceptance has been verified.
 - No main merge, branch deletion/closure, tagged release, deployment, flashing or force-push performed.
+
+
+## Firmware and Windows preview integration update
+- Primary firmware PR #63 exact reviewed source head `70fc016080ee7a1d733456880a2f9e189cb6c2ac` was staged on integration at `1f3fa497e0cb828f2a14c2961d380c9f5f7155f0`. The Primary branch itself was **not** changed. This includes RKT4 structural save/readback checks, Wi-Fi-off-after-recorder-start, Wi-Fi-on-after-verified-save, and short-flight pending-flag guard; full physical and combined CI remain required. It is not a complete five-minute recovery/three-minute hibernation/wake implementation.
+- Hardware plan PR #61 was staged on integration in `0b7fc8d043d01523ac2db1c6ddbe360b390209f1`. All manufacturer and proposed wiring dimensions remain subject to physical verification.
+- Secondary frontend latest source/tests was reconciled at `22e5ec81c81b4b9744dc6d46114ec695ed62c8f6` / `6b5e32f20c761951edb1531ccc037544ac484dc3`; null-coordinate fix retained. Existing live PR #58 may move again: recheck before final review.
+- Integration-only opt-in V18 Windows preview added to `Ground_Station/ground_station.py`, `Ground_Station/START_V18_PREVIEW.cmd`, README and `tests/test_v18_windows_preview.py`. Stable V17 default page unchanged. Preview is neither a V18 installer nor hardware authorization.
+- Overnight PR #62 remains draft, not integrated pending no-input false-success and completion metadata review. Recent PR #63 also remains draft and user approval for `main` / release has not been granted.
+- Combined exact-head CI must succeed after the last staged firmware/preview commit; earlier passing CI does not cover the new combination.
