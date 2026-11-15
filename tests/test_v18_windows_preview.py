@@ -15,6 +15,9 @@ class V18PreviewLauncher(unittest.TestCase):
         self.assertIn('webbrowser.open(browser_url)',code)
         self.assertIn('webbrowser.open, args=(browser_url,)',code)
         self.assertIn('NOT a qualified V18 release',code)
+        self.assertIn('args.wifi_only = True',code)
+        self.assertIn('if args.sample or args.port:',code)
+        self.assertIn('auto_receiver = not use_sample and not args.wifi_only',code)
     def test_windows_preview_launcher_uses_existing_safe_entrypoint(self):
         command=(ROOT/"Ground_Station/START_V18_PREVIEW.cmd").read_text(encoding="utf-8")
         self.assertIn('START_GREEN_ION.cmd',command)
@@ -22,6 +25,10 @@ class V18PreviewLauncher(unittest.TestCase):
         self.assertNotIn('ota',command.lower())
         self.assertTrue((ROOT/"web/v18-offline.html").is_file())
         self.assertTrue((ROOT/"web/v18_service_worker.js").is_file())
+        ps=(ROOT/"Ground_Station/Start-GreenIon.ps1").read_text(encoding="utf-8")
+        self.assertIn('$V18Preview = $GroundStationArgs -contains "--v18-offline"',ps)
+        self.assertIn('$WifiOnly = $V18Preview',ps)
+        self.assertIn('if (-not $V18Preview)',ps)
 
 if __name__=="__main__":
     unittest.main()
