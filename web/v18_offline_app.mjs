@@ -408,7 +408,7 @@ async function runDevTests(){
   manual&&analysisOk?"Reopened "+manual.name+" from IndexedDB and parsed/analyzed its preserved bytes locally.":manual?"Imported BIN analysis failed: "+analysisError:"Go to Data and import a known-good RKT4 v2 BIN; the importer preserves original bytes.",
   "bin_import"));
  rows.push(...developmentReceiverChecks(lastPacket,lastKnown,{portConnected:!!serialPort,now}));
- rows.push(developmentFirmwareDiagnostic(currentStatus,{requested:devFirmwareRequested}));
+ rows.push(developmentFirmwareDiagnostic(connected&&now-lastStatusAt<=5000?currentStatus:null,{requested:devFirmwareRequested}));
  rows.push(devCheck("Receiver malformed/stale/disconnect behavior","NOT TESTED","Manually observe an invalid/stale packet and unplug/reconnect the physical Uno; record the UI result.","receiver_manual"));
  for(const [name,action,id] of [
   ["Actual offline restart","After the cache row passes, disconnect networking and reload the local V18 page; confirm all four tabs render.","offline_reload"],
@@ -421,12 +421,12 @@ async function runDevTests(){
  return rows;
 }
 async function runFirmwareDiagnostic(){
- devFirmwareRequested=true;
  if(settingsMutationLocked()){text("devFirmwareStatus","Diagnostic unavailable while disconnected, preparing, armed, recording, maintenance, or home-test activity is active.");await runDevTests();return;}
  const button=$("runFirmwareDiagnostic");button.disabled=true;
  try{
   const result=await json("/api/hardware-test",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({sensor:"all"}).toString()});
   if(result.accepted!==true)throw Error(result.error||"Firmware did not accept the diagnostic.");
+  devFirmwareRequested=true;
   text("devFirmwareStatus","Firmware IMU + GPS diagnostic accepted. Keep the Feather stationary; GPS may need an outdoor fix. No arming, recording, LoRa command, or file deletion was requested.");
   await pollFlight();
  }catch(e){text("devFirmwareStatus","Firmware diagnostic failed to start: "+e.message);}
