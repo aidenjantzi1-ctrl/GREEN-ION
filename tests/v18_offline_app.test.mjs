@@ -131,5 +131,6 @@ test("Settings exposes firmware-owned calibration, profile metadata and diagnost
  assert.match(app,/selected_rocket/);
  assert.match(app,/sample_rate_hz/);
  assert.match(app,/settingsMutationLocked/);
+ assert.match(app,/serialManualDisconnect\|\|!lastSerialInfo\|\|!navigator\.serial\?\.getPorts/);
  assert.ok(!app.includes("sample_rate_hz="),"frontend must not attempt to change firmware recorder rate");
 });

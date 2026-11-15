@@ -176,7 +176,7 @@ async function connectReceiver(){
  catch(e){text("receiverNote","Receiver permission/connection failed: "+e.message);}
 }
 async function reconnectGrantedReceiver(){
- if(serialPort||serialManualDisconnect||!navigator.serial?.getPorts)return false;
+ if(serialPort||serialManualDisconnect||!lastSerialInfo||!navigator.serial?.getPorts)return false;
  try{
   const ports=(await navigator.serial.getPorts()).filter(p=>sameSerialDevice(p,lastSerialInfo));
   if(ports.length!==1){if(ports.length>1)text("receiverNote","Multiple previously granted serial ports are available. Choose CONNECT RECEIVER to select the Arduino Uno.");return false;}
