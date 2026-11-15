@@ -18,7 +18,7 @@ If the launcher fails: run `Ground_Station/START_V18_PREVIEW.cmd` from a Windows
 2. Confirm that the app reports an import result; inspect its analysis, warnings and any available export. Repeat import to check duplicate handling. Keep the original file and any companion `.TXT` untouched.
 3. Try a separate **copy** of a deliberately truncated or invalid BIN and confirm that the app rejects or warns about it rather than claiming a saved, valid flight.
 4. Close and reopen the local app without internet and verify whether the imported flight remains available. Record any failure as **FAIL**; unsupported or unperformed checks are **NOT TESTED**.
-5. The independent PR #62 RKT4 CLI audit is **not yet an accepted release gate**. Do not interpret file-size/header/TXT checks as cryptographic verification of every sample.
+5. The PR #62 read-only RKT4 CLI audit is now staged in the V18 integration branch, but it is **not a flight-safety or release gate**. To audit copied files, run `python tools/v18_rkt4_audit.py "C:\\path\\to\\copied-flights"` from the extracted repository root. An empty folder returns a nonzero result; structural PASS does not prove every record's content. Do not interpret file-size/header/TXT checks as cryptographic verification of every sample.
 
 ## 3. Feather bench checks (motor-free)
 
@@ -34,10 +34,10 @@ If the launcher fails: run `Ground_Station/START_V18_PREVIEW.cmd` from a Windows
 1. In Chrome/Edge open **Recovery** and select **CONNECT RECEIVER**. Choose the **Arduino Uno USB serial port** in the browser's permission dialog. The app expects newline-delimited JSON at **115200 baud**. Do not let another serial program or the Python bridge simultaneously own the Uno COM port.
 2. Verify disconnect/reconnect and invalid or stale packet warnings. A displayed last-known coordinate is not necessarily a current fix; check packet age and GPS fix age.
 3. Only report radio reception, GPS location, RF range, antenna health or recovery timing as **PASS** after a real, safely configured hardware measurement. Do not transmit with damaged/disconnected antennas; leave these **NOT TESTED** if hardware is absent.
-4. Use the separate motor-free physical checklist at [PHYSICAL_DEV_TEST_CHECKLIST.md](PHYSICAL_DEV_TEST_CHECKLIST.md) once reviewed/staged from PR #61. It covers battery endurance, antenna safety, So Long fit/stability and wake/recovery checks. Software CI cannot establish these.
+4. Use the separate motor-free physical checklist at [PHYSICAL_DEV_TEST_CHECKLIST.md](PHYSICAL_DEV_TEST_CHECKLIST.md), now staged from PR #61. It covers battery endurance, antenna safety, So Long fit/stability and wake/recovery checks. Software CI cannot establish these.
 
 ## 5. Record and share evidence
 
 For each check write **PASS / FAIL / NOT TESTED**, exact action, observed result, date, device, firmware version, receiver version, source commit SHA, and any error text. Keep original BIN/TXT/recovery files unchanged; make copies for analysis. Save screenshots of the four-tab UI and export diagnostics only where the current app supports them. Post reproducible software defects on [Integration PR #60](https://github.com/aidenjantzi1-ctrl/GREEN-ION/pull/60), with the SHA and steps; do not include private location coordinates.
 
-**Current limitations:** A one-click preview launcher exists, but a full in-app **TEST / CHECK EVERYTHING** flow, validated diagnostic API, integrated RKT4 audit and complete physical bench evidence must be verified on their final exact heads before this preview can be called **DEV-TEST READY**. Missing capabilities must remain **NOT TESTED**, never silently marked PASS. No main merge, release, deployment, hardware flash or flight approval is authorized.
+**Current limitations:** The guided **TEST / CHECK EVERYTHING** panel, safe firmware diagnostics, read-only RKT4 audit and physical checklist are now staged on `worker/v18-integration`. Use **Settings → TEST / CHECK EVERYTHING** for read-only evidence; run hardware diagnostics only by an explicit separate button. The combined integration head must still pass its own CI, Windows ZIP launch and actual device checks before this preview can be called **DEV-TEST READY**. Missing capabilities must remain **NOT TESTED**, never silently marked PASS. No main merge, release, deployment, hardware flash or flight approval is authorized.
