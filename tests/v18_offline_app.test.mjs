@@ -188,3 +188,19 @@ test("development checklist stays in Settings with safe explicit diagnostic only
  assert.ok(!safe.includes("/api/hardware-test"),"safe checklist must not auto-run firmware diagnostics");
  assert.ok(!/delete\(|remove\(/.test(safe),"safe checklist must not delete files");
 });
+
+test("UX2 private report and safe development UI regression",()=>{
+ const html=readFileSync(new URL("../web/v18-offline.html",import.meta.url),"utf8");
+ const app=readFileSync(new URL("../web/v18_offline_app.mjs",import.meta.url),"utf8");
+ assert.match(html,/id="copyDevResults"/);
+ assert.match(app,/function safeDevReport\(rows\)/);
+ assert.match(app,/return report\.join/);
+ assert.match(app,/navigator\.clipboard\.writeText\(lastDevReport\)/);
+ assert.match(app,/Do not include raw evidence/);
+ assert.doesNotMatch(app,/report\.push\(row\.evidence/);
+ assert.match(app,/devAdvice\[row\.id\]/);
+ assert.match(html,/--bg:#081420/);
+ for(const tab of ["Flight","Recovery","Data","Settings"])assert.match(html,new RegExp(tab));
+ assert.match(app,/settingsMutationLocked\(\)/);
+ assert.doesNotMatch(app,/\/api\/preflight\/start[^\n]*runDevTests/);
+});
