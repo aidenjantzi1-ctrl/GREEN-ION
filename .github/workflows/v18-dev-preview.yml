@@ -20,6 +20,8 @@ jobs:
           python-version: '3.11'
       - name: Verify source and tests
         shell: pwsh
+        env:
+          PYTHONUTF8: '1' # Windows Python defaults to cp1252; historical UTF-8 sources must decode consistently.
         run: |
           python -m unittest discover -s tests -p "test_*.py"
           if ($LASTEXITCODE -ne 0) { exit 1 }
