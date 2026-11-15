@@ -95,7 +95,7 @@ test("multi-flight local history, comparison, CSV JSON and print remain local",(
 });
 
 test("PR #56 regressions are isolated: V18 owns cache version and hash navigation",()=>{
- assert.match(sw,/const VERSION="green-ion-v18-offline-app-v2"/);
+ assert.match(sw,/const VERSION="green-ion-v18-offline-app-v3"/);
  assert.ok(sw.includes('"./v18-offline.html"'));
  assert.ok(sw.includes('"./analysis/rkt4.mjs"'));
  assert.match(sw,/url\.pathname\.startsWith\("\/api\/"\)/);
@@ -136,4 +136,22 @@ test("Settings exposes firmware-owned calibration, profile metadata and diagnost
  assert.match(app,/serialManualDisconnect\|\|!lastSerialInfo\|\|!navigator\.serial\?\.getPorts/);
  assert.ok(!/URLSearchParams\([^)]*sample_rate_hz/.test(app),"frontend must not submit a recorder-rate setting");
  assert.ok(!/\/api\/profile[^\n]*sample_rate_hz/.test(app),"profile API request must not carry recorder-rate data");
+});
+
+test("development checklist is visible from Flight and remains non-destructive",()=>{
+ assert.match(html,/id="openDevTests"/);
+ assert.match(html,/id="runDevTests"/);
+ assert.match(html,/id="devTestRows"/);
+ assert.match(html,/TEST \/ CHECK EVERYTHING/);
+ assert.match(html,/V18 DEVELOPMENT TEST PREVIEW/);
+ assert.match(html,/Physical microSD write\/read\/verify\/temp-delete/);
+ assert.match(app,/function initDevTests/);
+ assert.match(app,/function runDevTests/);
+ assert.match(app,/devCheck\("Windows bridge \/ Feather status"/);
+ assert.match(app,/devCheck\("Manual original BIN import"/);
+ assert.match(app,/devCheck\("Uno receiver valid fresh packet"/);
+ assert.match(app,/lastStatusAt=Date\.now\(\)/);
+ assert.match(app,/tbody\.replaceChildren\(\)/);
+ assert.match(app,/td\.textContent=value/);
+ assert.match(app,/\["PASS","FAIL","NOT TESTED"\]/);
 });
