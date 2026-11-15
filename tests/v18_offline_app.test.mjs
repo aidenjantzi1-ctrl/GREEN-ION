@@ -63,13 +63,14 @@ test("Recovery accepts only current protocol-v2 receiver JSON and handles stale 
  assert.equal(parseReceiverLine("{bad json",now),null);
  assert.equal(parseReceiverLine(JSON.stringify({type:"control",protocol:2,altitude_m:1,battery_v:4}),now),null);
  const live=recoveryView(good,null,now+1000);assert.equal(live.signal,"live");assert.equal(live.gps,"live");
- const stale=recoveryView(good,{latitude:34.1,longitude:-117.2,at:now},now+PACKET_STALE_MS+1);assert.equal(stale.signal,"stale");
+ const stale=recoveryView(good,{latitude:34.1,longitude:-117.2,at:now},now+PACKET_STALE_MS+1);assert.equal(stale.signal,"stale");assert.equal(stale.gps,"stale");
+ const oldFix=parseReceiverLine(JSON.stringify({type:"telemetry",protocol:2,altitude_m:1,battery_v:4,gps_status:"live",gps_fix_age_ms:16001,latitude:34.1,longitude:-117.2}),now);assert.equal(oldFix.gpsStatus,"stale");
  const noFix=parseReceiverLine(JSON.stringify({type:"telemetry",protocol:2,altitude_m:1,battery_v:4,gps_status:"missing",latitude:null,longitude:null}),now+5000);
  assert.equal(recoveryView(noFix,{latitude:34.1,longitude:-117.2,at:now},now+5000).gps,"stale");
 });
 
 test("Web Serial flow covers permission, disconnect and reconnect guidance",()=>{
- for(const token of ["navigator.serial.requestPort","baudRate:115200","addEventListener(\"disconnect\"","CONNECT RECEIVER","Receiver disconnected"])
+ for(const token of ["navigator.serial.requestPort","navigator.serial.getPorts","baudRate:115200","addEventListener(\"disconnect\"","addEventListener(\"connect\"","CONNECT RECEIVER","automatic reconnect"])
   assert.ok(app.includes(token)||html.includes(token),token);
  assert.match(app,/parseReceiverLine/);
  assert.match(html,/Chrome\/Edge will show a serial-port permission picker/);
@@ -94,7 +95,7 @@ test("multi-flight local history, comparison, CSV JSON and print remain local",(
 });
 
 test("PR #56 regressions are isolated: V18 owns cache version and hash navigation",()=>{
- assert.match(sw,/const VERSION="green-ion-v18-offline-app-v1"/);
+ assert.match(sw,/const VERSION="green-ion-v18-offline-app-v2"/);
  assert.ok(sw.includes('"./v18-offline.html"'));
  assert.ok(sw.includes('"./analysis/rkt4.mjs"'));
  assert.match(sw,/url\.pathname\.startsWith\("\/api\/"\)/);
@@ -111,4 +112,24 @@ test("offline startup has no cloud dependency and settings are locked during act
  assert.match(html,/No cloud account, remote telemetry upload, subscription, or internet connection is required/);
  assert.match(app,/data-lock-during-flight/);
  assert.match(app,/s\?\.recording\|\|s\?\.armed\|\|s\?\.flight_prep_active/);
+});
+
+
+test("Data renders an explicit local estimated phase timeline",()=>{
+ assert.match(html,/id="phaseTimeline"/);
+ assert.match(app,/function renderPhaseTimeline/);
+ assert.match(app,/phase\.confidence/);
+ assert.match(app,/m estimated/);
+});
+
+test("Settings exposes firmware-owned calibration, profile metadata and diagnostics safely",()=>{
+ for(const id of ["restartCalibration","rocketProfile","motorProfile","saveProfile","sampleRate","calibrationBaseline","statusJson"])
+  assert.ok(html.includes('id="'+id+'"'),id);
+ assert.match(app,/\/api\/calibrate/);
+ assert.match(app,/\/api\/profile/);
+ assert.match(app,/new URLSearchParams\(\{rocket,motor\}\)/);
+ assert.match(app,/selected_rocket/);
+ assert.match(app,/sample_rate_hz/);
+ assert.match(app,/settingsMutationLocked/);
+ assert.ok(!app.includes("sample_rate_hz="),"frontend must not attempt to change firmware recorder rate");
 });
