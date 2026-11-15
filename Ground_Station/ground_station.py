@@ -725,6 +725,11 @@ def main() -> None:
     parser.add_argument("--no-browser", action="store_true", help="do not open the dashboard automatically")
     parser.add_argument("--v18-offline", action="store_true", help="open the experimental local V18 four-tab app instead of the stable V17 dashboard")
     args = parser.parse_args()
+    if args.v18_offline:
+        if args.sample or args.port:
+            parser.error("--v18-offline uses browser Web Serial for Uno; do not combine with --sample or --port")
+        # Chrome/Edge owns the Uno COM port in V18 Recovery. Never compete via pyserial.
+        args.wifi_only = True
     if args.listen not in ("127.0.0.1", "localhost"):
         raise SystemExit("For security, the ground station may listen only on loopback")
     if not (STATIC_ROOT / "index.html").is_file():
