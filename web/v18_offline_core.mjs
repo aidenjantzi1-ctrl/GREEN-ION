@@ -93,3 +93,81 @@ export function storageMessage(persisted){
   "Persistent browser storage granted. Keep exported backups anyway; browser storage is not a substitute for the original BIN files.":
   "Persistent browser storage is not guaranteed. Export backups; clearing browser data can remove local history.";
 }
+
+
+export const DEVTEST_STATUS_FRESH_MS=3000;
+export const DEVTEST_RESULTS=Object.freeze(["PASS","FAIL","NOT TESTED"]);
+const devResult=(id,label,state,evidence,next)=>({id,label,state,evidence,next});
+const devBool=(id,label,value,fresh,passEvidence,failEvidence,next)=>{
+ if(!fresh)return devResult(id,label,"NOT TESTED","No fresh Feather status is available.",next);
+ if(value===true)return devResult(id,label,"PASS",passEvidence,next);
+ if(value===false)return devResult(id,label,"FAIL",failEvidence,next);
+ return devResult(id,label,"NOT TESTED","Firmware did not provide this status field.",next);
+};
+
+export function developmentStatusChecks(status,{connected=false,lastStatusAt=0,now=Date.now()}={}){
+ const age=lastStatusAt>0?Math.max(0,now-lastStatusAt):null;
+ const fresh=!!(connected&&status&&age!==null&&age<=DEVTEST_STATUS_FRESH_MS);
+ const items=[
+  devResult("bridge","Windows bridge / Feather status",fresh?"PASS":"FAIL",
+   fresh?"Fresh /api/status received "+age+" ms ago.":connected&&status?"Last /api/status is stale.":"No current Feather status through the local Windows bridge.",
+   fresh?"Keep the Windows bridge open for live checks.":"Start the Windows ground station, connect the Feather, then retry."),
+  devBool("sd","microSD reported ready",status?.sd_ok,fresh,
+   "Firmware currently reports microSD available. This does not perform a write/delete stress test.",
+   "Firmware currently reports microSD unavailable.",
+   "Check card seating/formatting; physical write/read/temp-delete remains a separate bench test."),
+  devBool("imu","IMU reported ready",status?.imu_ok,fresh,
+   "Firmware currently reports the IMU available.",
+   "Firmware currently reports the IMU unavailable.",
+   "Check LSM6DSO32/STEMMA QT wiring and use the explicit bench diagnostic."),
+  devBool("barometer","Barometer reported ready",status?.barometer_ready,fresh,
+   "Firmware currently reports the barometer ready.",
+   "Firmware currently reports the barometer unavailable.",
+   "Check BMP388/STEMMA QT wiring and rerun while stationary.")
+ ];
+ let mv=finite(status?.battery_mv);
+ if(mv===null){const v=finite(status?.battery_v);if(v!==null)mv=Math.round(v*1000);}
+ if(!fresh)items.push(devResult("battery","Battery measurement","NOT TESTED","No fresh Feather status is available.","Connect the Feather and retry."));
+ else if(mv===null)items.push(devResult("battery","Battery measurement","NOT TESTED","Firmware did not provide a valid battery reading.","Check battery wiring/status."));
+ else if(mv>=3600)items.push(devResult("battery","Battery measurement","PASS",(mv/1000).toFixed(3)+" V; at or above the current V17 3.60 V critical threshold.","Loaded endurance/reserve still requires real hardware testing."));
+ else items.push(devResult("battery","Battery measurement","FAIL",(mv/1000).toFixed(3)+" V; below the current V17 3.60 V critical threshold.","Charge or replace the battery before preparation."));
+ return items;
+}
+
+export function developmentReceiverChecks(packet,lastKnown=null,{portConnected=false,now=Date.now()}={}){
+ if(!portConnected)return [
+  devResult("receiver","Uno receiver valid fresh packet","NOT TESTED","No Uno serial port is connected.","Recovery → CONNECT RECEIVER and select the physical Uno."),
+  devResult("receiver_gps","Receiver GPS freshness","NOT TESTED","No live receiver session is available.","Connect the Uno and wait for a current outdoor GPS fix.")
+ ];
+ if(!packet)return [
+  devResult("receiver","Uno receiver valid fresh packet","FAIL","Serial is open but no valid receiver JSON has been accepted.","Check 115200 baud, newline framing, and protocol-v2 JSON."),
+  devResult("receiver_gps","Receiver GPS freshness","NOT TESTED","No valid telemetry packet has been accepted.","Wait for protocol-v2 telemetry.")
+ ];
+ const age=Math.max(0,now-packet.receivedAt),fresh=age<=PACKET_STALE_MS,protocolOk=packet.protocol===RADIO_PROTOCOL;
+ const receiver=fresh&&protocolOk?
+  devResult("receiver","Uno receiver valid fresh packet","PASS","Fresh accepted protocol-v2 receiver data; packet age "+age+" ms.","Unplug/reconnect once to exercise reconnect handling."):
+  devResult("receiver","Uno receiver valid fresh packet","FAIL",
+   !fresh?"Last accepted receiver packet is stale ("+age+" ms).":"Current receiver evidence does not yet prove protocol v2.",
+   !fresh?"Check USB/Uno data flow; stale data is never shown as live.":"Wait for protocol-v2 telemetry or radio_bench data.");
+ const view=recoveryView(packet,lastKnown,now);
+ const gps=view.gps==="live"?
+  devResult("receiver_gps","Receiver GPS freshness","PASS","Current packet contains a fresh valid non-zero GPS position.","This does not prove RF range or recovery performance."):
+  devResult("receiver_gps","Receiver GPS freshness","NOT TESTED",
+   view.gps==="stale"?"Only a stale/last-known position is available.":"No current valid GPS position is available.",
+   "Move outdoors and wait for a current fix; never treat stale coordinates as live.");
+ return [receiver,gps];
+}
+
+export function developmentFirmwareDiagnostic(status,{requested=false}={}){
+ if(!requested)return devResult("firmware_diag","Firmware IMU + GPS diagnostic","NOT TESTED",
+  "The explicit firmware diagnostic has not been requested in this browser session.",
+  "On a stationary bench, use RUN FIRMWARE IMU + GPS DIAGNOSTIC.");
+ if(!status)return devResult("firmware_diag","Firmware IMU + GPS diagnostic","NOT TESTED","No current Feather status is available.","Reconnect the Feather and retry.");
+ const imu=String(status.imu_test_result||"IDLE").toUpperCase();
+ const gps=String(status.gps_test_result||"IDLE").toUpperCase();
+ const detail="IMU "+imu+": "+String(status.imu_test_message||"no message")+" · GPS "+gps+": "+String(status.gps_test_message||"no message");
+ if(imu==="FAIL"||gps==="FAIL")return devResult("firmware_diag","Firmware IMU + GPS diagnostic","FAIL",detail,"Follow the firmware message, correct the hardware issue, and rerun.");
+ if(imu==="PASS"&&gps==="PASS")return devResult("firmware_diag","Firmware IMU + GPS diagnostic","PASS",detail,"This is a bench diagnostic only; it is not flight qualification.");
+ return devResult("firmware_diag","Firmware IMU + GPS diagnostic","NOT TESTED",detail,
+  imu==="RUNNING"||gps==="RUNNING"?"Keep the Feather stationary and let the firmware finish.":"Repeat on a stationary bench; GPS may need an outdoor fix.");
+}

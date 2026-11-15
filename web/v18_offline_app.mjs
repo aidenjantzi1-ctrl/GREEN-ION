@@ -1,10 +1,12 @@
 import {parseRkt4,analyzeFlight,analysisCsv,flightReport} from "./analysis/rkt4.mjs";
 import {saveLocalFile,listLocalMetadata,getLocalFile,downloadFile,digest,exportArchive,restoreArchive} from "./v14_store.mjs";
-import {deriveFlightState,criticalFlightProblem,optionalFlightWarnings,canPrepare,fileSaveEvidence,parseReceiverLine,recoveryView,storageMessage} from "./v18_offline_core.mjs";
+import {deriveFlightState,criticalFlightProblem,optionalFlightWarnings,canPrepare,fileSaveEvidence,parseReceiverLine,recoveryView,storageMessage,developmentStatusChecks,developmentReceiverChecks,developmentFirmwareDiagnostic} from "./v18_offline_core.mjs";
 
 const $=id=>document.getElementById(id);
 let lastStatusAt=0,currentStatus=null,connected=false,lastFiles=null,saveVerified=false,lastSaved=null,lastLogFile="",pollTimer=null;
 let serialPort=null,serialReader=null,serialStop=false,serialManualDisconnect=false,serialReconnectTimer=null,lastSerialInfo=null,lastPacket=null,lastKnown=null,serialInvalid=0,activeAnalysis=null,compareAnalysis=null;
+const V18_CACHE_VERSION="green-ion-v18-offline-app-v4";
+let devFirmwareRequested=false;
 
 function text(id,value){const n=$(id);if(n)n.textContent=value==null?"—":String(value);}
 function fmt(v,d=1){return Number.isFinite(Number(v))?Number(v).toFixed(d):"—";}
@@ -299,7 +301,7 @@ function settingsMutationLocked(s=currentStatus){
 }
 function paintSettingsStatus(s=currentStatus){
  const locked=settingsMutationLocked(s);
- for(const id of ["restartCalibration","saveProfile","clearCache"]){const el=$(id);if(el)el.disabled=locked;}
+ for(const id of ["restartCalibration","saveProfile","clearCache","runFirmwareDiagnostic"]){const el=$(id);if(el)el.disabled=locked;}
  text("calibrationBaseline",s?.calibration_baseline_pa==null?"—":fmt(s.calibration_baseline_pa,1)+" Pa");
  text("calibrationNoise",s?.calibration_noise_m==null?"—":fmt(s.calibration_noise_m,3)+" m");
  text("calibrationAge",s?.calibration_age_s==null?"—":fmtAge(Number(s.calibration_age_s)*1000));
@@ -335,54 +337,85 @@ async function saveFlightProfile(){
   await pollFlight();
  }catch(e){text("profileStatus","Profile save failed: "+e.message);}
 }
-// The guided test panel is read-only. Hardware verification is never inferred from mocks or browser status.
-function devCheck(name,result,action){
+// Guided development checks are read-only unless the user explicitly requests the existing firmware IMU+GPS diagnostic.
+function devCheck(name,result,action,id="manual"){
  if(!["PASS","FAIL","NOT TESTED"].includes(result))throw Error("Invalid development test result");
- return {name,result,action};
+ return {id,label:name,state:result,evidence:action,next:""};
 }
-async function runDevTests(){
- const rows=[];
- const fresh=connected&&currentStatus&&Date.now()-lastStatusAt<=5000;
- rows.push(devCheck("Windows bridge / Feather status",fresh?"PASS":"FAIL",fresh?"Fresh /api/status response received. This proves only local communication.":"Start the Windows bridge, connect the Feather and check its Wi-Fi/USB connection; retry."));
- const s=fresh?currentStatus:null;
- const reported=(label,key,badMessage)=>rows.push(devCheck(label,s?.[key]===true?"PASS":s?.[key]===false?"FAIL":"NOT TESTED",s?.[key]===true?"Firmware reports "+key+"=true; independently verify real hardware.":s?.[key]===false?badMessage:"No explicit firmware "+key+" evidence; inspect Settings → Advanced Feather status."));
- reported("microSD reported ready","sd_ok","Check the card, seating, formatting and firmware status before any arm attempt.");
- reported("IMU reported ready","imu_ok","Check IMU wiring, sensor power and firmware diagnostics.");
- reported("Barometer reported ready","barometer_ready","Check pressure sensor, wiring and firmware diagnostics.");
- const battery=Number(s?.battery_v);
- rows.push(devCheck("Battery measurement",s?.battery_v==null?"NOT TESTED":Number.isFinite(battery)&&battery>0?"PASS":"FAIL",s?.battery_v==null?"No measured voltage reported; check power and firmware telemetry.":Number.isFinite(battery)&&battery>0?"Firmware measured "+battery.toFixed(3)+" V. Voltage alone does not certify adequate reserve.":"Invalid battery measurement; inspect power and status."));
- rows.push(devCheck("Stationary calibration evidence",s?.calibration_age_s!=null&&Number.isFinite(Number(s.calibration_age_s))?"PASS":"NOT TESTED",s?.calibration_age_s!=null?"Firmware reports calibration age. Check actual stability before arming.":"Keep the device stationary; run firmware calibration only when safe and review status."));
- const swSupported="serviceWorker" in navigator;
- let reg=null;
- try{if(swSupported)reg=await navigator.serviceWorker.getRegistration("./v18_service_worker.js");}catch{}
- rows.push(devCheck("Local offline cache registration",reg?.active?"PASS":"NOT TESTED",reg?.active?"Active V18 service worker found. Manually verify offline restart.":"Start from localhost and wait for cache registration, then manually test an offline restart."));
- let imported=[];
- try{imported=await listLocalMetadata();}catch{}
- const manual=imported.some(x=>x.origin==="manual-v18-import");
- rows.push(devCheck("Manual original BIN import",manual?"PASS":"NOT TESTED",manual?"A manually imported local flight exists. Review its analysis and download the original for byte comparison.":"Go to Data and import a known-good RKT4 v2 BIN; verify analysis and preserve the original."));
- const receiver=serialPort&&lastPacket&&recoveryView(lastPacket,lastKnown,Date.now()).signal==="live";
- rows.push(devCheck("Uno receiver valid fresh packet",receiver?"PASS":"NOT TESTED",receiver?"A valid current protocol-v2 packet was observed. This does not prove RF/GPS accuracy.":"Open Recovery, grant Web Serial permission to the Uno, and verify a fresh protocol-v2 packet."));
- rows.push(devCheck("Receiver malformed/stale/disconnect behavior","NOT TESTED","Manually send/observe invalid and stale packets and unplug/reconnect the Uno; record the observed UI behavior."));
- for(const [name,action] of [
-  ["Physical SD write/read/verify/temp-delete","Use the approved firmware temporary-file diagnostic if available; never delete real BINs."],
-  ["Barometer/IMU physical accuracy","Compare actual sensor behavior with a stationary bench reference."],
-  ["GPS/LoRa radio link","Test actual receiver and antennas safely, observing RF restrictions."],
-  ["Wi-Fi loss, recovery wake and timing","Use the motor-free physical test checklist with hardware evidence."],
-  ["Two distinct saved hardware flights","Use only an approved safe test procedure; preserve both original BIN files."],
-  ["Offline restart and BIN reanalysis","Disconnect network, reopen the cached app and reanalyze a preserved BIN."]
- ])rows.push(devCheck(name,"NOT TESTED",action));
+function renderDevRows(rows){
  const tbody=$("devTestRows");tbody.replaceChildren();
  for(const row of rows){
   const tr=document.createElement("tr");
-  for(const value of [row.name,row.result,row.action]){const td=document.createElement("td");td.textContent=value;tr.appendChild(td);}
-  tbody.appendChild(tr);
+  const name=document.createElement("td");name.textContent=row.label;
+  const result=document.createElement("td");result.textContent=row.state;result.className="dev-result";result.dataset.result=row.state;
+  const action=document.createElement("td");action.textContent=[row.evidence,row.next].filter(Boolean).join(" ");
+  tr.append(name,result,action);tbody.appendChild(tr);
  }
- const pass=rows.filter(r=>r.result==="PASS").length,fail=rows.filter(r=>r.result==="FAIL").length;
- text("devTestSummary",pass+" PASS · "+fail+" FAIL · "+(rows.length-pass-fail)+" NOT TESTED. No automatic hardware verification or flight approval.");
+ const pass=rows.filter(r=>r.state==="PASS").length,fail=rows.filter(r=>r.state==="FAIL").length;
+ text("devTestSummary",pass+" PASS · "+fail+" FAIL · "+(rows.length-pass-fail)+" NOT TESTED. PASS is limited to the evidence named in each row.");
+}
+async function runDevTests(){
+ const now=Date.now();
+ const rows=[...developmentStatusChecks(currentStatus,{connected,lastStatusAt,now})];
+ const s=connected?currentStatus:null;
+ const baseline=Number(s?.calibration_baseline_pa),noise=Number(s?.calibration_noise_m);
+ rows.push(devCheck("Stationary calibration evidence",
+  Number.isFinite(baseline)&&baseline>30000&&Number.isFinite(noise)&&noise>=0?"PASS":"NOT TESTED",
+  Number.isFinite(baseline)&&baseline>30000&&Number.isFinite(noise)&&noise>=0?
+   "Firmware reports a plausible pressure baseline and calibration noise. This does not prove launch-site stability.":
+   "No current valid calibration baseline/noise evidence; keep the device stationary and use firmware calibration only when safe.",
+  "calibration"));
+ let reg=null,cacheOk=false;
+ try{
+  if("serviceWorker" in navigator)reg=await navigator.serviceWorker.getRegistration();
+  if(typeof caches!=="undefined")cacheOk=await caches.has(V18_CACHE_VERSION);
+ }catch{}
+ rows.push(devCheck("Local offline cache registration",
+  reg?.active&&cacheOk?"PASS":"NOT TESTED",
+  reg?.active&&cacheOk?"Active V18 service worker and v4 cache found. Actual offline reload still needs manual verification.":"Start from localhost, refresh once, and wait for the V18 cache before the manual offline-reload test.",
+  "offline_cache"));
+ let manual=null,analysisOk=false,analysisError="";
+ try{
+  const imported=(await listLocalMetadata()).filter(x=>x.kind==="BIN"&&x.origin==="manual-v18-import").sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+  if(imported.length){
+   manual=await getLocalFile(imported[0].key);
+   const parsed=parseRkt4(manual.bytes),analysis=analyzeFlight(parsed);
+   analysisOk=parsed.samples.length>0&&analysis.samples.length>0;
+  }
+ }catch(e){analysisError=e.message;}
+ rows.push(devCheck("Manual original BIN import + analysis",
+  manual&&analysisOk?"PASS":manual?"FAIL":"NOT TESTED",
+  manual&&analysisOk?"Reopened "+manual.name+" from IndexedDB and parsed/analyzed its preserved bytes locally.":manual?"Imported BIN analysis failed: "+analysisError:"Go to Data and import a known-good RKT4 v2 BIN; the importer preserves original bytes.",
+  "bin_import"));
+ rows.push(...developmentReceiverChecks(lastPacket,lastKnown,{portConnected:!!serialPort,now}));
+ rows.push(developmentFirmwareDiagnostic(currentStatus,{requested:devFirmwareRequested}));
+ rows.push(devCheck("Receiver malformed/stale/disconnect behavior","NOT TESTED","Manually observe an invalid/stale packet and unplug/reconnect the physical Uno; record the UI result.","receiver_manual"));
+ for(const [name,action,id] of [
+  ["Actual offline restart","After the cache row passes, disconnect networking and reload the local V18 page; confirm all four tabs render.","offline_reload"],
+  ["Physical SD write/read/verify/temp-delete","Use the approved motor-free hardware checklist; CHECK EVERYTHING never creates or deletes SD files and never deletes real BINs.","sd_physical"],
+  ["Barometer/IMU physical accuracy","Compare actual sensor behavior with a stationary bench reference.","sensor_accuracy"],
+  ["GPS/LoRa RF + recovery timing/wake","Use real hardware, approved antennas and the motor-free checklist; browser status is not RF-range evidence.","rf_physical"],
+  ["Two distinct saved hardware flights","Use only an approved motor-free procedure and preserve both original BIN files.","multi_flight"]
+ ])rows.push(devCheck(name,"NOT TESTED",action,id));
+ renderDevRows(rows);
+ return rows;
+}
+async function runFirmwareDiagnostic(){
+ devFirmwareRequested=true;
+ if(settingsMutationLocked()){text("devFirmwareStatus","Diagnostic unavailable while disconnected, preparing, armed, recording, maintenance, or home-test activity is active.");await runDevTests();return;}
+ const button=$("runFirmwareDiagnostic");button.disabled=true;
+ try{
+  const result=await json("/api/hardware-test",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({sensor:"all"}).toString()});
+  if(result.accepted!==true)throw Error(result.error||"Firmware did not accept the diagnostic.");
+  text("devFirmwareStatus","Firmware IMU + GPS diagnostic accepted. Keep the Feather stationary; GPS may need an outdoor fix. No arming, recording, LoRa command, or file deletion was requested.");
+  await pollFlight();
+ }catch(e){text("devFirmwareStatus","Firmware diagnostic failed to start: "+e.message);}
+ finally{button.disabled=settingsMutationLocked();await runDevTests();}
 }
 function initDevTests(){
  $("openDevTests").onclick=()=>{setTab("settings");$("devTestCard").scrollIntoView({behavior:"smooth",block:"start"});};
  $("runDevTests").onclick=()=>{runDevTests().catch(e=>text("devTestSummary","Local check failed: "+e.message));};
+ $("runFirmwareDiagnostic").onclick=()=>{runFirmwareDiagnostic().catch(e=>text("devFirmwareStatus","Diagnostic error: "+e.message));};
 }
 
 async function initSettings(){
