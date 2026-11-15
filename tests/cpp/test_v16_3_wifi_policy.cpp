@@ -42,5 +42,21 @@ int main() {
   assert(shouldRetryStation(true, false, false, false, false, 1000, 1000));
   assert(shouldRetryStation(true, false, false, false, false, 2000, 1000));
 
+  // Flight suppression never happens before a verified recorder transition and
+  // remains wrap-safe across millis() rollover.
+  assert(!shouldDisableForFlight(false, true, false, 2000, 1000, 500));
+  assert(!shouldDisableForFlight(true, false, false, 2000, 1000, 500));
+  assert(!shouldDisableForFlight(true, true, true, 2000, 1000, 500));
+  assert(!shouldDisableForFlight(true, true, false, 1499, 1000, 500));
+  assert(shouldDisableForFlight(true, true, false, 1500, 1000, 500));
+  assert(!shouldDisableForFlight(true, true, false, 0x00000020u, 0xfffffff0u, 64));
+  assert(shouldDisableForFlight(true, true, false, 0x00000040u, 0xfffffff0u, 64));
+
+  // Restarting Wi-Fi is gated on independent save verification, never on landing alone.
+  assert(!shouldRestoreAfterVerifiedSave(true, true, true));
+  assert(!shouldRestoreAfterVerifiedSave(false, false, true));
+  assert(!shouldRestoreAfterVerifiedSave(false, true, false));
+  assert(shouldRestoreAfterVerifiedSave(false, true, true));
+
   return 0;
 }
