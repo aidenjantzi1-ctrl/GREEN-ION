@@ -342,16 +342,36 @@ function devCheck(name,result,action,id="manual"){
  if(!["PASS","FAIL","NOT TESTED"].includes(result))throw Error("Invalid development test result");
  return {id,label:name,state:result,evidence:action,next:""};
 }
+let lastDevReport="";
+const devAdvice={
+ calibration:"Connected Feather: keep stationary and use calibration only when safe.",
+ offline_cache:"Offline-only: load on localhost, refresh once, then manually test offline reload.",
+ bin_import:"Offline-only: import a known-good RKT4 v2 BIN from Data; preserve the original.",
+ receiver_manual:"Uno receiver: connect through Recovery; manually verify invalid/stale/disconnect cases.",
+ offline_reload:"Offline-only: disconnect networking and reload the cached page manually.",
+ sd_physical:"Physical motor-free check: use reserved temporary SD test only; never delete flight BINs.",
+ sensor_accuracy:"Physical motor-free check: compare actual sensors with a reference.",
+ rf_physical:"Physical motor-free check: verify antenna, GPS, radio and wake separately.",
+ multi_flight:"Physical motor-free check: preserve two distinct original BIN files."
+};
+function safeDevReport(rows){
+ const timestamp=new Date().toISOString();
+ // Do not include raw evidence: it may contain coordinates, file paths, serial IDs or secrets.
+ const report=["GREEN ION V18 PRIVATE TEST RESULTS","Timestamp: "+timestamp,"Preview: V18 offline","Git SHA: not provided by verified bridge","Software checks do not certify hardware"];
+ for(const row of rows)report.push(row.label.replace(/[^a-zA-Z0-9 /+():-]/g,"").slice(0,90)+" | "+row.state+" | "+row.id.replace(/[^a-zA-Z0-9_-]/g,""));
+ return report.join("\n");
+}
 function renderDevRows(rows){
  const tbody=$("devTestRows");tbody.replaceChildren();
  for(const row of rows){
   const tr=document.createElement("tr");
   const name=document.createElement("td");name.textContent=row.label;
   const result=document.createElement("td");result.textContent=row.state;result.className="dev-result";result.dataset.result=row.state;
-  const action=document.createElement("td");action.textContent=[row.evidence,row.next].filter(Boolean).join(" ");
+  const action=document.createElement("td");action.textContent=[row.evidence,row.state==="PASS"?"":(devAdvice[row.id]||"Check the relevant tab and real-device evidence; do not assume PASS.")].filter(Boolean).join(" ");
   tr.append(name,result,action);tbody.appendChild(tr);
  }
  const pass=rows.filter(r=>r.state==="PASS").length,fail=rows.filter(r=>r.state==="FAIL").length;
+ lastDevReport=safeDevReport(rows);$("copyDevResults").disabled=false;
  text("devTestSummary",pass+" PASS · "+fail+" FAIL · "+(rows.length-pass-fail)+" NOT TESTED. PASS is limited to the evidence named in each row.");
 }
 async function runDevTests(){
@@ -414,6 +434,7 @@ async function runFirmwareDiagnostic(){
 }
 function initDevTests(){
  $("openDevTests").onclick=()=>{setTab("settings");$("devTestCard").scrollIntoView({behavior:"smooth",block:"start"});};
+ $("copyDevResults").onclick=async()=>{if(!lastDevReport)return;try{await navigator.clipboard.writeText(lastDevReport);text("devCopyStatus","Private redacted results copied locally. Review before sharing.");}catch{text("devCopyStatus","Clipboard permission denied. Use localhost Chrome/Edge and retry.");}};
  $("runDevTests").onclick=()=>{runDevTests().catch(e=>text("devTestSummary","Local check failed: "+e.message));};
  $("runFirmwareDiagnostic").onclick=()=>{runFirmwareDiagnostic().catch(e=>text("devFirmwareStatus","Diagnostic error: "+e.message));};
 }
