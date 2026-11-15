@@ -2182,6 +2182,8 @@ static void sendDashboardStatus() {
   body += state.lastImuReadMs ? String(millis() - state.lastImuReadMs) : "null";
   body += ",\"battery_read_age_ms\":";
   body += state.lastBatteryReadMs ? String(millis() - state.lastBatteryReadMs) : "null";
+  body += ",\"battery_measurement_available\":";
+  body += state.lastBatteryReadMs ? "true" : "false";
   body += ",\"finalization_failures\":" + String(finalizationFailures);
   body += ",\"landing_peak_m\":" + numberOrNull(landingWatcher.peakAltitudeM(), 2);
   body += ",\"flight_peak_estimate_m\":" + numberOrNull(flightPeakAltitudeEstimateM, 2);
@@ -2232,9 +2234,16 @@ static void sendDashboardStatus() {
   body += ",\"sample_rate_hz\":" + String(config::SENSOR_RATE_HZ);
   body += ",\"firmware_build\":\"" + String(FIRMWARE_VERSION) + " " + String(__DATE__) + " " + String(__TIME__) + "\"";
   body += ",\"wifi_mode\":\"";
-  body += (homeWifiConfigured && !homeWifiPaused) || WiFi.status() == WL_CONNECTED ||
-          homeWifiAttemptInProgress || homeWifiScanActive ? "AP+STA" : "AP";
+  body += homeWifiFlightSuppressed ? "OFF" :
+      ((homeWifiConfigured && !homeWifiPaused) || WiFi.status() == WL_CONNECTED ||
+       homeWifiAttemptInProgress || homeWifiScanActive ? "AP+STA" : "AP");
   body += "\"";
+  body += ",\"wifi_flight_suppressed\":";
+  body += homeWifiFlightSuppressed ? "true" : "false";
+  body += ",\"wifi_flight_suppression_pending\":";
+  body += homeWifiFlightSuppressionRequested ? "true" : "false";
+  body += ",\"wifi_post_save_restore_pending\":";
+  body += homeWifiPostSaveRestoreRequested ? "true" : "false";
   body += ",\"wifi_ap_ip\":\"" + WiFi.softAPIP().toString() + "\"";
   body += ",\"wifi_home_configured\":";
   body += homeWifiConfigured ? "true" : "false";
@@ -2509,39 +2518,72 @@ static void sendDashboardDownload(bool metadata, bool sensors = false) {
 }
 
 static void runDashboardSdTest() {
-  if (state.recording || recorderMode == RECORDER_RECORDING ||
-      recorderMode == RECORDER_MAINTENANCE || homeLogActive) {
+  // This development probe is intentionally limited to one reserved temp file.
+  // Never run it while launch watching/preparation or primary recording is active.
+  if (state.recording || recorderCore.recording() ||
+      recorderMode == RECORDER_RECORDING ||
+      recorderMode == RECORDER_WATCHING ||
+      recorderMode == RECORDER_MAINTENANCE ||
+      flightReadinessActive || homeLogActive || otaUploadInProgress) {
     dashboardServer.send(409, "application/json",
-                         "{\"success\":false,\"message\":\"SD test is disabled while recording\"}");
+      "{\"success\":false,\"error_code\":\"SD_TEST_BUSY\",\"temp_file\":\"V12SD.TMP\","
+      "\"cleanup_verified\":null,\"message\":\"SD test is blocked while launch watching, preparation, recording, or firmware maintenance is active\"}");
     return;
   }
   if (!state.sdOk) {
     dashboardServer.send(503, "application/json",
-                         "{\"success\":false,\"message\":\"SD card is unavailable\"}");
+      "{\"success\":false,\"error_code\":\"SD_UNAVAILABLE\",\"temp_file\":\"V12SD.TMP\","
+      "\"cleanup_verified\":null,\"message\":\"SD card is unavailable\"}");
     return;
   }
   SdSpiScope bus;
   if (!bus) {
     dashboardServer.send(503, "application/json",
-                         "{\"success\":false,\"message\":\"Shared SPI busy; retry shortly\"}");
+      "{\"success\":false,\"error_code\":\"SPI_BUSY\",\"temp_file\":\"V12SD.TMP\","
+      "\"cleanup_verified\":null,\"message\":\"Shared SPI busy; retry shortly\"}");
     return;
   }
   static const char path[] = "/V12SD.TMP";
   static const uint8_t pattern[] = {0x47, 0x49, 0x4f, 0x4e, 0x12, 0xa5};
-  SD.remove(path);
+
+  if (SD.exists(path) && !SD.remove(path)) {
+    if (recorderMode == RECORDER_HOME_TEST) homeSdVerified = false;
+    dashboardServer.send(500, "application/json",
+      "{\"success\":false,\"error_code\":\"SD_TEMP_CLEANUP_FAILED\",\"temp_file\":\"V12SD.TMP\","
+      "\"cleanup_verified\":false,\"message\":\"Reserved SD test file could not be removed; real flight files were not touched\"}");
+    return;
+  }
+
   File file = SD.open(path, FILE_WRITE);
-  bool ok = file && file.write(pattern, sizeof(pattern)) == sizeof(pattern);
+  bool ioOk = file && file.write(pattern, sizeof(pattern)) == sizeof(pattern);
   if (file) { file.flush(); file.close(); }
+
   uint8_t readback[sizeof(pattern)] = {};
   file = SD.open(path, FILE_READ);
-  ok = ok && file && file.read(readback, sizeof(readback)) == sizeof(readback) &&
-       memcmp(pattern, readback, sizeof(pattern)) == 0;
+  ioOk = ioOk && file &&
+      file.read(readback, sizeof(readback)) == sizeof(readback) &&
+      memcmp(pattern, readback, sizeof(pattern)) == 0;
   if (file) file.close();
-  ok = ok && SD.remove(path);
+
+  const bool cleanupOk = !SD.exists(path) || SD.remove(path);
+  const bool ok = ioOk && cleanupOk;
   if (recorderMode == RECORDER_HOME_TEST) homeSdVerified = ok;
-  dashboardServer.send(ok ? 200 : 500, "application/json",
-      ok ? "{\"success\":true,\"message\":\"SD write, read, verify and cleanup passed\"}"
-         : "{\"success\":false,\"message\":\"SD write/read verification failed\"}");
+
+  if (!cleanupOk) {
+    dashboardServer.send(500, "application/json",
+      "{\"success\":false,\"error_code\":\"SD_TEMP_CLEANUP_FAILED\",\"temp_file\":\"V12SD.TMP\","
+      "\"cleanup_verified\":false,\"message\":\"Reserved SD test file could not be removed after verification; preserve the card for inspection\"}");
+    return;
+  }
+  if (!ioOk) {
+    dashboardServer.send(500, "application/json",
+      "{\"success\":false,\"error_code\":\"SD_VERIFY_FAILED\",\"temp_file\":\"V12SD.TMP\","
+      "\"cleanup_verified\":true,\"message\":\"SD write/read verification failed; reserved temp file was removed\"}");
+    return;
+  }
+  dashboardServer.send(200, "application/json",
+    "{\"success\":true,\"error_code\":null,\"temp_file\":\"V12SD.TMP\","
+    "\"cleanup_verified\":true,\"message\":\"SD write, read, verify and cleanup passed\"}");
 }
 
 #include "HomeVerification.h"
@@ -2658,7 +2700,7 @@ static void initializeDashboard() {
   dashboardServer.on("/api/hardware-test", HTTP_POST, []() {
     if (!dashboardServer.hasArg("sensor")) {
       dashboardServer.send(400, "application/json",
-                           "{\"accepted\":false,\"error\":\"missing sensor\"}");
+                           "{\"accepted\":false,\"error_code\":\"MISSING_SENSOR\",\"error\":\"missing sensor\"}");
       return;
     }
     HardwareTestRequest request = HARDWARE_TEST_NONE;
@@ -2668,17 +2710,17 @@ static void initializeDashboard() {
     else if (sensor == "all") request = HARDWARE_TEST_ALL;
     else {
       dashboardServer.send(400, "application/json",
-                           "{\"accepted\":false,\"error\":\"unknown sensor\"}");
+                           "{\"accepted\":false,\"error_code\":\"UNKNOWN_SENSOR\",\"error\":\"unknown sensor\"}");
       return;
     }
     if (!hardwareTestsAllowed()) {
       requestHardwareTest(request);
       dashboardServer.send(409, "application/json",
-                           "{\"accepted\":false,\"error\":\"flight recorder active; test deferred\"}");
+                           "{\"accepted\":false,\"error_code\":\"TEST_DEFERRED_RECORDER_ACTIVE\",\"error\":\"flight recorder active; test deferred\"}");
       return;
     }
     requestHardwareTest(request);
-    dashboardServer.send(202, "application/json", "{\"accepted\":true}");
+    dashboardServer.send(202, "application/json", "{\"accepted\":true,\"error_code\":null}");
   });
   dashboardServer.begin();
 }
