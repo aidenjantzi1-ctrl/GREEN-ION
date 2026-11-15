@@ -108,6 +108,18 @@ int main() {
       verifyHeader,sizeof(verifyHeader),verifyBytes,verifyBytes,
       incompleteMetadata,sizeof(incompleteMetadata)-1,"/V12D007.BIN",50)!=SAVE_VALID);
 
+  const char mismatchedMetadata[]=
+      "GREEN-ION-COMPLETION-1\nstatus=complete\n"
+      "file=V12D008.BIN\nfile_bytes=3232\n";
+  assert(verifyCompletedPackage(
+      verifyHeader,sizeof(verifyHeader),verifyBytes,verifyBytes,
+      mismatchedMetadata,sizeof(mismatchedMetadata)-1,"/V12D007.BIN",50)!=SAVE_VALID);
+  const char overlongName[]=
+      "/V12D007.BIN-THIS-NAME-IS-DELIBERATELY-TOO-LONG-FOR-THE-TOKEN";
+  assert(verifyCompletedPackage(
+      verifyHeader,sizeof(verifyHeader),verifyBytes,verifyBytes,
+      verifyMetadata,sizeof(verifyMetadata)-1,overlongName,50)!=SAVE_VALID);
+
   // Power-loss model: a torn file remains inspectable and a valid checkpoint
   // selects the last committed complete RKT4 boundary.
   uint8_t header[green_ion::rkt4::kHeaderBytes]={};
