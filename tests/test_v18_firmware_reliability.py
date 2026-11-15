@@ -10,6 +10,7 @@ RKT4=(ROOT/"libraries/GreenIonRecorder/src/GreenIonRkt4.h").read_text(encoding="
 VERIFY=(ROOT/"libraries/GreenIonRecorder/src/GreenIonSaveVerification.h").read_text(encoding="utf-8")
 PREP=(ROOT/"Green_Ion_V16_3"/"FlightPreparation.h").read_text(encoding="utf-8")
 NAMING=(ROOT/"libraries/GreenIonRecorder/src/GreenIonFileNaming.h").read_text(encoding="utf-8")
+DEVCONTRACT=(ROOT/"docs/V18/FIRMWARE_DEVTEST_CONTRACT.md").read_text(encoding="utf-8")
 
 class V18FirmwareReliability(unittest.TestCase):
     def test_wifi_off_is_requested_only_after_sd_recording_starts(self):
@@ -132,6 +133,68 @@ class V18FirmwareReliability(unittest.TestCase):
         self.assertLess(setup.index("recoverInterruptedLogs();"),
                         setup.index("initializeDashboard();"))
         self.assertIn("recoverInterruptedLogs();", setup)
+
+    def test_devtest_sd_probe_is_reserved_repeated_and_never_runs_armed(self):
+        block=FW[FW.index("static void runDashboardSdTest"):
+                 FW.index('#include "HomeVerification.h"')]
+        self.assertIn('static const char path[] = "/V12SD.TMP"', block)
+        self.assertNotIn('"/V12D', block)
+        self.assertIn("recorderMode == RECORDER_WATCHING", block)
+        self.assertIn("flightReadinessActive", block)
+        self.assertIn('"error_code\\":\\"SD_TEST_BUSY"', block)
+        self.assertIn('"error_code\\":\\"SD_TEMP_CLEANUP_FAILED"', block)
+        self.assertIn('"error_code\\":\\"SD_VERIFY_FAILED"', block)
+        self.assertGreaterEqual(block.count("SD.remove(path)"), 2)
+        self.assertIn("!SD.exists(path) || SD.remove(path)", block)
+        self.assertIn('"cleanup_verified\\":true', block)
+
+    def test_devtest_status_exposes_measurement_and_wifi_power_state(self):
+        for token in (
+            '"battery_measurement_available"',
+            '"wifi_flight_suppressed"',
+            '"wifi_flight_suppression_pending"',
+            '"wifi_post_save_restore_pending"',
+        ):
+            self.assertIn(token, FW)
+        for token in (
+            '"flight_suppressed"',
+            '"flight_suppression_pending"',
+            '"post_save_restore_pending"',
+        ):
+            self.assertIn(token, HOME)
+        self.assertIn('homeWifiFlightSuppressed ? "OFF"', FW)
+        self.assertIn('homeWifiFlightSuppressed ? "OFF"', HOME)
+
+    def test_devtest_hardware_api_has_machine_error_codes(self):
+        block=FW[FW.index('dashboardServer.on("/api/hardware-test"'):
+                 FW.index("dashboardServer.begin();")]
+        for code in (
+            "MISSING_SENSOR",
+            "UNKNOWN_SENSOR",
+            "TEST_DEFERRED_RECORDER_ACTIVE",
+        ):
+            self.assertIn(code, block)
+        self.assertIn('"error_code\\":null', block)
+        self.assertIn("requestHardwareTest(request);", block)
+
+    def test_devtest_contract_documents_existing_non_destructive_api(self):
+        for endpoint in (
+            "GET /api/status",
+            "POST /api/sdtest",
+            "POST /api/hardware-test",
+            "POST /api/calibrate",
+            "POST /api/home/start",
+            "POST /api/home/record",
+            "POST /api/home/finish",
+            "GET /api/wifi/status",
+            "GET /api/files",
+            "GET /api/metadata?name=",
+        ):
+            self.assertIn(endpoint, DEVCONTRACT)
+        self.assertIn("V12SD.TMP", DEVCONTRACT)
+        self.assertIn("GIHOME.BIN", DEVCONTRACT)
+        self.assertIn("Never deletes or rewrites V12D###", DEVCONTRACT)
+        self.assertIn("software evidence only", DEVCONTRACT.lower())
 
     def test_primary_formats_and_optional_link_contract_are_unchanged(self):
         self.assertIn("kProtocolVersion = 2", PROTO)

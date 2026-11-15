@@ -420,9 +420,16 @@ static void sendHomeWifiStatus() {
   body.reserve(700);
   body += "{\"success\":true";
   body += ",\"mode\":\"";
-  body += (homeWifiConfigured && !homeWifiPaused) || connected ||
-          homeWifiAttemptInProgress || homeWifiScanActive ? "AP+STA" : "AP";
+  body += homeWifiFlightSuppressed ? "OFF" :
+      ((homeWifiConfigured && !homeWifiPaused) || connected ||
+       homeWifiAttemptInProgress || homeWifiScanActive ? "AP+STA" : "AP");
   body += "\"";
+  body += ",\"flight_suppressed\":";
+  body += homeWifiFlightSuppressed ? "true" : "false";
+  body += ",\"flight_suppression_pending\":";
+  body += homeWifiFlightSuppressionRequested ? "true" : "false";
+  body += ",\"post_save_restore_pending\":";
+  body += homeWifiPostSaveRestoreRequested ? "true" : "false";
   body += ",\"ap_ssid\":\"" + wifiJsonEscape(String(config::DASHBOARD_SSID)) + "\"";
   body += ",\"ap_ip\":\"" + WiFi.softAPIP().toString() + "\"";
   body += ",\"ap_clients\":" + String(WiFi.softAPgetStationNum());
