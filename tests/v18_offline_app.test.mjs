@@ -213,5 +213,5 @@ test("UX2 diagnostic rejects stale or unaccepted firmware evidence",()=>{
  assert.ok(accepted>=0&&requested>accepted,"only an accepted explicit diagnostic marks the request");
  const checklist=source.slice(source.indexOf("async function runDevTests()"),source.indexOf("async function runFirmwareDiagnostic()"));
  assert.ok(checklist.includes("developmentFirmwareDiagnostic(connected&&now-lastStatusAt<=5000?currentStatus:null"),"stale firmware status must not yield diagnostic PASS");
- assert.doesNotMatch(run,/\\/api\\/preflight\\/start/);
+ assert.ok(!run.includes("/api/preflight/start"),"diagnostic must never start preflight or arm");
 });
