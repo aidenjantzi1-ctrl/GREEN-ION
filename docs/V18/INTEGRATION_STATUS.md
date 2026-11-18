@@ -55,3 +55,13 @@ No force-push, automatic branch deletion, PR closure, historical source removal,
 - Integration-only opt-in V18 Windows preview added to `Ground_Station/ground_station.py`, `Ground_Station/START_V18_PREVIEW.cmd`, README and `tests/test_v18_windows_preview.py`. Stable V17 default page unchanged. Preview is neither a V18 installer nor hardware authorization.
 - Overnight PR #62 remains draft, not integrated pending no-input false-success and completion metadata review. Recent PR #63 also remains draft and user approval for `main` / release has not been granted.
 - Combined exact-head CI must succeed after the last staged firmware/preview commit; earlier passing CI does not cover the new combination.
+
+
+## 2026-11-18 — manual START resume, Windows dev-test preview
+Latest coordinator [START] is `V18-MANUAL-RESUME-20261118` on PR #60. This is **manual only**; no new schedule was created. Main remains approved V17.0.1 SHA `17f517f275be7b52e3e71a1f2d656edbc65a08ea`. The Integration Manager owns only `worker/v18-integration`; other workers may still be active.
+
+- Staged reviewed, CI-passing Secondary #58 UX2 snapshot `ec5545da7bca53e01cf220e07ce36a536fd1d156` as `218ec2da05e2a1887ba408fb2b5bca18807a424f`, preserving integration-only parser/bridge fixes. Newer Secondary head appeared concurrently and is **not** automatically staged.
+- Prevented V18 preview entrypoint from redirecting to older installed V17: root package launcher → `Ground_Station/START_V18_PREVIEW.cmd` → standard launcher `-NoRedirect --v18-offline`. Normal V17 startup stays unchanged.
+- Added Windows-runner extracted preview ZIP smoke script `tools/smoke_v18_dev_preview.py`; it SHA-checks, extracts, starts localhost service and downloads real page+JS+service-worker from the **extracted package**. Combined with existing ZIP contents and PowerShell checks, exact source/guide head `96291b0661fe6df25df52cdd4b7998a03911c071` passed [V18 preview workflow 44345589814](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/44345589814). This does **not** prove a human double-click, offline restart or hardware.
+- Updated novice [testing guide](TESTING_GUIDE.md) with artifact download/extraction, manifest commit/sha256 verification, BIN-only offline testing, optional motor-free Feather/Uno tests and privacy-safe evidence sharing.
+- Current status: **software-only Windows development preview CI PASS; V18 RC and physical acceptance remain BLOCKED**. Cross-worker newer Secondary UX and firmware changes require their own source review and exact-head tests before further staging. No main merge, release, tag, deploy, flash, force-push, branch deletion or PR closure.
