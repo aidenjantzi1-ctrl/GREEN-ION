@@ -4,7 +4,7 @@ export const RADIO_PROTOCOL=2;
 export const PACKET_STALE_MS=3000;
 export const GPS_STALE_MS=15000;
 
-const finite=v=>Number.isFinite(Number(v))?Number(v):null;
+const finite=v=>v!==null&&v!==undefined&&v!==""&&Number.isFinite(Number(v))?Number(v):null;
 export function validCoordinate(lat,lon){
  const a=finite(lat),o=finite(lon);
  return a!==null&&o!==null&&a>=-90&&a<=90&&o>=-180&&o<=180&&!(a===0&&o===0);
@@ -170,4 +170,41 @@ export function developmentFirmwareDiagnostic(status,{requested=false}={}){
  if(imu==="PASS"&&gps==="PASS")return devResult("firmware_diag","Firmware IMU + GPS diagnostic","PASS",detail,"This is a bench diagnostic only; it is not flight qualification.");
  return devResult("firmware_diag","Firmware IMU + GPS diagnostic","NOT TESTED",detail,
   imu==="RUNNING"||gps==="RUNNING"?"Keep the Feather stationary and let the firmware finish.":"Repeat on a stationary bench; GPS may need an outdoor fix.");
+}
+
+
+export function developmentSerialAccessCheck({supported=true,state="unknown",message=""}={}){
+ const clean=String(message||"").slice(0,160);
+ if(!supported)return devResult("serial_access","Web Serial permission","FAIL","Web Serial is unavailable in this browser/context.","Use current Chrome or Edge on Windows from the local app.");
+ if(state==="granted")return devResult("serial_access","Web Serial permission","PASS","The user granted serial access in this browser session.","This proves permission only; receiver packet validation is a separate check.");
+ if(state==="denied")return devResult("serial_access","Web Serial permission","NOT TESTED","Serial permission was denied or cancelled"+(clean?": "+clean:"."),"Choose Recovery → CONNECT RECEIVER and explicitly select the Arduino Uno when ready.");
+ if(state==="error")return devResult("serial_access","Web Serial permission","FAIL","Serial permission/connection failed"+(clean?": "+clean:"."),"Check the USB cable, close other apps using the COM port, then retry.");
+ return devResult("serial_access","Web Serial permission","NOT TESTED","No serial permission attempt has been completed in this browser session.","Recovery → CONNECT RECEIVER when the physical Uno is available.");
+}
+
+export function safeDevelopmentReport(rows,{timestamp=new Date().toISOString(),previewVersion="V18 offline",gitSha=""}={}){
+ const safeText=value=>String(value??"").replace(/[^a-zA-Z0-9 ._/+():-]/g,"").slice(0,120);
+ const reportLabels={
+  bridge:"Windows bridge / Feather status",sd:"microSD reported ready",imu:"IMU reported ready",
+  barometer:"Barometer reported ready",battery:"Battery measurement",calibration:"Stationary calibration evidence",
+  offline_cache:"Local offline cache registration",bin_import:"Manual original BIN import + analysis",
+  serial_access:"Web Serial permission",receiver:"Uno receiver valid fresh packet",receiver_gps:"Receiver GPS freshness",
+  firmware_diag:"Firmware IMU + GPS diagnostic",receiver_manual:"Receiver malformed/stale/disconnect behavior",
+  offline_reload:"Actual offline restart",sd_physical:"Physical SD write/read/verify/temp-delete",
+  sensor_accuracy:"Barometer/IMU physical accuracy",rf_physical:"GPS/LoRa RF + recovery timing/wake",
+  multi_flight:"Two distinct saved hardware flights"
+ };
+ const report=[
+  "GREEN ION V18 PRIVATE TEST RESULTS",
+  "Timestamp: "+safeText(timestamp),
+  "Preview: "+safeText(previewVersion||"V18 offline"),
+  "Git SHA: "+(gitSha?safeText(gitSha):"unavailable from current bridge"),
+  "Software checks do not certify hardware"
+ ];
+ for(const row of Array.isArray(rows)?rows:[]){
+  const state=DEVTEST_RESULTS.includes(row?.state)?row.state:"NOT TESTED";
+  const id=String(row?.id||"unknown").replace(/[^a-zA-Z0-9_-]/g,"").slice(0,40)||"unknown";
+  report.push((reportLabels[id]||"Unknown check")+" | "+state+" | "+id);
+ }
+ return report.join("\n");
 }

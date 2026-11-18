@@ -1,10 +1,10 @@
 import {parseRkt4,analyzeFlight,analysisCsv,flightReport} from "./analysis/rkt4.mjs";
 import {saveLocalFile,listLocalMetadata,getLocalFile,downloadFile,digest,exportArchive,restoreArchive} from "./v14_store.mjs";
-import {deriveFlightState,criticalFlightProblem,optionalFlightWarnings,canPrepare,fileSaveEvidence,parseReceiverLine,recoveryView,storageMessage,developmentStatusChecks,developmentReceiverChecks,developmentFirmwareDiagnostic} from "./v18_offline_core.mjs";
+import {deriveFlightState,criticalFlightProblem,optionalFlightWarnings,canPrepare,fileSaveEvidence,parseReceiverLine,recoveryView,storageMessage,developmentStatusChecks,developmentReceiverChecks,developmentFirmwareDiagnostic,developmentSerialAccessCheck,safeDevelopmentReport} from "./v18_offline_core.mjs";
 
 const $=id=>document.getElementById(id);
 let lastStatusAt=0,currentStatus=null,connected=false,lastFiles=null,saveVerified=false,lastSaved=null,lastLogFile="",pollTimer=null;
-let serialPort=null,serialReader=null,serialStop=false,serialManualDisconnect=false,serialReconnectTimer=null,lastSerialInfo=null,lastPacket=null,lastKnown=null,serialInvalid=0,activeAnalysis=null,compareAnalysis=null;
+let serialPort=null,serialReader=null,serialStop=false,serialManualDisconnect=false,serialReconnectTimer=null,lastSerialInfo=null,lastPacket=null,lastKnown=null,serialInvalid=0,serialPermissionState="unknown",serialPermissionMessage="",activeAnalysis=null,compareAnalysis=null;
 const V18_CACHE_VERSION="green-ion-v18-offline-app-v4";
 let devFirmwareRequested=false;
 
@@ -174,8 +174,13 @@ async function runReceiverPort(port,{automatic=false}={}){
 async function connectReceiver(){
  if(!navigator.serial){text("receiverNote","Web Serial requires current Chrome or Edge on Windows.");return;}
  serialManualDisconnect=false;serialInvalid=0;
- try{const port=await navigator.serial.requestPort();lastSerialInfo=serialInfo(port);await runReceiverPort(port);}
- catch(e){text("receiverNote","Receiver permission/connection failed: "+e.message);}
+ try{
+  const port=await navigator.serial.requestPort();serialPermissionState="granted";serialPermissionMessage="";lastSerialInfo=serialInfo(port);await runReceiverPort(port);
+ }catch(e){
+  const denied=e?.name==="NotFoundError"||e?.name==="SecurityError"||/denied|cancel/i.test(String(e?.message||""));
+  serialPermissionState=denied?"denied":"error";serialPermissionMessage=String(e?.message||e?.name||"");
+  text("receiverNote",denied?"Receiver permission was not granted. Nothing was connected.":"Receiver permission/connection failed: "+serialPermissionMessage);
+ }
 }
 async function reconnectGrantedReceiver(){
  if(serialPort||serialManualDisconnect||!lastSerialInfo||!navigator.serial?.getPorts)return false;
@@ -355,11 +360,10 @@ const devAdvice={
  multi_flight:"Physical motor-free check: preserve two distinct original BIN files."
 };
 function safeDevReport(rows){
- const timestamp=new Date().toISOString();
  // Do not include raw evidence: it may contain coordinates, file paths, serial IDs or secrets.
- const report=["GREEN ION V18 PRIVATE TEST RESULTS","Timestamp: "+timestamp,"Preview: V18 offline","Git SHA: not provided by verified bridge","Software checks do not certify hardware"];
- for(const row of rows)report.push(row.label.replace(/[^a-zA-Z0-9 /+():-]/g,"").slice(0,90)+" | "+row.state+" | "+row.id.replace(/[^a-zA-Z0-9_-]/g,""));
- return report.join("\n");
+ const bridgeSha=typeof currentStatus?.preview_git_sha==="string"?currentStatus.preview_git_sha:"";
+ const previewVersion=typeof currentStatus?.preview_version==="string"?currentStatus.preview_version:"V18 offline";
+ return safeDevelopmentReport(rows,{previewVersion,gitSha:bridgeSha});
 }
 function renderDevRows(rows){
  const tbody=$("devTestRows");tbody.replaceChildren();
@@ -407,6 +411,7 @@ async function runDevTests(){
   manual&&analysisOk?"PASS":manual?"FAIL":"NOT TESTED",
   manual&&analysisOk?"Reopened "+manual.name+" from IndexedDB and parsed/analyzed its preserved bytes locally.":manual?"Imported BIN analysis failed: "+analysisError:"Go to Data and import a known-good RKT4 v2 BIN; the importer preserves original bytes.",
   "bin_import"));
+ rows.push(developmentSerialAccessCheck({supported:!!navigator.serial,state:serialPermissionState,message:serialPermissionMessage}));
  rows.push(...developmentReceiverChecks(lastPacket,lastKnown,{portConnected:!!serialPort,now}));
  rows.push(developmentFirmwareDiagnostic(connected&&now-lastStatusAt<=5000?currentStatus:null,{requested:devFirmwareRequested}));
  rows.push(devCheck("Receiver malformed/stale/disconnect behavior","NOT TESTED","Manually observe an invalid/stale packet and unplug/reconnect the physical Uno; record the UI result.","receiver_manual"));
