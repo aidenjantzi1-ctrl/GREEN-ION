@@ -184,6 +184,16 @@ export function developmentSerialAccessCheck({supported=true,state="unknown",mes
 
 export function safeDevelopmentReport(rows,{timestamp=new Date().toISOString(),previewVersion="V18 offline",gitSha=""}={}){
  const safeText=value=>String(value??"").replace(/[^a-zA-Z0-9 ._/+():-]/g,"").slice(0,120);
+ const reportLabels={
+  bridge:"Windows bridge / Feather status",sd:"microSD reported ready",imu:"IMU reported ready",
+  barometer:"Barometer reported ready",battery:"Battery measurement",calibration:"Stationary calibration evidence",
+  offline_cache:"Local offline cache registration",bin_import:"Manual original BIN import + analysis",
+  serial_access:"Web Serial permission",receiver:"Uno receiver valid fresh packet",receiver_gps:"Receiver GPS freshness",
+  firmware_diag:"Firmware IMU + GPS diagnostic",receiver_manual:"Receiver malformed/stale/disconnect behavior",
+  offline_reload:"Actual offline restart",sd_physical:"Physical SD write/read/verify/temp-delete",
+  sensor_accuracy:"Barometer/IMU physical accuracy",rf_physical:"GPS/LoRa RF + recovery timing/wake",
+  multi_flight:"Two distinct saved hardware flights"
+ };
  const report=[
   "GREEN ION V18 PRIVATE TEST RESULTS",
   "Timestamp: "+safeText(timestamp),
@@ -193,7 +203,8 @@ export function safeDevelopmentReport(rows,{timestamp=new Date().toISOString(),p
  ];
  for(const row of Array.isArray(rows)?rows:[]){
   const state=DEVTEST_RESULTS.includes(row?.state)?row.state:"NOT TESTED";
-  report.push(safeText(row?.label||"Unknown check")+" | "+state+" | "+safeText(row?.id||"unknown"));
+  const id=String(row?.id||"unknown").replace(/[^a-zA-Z0-9_-]/g,"").slice(0,40)||"unknown";
+  report.push((reportLabels[id]||"Unknown check")+" | "+state+" | "+id);
  }
  return report.join("\n");
 }
