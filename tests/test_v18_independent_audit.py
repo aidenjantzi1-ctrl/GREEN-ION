@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import base64
+from contextlib import redirect_stdout
 import hashlib
+from io import StringIO
 import json
 import os
 from pathlib import Path
@@ -12,11 +14,12 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT / "tests/fixtures"))
-from v18_rkt4_audit import audit_bytes
+from v18_rkt4_audit import audit_bytes, main
 from v18_rkt4_synthetic import cases, completion_text, make_log
 
 AUDIT = ROOT / "tools/v18_rkt4_audit.py"
@@ -95,6 +98,34 @@ class IndependentAuditTests(unittest.TestCase):
                     self.assertEqual(payload["summary"]["total"], 0)
                     self.assertEqual(payload["errors"], ["no_bin_files"])
                     self.assertNotIn(str(path), result.stdout + result.stderr)
+
+    def test_summary_mixed_valid_and_missing_inputs_is_not_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "V12D001.BIN"
+            data = make_log()
+            path.write_bytes(data)
+            path.with_suffix(".TXT").write_text(completion_text(data), encoding="ascii")
+            run = run_cli("--summary", path, root / "missing")
+            self.assertEqual(run.returncode, 2)
+            payload = json.loads(run.stdout)
+            self.assertEqual(payload["summary"]["total"], 1)
+            self.assertEqual(payload["errors"], ["no_bin_files"])
+            self.assertEqual(payload["files"][0]["status"], "structurally_complete")
+
+    def test_read_error_is_unverified_with_nonzero_exit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "V12D001.BIN"
+            path.write_bytes(make_log())
+            output = StringIO()
+            with patch.object(sys, "argv", [str(AUDIT), "--summary", str(path)]), \
+                 patch("v18_rkt4_audit.audit_file", side_effect=OSError("private path")), \
+                 redirect_stdout(output):
+                self.assertEqual(main(), 1)
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["files"][0]["status"], "unverified")
+            self.assertEqual(payload["files"][0]["issues"], ["read_error"])
+            self.assertNotIn("private path", output.getvalue())
 
     def test_read_only_file_is_not_mutated(self):
         with tempfile.TemporaryDirectory() as directory:
