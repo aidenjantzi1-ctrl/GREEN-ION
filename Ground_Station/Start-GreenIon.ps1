@@ -53,7 +53,11 @@ if ($LASTEXITCODE -ne 0) {
   exit 1
 }
 
-$WifiOnly = $false
+$V18Preview = $GroundStationArgs -contains "--v18-offline"
+# V18 Recovery owns the Uno via Chrome/Edge Web Serial, not pyserial.
+# No pyserial download is needed to start the offline browser preview.
+$WifiOnly = $V18Preview
+if (-not $V18Preview) {
 & $PythonExe @PythonPrefix -c "import serial, serial.tools.list_ports" 2>$null
 if ($LASTEXITCODE -ne 0) {
   Write-Host "[SETUP] Installing the pinned USB serial dependency (pyserial 3.5)..."
@@ -65,10 +69,12 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "       Uno/LoRa USB support will become available after pyserial can be installed."
   }
 }
+}
 
 Write-Host ""
 Write-Host "GREEN ION V17.0 Windows Ground Station $($Version.version)"
 Write-Host "Data directory: $env:GREEN_ION_DATA_DIR"
+if ($V18Preview) { Write-Host "V18 PREVIEW: Windows Chrome/Edge owns the Uno USB port through Web Serial (no Python serial ownership)." }
 Write-Host ""
 Write-Host "Simple setup:"
 Write-Host "  1. Leave this window open; the blue dashboard opens automatically."

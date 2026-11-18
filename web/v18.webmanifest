@@ -1,0 +1,11 @@
+{
+  "name": "GREEN ION V18 Offline",
+  "short_name": "GREEN ION",
+  "description": "Local-only GREEN ION flight, recovery and RKT4 analysis app for Windows Chrome/Edge",
+  "start_url": "./v18-offline.html#flight",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#081420",
+  "theme_color": "#081420",
+  "icons": [{"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}

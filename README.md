@@ -1,6 +1,8 @@
 # GREEN ION V17.0 — Rocket Flight Recorder
 
-> **CURRENT SOFTWARE VERSION: GREEN ION V17.0 (`17.0.1`)**
+> **V18 development (not released):** [Requirements](docs/V18/REQUIREMENTS.md) · [ROCstock lessons](docs/V18/ROCSTOCK_LESSONS.md) · [Decisions/contracts](docs/V18/DECISIONS.md) · [Integration status](docs/V18/INTEGRATION_STATUS.md) · [Pre-RC readiness](docs/V18/RC_READINESS.md) · [Branch preservation audit](docs/V18/BRANCH_AUDIT.md). The V18 offline frontend is staged on `worker/v18-integration` for testing; existing V17.0.1 remains stable and hardware acceptance is still required. No V18 release or approved flight qualification exists.\n\n> **CURRENT SOFTWARE VERSION: GREEN ION V17.0 (`17.0.1`)**
+> **V18 preview on Windows (integration branch only):** Run `Ground_Station/START_V18_PREVIEW.cmd`, then open `http://127.0.0.1:8765/v18-offline.html#flight` if your browser does not open automatically. This uses the same local Windows server but shows the experimental four-tab V18 app. It does not flash firmware or change the stable V17 launcher default. Use Chrome or Edge for Web Serial, and do not treat preview status as flight authorization.
+
 >
 > **SD-FIRST FLIGHT READINESS:** V17.0.1 adds firmware-owned one-press preparation. microSD/RKT4 recording is authoritative; missing GPS or LoRa is a warning, not a recording blocker.
 >
