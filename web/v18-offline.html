@@ -146,6 +146,8 @@ canvas{width:100%;height:auto;background:#0b1c2b;border-radius:12px;border:1px s
 <button id="runDevTests" class="primary">RUN SAFE LOCAL CHECKS</button>
 <button id="runFirmwareDiagnostic" data-lock-during-flight class="secondary">RUN FIRMWARE IMU + GPS DIAGNOSTIC</button>
 </div>
+<button id="copyDevResults" class="secondary" type="button" disabled>COPY PRIVATE TEST RESULTS</button>
+<p id="devCopyStatus" class="muted" role="status">No report generated yet. Reports stay on this computer.</p>
 <p id="devTestSummary" class="muted" role="status" aria-live="polite">Select RUN SAFE LOCAL CHECKS to inspect currently available evidence.</p>
 <p id="devFirmwareStatus" class="muted">Optional explicit bench action. Uses the existing <code>/api/hardware-test</code> IMU+GPS diagnostic only; it does not arm, start recording, transmit LoRa, or delete flight files.</p>
 <div style="overflow:auto"><table><thead><tr><th>Check</th><th>Result</th><th>Next action / evidence</th></tr></thead><tbody id="devTestRows"></tbody></table></div>
