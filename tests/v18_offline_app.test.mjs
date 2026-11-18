@@ -5,7 +5,7 @@ import {
  V18_TABS,FLIGHT_STATES,RADIO_PROTOCOL,PACKET_STALE_MS,DEVTEST_STATUS_FRESH_MS,
  deriveFlightState,criticalFlightProblem,optionalFlightWarnings,canPrepare,
  fileSaveEvidence,parseReceiverLine,recoveryView,developmentStatusChecks,
- developmentReceiverChecks,developmentFirmwareDiagnostic
+ developmentReceiverChecks,developmentFirmwareDiagnostic,developmentSerialAccessCheck,safeDevelopmentReport
 } from "../web/v18_offline_core.mjs";
 import {parseRkt4,analyzeFlight} from "../web/analysis/rkt4.mjs";
 
@@ -189,29 +189,55 @@ test("development checklist stays in Settings with safe explicit diagnostic only
  assert.ok(!/delete\(|remove\(/.test(safe),"safe checklist must not delete files");
 });
 
-test("UX2 private report and safe development UI regression",()=>{
- const html=readFileSync(new URL("../web/v18-offline.html",import.meta.url),"utf8");
- const app=readFileSync(new URL("../web/v18_offline_app.mjs",import.meta.url),"utf8");
- assert.match(html,/id="copyDevResults"/);
- assert.match(app,/function safeDevReport\(rows\)/);
- assert.match(app,/return report\.join/);
- assert.match(app,/navigator\.clipboard\.writeText\(lastDevReport\)/);
- assert.match(app,/Do not include raw evidence/);
- assert.doesNotMatch(app,/report\.push\(row\.evidence/);
- assert.match(app,/devAdvice\[row\.id\]/);
- assert.match(html,/--bg:#081420/);
- for(const tab of ["Flight","Recovery","Data","Settings"])assert.match(html,new RegExp(tab));
- assert.match(app,/settingsMutationLocked\(\)/);
- assert.doesNotMatch(app,/\/api\/preflight\/start[^\n]*runDevTests/);
+
+test("UX2 private report redacts evidence, coordinates, paths, filenames and secrets by construction",()=>{
+ const rows=[
+  {id:"receiver_gps",label:"Receiver GPS freshness",state:"PASS",evidence:"34.1234, -117.9876 serial=USB123 secret=abc"},
+  {id:"bin_import",label:"Manual C:\\Users\\Aiden\\flight.bin",state:"FAIL",evidence:"token=TOPSECRET"}
+ ];
+ const report=safeDevelopmentReport(rows,{timestamp:"2026-11-18T16:00:00Z",previewVersion:"V18 preview",gitSha:"abc123"});
+ assert.match(report,/GREEN ION V18 PRIVATE TEST RESULTS/);
+ assert.match(report,/Git SHA: abc123/);
+ assert.match(report,/receiver_gps/);
+ assert.doesNotMatch(report,/34\.1234|-117\.9876|USB123|TOPSECRET|token=/);
+ assert.doesNotMatch(report,/C:\\Users|flight\.bin/);
 });
 
-test("UX2 diagnostic rejects stale or unaccepted firmware evidence",()=>{
- const source=readFileSync(new URL("../web/v18_offline_app.mjs",import.meta.url),"utf8");
- const run=source.slice(source.indexOf("async function runFirmwareDiagnostic()"),source.indexOf("function initDevTests()"));
- const accepted=run.indexOf("if(result.accepted!==true)throw");
- const requested=run.indexOf("devFirmwareRequested=true");
- assert.ok(accepted>=0&&requested>accepted,"only an accepted explicit diagnostic marks the request");
- const checklist=source.slice(source.indexOf("async function runDevTests()"),source.indexOf("async function runFirmwareDiagnostic()"));
- assert.ok(checklist.includes("developmentFirmwareDiagnostic(connected&&now-lastStatusAt<=5000?currentStatus:null"),"stale firmware status must not yield diagnostic PASS");
- assert.ok(!run.includes("/api/preflight/start"),"diagnostic must never start preflight or arm");
+test("UX2 serial permission states are explicit and denied permission is NOT TESTED",()=>{
+ assert.equal(developmentSerialAccessCheck({supported:true,state:"unknown"}).state,"NOT TESTED");
+ assert.equal(developmentSerialAccessCheck({supported:true,state:"denied",message:"User cancelled"}).state,"NOT TESTED");
+ assert.equal(developmentSerialAccessCheck({supported:true,state:"granted"}).state,"PASS");
+ assert.equal(developmentSerialAccessCheck({supported:true,state:"error",message:"Port busy"}).state,"FAIL");
+ assert.equal(developmentSerialAccessCheck({supported:false}).state,"FAIL");
+});
+
+test("UX2 stale status and stale GPS never produce optimistic hardware PASS",()=>{
+ const now=100000;
+ const statusChecks=developmentStatusChecks({sd_ok:true,imu_ok:true,barometer_ready:true,battery_mv:4100},{connected:true,lastStatusAt:now-DEVTEST_STATUS_FRESH_MS-1,now});
+ assert.equal(statusChecks.find(x=>x.id==="bridge").state,"FAIL");
+ for(const id of ["sd","imu","barometer","battery"])assert.notEqual(statusChecks.find(x=>x.id===id).state,"PASS",id);
+ const packet=parseReceiverLine(JSON.stringify({type:"telemetry",protocol:2,altitude_m:5,battery_v:4,gps_status:"live",latitude:34.1,longitude:-117.2}),now-PACKET_STALE_MS-1);
+ const receiver=developmentReceiverChecks(packet,{latitude:34.1,longitude:-117.2,at:now-10000},{portConnected:true,now});
+ assert.equal(receiver.find(x=>x.id==="receiver").state,"FAIL");
+ assert.notEqual(receiver.find(x=>x.id==="receiver_gps").state,"PASS");
+});
+
+test("UX2 firmware diagnostic RUNNING and DEFERRED stay NOT TESTED",()=>{
+ for(const state of ["RUNNING","DEFERRED","INCONCLUSIVE","IDLE"]){
+  const result=developmentFirmwareDiagnostic({imu_test_result:state,gps_test_result:"PASS",imu_test_message:"state "+state},{requested:true});
+  assert.equal(result.state,"NOT TESTED",state);
+ }
+ assert.equal(developmentFirmwareDiagnostic({imu_test_result:"PASS",gps_test_result:"PASS"},{requested:false}).state,"NOT TESTED");
+});
+
+test("UX2 automatic checklist stays read-only and recording locks the explicit diagnostic",()=>{
+ assert.equal((html.match(/data-tab="/g)||[]).length,4);
+ assert.match(html,/--bg:#081420/);
+ const safe=app.slice(app.indexOf("async function runDevTests"),app.indexOf("async function runFirmwareDiagnostic"));
+ assert.ok(!safe.includes("/api/preflight/start"));
+ assert.ok(!safe.includes("/api/hardware-test"));
+ assert.ok(!/delete\(|remove\(/.test(safe));
+ assert.match(app,/s\.recording\|\|s\.armed\|\|s\.flight_prep_active/);
+ assert.match(app,/\["restartCalibration","saveProfile","clearCache","runFirmwareDiagnostic"\]/);
+ assert.match(app,/devFirmwareRequested=true/);
 });

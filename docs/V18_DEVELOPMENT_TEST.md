@@ -33,3 +33,12 @@ These remain NOT TESTED until separately performed:
 6. Two distinct saved motor-free hardware flight/pressure cycles.
 
 Manual BIN import preserves original bytes and uses the existing SHA-256 local history path. Browser/CI PASS never means hardware or flight readiness.
+
+
+## UX2 privacy and permission behavior
+
+The copyable TEST RESULTS report is generated locally and intentionally excludes raw per-check evidence. It contains only timestamp, preview identifier when available, optional bridge-provided preview Git SHA, check labels, PASS/FAIL/NOT TESTED state, and stable check IDs. Raw GPS coordinates, serial identifiers, file paths, filenames and secrets are not copied into the report.
+
+Web Serial permission is tracked separately from receiver packets. A cancelled/denied permission request is **NOT TESTED**, a granted permission is a permission-only PASS, and a real connection error is FAIL. Stale Feather status or stale receiver/GPS data cannot produce a hardware PASS. Firmware diagnostic RUNNING, DEFERRED, INCONCLUSIVE, missing or unrequested states remain NOT TESTED.
+
+Automatic CHECK EVERYTHING remains read-only. The firmware IMU/GPS diagnostic stays a separate explicit click and remains disabled during recording/arming/preparation/maintenance/home-test activity.

@@ -171,3 +171,29 @@ export function developmentFirmwareDiagnostic(status,{requested=false}={}){
  return devResult("firmware_diag","Firmware IMU + GPS diagnostic","NOT TESTED",detail,
   imu==="RUNNING"||gps==="RUNNING"?"Keep the Feather stationary and let the firmware finish.":"Repeat on a stationary bench; GPS may need an outdoor fix.");
 }
+
+
+export function developmentSerialAccessCheck({supported=true,state="unknown",message=""}={}){
+ const clean=String(message||"").slice(0,160);
+ if(!supported)return devResult("serial_access","Web Serial permission","FAIL","Web Serial is unavailable in this browser/context.","Use current Chrome or Edge on Windows from the local app.");
+ if(state==="granted")return devResult("serial_access","Web Serial permission","PASS","The user granted serial access in this browser session.","This proves permission only; receiver packet validation is a separate check.");
+ if(state==="denied")return devResult("serial_access","Web Serial permission","NOT TESTED","Serial permission was denied or cancelled"+(clean?": "+clean:"."),"Choose Recovery → CONNECT RECEIVER and explicitly select the Arduino Uno when ready.");
+ if(state==="error")return devResult("serial_access","Web Serial permission","FAIL","Serial permission/connection failed"+(clean?": "+clean:"."),"Check the USB cable, close other apps using the COM port, then retry.");
+ return devResult("serial_access","Web Serial permission","NOT TESTED","No serial permission attempt has been completed in this browser session.","Recovery → CONNECT RECEIVER when the physical Uno is available.");
+}
+
+export function safeDevelopmentReport(rows,{timestamp=new Date().toISOString(),previewVersion="V18 offline",gitSha=""}={}){
+ const safeText=value=>String(value??"").replace(/[^a-zA-Z0-9 ._/+():-]/g,"").slice(0,120);
+ const report=[
+  "GREEN ION V18 PRIVATE TEST RESULTS",
+  "Timestamp: "+safeText(timestamp),
+  "Preview: "+safeText(previewVersion||"V18 offline"),
+  "Git SHA: "+(gitSha?safeText(gitSha):"unavailable from current bridge"),
+  "Software checks do not certify hardware"
+ ];
+ for(const row of Array.isArray(rows)?rows:[]){
+  const state=DEVTEST_RESULTS.includes(row?.state)?row.state:"NOT TESTED";
+  report.push(safeText(row?.label||"Unknown check")+" | "+state+" | "+safeText(row?.id||"unknown"));
+ }
+ return report.join("\n");
+}
