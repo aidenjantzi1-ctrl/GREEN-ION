@@ -218,14 +218,18 @@ class V18FirmwareReliability(unittest.TestCase):
 
     def test_recovery_runtime_is_status_only_until_hardware_evidence(self):
         for token in (
-            '"recovery_policy_state"',
-            '"recovery_tx_due"',
-            '"recovery_tx_block"',
-            '"recovery_runtime_tx_enabled\\":false',
-            '"recovery_deep_sleep_enabled\\":false',
-            '"recovery_wake_hardware_verified\\":false',
+            "recovery_policy_state",
+            "recovery_tx_due",
+            "recovery_tx_block",
+            "recovery_runtime_tx_enabled",
+            "recovery_deep_sleep_enabled",
+            "recovery_wake_hardware_verified",
         ):
             self.assertIn(token, FW)
+        self.assertIn('body += recoveryDecision.txDue ? "true" : "false";', FW)
+        self.assertIn('body += ",\\\"recovery_runtime_tx_enabled\\\":false";', FW)
+        self.assertIn('body += ",\\\"recovery_deep_sleep_enabled\\\":false";', FW)
+        self.assertIn('body += ",\\\"recovery_wake_hardware_verified\\\":false";', FW)
         self.assertNotIn("recoveryDecision.txDue && radio.send", FW)
         self.assertIn("RECOVERY_ACTIVE_WINDOW_MS = 300000UL", CFG)
         self.assertIn("RECOVERY_HIBERNATE_INTERVAL_MS = 180000UL", CFG)
