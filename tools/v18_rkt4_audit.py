@@ -136,6 +136,8 @@ def audit_file(path: Path) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--summary", action="store_true",
+                        help="emit a versioned JSON object with status counts and files")
     parser.add_argument("paths", nargs="+", type=Path,
                         help="RKT4 BIN files or directories containing them")
     args = parser.parse_args()
@@ -151,12 +153,28 @@ def main() -> int:
         if not found:
             unmatched.append(str(item))
         files.update(found)
-    if unmatched:
-        print("No RKT4 .BIN files found in: " + ", ".join(unmatched), file=sys.stderr)
-        return 2
     files = sorted(files)
-    reports = [audit_file(p) for p in files]
-    print(json.dumps(reports, indent=2))
+    reports = []
+    for path in files:
+        try:
+            reports.append(audit_file(path))
+        except OSError:
+            reports.append({"file": path.name, "status": "unverified",
+                            "issues": ["read_error"], "warnings": []})
+    if args.summary:
+        counts = {status: sum(r["status"] == status for r in reports)
+                  for status in ("structurally_complete", "incomplete", "invalid", "unverified")}
+        print(json.dumps({"schema": "green-ion-rkt4-audit-1",
+                          "summary": {"total": len(reports), **counts},
+                          "files": reports,
+                          "errors": ["no_bin_files"] if unmatched else []}, indent=2))
+    else:
+        if reports:
+            print(json.dumps(reports, indent=2))
+        if unmatched:
+            print("No RKT4 .BIN files found in one or more input paths", file=sys.stderr)
+    if unmatched:
+        return 2
     return 1 if any(r["status"] != "structurally_complete" for r in reports) else 0
 
 
