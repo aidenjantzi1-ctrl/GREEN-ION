@@ -198,6 +198,38 @@ class V18FirmwareReliability(unittest.TestCase):
         self.assertIn("Never deletes or rewrites V12D###", DEVCONTRACT)
         self.assertIn("software evidence only", DEVCONTRACT.lower())
 
+    def test_recovery_policy_starts_only_after_verified_save_and_journal_cleanup(self):
+        finalize=FW[FW.index("static bool finalizeRecording"):
+                    FW.index("static bool openRawLog")]
+        self.assertLess(finalize.index("verifyCompletedFlightPackage"),
+                        finalize.index("SD.exists(checkpointFilenameA)"))
+        self.assertLess(finalize.index("SD.exists(checkpointFilenameB)"),
+                        finalize.index("recoveryPolicy.beginVerifiedSave(nowMs)"))
+        self.assertLess(finalize.index("recoveryPolicy.beginVerifiedSave(nowMs)"),
+                        finalize.index("requestPostFlightWifiRestore()"))
+
+    def test_new_flight_resets_prior_recovery_state_only_after_recorder_start(self):
+        open_log=FW[FW.index("static bool openRawLog"):
+                    FW.index("static void startManualFlightRecording")]
+        self.assertLess(open_log.index("recorderCore.start"),
+                        open_log.index("recoveryPolicy.reset()"))
+        self.assertLess(open_log.index("state.recording = true"),
+                        open_log.index("recoveryPolicy.reset()"))
+
+    def test_recovery_runtime_is_status_only_until_hardware_evidence(self):
+        for token in (
+            '"recovery_policy_state"',
+            '"recovery_tx_due"',
+            '"recovery_tx_block"',
+            '"recovery_runtime_tx_enabled\\":false',
+            '"recovery_deep_sleep_enabled\\":false',
+            '"recovery_wake_hardware_verified\\":false',
+        ):
+            self.assertIn(token, FW)
+        self.assertNotIn("recoveryDecision.txDue && radio.send", FW)
+        self.assertIn("RECOVERY_ACTIVE_WINDOW_MS = 300000UL", CFG)
+        self.assertIn("RECOVERY_HIBERNATE_INTERVAL_MS = 180000UL", CFG)
+
     def test_primary_formats_and_optional_link_contract_are_unchanged(self):
         self.assertIn("kProtocolVersion = 2", PROTO)
         self.assertIn("sizeof(TelemetryPacket) == 70", PROTO)

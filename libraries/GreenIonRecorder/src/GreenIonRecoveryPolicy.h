@@ -168,5 +168,31 @@ class Policy {
   uint32_t lastSuccessfulTxMs_;
 };
 
+inline const char *stateName(State state) {
+  switch (state) {
+    case State::ACTIVE_RECOVERY: return "ACTIVE_RECOVERY";
+    case State::HIBERNATING: return "HIBERNATING";
+    case State::WIFI_CONNECTED: return "WIFI_CONNECTED";
+    case State::BATTERY_BLOCKED: return "BATTERY_BLOCKED";
+    default: return "LOCKED";
+  }
+}
+
+inline const char *blockName(TxBlock block) {
+  switch (block) {
+    case TxBlock::SAVE_NOT_VERIFIED: return "SAVE_NOT_VERIFIED";
+    case TxBlock::JOURNALS_NOT_CLEAR: return "JOURNALS_NOT_CLEAR";
+    case TxBlock::WIFI_CONNECTED: return "WIFI_CONNECTED";
+    case TxBlock::BATTERY_UNKNOWN: return "BATTERY_UNKNOWN";
+    case TxBlock::BATTERY_LOW: return "BATTERY_LOW";
+    case TxBlock::RADIO_UNAVAILABLE: return "RADIO_UNAVAILABLE";
+    case TxBlock::TX_NOT_AUTHORIZED: return "TX_NOT_AUTHORIZED";
+    case TxBlock::POSITION_MISSING: return "POSITION_MISSING";
+    case TxBlock::POSITION_STALE: return "POSITION_STALE";
+    case TxBlock::INTERVAL_NOT_DUE: return "INTERVAL_NOT_DUE";
+    default: return "NONE";
+  }
+}
+
 }  // namespace recovery_policy
 }  // namespace green_ion

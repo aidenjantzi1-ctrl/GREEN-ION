@@ -43,6 +43,7 @@
 #include <GreenIonWifiPolicy.h>
 #include <GreenIonFlightReadiness.h>
 #include <GreenIonSaveVerification.h>
+#include <GreenIonRecoveryPolicy.h>
 
 #include "Config.h"
 #include "SensorState.h"
@@ -320,6 +321,16 @@ uint32_t recoveryPending = 0;
 String recoveryStatus = "Not scanned";
 uint16_t healthBits = 0;
 green_ion::FlightState flightState = green_ion::STATE_IDLE;
+
+// V18 recovery scheduling is currently evidence/simulation only. It never
+// transmits by itself and never changes radio frequency, power, or packet data.
+green_ion::recovery_policy::Policy recoveryPolicy({
+  config::RECOVERY_ACTIVE_WINDOW_MS,
+  config::RECOVERY_ACTIVE_INTERVAL_MS,
+  config::RECOVERY_HIBERNATE_INTERVAL_MS,
+  config::RECOVERY_POSITION_MAX_AGE_MS,
+  config::RECOVERY_MIN_BATTERY_MV,
+});
 
 #include "FlightPreparation.h"
 
@@ -1672,6 +1683,9 @@ static bool finalizeRecording(uint32_t nowMs) {
   landingWatcher.cancel();
   recorderMode = RECORDER_COMPLETE;
   flightState = green_ion::STATE_LANDED;
+  // Recovery scheduling starts only after authoritative save verification and
+  // successful recovery-journal cleanup. This does not itself transmit.
+  recoveryPolicy.beginVerifiedSave(nowMs);
   requestPostFlightWifiRestore();
   return true;
 }
@@ -1737,6 +1751,9 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs) {
     return false;
   }
   state.recording = true;
+  // A new authoritative flight must never inherit recovery timing/evidence
+  // from a previous flight. Reset only after RecorderCore actually started.
+  recoveryPolicy.reset();
   lastCheckpointMs = nowMs;
   saveCheckpoint(nowMs);  // RecorderCore::start already flushed header and prebuffer.
   writeStartMetadata();    // Metadata failure never stops the primary BIN recorder.
@@ -2031,14 +2048,27 @@ static green_ion::preflight::Result currentPreflight() {
 }
 
 static void sendDashboardStatus() {
-  const uint32_t age = gpsAgeMs(millis());
+  const uint32_t statusNowMs = millis();
+  const uint32_t age = gpsAgeMs(statusNowMs);
+  const auto recoveryDecision = recoveryPolicy.evaluate({
+    statusNowMs,
+    recoveryPolicy.started(),
+    recoveryPolicy.started(),
+    WiFi.status() == WL_CONNECTED,
+    state.lastBatteryReadMs != 0,
+    state.batteryMv,
+    state.radioOk,
+    radioTransmitAuthorized,
+    state.gpsHasPosition,
+    age,
+  });
   const auto &spiEvidence = sharedSpi.evidence();
   if (spiEvidence.ownershipErrors)
     healthBits |= green_ion::HEALTH_SHARED_SPI_OWNERSHIP_ERROR;
   if (radioTxTimeouts)
     healthBits |= green_ion::HEALTH_RADIO_TX_TIMEOUT;
   const char *gpsStatus = !state.gpsHasPosition ? "missing" :
-                          (gpsPositionCurrent(millis()) ? "live" : "stale");
+                          (gpsPositionCurrent(statusNowMs) ? "live" : "stale");
   const float radiansToDegrees = 180.0f / PI;
   const auto numberOrNull = [](float value, uint8_t decimals) {
     return isfinite(value) ? String(value, static_cast<unsigned int>(decimals)) : String("null");
@@ -2065,6 +2095,18 @@ static void sendDashboardStatus() {
   body += state.radioOk ? "true" : "false";
   body += ",\"radio_tx_authorized\":";
   body += radioTransmitAuthorized ? "true" : "false";
+  body += ",\"recovery_policy_state\":\"" +
+      String(green_ion::recovery_policy::stateName(recoveryDecision.state)) + "\"";
+  body += ",\"recovery_tx_due\":";
+  body += recoveryDecision.txDue ? "true" : "false";
+  body += ",\"recovery_tx_block\":\"" +
+      String(green_ion::recovery_policy::blockName(recoveryDecision.block)) + "\"";
+  body += ",\"recovery_elapsed_since_save_ms\":" +
+      String(recoveryDecision.elapsedSinceSaveMs);
+  body += ",\"recovery_next_due_ms\":" + String(recoveryDecision.nextDueInMs);
+  body += ",\"recovery_runtime_tx_enabled\":false";
+  body += ",\"recovery_deep_sleep_enabled\":false";
+  body += ",\"recovery_wake_hardware_verified\":false";
   body += ",\"armed\":";
   body += recorderMode == RECORDER_WATCHING &&
           flightWatcher.state() == green_ion::flight::WATCHING ? "true" : "false";
