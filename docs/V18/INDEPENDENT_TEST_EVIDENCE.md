@@ -8,6 +8,7 @@ Status: software-only, synthetic validation. This report does not authorize a fl
 | --- | --- | --- |
 | Frozen `main` | `17f517f275be7b52e3e71a1f2d656edbc65a08ea` | V17.0.1 RKT4 and parser baseline |
 | Integration PR #60 | `96291b0661fe6df25df52cdd4b7998a03911c071` | Preview launcher, bridge, packaging, combined contracts |
+| Integration PR #60 refreshed | `38c5b17212928d3761c4ca6e31e15e38ab5de8f3` | Exact-head offline probe retest after GPS/battery fixes |
 | Secondary PR #58 | `5f14c2656eba4f9802cb64969e2765b716161716` | V18 four-tab app, offline helpers, Web Serial |
 | Primary firmware branch | `ca1df3683155430210c2c99cb84cc37504d77631` from a fresh Git fetch | Feather source and firmware diagnostics; PR #63 metadata may lag moving branch |
 | Audit PR #62 before this package | `e08412cd8ed32a1c179ad12ca53ac108185ccbda` | Read-only RKT4 audit |
@@ -63,4 +64,8 @@ The browser RKT4 parser decodes complete records and warns on unexpected sample 
 - `web/v18_offline_core.mjs:7,128`: `Number(null)` becomes zero, so a null battery reading becomes a false 0 V FAIL rather than NOT TESTED.
 - `web/v18_offline_core.mjs:7,26-28`: a single null latitude or longitude becomes zero and may be labeled LIVE when the other coordinate is present. The offline probe reported **8 PASS / 3 FAIL** across all three cases at the exact Integration SHA. Reproduction and requested Secondary fix: PR #58 comment [null evidence](https://github.com/aidenjantzi1-ctrl/GREEN-ION/pull/58#issuecomment-6984630983).
 
-These findings are software helper behavior on synthetic inputs. They do not imply that any physical flight file was corrupted or that real GPS hardware produced those values. Integration should retain DEV-TEST BLOCKED for the affected save/GPS/battery evidence until the Secondary branch fixes and the combined exact-head tests pass.
+These findings are software helper behavior on synthetic inputs at the historical SHA. They do not imply that any physical flight file was corrupted or that real GPS hardware produced those values. The refreshed result below supersedes the GPS/battery status here.
+
+## Refreshed integration probe at `38c5b17`
+
+The exact same offline probe reported **10 PASS / 1 FAIL**. `unknown_battery_not_tested` and `receiver_missing_coordinate` now PASS after integration changes. `save_metadata_binding` still FAIL: an incomplete `OTHER.BIN` TXT response authorizes SAVED for `V12D001.BIN`. This is an unresolved software evidence defect despite the successful existing combined workflow at that SHA. Integrate the new probe as a gate only after the Secondary-owned save verification is corrected and the gate passes on the combined head. Physical flight readiness remains NOT TESTED.
