@@ -72,6 +72,13 @@ jobs:
           print("V18 development preview ZIP structure and hash: PASS")
           '@ | python -
           if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Extract V18 ZIP and smoke the contained local bridge (software only)
+        shell: pwsh
+        env:
+          PYTHONUTF8: '1'
+        run: |
+          python tools/smoke_v18_dev_preview.py --zip v18-preview/GREEN_ION_V18_DEV_TEST_PREVIEW.zip --sha256 v18-preview/GREEN_ION_V18_DEV_TEST_PREVIEW.sha256 --commit "${{ github.sha }}"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
       - uses: actions/upload-artifact@v4
         with:
           name: GREEN_ION_V18_DEV_TEST_PREVIEW
