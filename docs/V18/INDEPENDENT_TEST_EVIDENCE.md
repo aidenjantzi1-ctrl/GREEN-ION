@@ -69,3 +69,17 @@ These findings are software helper behavior on synthetic inputs at the historica
 ## Refreshed integration probe at `38c5b17`
 
 The exact same offline probe reported **10 PASS / 1 FAIL**. `unknown_battery_not_tested` and `receiver_missing_coordinate` now PASS after integration changes. `save_metadata_binding` still FAIL: an incomplete `OTHER.BIN` TXT response authorizes SAVED for `V12D001.BIN`. This is an unresolved software evidence defect despite the successful existing combined workflow at that SHA. Integrate the new probe as a gate only after the Secondary-owned save verification is corrected and the gate passes on the combined head. Physical flight readiness remains NOT TESTED.
+
+## 2026-11-21 expanded completion gate
+
+The expanded probe exercises the actual `verifySave()` body against a reviewed V18 source checkout with local in-memory response doubles. It makes no HTTP request and cannot arm, record, transmit, or alter a BIN. A valid `GREEN-ION-COMPLETION-1` sidecar for the selected 80-byte, three-record synthetic BIN and a second independently named flight must authorize SAVED. Wrong-flight, blank, missing-marker, incomplete, partial, mismatched byte/record count, zero-record and contradictory metadata must keep SAVED and FLY AGAIN closed. Metadata API failure and delayed responses after a new flight or disconnection also must stay closed. The synthetic metadata is structural evidence only; RKT4 v2 has no per-record checksum.
+
+On Integration SHA `38c5b17212928d3761c4ca6e31e15e38ab5de8f3`, the expanded probe returned **13 PASS / 11 FAIL**, exit 1. Both valid completions passed. The 11 failures are the invalid metadata and delayed response cases listed above; the metadata API error correctly failed closed. This is an expected red acceptance gate until the Secondary-owned runtime fix is reviewed. The previous 10 PASS / 1 FAIL result above used the narrower probe and is retained as historical evidence.
+
+For an explicit CI gate on a checkout that contains both the independent tools and reviewed V18 app source:
+
+```powershell
+node --test tools/v18_contract_gate.test.mjs
+```
+
+For a separate reviewed Integration checkout, set `$env:V18_SOURCE_ROOT` to its resolved directory before that command in PowerShell, or use `V18_SOURCE_ROOT=/path/to/integration node --test tools/v18_contract_gate.test.mjs` in a POSIX shell. The gate fails if V18 source is absent, a required scenario is missing or NOT TESTED, or any probe result fails. On the audit-only worker branch, that explicit gate must fail with a missing-core message unless `V18_SOURCE_ROOT` points to a real Integration checkout. The ordinary worker Node suite still reports the absent UI as NOT TESTED. Integration Manager owns CI workflow adoption after the Secondary fix passes; do not substitute an old combined green run for this gate.

@@ -71,30 +71,77 @@ check("flight_identity_and_completion",
  "Distinct flight names and incomplete file-list entries do not cross-authorize SAVED.",
  "A mismatched or incomplete file-list entry authorizes save evidence.");
 
-// Exercise the app's actual save-verification body with local response doubles.
-// No fetch, browser permission, serial port, or firmware endpoint is opened.
+// Execute the app's actual save-verification body with local response doubles.
+// The only accepted positive is matching structural completion evidence; this
+// does not certify unchecksummed sensor record contents.
 if(!existsSync(appPath))add("save_metadata_binding","NOT TESTED","V18 app source is absent.");
 else{
  const app=readFileSync(appPath,"utf8");
  const start=app.indexOf("async function verifySave()");
  const end=start<0?-1:app.indexOf("async function pollFlight()",start);
  const functionSource=end>start?app.slice(start,end).trim():null;
- if(!functionSource)add("save_metadata_binding","NOT TESTED","Save-verification function could not be isolated from the reviewed app source.");
+ if(!functionSource)add("save_metadata_binding","FAIL","Save-verification function could not be isolated from the reviewed app source.");
  else{
-  const name="V12D001.BIN";
-  const context=createContext({
-   currentStatus:{log_file:name,recording:false,armed:false,flight_prep_active:false},
-   lastLogFile:name,lastFiles:null,saveVerified:false,lastSaved:null,
-   json:async()=>({files:[{name,size:80,recording_complete:true}]}),
-   api:async()=>({text:async()=>"file=OTHER.BIN\nstatus=INCOMPLETE\nfile_bytes=1\ncomplete_records=0\n"}),
-   fileSaveEvidence,parseMeta:t=>Object.fromEntries(String(t).split(/\r?\n/).filter(x=>x.includes("=")).map(x=>{const i=x.indexOf("=");return [x.slice(0,i),x.slice(i+1)];})),
-   paintFlight:()=>{},encodeURIComponent,
-  });
-  runInContext(functionSource,context);
-  await runInContext("verifySave()",context);
-  check("save_metadata_binding",context.saveVerified===false,
-   "Wrong-flight, incomplete metadata does not authorize SAVED.",
-   "Wrong-flight, incomplete metadata authorized SAVED despite the file-list entry.");
+  const metadata=(name="V12D001.BIN",bytes=80,records=3)=>
+   `GREEN-ION-COMPLETION-1\nstatus=complete\nfile=${name}\nfile_bytes=${bytes}\ncomplete_records=${records}\n`;
+  const makeContext=({name="V12D001.BIN",txt=metadata(name),files,
+                     metadataError=false,onMetadata}={})=>{
+   const context=createContext({
+    ...core,
+    currentStatus:{...ready,recorder_mode:3,log_file:name,recording:false,armed:false},
+    connected:true,lastStatusAt:now,lastLogFile:name,lastFiles:null,
+    saveVerified:false,lastSaved:null,metaText:txt,
+    files:files??{files:[{name,size:80,recording_complete:true}]},
+    json:async()=>context.files,
+    api:async()=>{
+     if(metadataError)throw Error("metadata unavailable");
+     return {text:async()=>{onMetadata?.(context);return context.metaText;}};
+    },
+    parseMeta:t=>Object.fromEntries(String(t).split(/\r?\n/)
+     .filter(x=>x.includes("=")).map(x=>{const i=x.indexOf("=");return [x.slice(0,i).trim(),x.slice(i+1).trim()];})),
+    paintFlight:()=>{},encodeURIComponent,Date,
+   });
+   runInContext(functionSource,context);
+   return context;
+  };
+  const verified=c=>c.saveVerified===true&&c.lastSaved?.name===c.currentStatus.log_file&&
+   deriveFlightState(c.currentStatus,{connected:c.connected,saveVerified:c.saveVerified})==="SAVED"&&
+   canPrepare(c.currentStatus,{saveVerified:true});
+  const rejected=c=>c.saveVerified===false&&c.lastSaved===null&&
+   deriveFlightState(c.currentStatus,{connected:c.connected,saveVerified:c.saveVerified})!=="SAVED";
+  const evaluate=async(id,options,expectValid)=>{
+   const context=makeContext(options);
+   await runInContext("verifySave()",context);
+   check(id,expectValid?verified(context):rejected(context),
+    expectValid?"Matching BIN/TXT completion permits SAVED and FLY AGAIN.":"Unverified completion keeps SAVED and FLY AGAIN closed.",
+    expectValid?"Matching completion failed to authorize the selected flight.":"Invalid or stale evidence authorized SAVED or retained prior save evidence.");
+   return context;
+  };
+  const first=await evaluate("save_valid_completion",{},true);
+  first.currentStatus={...first.currentStatus,log_file:"V12D002.BIN"};
+  first.lastLogFile="V12D002.BIN";first.saveVerified=false;first.lastSaved=null;
+  first.files={files:[{name:"V12D001.BIN",size:80,recording_complete:true},
+   {name:"V12D002.BIN",size:80,recording_complete:true}]};
+  first.metaText=metadata("V12D002.BIN");
+  await runInContext("verifySave()",first);
+  check("save_second_flight",verified(first),
+   "A later flight needs its own matching completion evidence.",
+   "The second flight was not independently verified or inherited prior flight evidence.");
+  await evaluate("save_wrong_flight",{txt:metadata("OTHER.BIN")},false);
+  await evaluate("save_blank_metadata",{txt:""},false);
+  await evaluate("save_missing_marker",{txt:metadata().replace("GREEN-ION-COMPLETION-1\n","")},false);
+  await evaluate("save_incomplete",{txt:metadata().replace("status=complete","status=incomplete")},false);
+  await evaluate("save_partial_records",{txt:metadata("V12D001.BIN",64,2)},false);
+  await evaluate("save_byte_mismatch",{txt:metadata("V12D001.BIN",96,3)},false);
+  await evaluate("save_record_mismatch",{txt:metadata("V12D001.BIN",80,2)},false);
+  await evaluate("save_zero_records",{txt:metadata("V12D001.BIN",32,0)},false);
+  await evaluate("save_contradictory_fields",{txt:metadata()+"file=OTHER.BIN\n"},false);
+  await evaluate("save_metadata_error",{metadataError:true},false);
+  await evaluate("save_delayed_new_flight",{onMetadata:c=>{
+   c.currentStatus={...c.currentStatus,log_file:"V12D002.BIN"};
+   c.lastLogFile="V12D002.BIN";
+  }},false);
+  await evaluate("save_delayed_disconnection",{onMetadata:c=>{c.connected=false;}},false);
  }
 }
 
