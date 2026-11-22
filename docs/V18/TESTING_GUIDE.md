@@ -54,3 +54,11 @@ The GitHub Actions **V18 development preview ZIP (no release)** workflow creates
 5. To share a reproducible bug, record the manifest commit SHA, Windows/browser versions, PASS/FAIL/NOT TESTED rows, terminal errors, and screenshot. Use the **COPY PRIVATE TEST RESULTS** feature only if present in the exact downloaded build, and inspect the report before sharing. Do not publicly post raw GPS coordinates, COM identifiers or complete private paths.
 
 **CI evidence scope:** An automated ZIP SHA/manifest check and even a Windows runner's extracted-ZIP localhost smoke prove software packaging and local HTTP serving only. They **do not** exercise a human double-click, Windows antivirus/permissions, real offline cache reload, actual Feather/Uno serial permissions, physical SD, RF or launch safety. If the extracted-package smoke or exact-head CI has not passed, mark the new preview **DEV-TEST BLOCKED**, even if prior commits were green. Stable `main` stays V17.0.1.
+
+## P0 save-state caution — next-build regression gate (2026-11-21)
+
+**The present V18 development preview is NOT approved for Flight-tab save/fly-again acceptance.** A verified software regression found that a completed file-list entry plus *any* HTTP-success completion metadata response could mark SAVED even if the TXT describes a different or incomplete flight. Do not treat an on-screen **SAVED**, **Verification**, or **FLY AGAIN** indicator alone as proof of successful SD finalization, and do not start another flight based on that indicator. Preserve all flight originals. The validation fix belongs to Secondary PR #58 and must pass Heavy PR #62's independent metadata-binding probe before acceptance.
+
+**Still useful without flight hardware:** use the **Data** tab to import a *copy* of an existing BIN, inspect pressure-derived plots and warnings, export a local report, and keep the original BIN/TXT intact. Follow the motor-free checklists for any subsequent real Feather/Uno work only after the coordinator publishes a SHA with the explicit save-state regression gate green. Real USB/antenna/battery/wake and So Long stability remain NOT TESTED by CI.
+
+This caution supersedes earlier software-preview readiness wording for the save-state feature and is not a V18 release.

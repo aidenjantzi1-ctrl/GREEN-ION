@@ -72,3 +72,11 @@ Latest coordinator [START] is `V18-MANUAL-RESUME-20261118` on PR #60. This is **
 - Integration-only `finite` GPS field presence guard plus separate Node null/stale regressions committed as `27e57ae97dae18f60d6cecdf565f94636a024bba`.
 - [V18 extracted-package preview CI 44346524012](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/44346524012) passed, uploaded the opt-in ZIP artifact `GREEN_ION_V18_DEV_TEST_PREVIEW` (id 14446256821). Full [combined CI 44346541272](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/44346541272) was pending Feather/Uno compile, while app-tests and Windows package passed. No hardware was executed.
 - **Software-only dev-test package is testable in CI; manual Windows UX and hardware qualification remain blocked/not tested.** Never infer actual radio/GPS/battery/wake/So Long fitness or flight approval. Stable V17.0.1 main unchanged.
+
+## 2026-11-21 — manual next-build P0 save-evidence gate
+
+New explicit coordinator [START] `V18-NEXT-BUILD-20261121` supersedes the prior integration [DONE]. Main remains frozen at `17f517f275be7b52e3e71a1f2d656edbc65a08ea`; development branch `worker/v18-integration`, PR #60.
+
+Independent Heavy #62 source `02d778a8706fd0bc002d159703509365b47b12b6` had 10 PASS / 1 FAIL on current integration: `save_metadata_binding` accepted invalid metadata. Staged only its contract probe and test in integration commit `6a98f7aa573587651e06e528aabf3187541e7cf3`, without modifying the worker branches or Secondary UI code. [Combined Actions 44994297080](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/44994297080) confirmed Node 148 PASS / 1 FAIL specifically on this P0; CI should stay **BLOCKED** until an authenticated reviewed fix makes both positive completion and all adversarial failures pass.
+
+Coordination posted to Integration PR #60 and Secondary PR #58. Secondary owns false-SAVED runtime fix; Heavy owns independent adversarial contract probe; Integration owns selective staging and CI. Keep blue/navy `#081420` with exactly the four top tabs. The previous Windows preview ZIP packaging evidence remains software-only, not an acceptance of the current save-gate; physical hardware checks remain NOT TESTED. No schedule, main merge, release, deployment or flashing.
