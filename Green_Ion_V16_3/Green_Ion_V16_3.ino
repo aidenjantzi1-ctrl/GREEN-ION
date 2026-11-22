@@ -2367,7 +2367,7 @@ static bool dashboardSdBrowseBlocked() {
          flightReadinessActive;
 }
 
-static green_ion::save_verification::Result
+green_ion::save_verification::Result
 dashboardVerifyFlightCompletion(const String &name) {
   using namespace green_ion::save_verification;
   if (!dashboardFlightFilename(name, ".BIN"))
