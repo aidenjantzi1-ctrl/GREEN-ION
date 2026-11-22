@@ -18,6 +18,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: P0 require expanded 25-case V18 SAVED acceptance
+        shell: pwsh
+        run: |
+          node --test tools/v18_contract_gate.test.mjs
+          if ($LASTEXITCODE -ne 0) { Write-Error "Fail-closed P0 save evidence gate: do not publish a dev preview ZIP"; exit 1 }
       - name: Verify source and tests
         shell: pwsh
         env:
