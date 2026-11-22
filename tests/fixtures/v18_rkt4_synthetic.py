@@ -16,7 +16,8 @@ def make_log(timestamps=(0, 20_000, 40_000), *, rate=50,
 def completion_text(data: bytes, name="V12D001.BIN") -> str:
     return ("GREEN-ION-COMPLETION-1\nstatus=complete\n"
             f"file={name}\nfile_bytes={len(data)}\n"
-            f"complete_records={max(0, (len(data) - 32) // 16)}\n")
+            f"complete_records={max(0, (len(data) - 32) // 16)}\n"
+            "duration_ms=1200\n")
 
 
 def cases():
@@ -42,7 +43,11 @@ def cases():
         "partial_tail": (valid + b"\x01\x02\x03", completion, "incomplete"),
         "whole_record_cut": (valid[:-16], completion, "incomplete"),
         "wrong_name": (valid, completion.replace("V12D001.BIN", "V12D002.BIN"), "incomplete"),
+        "wrong_bytes": (valid, completion.replace("file_bytes=80", "file_bytes=96"), "incomplete"),
         "wrong_count": (valid, completion.replace("complete_records=3", "complete_records=2"), "incomplete"),
+        "missing_marker": (valid, completion.replace("GREEN-ION-COMPLETION-1\n", ""), "incomplete"),
+        "partial_metadata": (valid, "GREEN-ION-COMPLETION-1\nstatus=complete\n", "incomplete"),
+        "contradictory_name": (valid, completion + "file=OTHER.BIN\n", "incomplete"),
         "duplicate_time": (make_log((0, 20_000, 20_000)), None, "unverified"),
         "backward_time": (make_log((0, 40_000, 20_000)), None, "unverified"),
         "clock_wrap": (make_log((0xFFFFD000, 0x1E20)), None, "unverified"),

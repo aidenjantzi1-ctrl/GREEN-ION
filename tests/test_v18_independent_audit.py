@@ -61,6 +61,30 @@ class IndependentAuditTests(unittest.TestCase):
         self.assertIn("interrupted_recovery_report", audit_bytes(data, metadata=metadata,
                                                                  recovery="status=interrupted")["issues"])
 
+    def test_two_sequential_synthetic_flights_keep_distinct_identity_and_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            flights = (("V12D001.BIN", make_log()),
+                       ("V12D002.BIN", make_log((0, 20_000, 40_000, 60_000))))
+            before = {}
+            for name, data in flights:
+                path = root / name
+                path.write_bytes(data)
+                path.with_suffix(".TXT").write_text(completion_text(data, name), encoding="ascii")
+                before[name] = hashlib.sha256(data).hexdigest()
+            run = run_cli("--summary", root)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            report = json.loads(run.stdout)
+            self.assertEqual(report["summary"]["structurally_complete"], 2)
+            self.assertEqual([entry["file"] for entry in report["files"]],
+                             [name for name, _ in flights])
+            self.assertEqual({entry["file"]: entry["sha256"] for entry in report["files"]}, before)
+            self.assertEqual({name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+                              for name, _ in flights}, before)
+            wrong = audit_bytes(flights[1][1], metadata=completion_text(flights[0][1], flights[0][0]),
+                                expected_name=flights[1][0])
+            self.assertEqual(wrong["status"], "incomplete")
+
     def test_summary_counts_mixed_batch_and_default_list_stays_compatible(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
