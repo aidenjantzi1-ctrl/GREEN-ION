@@ -79,6 +79,30 @@ def smoke(zip_path: Path, sha_file: Path, expected_commit: str) -> None:
         if "TEST / CHECK EVERYTHING" not in page:
             raise AssertionError("Guided dev-test entry is missing")
 
+        # Exercise the independent real-app save-state gate against EXTRACTED
+        # package bytes, not only repository sources. No HTTP/hardware calls.
+        probe_script = Path(__file__).resolve().parent / "v18_contract_probe.mjs"
+        if not probe_script.is_file():
+            raise AssertionError("Independent save-state probe is missing from CI source")
+        probe_run = subprocess.run(
+            ["node", str(probe_script), "--source-root", str(package)],
+            capture_output=True, text=True, encoding="utf-8", timeout=30, check=False,
+        )
+        if probe_run.returncode != 0:
+            raise AssertionError(
+                "Extracted V18 package failed independent save-state contract: "
+                + probe_run.stdout[-3000:] + probe_run.stderr[-900:]
+            )
+        probe_report = json.loads(probe_run.stdout)
+        probe_results = probe_report.get("results", [])
+        if len(probe_results) < 11:
+            raise AssertionError("Too few independent V18 contract checks on extracted ZIP")
+        nonpass = [item for item in probe_results if item.get("state") != "PASS"]
+        if nonpass:
+            raise AssertionError(f"Extracted V18 save-state probe is not 100% PASS: {nonpass}")
+        if not any(item.get("id") == "save_metadata_binding" for item in probe_results):
+            raise AssertionError("Independent save metadata binding check is absent")
+
         # Start only the extracted local bridge, without COM ownership or browser.
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
