@@ -311,7 +311,7 @@ static green_ion::readiness::Result currentFlightReadinessResult() {
     state.barometerOk,
     state.imuOk && imuRange32gVerified,
     state.batteryMv,
-    recoveryPending == 0,
+    recoveryPending == 0 && finalizationFailures == 0,
     !orphanHomeFile && !homeInterrupted && homeCleanupOk,
     flightReadinessSdIntegrityPassed,
     isfinite(calibrationBaselinePa) && calibrationBaselinePa > 30000.0f &&
@@ -328,6 +328,11 @@ static green_ion::readiness::Result currentFlightReadinessResult() {
 }
 
 static void beginFlightReadiness() {
+  if (finalizationFailures != 0) {
+    dashboardServer.send(409, "application/json",
+      "{\"success\":false,\"message\":\"PREPARE & ARM blocked: previous flight finalization failed; preserve the SD card and reboot/review recovery evidence before another flight\"}");
+    return;
+  }
   if (flightReadinessContextBusy()) {
     dashboardServer.send(409, "application/json",
       "{\"success\":false,\"message\":\"PREPARE FOR FLIGHT is blocked while recording, Home Test, Wi-Fi setup or firmware maintenance is active\"}");
@@ -359,6 +364,7 @@ static void serviceFlightReadiness(uint32_t nowMs) {
       if (!state.imuOk) { failFlightReadiness("IMU is unavailable"); return; }
       if (state.batteryMv < 3600U) { failFlightReadiness("battery is below 3.60 V"); return; }
       if (recoveryPending) { failFlightReadiness("interrupted flight recovery still needs review"); return; }
+      if (finalizationFailures) { failFlightReadiness("previous flight finalization failed; recovery evidence needs review"); return; }
       if (orphanHomeFile || homeInterrupted || !homeCleanupOk) {
         failFlightReadiness("temporary home-test cleanup is incomplete");
         return;
