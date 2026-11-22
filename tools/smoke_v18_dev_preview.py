@@ -95,13 +95,18 @@ def smoke(zip_path: Path, sha_file: Path, expected_commit: str) -> None:
             )
         probe_report = json.loads(probe_run.stdout)
         probe_results = probe_report.get("results", [])
-        if len(probe_results) < 11:
-            raise AssertionError("Too few independent V18 contract checks on extracted ZIP")
+        # The expanded Heavy #62 acceptance matrix is REQUIRED. An older
+        # 11-case gate could pass while late disconnect/status-timeout cases fail.
+        if len(probe_results) < 25:
+            raise AssertionError("Independent V18 save-state gate is incomplete: need expanded 25-case matrix")
         nonpass = [item for item in probe_results if item.get("state") != "PASS"]
         if nonpass:
             raise AssertionError(f"Extracted V18 save-state probe is not 100% PASS: {nonpass}")
-        if not any(item.get("id") == "save_metadata_binding" for item in probe_results):
-            raise AssertionError("Independent save metadata binding check is absent")
+        for required_id in ("save_metadata_binding", "save_delayed_disconnection",
+                            "save_delayed_stale_status"):
+            if not any(item.get("id") == required_id and item.get("state") == "PASS"
+                       for item in probe_results):
+                raise AssertionError(f"Independent P0 case missing or failing: {required_id}")
 
         # Start only the extracted local bridge, without COM ownership or browser.
         with socket.socket() as sock:
