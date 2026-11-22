@@ -120,6 +120,43 @@ int main() {
       verifyHeader,sizeof(verifyHeader),verifyBytes,verifyBytes,
       verifyMetadata,sizeof(verifyMetadata)-1,overlongName,50)!=SAVE_VALID);
 
+  // Completion evidence must be bound inside the completion block itself,
+  // including exact record count. A correct start-block file= cannot rescue a
+  // wrong-flight completion block.
+  const char missingRecordCountMetadata[] =
+      "GREEN-ION-COMPLETION-1\nstatus=complete\n"
+      "file=V12D007.BIN\nfile_bytes=3232\n";
+  assert(verifyCompletedPackage(
+      verifyHeader,sizeof(verifyHeader),verifyBytes,verifyBytes,
+      missingRecordCountMetadata,sizeof(missingRecordCountMetadata)-1,
+      "/V12D007.BIN",50)!=SAVE_VALID);
+
+  const char wrongRecordCountMetadata[] =
+      "GREEN-ION-COMPLETION-1\nstatus=complete\n"
+      "file=V12D007.BIN\nfile_bytes=3232\ncomplete_records=199\n";
+  assert(verifyCompletedPackage(
+      verifyHeader,sizeof(verifyHeader),verifyBytes,verifyBytes,
+      wrongRecordCountMetadata,sizeof(wrongRecordCountMetadata)-1,
+      "/V12D007.BIN",50)!=SAVE_VALID);
+
+  const char startCorrectCompletionWrong[] =
+      "GREEN-ION-METADATA-1\nstatus=recording\nfile=V12D007.BIN\n"
+      "GREEN-ION-COMPLETION-1\nstatus=complete\n"
+      "file=V12D008.BIN\nfile_bytes=3232\ncomplete_records=200\n";
+  assert(verifyCompletedPackage(
+      verifyHeader,sizeof(verifyHeader),verifyBytes,verifyBytes,
+      startCorrectCompletionWrong,sizeof(startCorrectCompletionWrong)-1,
+      "/V12D007.BIN",50)!=SAVE_VALID);
+
+  const char duplicateCompletionIdentity[] =
+      "GREEN-ION-COMPLETION-1\nstatus=complete\n"
+      "file=V12D007.BIN\nfile=V12D008.BIN\n"
+      "file_bytes=3232\ncomplete_records=200\n";
+  assert(verifyCompletedPackage(
+      verifyHeader,sizeof(verifyHeader),verifyBytes,verifyBytes,
+      duplicateCompletionIdentity,sizeof(duplicateCompletionIdentity)-1,
+      "/V12D007.BIN",50)!=SAVE_VALID);
+
   // Power-loss model: a torn file remains inspectable and a valid checkpoint
   // selects the last committed complete RKT4 boundary.
   uint8_t header[green_ion::rkt4::kHeaderBytes]={};

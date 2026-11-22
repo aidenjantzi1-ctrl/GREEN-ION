@@ -65,7 +65,7 @@ Failure codes:
 - `SD_TEMP_CLEANUP_FAILED` — reserved temp file could not be removed; preserve the card for inspection
 - `SD_VERIFY_FAILED` — write/read comparison failed, while reserved-file cleanup succeeded
 
-The endpoint is designed for repeated safe use. A stale `V12SD.TMP` is removed before a new probe; failure to remove it aborts before writing.
+The endpoint is designed for repeated safe use. A reset during a probe may leave `V12SD.TMP`; firmware does not delete it at boot. The next explicit SD probe removes that reserved file before writing, and failure to remove it aborts before any new write. `V12SD.TMP` is outside the `V12D###` flight namespace and is never accepted as flight evidence.
 
 ### POST /api/hardware-test
 
@@ -95,7 +95,7 @@ The UI must always call `/api/home/finish` or instruct the user to preserve/insp
 
 ### GET /api/files
 
-Lists only real V12D### BIN packages. `recording_complete=true` means TXT completion evidence exists and no JRA/JRB/RCV recovery artifact remains. It is structural save-state evidence, not a cryptographic checksum.
+Lists only real V12D### BIN packages. V18 Primary now fails closed: `recording_complete=true` only when no JRA/JRB/RCV recovery artifact remains **and** the reopened BIN/header plus completion block pass the same structural verifier used after finalization. The completion block must contain exactly one `status=complete`, exact selected `file=V12D###.BIN`, exact `file_bytes`, and exact `complete_records` matching the reopened BIN. `completion_verification` reports the verifier result; mismatched/blank/duplicate/partial completion evidence yields `recording_complete=false` and `recovery_state=INVALID_COMPLETION`. This is structural save-state evidence, not a cryptographic/per-record checksum.
 
 ### GET /api/metadata?name=V12D###.BIN
 

@@ -10,6 +10,7 @@ RKT4=(ROOT/"libraries/GreenIonRecorder/src/GreenIonRkt4.h").read_text(encoding="
 VERIFY=(ROOT/"libraries/GreenIonRecorder/src/GreenIonSaveVerification.h").read_text(encoding="utf-8")
 PREP=(ROOT/"Green_Ion_V16_3"/"FlightPreparation.h").read_text(encoding="utf-8")
 NAMING=(ROOT/"libraries/GreenIonRecorder/src/GreenIonFileNaming.h").read_text(encoding="utf-8")
+SAVE_VERIFY=(ROOT/"libraries/GreenIonRecorder/src/GreenIonSaveVerification.h").read_text(encoding="utf-8")
 DEVCONTRACT=(ROOT/"docs/V18/FIRMWARE_DEVTEST_CONTRACT.md").read_text(encoding="utf-8")
 
 class V18FirmwareReliability(unittest.TestCase):
@@ -197,6 +198,26 @@ class V18FirmwareReliability(unittest.TestCase):
         self.assertIn("GIHOME.BIN", DEVCONTRACT)
         self.assertIn("Never deletes or rewrites V12D###", DEVCONTRACT)
         self.assertIn("software evidence only", DEVCONTRACT.lower())
+
+    def test_flight_list_and_delete_require_strict_completion_evidence(self):
+        helper=FW[FW.index("dashboardVerifyFlightCompletion"):
+                  FW.index("static void sendDashboardDownload")]
+        self.assertIn("verifyCompletedPackage", helper)
+        self.assertIn("completion_verification", helper)
+        self.assertIn("completionVerified", helper)
+        self.assertIn("SAVE_VALID", helper)
+        self.assertIn("INVALID_COMPLETION", helper)
+        delete=FW[FW.index("static void deleteDashboardFlight"):
+                  FW.index("static void sendDashboardFiles")]
+        self.assertIn("dashboardVerifyFlightCompletion(name)", delete)
+        self.assertIn("strictly verified completion evidence", delete)
+
+    def test_save_verifier_binds_record_count_and_completion_block(self):
+        self.assertIn("complete_records=%lu", SAVE_VERIFY)
+        self.assertIn('countLinesWithPrefix(block, blockBytes, "file=") != 1', SAVE_VERIFY)
+        self.assertIn('countLinesWithPrefix(block, blockBytes, "file_bytes=") != 1', SAVE_VERIFY)
+        self.assertIn('countLinesWithPrefix(block, blockBytes, "complete_records=") != 1', SAVE_VERIFY)
+        self.assertIn("A second completion block is ambiguous evidence", SAVE_VERIFY)
 
     def test_recovery_policy_starts_only_after_verified_save_and_journal_cleanup(self):
         finalize=FW[FW.index("static bool finalizeRecording"):
