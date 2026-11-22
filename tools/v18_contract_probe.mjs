@@ -83,13 +83,13 @@ else{
  if(!functionSource)add("save_metadata_binding","FAIL","Save-verification function could not be isolated from the reviewed app source.");
  else{
   const metadata=(name="V12D001.BIN",bytes=80,records=3)=>
-   `GREEN-ION-COMPLETION-1\nstatus=complete\nfile=${name}\nfile_bytes=${bytes}\ncomplete_records=${records}\n`;
+   `GREEN-ION-COMPLETION-1\nstatus=complete\nfile=${name}\nfile_bytes=${bytes}\ncomplete_records=${records}\nduration_ms=1200\n`;
   const makeContext=({name="V12D001.BIN",txt=metadata(name),files,
                      metadataError=false,onMetadata}={})=>{
    const context=createContext({
     ...core,
     currentStatus:{...ready,recorder_mode:3,log_file:name,recording:false,armed:false},
-    connected:true,lastStatusAt:now,lastLogFile:name,lastFiles:null,
+    connected:true,lastStatusAt:Date.now(),lastLogFile:name,lastFiles:null,
     saveVerified:false,lastSaved:null,metaText:txt,
     files:files??{files:[{name,size:80,recording_complete:true}]},
     json:async()=>context.files,
@@ -142,6 +142,7 @@ else{
    c.lastLogFile="V12D002.BIN";
   }},false);
   await evaluate("save_delayed_disconnection",{onMetadata:c=>{c.connected=false;}},false);
+  await evaluate("save_delayed_stale_status",{onMetadata:c=>{c.lastStatusAt=Date.now()-5000;}},false);
  }
 }
 
@@ -175,4 +176,5 @@ else{
 }
 
 console.log(JSON.stringify(report,null,2));
-process.exit(report.results.some(x=>x.state==="FAIL")?1:0);
+process.exit(report.results.some(x=>x.state==="FAIL")?1:
+ report.results.some(x=>x.state==="NOT TESTED")?2:0);

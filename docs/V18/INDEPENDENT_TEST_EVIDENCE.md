@@ -31,7 +31,7 @@ The Python corpus generates synthetic bytes in memory or temporary directories. 
 node tools/v18_contract_probe.mjs --source-root "C:\path\to\reviewed-integration-copy"
 ```
 
-It outputs a source SHA when Git access is available, PASS/FAIL/NOT TESTED for each software contract, and exits 1 for any FAIL or 2 when the V18 core is unavailable. The JSON omits local paths and synthetic GPS coordinates. Confirm the source SHA before using results as integration evidence.
+It outputs a source SHA when Git access is available, PASS/FAIL/NOT TESTED for each software contract, and exits 1 for any FAIL or 2 if any required source/contract remains NOT TESTED. The JSON omits local paths and synthetic GPS coordinates. Confirm the source SHA before using results as integration evidence.
 
 ## Audit copies of original files
 
@@ -74,7 +74,9 @@ The exact same offline probe reported **10 PASS / 1 FAIL**. `unknown_battery_not
 
 The expanded probe exercises the actual `verifySave()` body against a reviewed V18 source checkout with local in-memory response doubles. It makes no HTTP request and cannot arm, record, transmit, or alter a BIN. A valid `GREEN-ION-COMPLETION-1` sidecar for the selected 80-byte, three-record synthetic BIN and a second independently named flight must authorize SAVED. Wrong-flight, blank, missing-marker, incomplete, partial, mismatched byte/record count, zero-record and contradictory metadata must keep SAVED and FLY AGAIN closed. Metadata API failure and delayed responses after a new flight or disconnection also must stay closed. The synthetic metadata is structural evidence only; RKT4 v2 has no per-record checksum.
 
-On Integration SHA `38c5b17212928d3761c4ca6e31e15e38ab5de8f3`, the expanded probe returned **13 PASS / 11 FAIL**, exit 1. Both valid completions passed. The 11 failures are the invalid metadata and delayed response cases listed above; the metadata API error correctly failed closed. This is an expected red acceptance gate until the Secondary-owned runtime fix is reviewed. The previous 10 PASS / 1 FAIL result above used the narrower probe and is retained as historical evidence.
+On Integration SHA `38c5b17212928d3761c4ca6e31e15e38ab5de8f3`, the first expanded probe returned **13 PASS / 11 FAIL**, exit 1. Both valid completions passed. The 11 failures were invalid metadata and delayed response cases; the metadata API error correctly failed closed. The previous 10 PASS / 1 FAIL result above used the narrower probe and is retained as historical evidence.
+
+After adding a five-second stale-status response case, exact Integration SHA `eec9bbe215cb3f492c5ec28fad024ca93b6ff18b` still contains the older app and returns **13 PASS / 12 FAIL**, exit 1. Secondary's new runtime-fix SHA `2d7b11058cc8b4452cfb87100f25d9965fa41e61` returns **22 PASS / 2 FAIL / 1 NOT TESTED**, exit 1: all metadata identity/structure cases pass, but delayed metadata after disconnection or status aging still authorizes SAVED. The NOT TESTED item is the firmware contract document absent from the Secondary-only checkout, not a save test. Integration staged that fix and the audit corpus at SHA `6dc14d5cc44201dd4793989539c93772c9673d7a`; its exact combined-source result is **23 PASS / 2 FAIL**, exit 1, with the same two delayed response failures. These checks remain software simulations; the combined gate is not yet accepted.
 
 For an explicit CI gate on a checkout that contains both the independent tools and reviewed V18 app source:
 

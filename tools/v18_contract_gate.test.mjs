@@ -14,7 +14,7 @@ const required=["save_valid_completion","save_second_flight","save_wrong_flight"
  "save_blank_metadata","save_missing_marker","save_incomplete","save_partial_records",
  "save_byte_mismatch","save_record_mismatch","save_zero_records",
  "save_contradictory_fields","save_metadata_error","save_delayed_new_flight",
- "save_delayed_disconnection"];
+ "save_delayed_disconnection","save_delayed_stale_status"];
 
 test("real V18 source passes the independent completion acceptance gate",()=>{
  assert.ok(existsSync(join(sourceRoot,"web","v18_offline_core.mjs")),

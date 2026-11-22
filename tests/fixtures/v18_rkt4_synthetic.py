@@ -16,7 +16,8 @@ def make_log(timestamps=(0, 20_000, 40_000), *, rate=50,
 def completion_text(data: bytes, name="V12D001.BIN") -> str:
     return ("GREEN-ION-COMPLETION-1\nstatus=complete\n"
             f"file={name}\nfile_bytes={len(data)}\n"
-            f"complete_records={max(0, (len(data) - 32) // 16)}\n")
+            f"complete_records={max(0, (len(data) - 32) // 16)}\n"
+            "duration_ms=1200\n")
 
 
 def cases():
