@@ -43,6 +43,7 @@
 #include <GreenIonWifiPolicy.h>
 #include <GreenIonFlightReadiness.h>
 #include <GreenIonSaveVerification.h>
+#include <GreenIonRecoveryPolicy.h>
 
 #include "Config.h"
 #include "SensorState.h"
@@ -320,6 +321,16 @@ uint32_t recoveryPending = 0;
 String recoveryStatus = "Not scanned";
 uint16_t healthBits = 0;
 green_ion::FlightState flightState = green_ion::STATE_IDLE;
+
+// V18 recovery scheduling is currently evidence/simulation only. It never
+// transmits by itself and never changes radio frequency, power, or packet data.
+green_ion::recovery_policy::Policy recoveryPolicy({
+  config::RECOVERY_ACTIVE_WINDOW_MS,
+  config::RECOVERY_ACTIVE_INTERVAL_MS,
+  config::RECOVERY_HIBERNATE_INTERVAL_MS,
+  config::RECOVERY_POSITION_MAX_AGE_MS,
+  config::RECOVERY_MIN_BATTERY_MV,
+});
 
 #include "FlightPreparation.h"
 
@@ -1672,6 +1683,9 @@ static bool finalizeRecording(uint32_t nowMs) {
   landingWatcher.cancel();
   recorderMode = RECORDER_COMPLETE;
   flightState = green_ion::STATE_LANDED;
+  // Recovery scheduling starts only after authoritative save verification and
+  // successful recovery-journal cleanup. This does not itself transmit.
+  recoveryPolicy.beginVerifiedSave(nowMs);
   requestPostFlightWifiRestore();
   return true;
 }
@@ -1737,6 +1751,9 @@ static bool openRawLog(uint32_t nowMs, uint32_t nowUs) {
     return false;
   }
   state.recording = true;
+  // A new authoritative flight must never inherit recovery timing/evidence
+  // from a previous flight. Reset only after RecorderCore actually started.
+  recoveryPolicy.reset();
   lastCheckpointMs = nowMs;
   saveCheckpoint(nowMs);  // RecorderCore::start already flushed header and prebuffer.
   writeStartMetadata();    // Metadata failure never stops the primary BIN recorder.
@@ -2031,14 +2048,27 @@ static green_ion::preflight::Result currentPreflight() {
 }
 
 static void sendDashboardStatus() {
-  const uint32_t age = gpsAgeMs(millis());
+  const uint32_t statusNowMs = millis();
+  const uint32_t age = gpsAgeMs(statusNowMs);
+  const auto recoveryDecision = recoveryPolicy.evaluate({
+    statusNowMs,
+    recoveryPolicy.started(),
+    recoveryPolicy.started(),
+    WiFi.status() == WL_CONNECTED,
+    state.lastBatteryReadMs != 0,
+    state.batteryMv,
+    state.radioOk,
+    radioTransmitAuthorized,
+    state.gpsHasPosition,
+    age,
+  });
   const auto &spiEvidence = sharedSpi.evidence();
   if (spiEvidence.ownershipErrors)
     healthBits |= green_ion::HEALTH_SHARED_SPI_OWNERSHIP_ERROR;
   if (radioTxTimeouts)
     healthBits |= green_ion::HEALTH_RADIO_TX_TIMEOUT;
   const char *gpsStatus = !state.gpsHasPosition ? "missing" :
-                          (gpsPositionCurrent(millis()) ? "live" : "stale");
+                          (gpsPositionCurrent(statusNowMs) ? "live" : "stale");
   const float radiansToDegrees = 180.0f / PI;
   const auto numberOrNull = [](float value, uint8_t decimals) {
     return isfinite(value) ? String(value, static_cast<unsigned int>(decimals)) : String("null");
@@ -2065,6 +2095,18 @@ static void sendDashboardStatus() {
   body += state.radioOk ? "true" : "false";
   body += ",\"radio_tx_authorized\":";
   body += radioTransmitAuthorized ? "true" : "false";
+  body += ",\"recovery_policy_state\":\"" +
+      String(green_ion::recovery_policy::stateName(recoveryDecision.state)) + "\"";
+  body += ",\"recovery_tx_due\":";
+  body += recoveryDecision.txDue ? "true" : "false";
+  body += ",\"recovery_tx_block\":\"" +
+      String(green_ion::recovery_policy::blockName(recoveryDecision.block)) + "\"";
+  body += ",\"recovery_elapsed_since_save_ms\":" +
+      String(recoveryDecision.elapsedSinceSaveMs);
+  body += ",\"recovery_next_due_ms\":" + String(recoveryDecision.nextDueInMs);
+  body += ",\"recovery_runtime_tx_enabled\":false";
+  body += ",\"recovery_deep_sleep_enabled\":false";
+  body += ",\"recovery_wake_hardware_verified\":false";
   body += ",\"armed\":";
   body += recorderMode == RECORDER_WATCHING &&
           flightWatcher.state() == green_ion::flight::WATCHING ? "true" : "false";
@@ -2325,6 +2367,50 @@ static bool dashboardSdBrowseBlocked() {
          flightReadinessActive;
 }
 
+green_ion::save_verification::Result
+dashboardVerifyFlightCompletion(const String &name) {
+  using namespace green_ion::save_verification;
+  if (!dashboardFlightFilename(name, ".BIN"))
+    return SAVE_READBACK_UNAVAILABLE;
+
+  const String binPath = "/" + name;
+  File bin = SD.open(binPath, FILE_READ);
+  if (!bin) return SAVE_READBACK_UNAVAILABLE;
+  const size_t fileBytes = static_cast<size_t>(bin.size());
+  uint8_t header[green_ion::rkt4::kHeaderBytes] = {};
+  const bool headerRead =
+      bin.read(header, sizeof(header)) == static_cast<int>(sizeof(header));
+  bin.close();
+  if (!headerRead) return SAVE_READBACK_UNAVAILABLE;
+
+  const String base = name.substring(0, 7);
+  File meta = SD.open(String("/") + base + ".TXT", FILE_READ);
+  if (!meta) return SAVE_METADATA_MISSING;
+  const size_t metadataBytes = static_cast<size_t>(meta.size());
+  if (metadataBytes == 0) {
+    meta.close();
+    return SAVE_METADATA_MISSING;
+  }
+  if (metadataBytes >= 1024) {
+    meta.close();
+    return SAVE_METADATA_INCOMPLETE;
+  }
+
+  char metadata[1024] = {};
+  const bool metadataRead =
+      meta.read(reinterpret_cast<uint8_t *>(metadata), metadataBytes) ==
+          static_cast<int>(metadataBytes);
+  meta.close();
+  if (!metadataRead) return SAVE_READBACK_UNAVAILABLE;
+
+  // The persisted BIN size is authoritative on later browse/delete calls.
+  // verifyCompletedPackage then requires the completion block's file_bytes and
+  // complete_records to agree with that exact reopened file.
+  return verifyCompletedPackage(
+      header, sizeof(header), fileBytes, fileBytes,
+      metadata, metadataBytes, name.c_str(), config::SENSOR_RATE_HZ);
+}
+
 static void deleteDashboardFlight() {
   if (dashboardSdDeleteBlocked()) {
     dashboardServer.send(409, "application/json",
@@ -2362,12 +2448,17 @@ static void deleteDashboardFlight() {
                           SD.exists(String("/") + base + ".JRB");
   const bool hasRecovery = SD.exists(String("/") + base + ".RCV");
   const bool hasMetadata = SD.exists(String("/") + base + ".TXT");
-  const bool recordingComplete = hasMetadata && !hasJournal && !hasRecovery;
   if (!SD.exists(binPath)) {
     dashboardServer.send(404, "application/json",
       "{\"success\":false,\"message\":\"Flight file not found on the SD card\"}");
     return;
   }
+  const auto completionResult = hasMetadata
+      ? dashboardVerifyFlightCompletion(name)
+      : green_ion::save_verification::SAVE_METADATA_MISSING;
+  const bool recordingComplete =
+      !hasJournal && !hasRecovery &&
+      completionResult == green_ion::save_verification::SAVE_VALID;
 
   // Never mutate the SD while launch watching is active. A deletion request
   // pauses the watcher and restarts stationary calibration after the package
@@ -2377,8 +2468,11 @@ static void deleteDashboardFlight() {
   if (restartCalibration) flightWatcher.cancel();
 
   if (!recordingComplete) {
-    dashboardServer.send(409, "application/json",
-      "{\"success\":false,\"message\":\"Only flights with clean completion metadata can be deleted in V16.3; retain interrupted/recovery evidence for review\"}");
+    String body =
+      "{\"success\":false,\"message\":\"Only flights with strictly verified completion evidence can be deleted; retain interrupted, mismatched or recovery evidence for review\",\"completion_verification\":\"";
+    body += green_ion::save_verification::resultName(completionResult);
+    body += "\"}";
+    dashboardServer.send(409, "application/json", body);
     if (restartCalibration) resetCalibration(millis());
     return;
   }
@@ -2465,12 +2559,22 @@ static void sendDashboardFiles() {
         const bool hasJournal = SD.exists(String("/") + base + ".JRA") ||
                                 SD.exists(String("/") + base + ".JRB");
         const bool hasRecovery = SD.exists(String("/") + base + ".RCV");
+        const auto completionResult = hasTxt
+            ? dashboardVerifyFlightCompletion(name)
+            : green_ion::save_verification::SAVE_METADATA_MISSING;
+        const bool completionVerified =
+            !hasJournal && !hasRecovery &&
+            completionResult == green_ion::save_verification::SAVE_VALID;
         body += "{\"name\":\"" + name + "\",\"size\":" + String(entry.size());
         body += ",\"has_sen\":" + String(hasSen ? "true" : "false");
         body += ",\"has_txt\":" + String(hasTxt ? "true" : "false");
-        body += ",\"recording_complete\":" + String(hasTxt && !hasJournal && !hasRecovery ? "true" : "false");
+        body += ",\"recording_complete\":" + String(completionVerified ? "true" : "false");
+        body += ",\"completion_verification\":\"" +
+            String(green_ion::save_verification::resultName(completionResult)) + "\"";
         body += ",\"recovery_state\":\"";
-        body += hasJournal ? "PENDING" : (hasRecovery ? "INTERRUPTED_RECOVERED" : (hasTxt ? "COMPLETE" : "UNKNOWN"));
+        body += hasJournal ? "PENDING" :
+            (hasRecovery ? "INTERRUPTED_RECOVERED" :
+             (completionVerified ? "COMPLETE" : (hasTxt ? "INVALID_COMPLETION" : "UNKNOWN")));
         body += "\"}";
       }
       entry.close();
@@ -2546,6 +2650,9 @@ static void runDashboardSdTest() {
   static const char path[] = "/V12SD.TMP";
   static const uint8_t pattern[] = {0x47, 0x49, 0x4f, 0x4e, 0x12, 0xa5};
 
+  // A reset during a prior probe may leave only this reserved temp file.
+  // Do not mutate it at boot; the next explicit probe removes it before any
+  // write. V12SD.TMP is outside the V12D### flight namespace.
   if (SD.exists(path) && !SD.remove(path)) {
     if (recorderMode == RECORDER_HOME_TEST) homeSdVerified = false;
     dashboardServer.send(500, "application/json",

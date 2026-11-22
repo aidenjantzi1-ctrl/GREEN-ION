@@ -10,6 +10,7 @@ RKT4=(ROOT/"libraries/GreenIonRecorder/src/GreenIonRkt4.h").read_text(encoding="
 VERIFY=(ROOT/"libraries/GreenIonRecorder/src/GreenIonSaveVerification.h").read_text(encoding="utf-8")
 PREP=(ROOT/"Green_Ion_V16_3"/"FlightPreparation.h").read_text(encoding="utf-8")
 NAMING=(ROOT/"libraries/GreenIonRecorder/src/GreenIonFileNaming.h").read_text(encoding="utf-8")
+SAVE_VERIFY=(ROOT/"libraries/GreenIonRecorder/src/GreenIonSaveVerification.h").read_text(encoding="utf-8")
 DEVCONTRACT=(ROOT/"docs/V18/FIRMWARE_DEVTEST_CONTRACT.md").read_text(encoding="utf-8")
 
 class V18FirmwareReliability(unittest.TestCase):
@@ -197,6 +198,62 @@ class V18FirmwareReliability(unittest.TestCase):
         self.assertIn("GIHOME.BIN", DEVCONTRACT)
         self.assertIn("Never deletes or rewrites V12D###", DEVCONTRACT)
         self.assertIn("software evidence only", DEVCONTRACT.lower())
+
+    def test_flight_list_and_delete_require_strict_completion_evidence(self):
+        helper=FW[FW.index("dashboardVerifyFlightCompletion"):
+                  FW.index("static void sendDashboardDownload")]
+        self.assertIn("verifyCompletedPackage", helper)
+        self.assertIn("completion_verification", helper)
+        self.assertIn("completionVerified", helper)
+        self.assertIn("SAVE_VALID", helper)
+        self.assertIn("INVALID_COMPLETION", helper)
+        delete=FW[FW.index("static void deleteDashboardFlight"):
+                  FW.index("static void sendDashboardFiles")]
+        self.assertIn("dashboardVerifyFlightCompletion(name)", delete)
+        self.assertIn("strictly verified completion evidence", delete)
+
+    def test_save_verifier_binds_record_count_and_completion_block(self):
+        self.assertIn("complete_records=%lu", SAVE_VERIFY)
+        self.assertIn('countLinesWithPrefix(block, blockBytes, "file=") != 1', SAVE_VERIFY)
+        self.assertIn('countLinesWithPrefix(block, blockBytes, "file_bytes=") != 1', SAVE_VERIFY)
+        self.assertIn('countLinesWithPrefix(block, blockBytes, "complete_records=") != 1', SAVE_VERIFY)
+        self.assertIn("A second completion block is ambiguous evidence", SAVE_VERIFY)
+
+    def test_recovery_policy_starts_only_after_verified_save_and_journal_cleanup(self):
+        finalize=FW[FW.index("static bool finalizeRecording"):
+                    FW.index("static bool openRawLog")]
+        self.assertLess(finalize.index("verifyCompletedFlightPackage"),
+                        finalize.index("SD.exists(checkpointFilenameA)"))
+        self.assertLess(finalize.index("SD.exists(checkpointFilenameB)"),
+                        finalize.index("recoveryPolicy.beginVerifiedSave(nowMs)"))
+        self.assertLess(finalize.index("recoveryPolicy.beginVerifiedSave(nowMs)"),
+                        finalize.index("requestPostFlightWifiRestore()"))
+
+    def test_new_flight_resets_prior_recovery_state_only_after_recorder_start(self):
+        open_log=FW[FW.index("static bool openRawLog"):
+                    FW.index("static void startManualFlightRecording")]
+        self.assertLess(open_log.index("recorderCore.start"),
+                        open_log.index("recoveryPolicy.reset()"))
+        self.assertLess(open_log.index("state.recording = true"),
+                        open_log.index("recoveryPolicy.reset()"))
+
+    def test_recovery_runtime_is_status_only_until_hardware_evidence(self):
+        for token in (
+            "recovery_policy_state",
+            "recovery_tx_due",
+            "recovery_tx_block",
+            "recovery_runtime_tx_enabled",
+            "recovery_deep_sleep_enabled",
+            "recovery_wake_hardware_verified",
+        ):
+            self.assertIn(token, FW)
+        self.assertIn('body += recoveryDecision.txDue ? "true" : "false";', FW)
+        self.assertIn('body += ",\\\"recovery_runtime_tx_enabled\\\":false";', FW)
+        self.assertIn('body += ",\\\"recovery_deep_sleep_enabled\\\":false";', FW)
+        self.assertIn('body += ",\\\"recovery_wake_hardware_verified\\\":false";', FW)
+        self.assertNotIn("recoveryDecision.txDue && radio.send", FW)
+        self.assertIn("RECOVERY_ACTIVE_WINDOW_MS = 300000UL", CFG)
+        self.assertIn("RECOVERY_HIBERNATE_INTERVAL_MS = 180000UL", CFG)
 
     def test_primary_formats_and_optional_link_contract_are_unchanged(self):
         self.assertIn("kProtocolVersion = 2", PROTO)
