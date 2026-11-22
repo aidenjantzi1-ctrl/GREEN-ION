@@ -62,21 +62,52 @@ function paintFlight(){
  text("flightFile",s?.log_file||lastSaved?.name||"—");
  text("flightBytes",lastSaved?fmtBytes(lastSaved.size):"—");
  text("flightDuration",lastSaved?.durationMs!=null?(Number(lastSaved.durationMs)/1000).toFixed(1)+" s":"—");
- text("flightVerification",lastSaved?"Firmware COMPLETE + metadata read":"Not yet verified");
+ text("flightVerification",lastSaved?"Completion marker + file bytes/records structurally verified":"Not yet verified");
 }
 async function verifySave(){
  const s=currentStatus;if(!s||s.recording||s.armed||s.flight_prep_active)return;
  const name=String(s.log_file||lastLogFile||"");
  if(!name||!name.toUpperCase().endsWith(".BIN"))return;
+ // Pure, fail-closed validator for the existing GreenIonMetadata completion writer.
+ // This proves metadata/file structural agreement only; RKT4 v2 has no per-record checksum.
+ const validateCompletionMetadata=(rawText,expectedName,fileEvidence)=>{
+  const lines=String(rawText||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  if(lines[0]!=="GREEN-ION-COMPLETION-1"||lines.filter(x=>x==="GREEN-ION-COMPLETION-1").length!==1)return null;
+  const fields={};
+  for(const line of lines.slice(1)){
+   const i=line.indexOf("=");if(i<=0)return null;
+   const key=line.slice(0,i).trim(),value=line.slice(i+1).trim();
+   if(!key||Object.prototype.hasOwnProperty.call(fields,key))return null;
+   fields[key]=value;
+  }
+  const leaf=String(expectedName||"").replace(/^\/+/, "");
+  if(!leaf||fields.status!=="complete"||fields.file!==leaf||String(fileEvidence?.name||"")!==leaf)return null;
+  const uint32=value=>{
+   if(!/^(0|[1-9]\d*)$/.test(String(value||"")))return null;
+   const n=Number(value);return Number.isSafeInteger(n)&&n>=0&&n<=0xffffffff?n:null;
+  };
+  const durationMs=uint32(fields.duration_ms),fileBytes=uint32(fields.file_bytes),records=uint32(fields.complete_records);
+  const listedBytes=Number(fileEvidence?.size);
+  if(durationMs===null||durationMs<=0||fileBytes===null||records===null||records<=0)return null;
+  if(!Number.isSafeInteger(listedBytes)||listedBytes!==fileBytes)return null;
+  if(fileBytes<48||(fileBytes-32)%16!==0||records!==(fileBytes-32)/16)return null;
+  return {durationMs,fileBytes,completeRecords:records};
+ };
+ const stillCurrent=()=>currentStatus===s&&!s.recording&&!s.armed&&!s.flight_prep_active&&
+  String(s.log_file||lastLogFile||"")===name;
+ saveVerified=false;lastSaved=null;
  try{
   const files=await json("/api/files");lastFiles=files;
+  if(!stillCurrent()){paintFlight();return;}
   const evidence=fileSaveEvidence(files,name);
-  if(!evidence){saveVerified=false;paintFlight();return;}
+  if(!evidence){paintFlight();return;}
   const metaText=await (await api("/api/metadata?name="+encodeURIComponent(name))).text();
-  const meta=parseMeta(metaText);
-  saveVerified=true;lastSaved={...evidence,durationMs:Number.isFinite(Number(meta.duration_ms))?Number(meta.duration_ms):null};
+  if(!stillCurrent()){paintFlight();return;}
+  const verified=validateCompletionMetadata(metaText,name,evidence);
+  if(!verified){paintFlight();return;}
+  saveVerified=true;lastSaved={...evidence,durationMs:verified.durationMs};
   paintFlight();
- }catch{saveVerified=false;paintFlight();}
+ }catch{saveVerified=false;lastSaved=null;paintFlight();}
 }
 async function pollFlight(){
  try{

@@ -4,7 +4,7 @@ export const RADIO_PROTOCOL=2;
 export const PACKET_STALE_MS=3000;
 export const GPS_STALE_MS=15000;
 
-const finite=v=>Number.isFinite(Number(v))?Number(v):null;
+const finite=v=>v!==null&&v!==undefined&&v!==""&&Number.isFinite(Number(v))?Number(v):null;
 export function validCoordinate(lat,lon){
  const a=finite(lat),o=finite(lon);
  return a!==null&&o!==null&&a>=-90&&a<=90&&o>=-180&&o<=180&&!(a===0&&o===0);
