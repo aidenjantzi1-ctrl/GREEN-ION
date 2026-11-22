@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import {createContext,runInContext} from "node:vm";
 import {
  V18_TABS,FLIGHT_STATES,RADIO_PROTOCOL,PACKET_STALE_MS,DEVTEST_STATUS_FRESH_MS,
  deriveFlightState,criticalFlightProblem,optionalFlightWarnings,canPrepare,
@@ -70,6 +71,74 @@ test("Recovery accepts only current protocol-v2 receiver JSON and handles stale 
  assert.equal(recoveryView(noFix,{latitude:34.1,longitude:-117.2,at:now},now+5000).gps,"stale");
 });
 
+async function exerciseVerifySave({metadata,files={files:[{name:"V12D001.BIN",size:80,recording_complete:true}]},status={log_file:"V12D001.BIN",recording:false,armed:false,flight_prep_active:false},afterFiles=null,filesError=null,metadataError=null}={}){
+ const start=app.indexOf("async function verifySave()");
+ const end=app.indexOf("async function pollFlight()",start);
+ assert.ok(start>=0&&end>start,"verifySave source must be isolatable");
+ const context=createContext({
+  currentStatus:status,lastLogFile:status.log_file||"",lastFiles:null,saveVerified:true,lastSaved:{name:"OLD.BIN"},
+  json:async()=>{if(filesError)throw filesError;if(afterFiles)afterFiles(context);return files;},
+  api:async()=>{if(metadataError)throw metadataError;return {text:async()=>metadata};},
+  fileSaveEvidence,paintFlight:()=>{},encodeURIComponent
+ });
+ runInContext(app.slice(start,end).trim(),context);
+ await runInContext("verifySave()",context);
+ return context;
+}
+const completeMetadata=({file="V12D001.BIN",bytes=80,records=3,status="complete",marker="GREEN-ION-COMPLETION-1",extra=""}={})=>
+ [marker,"status="+status,"finish_reason=automatic_landing","file="+file,"duration_ms=1200","file_bytes="+bytes,
+  "complete_records="+records,"missed_sample_periods=0","end_battery_mv=3900","peak_altitude_m=10.25",extra].filter(Boolean).join("\n")+"\n";
+
+test("P0 save completion accepts only bound structurally valid firmware completion metadata",async()=>{
+ const ok=await exerciseVerifySave({metadata:completeMetadata()});
+ assert.equal(ok.saveVerified,true);
+ assert.equal(ok.lastSaved.name,"V12D001.BIN");
+ assert.equal(ok.lastSaved.size,80);
+ assert.equal(ok.lastSaved.durationMs,1200);
+ for(const metadata of [
+  completeMetadata({file:"V12D002.BIN"}),
+  completeMetadata({marker:"GREEN-ION-METADATA-1"}),
+  completeMetadata({status:"recording"}),
+  completeMetadata({bytes:64}),
+  completeMetadata({records:2}),
+  completeMetadata({records:0}),
+  completeMetadata({extra:"file_bytes=96"}),
+  "",
+  "GREEN-ION-COMPLETION-1\nstatus=complete\nfile=V12D001.BIN\n"
+ ]){
+  const bad=await exerciseVerifySave({metadata});
+  assert.equal(bad.saveVerified,false,metadata);
+  assert.equal(bad.lastSaved,null);
+  assert.notEqual(deriveFlightState({sd_ok:true,recorder_mode:3},{saveVerified:bad.saveVerified}),"SAVED");
+ }
+});
+
+test("P0 save completion rejects stale async responses and API failures",async()=>{
+ const stale=await exerciseVerifySave({
+  metadata:completeMetadata(),
+  afterFiles:context=>{context.currentStatus={log_file:"V12D002.BIN",recording:false,armed:false,flight_prep_active:false};}
+ });
+ assert.equal(stale.saveVerified,false);
+ assert.equal(stale.lastSaved,null);
+ const fileFailure=await exerciseVerifySave({metadata:completeMetadata(),filesError:new Error("files unavailable")});
+ assert.equal(fileFailure.saveVerified,false);
+ const metadataFailure=await exerciseVerifySave({metadata:completeMetadata(),metadataError:new Error("metadata unavailable")});
+ assert.equal(metadataFailure.saveVerified,false);
+});
+
+test("P0 null and blank battery/GPS values remain missing evidence, never fabricated zero/live",()=>{
+ const now=100000,ready={sd_ok:true,imu_ok:true,barometer_ready:true,recorder_mode:0,battery_mv:null,battery_v:null};
+ assert.equal(criticalFlightProblem(ready),"");
+ assert.equal(developmentStatusChecks(ready,{connected:true,lastStatusAt:now-100,now}).find(x=>x.id==="battery").state,"NOT TESTED");
+ for(const value of [null,undefined,""]){
+  const packet={type:"telemetry",protocol:2,altitude_m:10,battery_v:3.9,gps_status:"live",latitude:34.1,longitude:-117.2};
+  packet.latitude=value;
+  assert.notEqual(parseReceiverLine(JSON.stringify(packet),now)?.gpsStatus,"live");
+  packet.latitude=34.1;packet.longitude=value;
+  assert.notEqual(parseReceiverLine(JSON.stringify(packet),now)?.gpsStatus,"live");
+ }
+});
+
 test("Web Serial flow covers permission, disconnect and reconnect guidance",()=>{
  for(const token of ["navigator.serial.requestPort","navigator.serial.getPorts","baudRate:115200","addEventListener(\"disconnect\"","addEventListener(\"connect\"","CONNECT RECEIVER","automatic reconnect"])
   assert.ok(app.includes(token)||html.includes(token),token);
@@ -96,7 +165,7 @@ test("multi-flight local history, comparison, CSV JSON and print remain local",(
 });
 
 test("PR #56 regressions are isolated: V18 owns cache version and hash navigation",()=>{
- assert.match(sw,/const VERSION="green-ion-v18-offline-app-v4"/);
+ assert.match(sw,/const VERSION="green-ion-v18-offline-app-v5"/);
  assert.ok(sw.includes('"./v18-offline.html"'));
  assert.ok(sw.includes('"./analysis/rkt4.mjs"'));
  assert.match(sw,/url\.pathname\.startsWith\("\/api\/"\)/);

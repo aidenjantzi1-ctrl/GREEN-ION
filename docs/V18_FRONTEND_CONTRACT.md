@@ -157,3 +157,26 @@ Read-only PASS/FAIL/NOT TESTED evidence comes from fresh `/api/status`, firmware
 The separate **RUN FIRMWARE IMU + GPS DIAGNOSTIC** button is an explicit user action using the existing verified `POST /api/hardware-test` endpoint with `sensor=all`. Results are read from existing `imu_test_result/message` and `gps_test_result/message` status fields. RUNNING, INCONCLUSIVE, DEFERRED, stale, missing, or unrequested evidence is never labeled PASS.
 
 Actual offline reload, physical SD write/read/temp-delete, sensor accuracy, GPS/LoRa RF/range, recovery timing/wake and repeated hardware save cycles remain NOT TESTED until performed with real equipment.
+
+
+## Fail-closed SAVED evidence (V18-NEXT-BUILD-20261121)
+
+The frontend may enter **SAVED** and enable **FLY AGAIN** only after both existing firmware evidence sources agree for the same selected BIN:
+
+1. `GET /api/files` reports the exact BIN with `recording_complete=true` and a positive size.
+2. `GET /api/metadata?name=<BIN>` returns the existing completion format written by `GreenIonMetadata.h`.
+
+The completion TXT is accepted only when:
+- the first non-empty line is exactly `GREEN-ION-COMPLETION-1`;
+- `status=complete`;
+- `file` exactly matches the selected BIN leaf name and the file-list entry;
+- required numeric fields are unsigned decimal values;
+- `duration_ms > 0`;
+- `file_bytes` exactly equals the file-list byte size;
+- `complete_records > 0`;
+- RKT4 v2 structure agrees exactly: `file_bytes >= 48`, `(file_bytes - 32) % 16 == 0`, and `complete_records == (file_bytes - 32) / 16`;
+- duplicate metadata keys are rejected instead of letting later values override earlier evidence.
+
+The async verification is also identity-bound: if the active status object/flight changes while file-list or metadata requests are in flight, that result is discarded. HTTP/API errors, blank/incomplete TXT, wrong-flight TXT, stale responses, or structural mismatches leave `saveVerified=false` and keep FLY AGAIN disabled.
+
+This is **structural completion verification only**. RKT4 v2 has no per-record checksum, so the frontend does not claim byte-perfect sample-content integrity from the completion TXT.
