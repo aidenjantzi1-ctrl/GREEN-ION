@@ -34,7 +34,7 @@ If the launcher fails: run `Ground_Station/START_V18_PREVIEW.cmd` from a Windows
 1. In Chrome/Edge open **Recovery** and select **CONNECT RECEIVER**. Choose the **Arduino Uno USB serial port** in the browser's permission dialog. The app expects newline-delimited JSON at **115200 baud**. Do not let another serial program or the Python bridge simultaneously own the Uno COM port.
 2. Verify disconnect/reconnect and invalid or stale packet warnings. A displayed last-known coordinate is not necessarily a current fix; check packet age and GPS fix age.
 3. Only report radio reception, GPS location, RF range, antenna health or recovery timing as **PASS** after a real, safely configured hardware measurement. Do not transmit with damaged/disconnected antennas; leave these **NOT TESTED** if hardware is absent.
-4. Use the separate motor-free physical checklist at [PHYSICAL_DEV_TEST_CHECKLIST.md](PHYSICAL_DEV_TEST_CHECKLIST.md), now staged from PR #61. It covers battery endurance, antenna safety, So Long fit/stability and wake/recovery checks. Software CI cannot establish these.
+4. For beginner assembly order and a blank measurement worksheet, read [SO_LONG_ELECTRONICS_INSTALL_STEPS.md](SO_LONG_ELECTRONICS_INSTALL_STEPS.md); do not treat proposed dimensions or component placements as measured. Use the separate motor-free physical checklist at [PHYSICAL_DEV_TEST_CHECKLIST.md](PHYSICAL_DEV_TEST_CHECKLIST.md), now staged from PR #61. It covers battery endurance, antenna safety, So Long fit/stability and wake/recovery checks. Software CI cannot establish these.
 
 ## 5. Record and share evidence
 
