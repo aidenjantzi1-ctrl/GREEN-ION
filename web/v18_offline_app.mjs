@@ -5,8 +5,8 @@ import {deriveFlightState,criticalFlightProblem,optionalFlightWarnings,canPrepar
 const $=id=>document.getElementById(id);
 let lastStatusAt=0,currentStatus=null,connected=false,lastFiles=null,saveVerified=false,lastSaved=null,lastLogFile="",pollTimer=null;
 let serialPort=null,serialReader=null,serialStop=false,serialManualDisconnect=false,serialReconnectTimer=null,lastSerialInfo=null,lastPacket=null,lastKnown=null,serialInvalid=0,serialPermissionState="unknown",serialPermissionMessage="",activeAnalysis=null,compareAnalysis=null;
-const V18_CACHE_VERSION="green-ion-v18-offline-app-v6";
-let devFirmwareRequested=false;
+const V18_CACHE_VERSION="green-ion-v18-offline-app-v7";
+let devFirmwareRequested=false;\nlet desktopUpdateSupported=false,desktopUpdatePoll=null;
 
 function text(id,value){const n=$(id);if(n)n.textContent=value==null?"—":String(value);}
 function fmt(v,d=1){return Number.isFinite(Number(v))?Number(v).toFixed(d):"—";}
@@ -19,7 +19,7 @@ async function api(path,options={}){
  if(!response.ok){let m="HTTP "+response.status;try{const j=await response.json();m=j.message||j.error||m;}catch{}throw Error(m);}
  return response;
 }
-async function json(path,options={}){return (await api(path,options)).json();}
+async function json(path,options={}){return (await api(path,options)).json();}\nasync function postJson(path,body={}){return json(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}\nasync function markDesktopOperation(name,active){if(!desktopUpdateSupported)return;try{await postJson("/api/app/operation",{name,active});}catch{}}
 
 function setTab(name){
  document.querySelectorAll("[data-tab]").forEach(b=>{const a=b.dataset.tab===name;b.classList.toggle("active",a);b.setAttribute("aria-selected",a?"true":"false");});
@@ -245,18 +245,8 @@ function initRecovery(){
 }
 
 async function importBins(files){
- let added=0,dupes=0,failed=[];
- for(const file of [...files]){
-  try{
-   if(!/\.bin$/i.test(file.name))throw Error("Only BIN files are accepted here.");
-   const bytes=await file.arrayBuffer();
-   parseRkt4(bytes);
-   const result=await saveLocalFile({name:file.name,bytes,origin:"manual-v18-import",metadata:{importedAt:new Date().toISOString()}});
-   result.duplicate?dupes++:added++;
-  }catch(e){failed.push(file.name+": "+e.message);}
- }
- text("importStatus",added+" imported · "+dupes+" duplicate"+(failed.length?" · "+failed.join(" | "):""));
- await refreshHistory();
+ let added=0,dupes=0,failed=[];await markDesktopOperation("data-import",true);
+ try{for(const file of [...files]){try{if(!/\.bin$/i.test(file.name))throw Error("Only BIN files are accepted here.");const bytes=await file.arrayBuffer();parseRkt4(bytes);const result=await saveLocalFile({name:file.name,bytes,origin:"manual-v18-import",metadata:{importedAt:new Date().toISOString()}});result.duplicate?dupes++:added++;}catch(e){failed.push(file.name+": "+e.message);}}text("importStatus",added+" imported · "+dupes+" duplicate"+(failed.length?" · "+failed.join(" | "):""));await refreshHistory();}finally{await markDesktopOperation("data-import",false);}
 }
 async function refreshHistory(){
  const files=(await listLocalMetadata()).filter(x=>x.kind==="BIN").sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
@@ -481,6 +471,11 @@ function initDevTests(){
  $("runFirmwareDiagnostic").onclick=()=>{runFirmwareDiagnostic().catch(e=>text("devFirmwareStatus","Diagnostic error: "+e.message));};
 }
 
+function paintDesktopUpdate(i){if(!i)return;text("installedAppVersion",i.installed_version||"—");text("latestAppVersion",i.latest_version||"NONE");text("appUpdateState",String(i.state||"idle").toUpperCase());text("appUpdateSignature",String(i.signature||"not-checked").toUpperCase());$("appUpdateProgress").value=Math.max(0,Math.min(1,Number(i.download_progress)||0));$("autoUpdateCheck").checked=!!i.auto_check;$("autoUpdateCheck").disabled=!desktopUpdateSupported;$("checkAppUpdate").disabled=!desktopUpdateSupported||i.state==="checking"||i.state==="downloading";$("downloadAppUpdate").disabled=!desktopUpdateSupported||!i.update_available||i.state==="downloading";$("installAppUpdate").disabled=!desktopUpdateSupported||!i.downloaded_verified||!i.safe_to_install;$("rollbackAppUpdate").disabled=!desktopUpdateSupported||!i.safe_to_install;text("appReleaseNotes",i.release_notes||"No release notes available.");const p=[];if(i.error)p.push(i.error);else if(i.update_available)p.push("Approved update "+i.latest_version+" is available.");else if(i.latest_version)p.push("No newer approved V18 Windows release.");else p.push("No approved V18 Windows release checked yet.");if(i.downloaded_verified)p.push("Installer download is SHA-256 verified.");if(i.signature==="unsigned")p.push("Release is unsigned; SHA-256 is verified but publisher identity is not signed.");if(!i.safe_to_install)p.push("Install/rollback deferred: "+(i.safety_reason||"hardware state unknown."));text("appUpdateStatus",p.join(" "));}
+async function refreshDesktopUpdate(){try{const i=await json("/api/app/update/status");desktopUpdateSupported=i?.release_only===true;paintDesktopUpdate(i);return i;}catch{desktopUpdateSupported=false;["autoUpdateCheck","checkAppUpdate","downloadAppUpdate","installAppUpdate","rollbackAppUpdate"].forEach(id=>$(id).disabled=true);text("appUpdateState","UNAVAILABLE");text("appUpdateStatus","Integrated updater is available in packaged GREEN_ION.exe.");return null;}}
+async function initDesktopUpdates(){const first=await refreshDesktopUpdate();if(!desktopUpdateSupported)return;$("autoUpdateCheck").onchange=async()=>paintDesktopUpdate(await postJson("/api/app/update/preferences",{auto_check:$("autoUpdateCheck").checked}));$("checkAppUpdate").onclick=async()=>{try{paintDesktopUpdate(await postJson("/api/app/update/check"));}catch(e){text("appUpdateStatus","Update check failed: "+e.message);}};$("downloadAppUpdate").onclick=async()=>{clearInterval(desktopUpdatePoll);desktopUpdatePoll=setInterval(refreshDesktopUpdate,800);try{paintDesktopUpdate(await postJson("/api/app/update/download"));}catch(e){text("appUpdateStatus","Update download failed: "+e.message);}finally{clearInterval(desktopUpdatePoll);desktopUpdatePoll=null;await refreshDesktopUpdate();}};$("installAppUpdate").onclick=async()=>{if(confirm("Install the verified GREEN ION update now? Hardware must be freshly known idle."))try{paintDesktopUpdate(await postJson("/api/app/update/install"));}catch(e){text("appUpdateStatus","Installation deferred: "+e.message);}};$("rollbackAppUpdate").onclick=async()=>{if(confirm("Roll back to the previously verified GREEN ION executable?"))try{paintDesktopUpdate(await postJson("/api/app/update/rollback"));}catch(e){text("appUpdateStatus","Rollback unavailable: "+e.message);}};if(first?.state==="downloading")desktopUpdatePoll=setInterval(refreshDesktopUpdate,800);setInterval(refreshDesktopUpdate,5000);}
+async function desktopHeartbeat(){if(desktopUpdateSupported)try{await postJson("/api/app/heartbeat");}catch{}}
+
 async function initSettings(){
  let persisted=false;
  try{persisted=await navigator.storage?.persisted?.()||false;if(!persisted&&navigator.storage?.persist)persisted=await navigator.storage.persist();}catch{}
@@ -494,6 +489,7 @@ async function initSettings(){
  $("restartCalibration").onclick=restartCalibration;
  $("saveProfile").onclick=saveFlightProfile;
  $("clearCache").onclick=async()=>{if(settingsMutationLocked())return;text("cacheStatus","Refreshing V18 offline cache…");try{const reg=await navigator.serviceWorker?.getRegistration("./v18_service_worker.js");await reg?.update();text("cacheStatus","Offline cache update check complete.");}catch(e){text("cacheStatus","Cache update failed: "+e.message);}};
+ await initDesktopUpdates();
  paintSettingsStatus();
 }
 
@@ -505,4 +501,4 @@ async function initOffline(){
 }
 
 initTabs();initDevTests();initFlight();initRecovery();initData();initSettings();initOffline();
-window.addEventListener("beforeunload",()=>{clearInterval(pollTimer);});
+setInterval(desktopHeartbeat,10000);\nwindow.addEventListener("beforeunload",()=>{clearInterval(pollTimer);clearInterval(desktopUpdatePoll);});

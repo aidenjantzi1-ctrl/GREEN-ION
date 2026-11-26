@@ -1,0 +1,23 @@
+name: V18 approved Windows release assets
+on:
+  workflow_dispatch:
+    inputs:
+      tag: {description: Existing approved v18.x.y release tag, required: true}
+      authorization_phrase: {description: Type PUBLISH APPROVED GREEN ION V18 RELEASE, required: true}
+permissions: {contents: write}
+jobs:
+  guard:
+    if: ${{ inputs.authorization_phrase == 'PUBLISH APPROVED GREEN ION V18 RELEASE' && startsWith(inputs.tag, 'v18.') }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: ${{ inputs.tag }}}
+      - name: Require existing approved release
+        shell: pwsh
+        env: {GH_TOKEN: ${{ github.token }}}
+        run: |
+          $r=gh release view "${{ inputs.tag }}" --json isDraft,isPrerelease,tagName|ConvertFrom-Json
+          if($r.isDraft -or $r.isPrerelease -or $r.tagName-ne "${{ inputs.tag }}"){throw "Approved published release required"}
+      - name: Promotion guard
+        shell: pwsh
+        run: throw "Fail-closed scaffold: copy the exact tested build-and-upload job only after approval of the tagged V18 release commit."
