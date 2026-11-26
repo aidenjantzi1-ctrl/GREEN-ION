@@ -197,7 +197,7 @@ class UpdateManager:
         helper.write_text(f"""$ErrorActionPreference='Continue'
 $pidToWait={os.getpid()}
 while(Get-Process -Id $pidToWait -ErrorAction SilentlyContinue){{Start-Sleep -Milliseconds 250}}
-$p=Start-Process -FilePath '{setupq}' -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CLOSEAPPLICATIONS','/RESTARTAPPLICATIONS','/CURRENTUSER','/LOG={log}') -Wait -PassThru
+$p=Start-Process -FilePath '{setupq}' -ArgumentList @('/SILENT','/SUPPRESSMSGBOXES','/NORESTART','/CLOSEAPPLICATIONS','/RESTARTAPPLICATIONS','/CURRENTUSER','/LOG={log}') -Wait -PassThru
 if($p.ExitCode -ne 0){{if(Test-Path '{bak}'){{Copy-Item -LiteralPath '{bak}' -Destination '{cur}' -Force}};if(Test-Path '{cur}'){{Start-Process -FilePath '{cur}'}};exit $p.ExitCode}}
 if(Test-Path '{tgt}'){{Start-Process -FilePath '{tgt}'}}elseif(Test-Path '{cur}'){{Start-Process -FilePath '{cur}'}}
 Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue

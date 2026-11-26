@@ -1,5 +1,6 @@
 from pathlib import Path
 import hashlib,json,sys,tempfile,unittest
+from unittest import mock
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/"Ground_Station"))
 import desktop_app
 from update_manager import UpdateError,UpdateManager,SETUP_ASSET,SETUP_SHA_ASSET,MANIFEST_ASSET
@@ -43,6 +44,47 @@ class T(unittest.TestCase):
    root=Path(td);m=self.m(interrupted,root);m.check()
    with self.assertRaises(UpdateError):m.download()
    self.assertFalse(any(root.rglob("*.partial")))
+ def test_verified_download_and_rollback_helpers(self):
+  setup=b"approved installer";digest=hashlib.sha256(setup).hexdigest()
+  manifest=json.dumps({"version":"18.0.1","assets":{SETUP_ASSET:{"sha256":digest}},"signatureRequired":False}).encode()
+  def good(req,timeout=0):
+   u=req.full_url
+   if "releases?per_page" in u:return Resp(release("18.0.1"))
+   if u.endswith("/sha"):return Resp((digest+"  "+SETUP_ASSET).encode())
+   if u.endswith("/setup"):return Resp(setup)
+   if u.endswith("/manifest"):return Resp(manifest)
+   raise AssertionError(u)
+  with tempfile.TemporaryDirectory() as td:
+   root=Path(td);m=self.m(good,root);m.check();state=m.download()
+   self.assertEqual(state["state"],"ready");self.assertTrue(state["downloaded_verified"]);self.assertEqual(state["signature"],"unsigned")
+   current=root/"current.exe";current.write_bytes(b"current executable")
+   with mock.patch.object(sys,"frozen",True,create=True),mock.patch.object(sys,"executable",str(current)),mock.patch("update_manager.subprocess.Popen") as popen:
+    installed=m.install()
+   self.assertEqual(installed["state"],"installing")
+   script=Path(popen.call_args.args[0][-1]).read_text(encoding="utf-8")
+   self.assertIn("/SILENT",script);self.assertIn("$p.ExitCode -ne 0",script);self.assertIn("Copy-Item",script)
+   backup=m.rollback_root/"GREEN_ION_previous.exe";self.assertTrue(backup.is_file())
+   with mock.patch.object(sys,"frozen",True,create=True),mock.patch.object(sys,"executable",str(current)),mock.patch("update_manager.subprocess.Popen") as popen2:
+    rolled=m.rollback()
+   self.assertEqual(rolled["state"],"rolling-back")
+   rollback_script=Path(popen2.call_args.args[0][-1]).read_text(encoding="utf-8")
+   self.assertIn("Copy-Item",rollback_script);self.assertIn("GREEN_ION_previous.exe",rollback_script)
+   backup.write_bytes(b"tampered")
+   with mock.patch.object(sys,"frozen",True,create=True),mock.patch.object(sys,"executable",str(current)),mock.patch("update_manager.subprocess.Popen"):
+    with self.assertRaises(UpdateError):m.rollback()
+ def test_manifest_mismatch_is_corrupt_update(self):
+  setup=b"installer";digest=hashlib.sha256(setup).hexdigest()
+  manifest=json.dumps({"version":"18.0.1","assets":{SETUP_ASSET:{"sha256":"f"*64}}}).encode()
+  def opener(req,timeout=0):
+   u=req.full_url
+   if "releases?per_page" in u:return Resp(release("18.0.1"))
+   if u.endswith("/sha"):return Resp((digest+"  "+SETUP_ASSET).encode())
+   if u.endswith("/setup"):return Resp(setup)
+   if u.endswith("/manifest"):return Resp(manifest)
+   raise AssertionError(u)
+  with tempfile.TemporaryDirectory() as td:
+   m=self.m(opener,td);m.check()
+   with self.assertRaises(UpdateError):m.download()
  def test_safety(self):
   self.assertFalse(desktop_app.evaluate_safety(None,None)[0]);link={"controls_verified":True};s={"recording":False,"armed":False,"flight_prep_active":False}
   self.assertTrue(desktop_app.evaluate_safety(s,link)[0]);self.assertFalse(desktop_app.evaluate_safety(s,link,"data-import")[0]);self.assertFalse(desktop_app.evaluate_safety({**s,"recording":True},link)[0])
