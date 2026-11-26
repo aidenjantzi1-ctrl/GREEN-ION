@@ -201,6 +201,14 @@ canvas{width:100%;height:auto;background:#0b1c2b;border-radius:12px;border:1px s
 <button id="clearCache" data-lock-during-flight class="secondary">CHECK FOR LOCAL APP CACHE UPDATE</button>
 <p id="cacheStatus" class="muted">This does not contact a cloud service. It only refreshes the local V18 app cache from the same local server.</p>
 </div>
+<div class="card" id="desktopUpdateCard">
+<h2>Software updates</h2>
+<div class="metrics"><div class="metric"><span>Installed</span><strong id="installedAppVersion">—</strong></div><div class="metric"><span>Latest approved release</span><strong id="latestAppVersion">—</strong></div><div class="metric"><span>Updater state</span><strong id="appUpdateState">—</strong></div><div class="metric"><span>Package signature</span><strong id="appUpdateSignature">—</strong></div></div>
+<label class="field"><span><input type="checkbox" id="autoUpdateCheck"> Check automatically on startup</span></label>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><button id="checkAppUpdate" class="secondary">Check for Updates</button><button id="downloadAppUpdate" class="secondary" disabled>DOWNLOAD VERIFIED UPDATE</button><button id="installAppUpdate" disabled>INSTALL & RESTART</button><button id="rollbackAppUpdate" class="secondary">ROLL BACK</button></div>
+<progress id="appUpdateProgress" max="1" value="0" style="width:100%"></progress>
+<p id="appUpdateStatus" class="muted">The packaged Windows app checks only approved GitHub Releases. Offline operation never requires internet.</p><details><summary>Release notes</summary><pre id="appReleaseNotes">No update checked yet.</pre></details>
+<p class="muted">Updates never flash Feather or Uno. Install/rollback are deferred during recording, preparation, diagnostics, data import, or unknown hardware state.</p></div>
 <details class="card">
 <summary>Advanced Feather status</summary>
 <p class="muted">Raw local status is diagnostic evidence only. It never overrides firmware readiness or save state.</p>

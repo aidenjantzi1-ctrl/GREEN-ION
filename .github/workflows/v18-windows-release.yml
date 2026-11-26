@@ -1,0 +1,103 @@
+name: V18 approved Windows release assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing approved v18.x.y GitHub Release tag
+        required: true
+        type: string
+      authorization_phrase:
+        description: Type PUBLISH APPROVED GREEN ION V18 RELEASE
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-attach:
+    if: ${{ inputs.authorization_phrase == 'PUBLISH APPROVED GREEN ION V18 RELEASE' && startsWith(inputs.tag, 'v18.') }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Require existing approved published release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $r = gh release view "${{ inputs.tag }}" --json isDraft,isPrerelease,tagName | ConvertFrom-Json
+          if ($r.isDraft -or $r.isPrerelease -or $r.tagName -ne "${{ inputs.tag }}") {
+            throw "An existing published non-prerelease release matching the approved tag is required."
+          }
+
+      - name: Bind application version to approved release tag
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.tag }}".Substring(1)
+          if ($version -notmatch '^18\.\d+\.\d+(\.\d+)?$') { throw "Invalid V18 release tag." }
+          $info = Get-Content Ground_Station/desktop_version.json -Raw | ConvertFrom-Json
+          $info.version = $version
+          $info.channel = "stable"
+          $info | ConvertTo-Json -Depth 8 | Set-Content Ground_Station/desktop_version.json -Encoding UTF8
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check pyinstaller==6.11.1 pillow==11.0.0
+          choco install innosetup --no-progress -y
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Require current V18 software gates
+        shell: pwsh
+        env:
+          PYTHONUTF8: '1'
+        run: |
+          node --test tools/v18_contract_gate.test.mjs
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m unittest discover -s tests -p "test_*.py"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $nodeTests = @(Get-ChildItem tests -Filter "*.test.mjs" -File | ForEach-Object { $_.FullName })
+          node --test @nodeTests
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Build approved Windows assets
+        shell: pwsh
+        run: |
+          node web/build.mjs
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python tools/make_windows_icon.py --output build/GREEN_ION.ico
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name GREEN_ION --icon build/GREEN_ION.ico --paths Ground_Station --add-data "web;web" --add-data "Ground_Station/desktop_version.json;Ground_Station" Ground_Station/desktop_app.py
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $version = (Get-Content Ground_Station/desktop_version.json -Raw | ConvertFrom-Json).version
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" "packaging\GREEN_ION.iss"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python tools/package_v18_windows.py --exe dist/GREEN_ION.exe --setup installer-output/GREEN_ION_Setup.exe --output windows-artifacts --version $version --commit "${{ github.sha }}"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Smoke approved packaged executable
+        shell: pwsh
+        run: |
+          $p = Start-Process ".\windows-artifacts\GREEN_ION.exe" -ArgumentList @("--no-browser","--http-port","18766","--test-exit-after","10") -PassThru
+          Start-Sleep -Seconds 3
+          $page = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:18766/v18-offline.html"
+          if ($page.StatusCode -ne 200 -or $page.Content -notmatch "Flight" -or $page.Content -notmatch "Recovery" -or $page.Content -notmatch "Data" -or $page.Content -notmatch "Settings") { throw "Approved packaged application smoke failed." }
+          Wait-Process -Id $p.Id -Timeout 20
+
+      - name: Attach verified assets to existing approved release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ inputs.tag }}" windows-artifacts/GREEN_ION.exe windows-artifacts/GREEN_ION.exe.sha256 windows-artifacts/GREEN_ION_Setup.exe windows-artifacts/GREEN_ION_Setup.exe.sha256 windows-artifacts/GREEN_ION_Windows_manifest.json --clobber
