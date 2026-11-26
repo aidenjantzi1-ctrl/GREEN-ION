@@ -71,6 +71,13 @@ jobs:
             tests/cpp/test_v16_3_wifi_policy.cpp \
             -o /tmp/test-v16-3-wifi-policy
           /tmp/test-v16-3-wifi-policy
+      - name: Native V18 recovery policy regression
+        run: |
+          g++ -std=c++17 -Wall -Wextra -pedantic \
+            -I libraries/GreenIonRecorder/src \
+            tests/cpp/test_v18_recovery_policy.cpp \
+            -o /tmp/test-v18-recovery-policy
+          /tmp/test-v18-recovery-policy
       - name: Node browser tests
         run: node --test tests/*.test.mjs
       - name: Headless browser WebGL rendering smoke test

@@ -73,6 +73,18 @@ static const uint32_t WIFI_SCAN_MAX_MS_PER_CHANNEL = 120;
 static const uint8_t WIFI_SCAN_RESULT_LIMIT = 20;
 static const uint32_t WIFI_PHYSICAL_AUTH_WINDOW_MS = 60000;
 static const uint32_t WIFI_MANAGEMENT_SESSION_MS = 300000;
+// V18 flight power transitions are one-shot optional work. The recorder gets
+// time to settle first, and the transition is attempted only with sample margin.
+static const uint32_t WIFI_FLIGHT_OFF_SETTLE_MS = 1000;
+static const uint32_t WIFI_TRANSITION_GUARD_US = 12000;
+
+// V18 recovery policy defaults. These are software scheduling/evidence values,
+// not measured battery-endurance or RF-range claims.
+static const uint32_t RECOVERY_ACTIVE_WINDOW_MS = 300000UL;
+static const uint32_t RECOVERY_ACTIVE_INTERVAL_MS = 1000UL;
+static const uint32_t RECOVERY_HIBERNATE_INTERVAL_MS = 180000UL;
+static const uint32_t RECOVERY_POSITION_MAX_AGE_MS = 30000UL;
+static const uint16_t RECOVERY_MIN_BATTERY_MV = 3500;
 
 static const bool BUZZER_ENABLED = true;
 static const uint16_t BUZZER_FREQUENCY_HZ = 2500;

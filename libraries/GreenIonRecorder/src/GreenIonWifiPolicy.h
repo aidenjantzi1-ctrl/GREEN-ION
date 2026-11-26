@@ -42,5 +42,26 @@ inline bool shouldRetryStation(bool homeConfigured,
          static_cast<int32_t>(nowMs - retryAtMs) >= 0;
 }
 
+// V18 flight-power policy is deliberately separate from Wi-Fi configuration.
+// Configuration stays frozen in critical states; this only decides whether the
+// already-running radio may be powered down after the SD recorder has started.
+inline bool shouldDisableForFlight(bool recording,
+                                   bool suppressionRequested,
+                                   bool alreadySuppressed,
+                                   uint32_t nowMs,
+                                   uint32_t requestedAtMs,
+                                   uint32_t settleDelayMs) {
+  return recording && suppressionRequested && !alreadySuppressed &&
+         static_cast<uint32_t>(nowMs - requestedAtMs) >= settleDelayMs;
+}
+
+// Wi-Fi may return only after the primary recorder has stopped and the completed
+// flight package has independently passed SD readback verification.
+inline bool shouldRestoreAfterVerifiedSave(bool recording,
+                                           bool saveVerified,
+                                           bool alreadySuppressed) {
+  return !recording && saveVerified && alreadySuppressed;
+}
+
 }  // namespace wifi_policy
 }  // namespace green_ion

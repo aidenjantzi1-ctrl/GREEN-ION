@@ -1,0 +1,93 @@
+name: V18 development preview ZIP (no release)
+on:
+  push:
+    branches: [worker/v18-integration]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview-package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: P0 require expanded 25-case V18 SAVED acceptance
+        shell: pwsh
+        run: |
+          node --test tools/v18_contract_gate.test.mjs
+          if ($LASTEXITCODE -ne 0) { Write-Error "Fail-closed P0 save evidence gate: do not publish a dev preview ZIP"; exit 1 }
+      - name: Verify source and tests
+        shell: pwsh
+        env:
+          PYTHONUTF8: '1' # Windows Python defaults to cp1252; historical UTF-8 sources must decode consistently.
+        run: |
+          python -m unittest discover -s tests -p "test_*.py"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $nodeTests = @(Get-ChildItem -Path tests -Filter "*.test.mjs" -File | ForEach-Object { $_.FullName })
+          if ($nodeTests.Count -eq 0) { Write-Error "No Node test files found"; exit 1 }
+          node --test @nodeTests
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Build offline web
+        shell: pwsh
+        run: |
+          node web/build.mjs
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Parse PowerShell launcher
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            "Ground_Station/Start-GreenIon.ps1", [ref]$tokens, [ref]$errors)
+          if ($errors.Count) { $errors | Format-List; exit 1 }
+      - name: Build versioned opt-in V18 development ZIP
+        shell: pwsh
+        run: |
+          python tools/build_v18_dev_preview.py --website web/dist --output v18-preview --commit "${{ github.sha }}"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Verify ZIP contents, manifest, hash, and safe entrypoint
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import hashlib, json
+          root = Path("v18-preview")
+          z = root / "GREEN_ION_V18_DEV_TEST_PREVIEW.zip"
+          expected = (root / "GREEN_ION_V18_DEV_TEST_PREVIEW.sha256").read_text().split()[0]
+          assert hashlib.sha256(z.read_bytes()).hexdigest() == expected
+          with ZipFile(z) as f:
+              names = set(f.namelist())
+              base = "GREEN_ION_V18_DEV_TEST_PREVIEW/"
+              manifest = json.loads(f.read(base + "PREVIEW_MANIFEST.json"))
+              assert manifest["commit"] == "${{ github.sha }}"
+              assert manifest["hardwareTestsVerified"] is False
+              assert manifest["interface"] == ["Flight", "Recovery", "Data", "Settings"]
+              for name in ["START_V18_PREVIEW.cmd", "Ground_Station/START_V18_PREVIEW.cmd", "web/v18-offline.html", "web/v18_offline_app.mjs", "web/v18_offline_core.mjs", "web/v18_service_worker.js", "web/analysis/rkt4.mjs", "docs/V18/TESTING_GUIDE.md"]:
+                  assert base + name in names, name
+              launcher = f.read(base + "START_V18_PREVIEW.cmd").decode()
+              assert "Ground_Station" in launcher and "START_V18_PREVIEW.cmd" in launcher
+          print("V18 development preview ZIP structure and hash: PASS")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Extract V18 ZIP and smoke the contained local bridge (software only)
+        shell: pwsh
+        env:
+          PYTHONUTF8: '1'
+        run: |
+          python tools/smoke_v18_dev_preview.py --zip v18-preview/GREEN_ION_V18_DEV_TEST_PREVIEW.zip --sha256 v18-preview/GREEN_ION_V18_DEV_TEST_PREVIEW.sha256 --commit "${{ github.sha }}"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GREEN_ION_V18_DEV_TEST_PREVIEW
+          path: |
+            v18-preview/GREEN_ION_V18_DEV_TEST_PREVIEW.zip
+            v18-preview/GREEN_ION_V18_DEV_TEST_PREVIEW.sha256
+          if-no-files-found: error

@@ -7,6 +7,7 @@
 #include "GreenIonFlightReadiness.h"
 #include "GreenIonFlightWatcher.h"
 #include "GreenIonRecorderCore.h"
+#include "GreenIonSaveVerification.h"
 
 class MemorySink : public green_ion::recorder::ByteSink {
  public:
@@ -76,6 +77,85 @@ int main() {
   failedRecorder.observe(sample(20000,101300.0f));
   assert(!failedRecorder.recording());
   assert(failedRecorder.status()==green_ion::recorder::CORE_RECORD_WRITE_FAILED);
+
+
+  // V18 post-flight verification requires a reopened RKT4 header, exact byte
+  // count, complete-record alignment, expected 50 Hz rate and completion metadata.
+  uint8_t verifyHeader[green_ion::rkt4::kHeaderBytes]={};
+  assert(green_ion::rkt4::encodeHeader(verifyHeader,{50,101325.0f,3900}));
+  const size_t verifyBytes=green_ion::rkt4::kHeaderBytes+
+      200*green_ion::rkt4::kRecordBytes;
+  const char verifyMetadata[]=
+      "GREEN-ION-METADATA-1\nstatus=recording\nfile=V12D007.BIN\n"
+      "GREEN-ION-COMPLETION-1\nstatus=complete\n"
+      "finish_reason=automatic_landing\nfile=V12D007.BIN\n"
+      "duration_ms=5000\nfile_bytes=3232\ncomplete_records=200\n";
+  using green_ion::save_verification::verifyCompletedPackage;
+  using green_ion::save_verification::SAVE_VALID;
+  assert(verifyBytes==3232);
+  assert(verifyCompletedPackage(
+      verifyHeader,sizeof(verifyHeader),verifyBytes,verifyBytes,
+      verifyMetadata,sizeof(verifyMetadata)-1,"/V12D007.BIN",50)==SAVE_VALID);
+  assert(verifyCompletedPackage(
+      verifyHeader,sizeof(verifyHeader),verifyBytes-16,verifyBytes,
+      verifyMetadata,sizeof(verifyMetadata)-1,"/V12D007.BIN",50)!=SAVE_VALID);
+  uint8_t badVerifyHeader[sizeof(verifyHeader)]={};
+  assert(verifyCompletedPackage(
+      badVerifyHeader,sizeof(badVerifyHeader),verifyBytes,verifyBytes,
+      verifyMetadata,sizeof(verifyMetadata)-1,"/V12D007.BIN",50)!=SAVE_VALID);
+  const char incompleteMetadata[]="GREEN-ION-COMPLETION-1\nstatus=complete\n";
+  assert(verifyCompletedPackage(
+      verifyHeader,sizeof(verifyHeader),verifyBytes,verifyBytes,
+      incompleteMetadata,sizeof(incompleteMetadata)-1,"/V12D007.BIN",50)!=SAVE_VALID);
+
+  const char mismatchedMetadata[]=
+      "GREEN-ION-COMPLETION-1\nstatus=complete\n"
+      "file=V12D008.BIN\nfile_bytes=3232\n";
+  assert(verifyCompletedPackage(
+      verifyHeader,sizeof(verifyHeader),verifyBytes,verifyBytes,
+      mismatchedMetadata,sizeof(mismatchedMetadata)-1,"/V12D007.BIN",50)!=SAVE_VALID);
+  const char overlongName[]=
+      "/V12D007.BIN-THIS-NAME-IS-DELIBERATELY-TOO-LONG-FOR-THE-TOKEN";
+  assert(verifyCompletedPackage(
+      verifyHeader,sizeof(verifyHeader),verifyBytes,verifyBytes,
+      verifyMetadata,sizeof(verifyMetadata)-1,overlongName,50)!=SAVE_VALID);
+
+  // Completion evidence must be bound inside the completion block itself,
+  // including exact record count. A correct start-block file= cannot rescue a
+  // wrong-flight completion block.
+  const char missingRecordCountMetadata[] =
+      "GREEN-ION-COMPLETION-1\nstatus=complete\n"
+      "file=V12D007.BIN\nfile_bytes=3232\n";
+  assert(verifyCompletedPackage(
+      verifyHeader,sizeof(verifyHeader),verifyBytes,verifyBytes,
+      missingRecordCountMetadata,sizeof(missingRecordCountMetadata)-1,
+      "/V12D007.BIN",50)!=SAVE_VALID);
+
+  const char wrongRecordCountMetadata[] =
+      "GREEN-ION-COMPLETION-1\nstatus=complete\n"
+      "file=V12D007.BIN\nfile_bytes=3232\ncomplete_records=199\n";
+  assert(verifyCompletedPackage(
+      verifyHeader,sizeof(verifyHeader),verifyBytes,verifyBytes,
+      wrongRecordCountMetadata,sizeof(wrongRecordCountMetadata)-1,
+      "/V12D007.BIN",50)!=SAVE_VALID);
+
+  const char startCorrectCompletionWrong[] =
+      "GREEN-ION-METADATA-1\nstatus=recording\nfile=V12D007.BIN\n"
+      "GREEN-ION-COMPLETION-1\nstatus=complete\n"
+      "file=V12D008.BIN\nfile_bytes=3232\ncomplete_records=200\n";
+  assert(verifyCompletedPackage(
+      verifyHeader,sizeof(verifyHeader),verifyBytes,verifyBytes,
+      startCorrectCompletionWrong,sizeof(startCorrectCompletionWrong)-1,
+      "/V12D007.BIN",50)!=SAVE_VALID);
+
+  const char duplicateCompletionIdentity[] =
+      "GREEN-ION-COMPLETION-1\nstatus=complete\n"
+      "file=V12D007.BIN\nfile=V12D008.BIN\n"
+      "file_bytes=3232\ncomplete_records=200\n";
+  assert(verifyCompletedPackage(
+      verifyHeader,sizeof(verifyHeader),verifyBytes,verifyBytes,
+      duplicateCompletionIdentity,sizeof(duplicateCompletionIdentity)-1,
+      "/V12D007.BIN",50)!=SAVE_VALID);
 
   // Power-loss model: a torn file remains inspectable and a valid checkpoint
   // selects the last committed complete RKT4 boundary.
