@@ -24,6 +24,12 @@ function rkt4(records=4){
  return bytes;
 }
 
+test("V18 user interface excludes GitHub AI worker/task distribution controls",()=>{
+ const surface=(html+"\n"+app).toLowerCase();
+ for(const token of ["github ai task","task distribution","worker distributor","ai worker queue"])
+  assert.ok(!surface.includes(token),token);
+});
+
 test("V18 has exactly four user-facing tabs",()=>{
  assert.deepEqual(V18_TABS,["flight","recovery","data","settings"]);
  for(const name of ["Flight","Recovery","Data","Settings"])assert.match(html,new RegExp(">"+name+"<"));
@@ -71,15 +77,15 @@ test("Recovery accepts only current protocol-v2 receiver JSON and handles stale 
  assert.equal(recoveryView(noFix,{latitude:34.1,longitude:-117.2,at:now},now+5000).gps,"stale");
 });
 
-async function exerciseVerifySave({metadata,files={files:[{name:"V12D001.BIN",size:80,recording_complete:true}]},status={log_file:"V12D001.BIN",recording:false,armed:false,flight_prep_active:false},afterFiles=null,filesError=null,metadataError=null}={}){
+async function exerciseVerifySave({metadata,files={files:[{name:"V12D001.BIN",size:80,recording_complete:true}]},status={log_file:"V12D001.BIN",recording:false,armed:false,flight_prep_active:false},afterFiles=null,onMetadata=null,filesError=null,metadataError=null}={}){
  const start=app.indexOf("async function verifySave()");
  const end=app.indexOf("async function pollFlight()",start);
  assert.ok(start>=0&&end>start,"verifySave source must be isolatable");
  const context=createContext({
-  currentStatus:status,lastLogFile:status.log_file||"",lastFiles:null,saveVerified:true,lastSaved:{name:"OLD.BIN"},
+  currentStatus:status,connected:true,lastStatusAt:Date.now(),lastLogFile:status.log_file||"",lastFiles:null,saveVerified:true,lastSaved:{name:"OLD.BIN"},
   json:async()=>{if(filesError)throw filesError;if(afterFiles)afterFiles(context);return files;},
-  api:async()=>{if(metadataError)throw metadataError;return {text:async()=>metadata};},
-  fileSaveEvidence,paintFlight:()=>{},encodeURIComponent
+  api:async()=>{if(metadataError)throw metadataError;return {text:async()=>{onMetadata?.(context);return metadata;}};},
+  fileSaveEvidence,paintFlight:()=>{},encodeURIComponent,Date
  });
  runInContext(app.slice(start,end).trim(),context);
  await runInContext("verifySave()",context);
@@ -124,6 +130,12 @@ test("P0 save completion rejects stale async responses and API failures",async()
  assert.equal(fileFailure.saveVerified,false);
  const metadataFailure=await exerciseVerifySave({metadata:completeMetadata(),metadataError:new Error("metadata unavailable")});
  assert.equal(metadataFailure.saveVerified,false);
+ const disconnected=await exerciseVerifySave({metadata:completeMetadata(),onMetadata:context=>{context.connected=false;}});
+ assert.equal(disconnected.saveVerified,false);
+ assert.equal(disconnected.lastSaved,null);
+ const staleStatus=await exerciseVerifySave({metadata:completeMetadata(),onMetadata:context=>{context.lastStatusAt=Date.now()-5000;}});
+ assert.equal(staleStatus.saveVerified,false);
+ assert.equal(staleStatus.lastSaved,null);
 });
 
 test("P0 null and blank battery/GPS values remain missing evidence, never fabricated zero/live",()=>{
@@ -165,7 +177,7 @@ test("multi-flight local history, comparison, CSV JSON and print remain local",(
 });
 
 test("PR #56 regressions are isolated: V18 owns cache version and hash navigation",()=>{
- assert.match(sw,/const VERSION="green-ion-v18-offline-app-v5"/);
+ assert.match(sw,/const VERSION="green-ion-v18-offline-app-v6"/);
  assert.ok(sw.includes('"./v18-offline.html"'));
  assert.ok(sw.includes('"./analysis/rkt4.mjs"'));
  assert.match(sw,/url\.pathname\.startsWith\("\/api\/"\)/);

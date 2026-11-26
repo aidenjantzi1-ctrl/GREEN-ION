@@ -180,3 +180,10 @@ The completion TXT is accepted only when:
 The async verification is also identity-bound: if the active status object/flight changes while file-list or metadata requests are in flight, that result is discarded. HTTP/API errors, blank/incomplete TXT, wrong-flight TXT, stale responses, or structural mismatches leave `saveVerified=false` and keep FLY AGAIN disabled.
 
 This is **structural completion verification only**. RKT4 v2 has no per-record checksum, so the frontend does not claim byte-perfect sample-content integrity from the completion TXT.
+
+
+## Final save-evidence freshness gate
+
+The V18 offline Flight UI authorizes **SAVED / FLY AGAIN** only while the same Feather status object is still current, the local bridge remains connected, and the most recent `/api/status` receipt is no more than 3000 ms old. These conditions are checked again after each awaited file/metadata request. If the bridge disconnects or status becomes stale while completion metadata is in flight, prior save evidence is cleared and the response is ignored. A later fresh status poll must restart verification.
+
+This is in addition to the completion marker/status/exact BIN identity/file-byte/complete-record structural checks. It prevents delayed metadata from an old connection or stale state from falsely authorizing a saved flight. Structural verification is not a per-record cryptographic checksum.

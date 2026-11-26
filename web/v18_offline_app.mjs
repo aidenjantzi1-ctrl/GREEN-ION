@@ -5,7 +5,7 @@ import {deriveFlightState,criticalFlightProblem,optionalFlightWarnings,canPrepar
 const $=id=>document.getElementById(id);
 let lastStatusAt=0,currentStatus=null,connected=false,lastFiles=null,saveVerified=false,lastSaved=null,lastLogFile="",pollTimer=null;
 let serialPort=null,serialReader=null,serialStop=false,serialManualDisconnect=false,serialReconnectTimer=null,lastSerialInfo=null,lastPacket=null,lastKnown=null,serialInvalid=0,serialPermissionState="unknown",serialPermissionMessage="",activeAnalysis=null,compareAnalysis=null;
-const V18_CACHE_VERSION="green-ion-v18-offline-app-v4";
+const V18_CACHE_VERSION="green-ion-v18-offline-app-v6";
 let devFirmwareRequested=false;
 
 function text(id,value){const n=$(id);if(n)n.textContent=value==null?"—":String(value);}
@@ -65,9 +65,16 @@ function paintFlight(){
  text("flightVerification",lastSaved?"Completion marker + file bytes/records structurally verified":"Not yet verified");
 }
 async function verifySave(){
- const s=currentStatus;if(!s||s.recording||s.armed||s.flight_prep_active)return;
+ const SAVE_STATUS_FRESH_MS=3000;
+ const statusFresh=()=>{
+  const age=Date.now()-Number(lastStatusAt);
+  return connected===true&&Number.isFinite(age)&&age>=0&&age<=SAVE_STATUS_FRESH_MS;
+ };
+ const s=currentStatus;
+ saveVerified=false;lastSaved=null;
+ if(!s||!statusFresh()||s.recording||s.armed||s.flight_prep_active){paintFlight();return;}
  const name=String(s.log_file||lastLogFile||"");
- if(!name||!name.toUpperCase().endsWith(".BIN"))return;
+ if(!name||!name.toUpperCase().endsWith(".BIN")){paintFlight();return;}
  // Pure, fail-closed validator for the existing GreenIonMetadata completion writer.
  // This proves metadata/file structural agreement only; RKT4 v2 has no per-record checksum.
  const validateCompletionMetadata=(rawText,expectedName,fileEvidence)=>{
@@ -93,9 +100,8 @@ async function verifySave(){
   if(fileBytes<48||(fileBytes-32)%16!==0||records!==(fileBytes-32)/16)return null;
   return {durationMs,fileBytes,completeRecords:records};
  };
- const stillCurrent=()=>currentStatus===s&&!s.recording&&!s.armed&&!s.flight_prep_active&&
+ const stillCurrent=()=>statusFresh()&&currentStatus===s&&!s.recording&&!s.armed&&!s.flight_prep_active&&
   String(s.log_file||lastLogFile||"")===name;
- saveVerified=false;lastSaved=null;
  try{
   const files=await json("/api/files");lastFiles=files;
   if(!stillCurrent()){paintFlight();return;}
