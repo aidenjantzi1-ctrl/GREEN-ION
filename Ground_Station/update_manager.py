@@ -21,6 +21,11 @@ def _version_tuple(value:str)->tuple[int,...]:
     m=re.match(r"^(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?",str(value or ""))
     return tuple(int(x or 0) for x in m.groups()) if m else (0,0,0,0)
 
+def _is_newer(candidate:str,installed:str)->bool:
+    c,i=_version_tuple(candidate),_version_tuple(installed)
+    if c!=i:return c>i
+    return "-" in str(installed) and "-" not in str(candidate)
+
 def _sha256(path:Path)->str:
     h=hashlib.sha256()
     with path.open("rb") as f:
@@ -72,7 +77,7 @@ class UpdateManager:
             return {"schema":"GREEN-ION-V18-WINDOWS-UPDATER-1","installed_version":self.installed_version,
               "latest_version":r.version if r else None,"latest_tag":r.tag if r else None,"release_name":r.name if r else "",
               "release_notes":r.notes if r else "","published_at":r.published_at if r else "",
-              "update_available":bool(r and _version_tuple(r.version)>_version_tuple(self.installed_version)),
+              "update_available":bool(r and _is_newer(r.version,self.installed_version)),
               "downloaded_verified":bool(self._downloaded_installer and self._downloaded_installer.is_file()),
               "download_progress":round(self._progress,4),"signature":self._signature,"state":self._state,"error":self._error,
               "internet_available":self._internet_available,"auto_check":self.auto_check,"safe_to_install":bool(safe),
@@ -88,6 +93,7 @@ class UpdateManager:
 
     def _select_release(self,releases:object)->ReleaseInfo|None:
         if not isinstance(releases,list):raise UpdateError("GitHub returned an invalid releases response.")
+        candidates=[]
         for item in releases:
             if not isinstance(item,dict) or item.get("draft") or item.get("prerelease"):continue
             tag=str(item.get("tag_name") or "");m=RELEASE_TAG.fullmatch(tag)
@@ -98,8 +104,8 @@ class UpdateManager:
                 n=str(a.get("name") or "");u=str(a.get("browser_download_url") or "")
                 if n in (SETUP_ASSET,SETUP_SHA_ASSET,MANIFEST_ASSET) and _safe_release_url(u):assets[n]=u
             if SETUP_ASSET not in assets or SETUP_SHA_ASSET not in assets:continue
-            return ReleaseInfo(tag,m.group(1),str(item.get("name") or tag)[:160],str(item.get("body") or "")[:12000],str(item.get("published_at") or ""),assets)
-        return None
+            candidates.append(ReleaseInfo(tag,m.group(1),str(item.get("name") or tag)[:160],str(item.get("body") or "")[:12000],str(item.get("published_at") or ""),assets))
+        return max(candidates,key=lambda r:_version_tuple(r.version),default=None)
 
     def check(self)->dict:
         with self._lock:self._state="checking";self._error=""
@@ -107,7 +113,7 @@ class UpdateManager:
             r=self._select_release(json.loads(self._read_limited(RELEASES_API,MAX_TEXT_ASSET_BYTES).decode("utf-8")))
             with self._lock:
                 self._release=r;self._internet_available=True
-                self._state="available" if r and _version_tuple(r.version)>_version_tuple(self.installed_version) else "up-to-date"
+                self._state="available" if r and _is_newer(r.version,self.installed_version) else "up-to-date"
         except (OSError,HTTPError,URLError,ValueError,UnicodeError,json.JSONDecodeError,UpdateError) as e:
             with self._lock:self._internet_available=False;self._state="error";self._error="GitHub update check failed: "+str(e)[:300]
         return self.status()
@@ -134,7 +140,7 @@ class UpdateManager:
     def download(self)->dict:
         with self._lock:r=self._release
         if r is None:self.check();r=self._release
-        if r is None or _version_tuple(r.version)<=_version_tuple(self.installed_version):raise UpdateError("No newer approved V18 Windows release is available.")
+        if r is None or not _is_newer(r.version,self.installed_version):raise UpdateError("No newer approved V18 Windows release is available.")
         root=self.update_root/r.tag;root.mkdir(parents=True,exist_ok=True);setup=root/SETUP_ASSET;sha_file=root/SETUP_SHA_ASSET;manifest_file=root/MANIFEST_ASSET
         with self._lock:self._state="downloading";self._error="";self._progress=0.;self._downloaded_installer=None;self._downloaded_sha256="";self._signature="not-checked"
         try:

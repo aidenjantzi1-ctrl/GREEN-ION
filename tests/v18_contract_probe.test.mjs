@@ -18,7 +18,9 @@ test("independent V18 contract probe reports evidence or explicit NOT TESTED",()
   assert.equal(run.status,2);
   assert.deepEqual(report.results.map(x=>x.state),["NOT TESTED"]);
  }else{
-  assert.equal(run.status,0,JSON.stringify(report.results.filter(x=>x.state==="FAIL")));
-  assert.ok(report.results.length>=9);
+  assert.equal(run.status,0,JSON.stringify(report.results.filter(x=>x.state!=="PASS")));
+  assert.equal(report.results.length,25,"integration checkout must execute the full reviewed 25-case matrix");
+  assert.equal(new Set(report.results.map(x=>x.id)).size,25,"probe case IDs must remain unique");
+  assert.ok(report.results.every(x=>x.state==="PASS"),"all 25 independent cases must pass");
  }
 });

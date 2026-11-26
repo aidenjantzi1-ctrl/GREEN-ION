@@ -19,6 +19,7 @@ class T(unittest.TestCase):
  def test_check_and_offline(self):
   with tempfile.TemporaryDirectory() as td:self.assertTrue(self.m(lambda r,timeout=0:Resp(release("18.0.1")),td).check()["update_available"])
   with tempfile.TemporaryDirectory() as td:self.assertEqual(self.m(lambda r,timeout=0:Resp(release("18.0.0")),td).check()["state"],"up-to-date")
+  with tempfile.TemporaryDirectory() as td:self.assertTrue(self.m(lambda r,timeout=0:Resp(release("18.0.0")),td,"18.0.0-dev.1").check()["update_available"])
   def off(r,timeout=0):raise OSError("offline")
   with tempfile.TemporaryDirectory() as td:self.assertEqual(self.m(off,td).check()["state"],"error")
  def test_checksum_and_interruption(self):

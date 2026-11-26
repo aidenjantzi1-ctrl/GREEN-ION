@@ -26,8 +26,12 @@ test("real V18 source passes the independent completion acceptance gate",()=>{
  assert.equal(run.error,undefined);
  const report=JSON.parse(run.stdout);
  assert.equal(report.schema,"green-ion-v18-contract-probe-1");
+ assert.equal(report.results.length,25,"expanded acceptance matrix must contain exactly 25 reviewed cases");
+ assert.equal(new Set(report.results.map(x=>x.id)).size,25,"acceptance case IDs must be unique");
  const byId=new Map(report.results.map(x=>[x.id,x.state]));
  for(const id of required)assert.equal(byId.get(id),"PASS",`${id}: ${byId.get(id)??"MISSING"}`);
+ assert.ok(report.results.every(x=>x.state==="PASS"),
+  `All 25 cases must PASS: ${JSON.stringify(report.results.filter(x=>x.state!=="PASS"))}`);
  assert.equal(run.status,0,
   `Probe exit ${run.status}; failures: ${JSON.stringify(report.results.filter(x=>x.state!=="PASS"))}`);
 });

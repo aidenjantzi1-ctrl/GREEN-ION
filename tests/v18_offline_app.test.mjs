@@ -177,7 +177,7 @@ test("multi-flight local history, comparison, CSV JSON and print remain local",(
 });
 
 test("PR #56 regressions are isolated: V18 owns cache version and hash navigation",()=>{
- assert.match(sw,/const VERSION="green-ion-v18-offline-app-v6"/);
+ assert.match(sw,/const VERSION="green-ion-v18-offline-app-v7"/);
  assert.ok(sw.includes('"./v18-offline.html"'));
  assert.ok(sw.includes('"./analysis/rkt4.mjs"'));
  assert.match(sw,/url\.pathname\.startsWith\("\/api\/"\)/);

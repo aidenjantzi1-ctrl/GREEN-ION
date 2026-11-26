@@ -86,3 +86,16 @@ Coordination posted to Integration PR #60 and Secondary PR #58. Secondary owns f
 Integration Manager current development snapshot: `ec9d184c07e36f4ebbd519772c1b5667a856c375` before this documentation update. Selectively reviewed and staged Secondary #58 `2d7b110...` safe metadata validator; Heavy #62 expanded 25-case independent real-source gate `d86c164...`; Hardware #61 motor-free sled guide `2d448115...`; and exact-CI-passing Primary #63 strict BIN/TXT verifier and status-only recovery `1166d9...`. All changes remain only on `worker/v18-integration`; frozen `main` `17f517f275be7b52e3e71a1f2d656edbc65a08ea` untouched.
 
 **The current 25-case probe yields 23 PASS / 2 FAIL**: `save_delayed_disconnection` and `save_delayed_stale_status`, because Secondary's current `stillCurrent()` checks object/phase/filename but not connectivity or freshness after awaited metadata. New preview/package regression must fail closed until a corrected Secondary worker head is reviewed and staged. Integration posted targeted correction request on PR #58, and this is **[BLOCKED: P0 SAVE-STATE RACE]**, not DONE. Do not remove/skip the gate, claim software DEV-TEST Flight acceptance, or substitute an older green preview artifact. Any synthetic/CI case is software-only; real Windows, Feather, Uno, RF, 350mAh current, SD power failure, physical wake and So Long flight-fit all remain NOT TESTED. No schedule, main merge, release, deploy, flash, TX, branch deletion or PR closure.
+
+## 2026-11-26 final-coder reconciliation
+
+The November 21 save-state P0 is **resolved in software** on the integration branch. Final-coder commits `9b88317e6a54a58cf927c2227942726758b60e81` and `d28d07e02e591dc86169de89f477a9b3cc1ae2d5` add live-connection/status-freshness gating for asynchronous save verification, focused regressions, offline cache v6, and an exact non-skippable 25-case acceptance requirement.
+
+- `save_delayed_disconnection`: PASS — delayed completion metadata cannot authorize SAVED after the local Feather bridge disconnects.
+- `save_delayed_stale_status`: PASS — delayed completion metadata cannot authorize SAVED after status exceeds the 3000 ms freshness limit.
+- The current independent matrix is exactly 25 unique cases and must be 25/25 PASS both in source CI and against the extracted ZIP.
+- [Windows V18 preview workflow 45899719931](https://github.com/aidenjantzi1-ctrl/GREEN-ION/actions/runs/45899719931) on `d28d07e...` is SUCCESS and uploaded `GREEN_ION_V18_DEV_TEST_PREVIEW`; extracted localhost smoke passed. Combined app/browser/native and Windows packaging on the same code snapshot also passed; final documentation-head CI is required before final handoff.
+- V18 UI audit: navy `#081420`, exactly four top tabs **Flight / Recovery / Data / Settings**, local-only/no cloud dependency, and no GitHub AI worker/task-distribution entry.
+- Firmware safety boundaries are unchanged: main V17.0.1 remains frozen, SD-first RKT4 v2 remains 50 Hz, protocol-v2 remains unchanged, GPS/LoRa are optional to recording, automatic recovery RF TX/deep sleep/wake remain disabled.
+
+**Software preview readiness is separate from hardware/flight readiness.** Real hardware and rocket measurements remain NOT TESTED as listed in the testing guide/readiness report. No release, main merge, deployment or flashing is authorized.

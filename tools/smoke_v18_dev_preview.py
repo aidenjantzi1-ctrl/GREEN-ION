@@ -97,16 +97,28 @@ def smoke(zip_path: Path, sha_file: Path, expected_commit: str) -> None:
         probe_results = probe_report.get("results", [])
         # The expanded Heavy #62 acceptance matrix is REQUIRED. An older
         # 11-case gate could pass while late disconnect/status-timeout cases fail.
-        if len(probe_results) < 25:
-            raise AssertionError("Independent V18 save-state gate is incomplete: need expanded 25-case matrix")
+        required_ids = {
+            "firmware_phase_sequence", "disconnected_fails_closed", "stale_status_no_pass",
+            "critical_sd_optional_radio", "unknown_battery_not_tested",
+            "flight_identity_and_completion", "save_valid_completion", "save_second_flight",
+            "save_wrong_flight", "save_blank_metadata", "save_missing_marker",
+            "save_incomplete", "save_partial_records", "save_byte_mismatch",
+            "save_record_mismatch", "save_zero_records", "save_contradictory_fields",
+            "save_metadata_error", "save_delayed_new_flight",
+            "save_delayed_disconnection", "save_delayed_stale_status",
+            "receiver_protocol_rejection", "receiver_stale_fix",
+            "receiver_missing_coordinate", "firmware_contract_documented",
+        }
+        result_ids = {item.get("id") for item in probe_results}
+        if len(probe_results) != 25 or result_ids != required_ids:
+            raise AssertionError(
+                f"Independent V18 gate must contain exactly the reviewed 25 cases; "
+                f"got {len(probe_results)} cases, missing={sorted(required_ids-result_ids)}, "
+                f"extra={sorted(result_ids-required_ids)}"
+            )
         nonpass = [item for item in probe_results if item.get("state") != "PASS"]
         if nonpass:
-            raise AssertionError(f"Extracted V18 save-state probe is not 100% PASS: {nonpass}")
-        for required_id in ("save_metadata_binding", "save_delayed_disconnection",
-                            "save_delayed_stale_status"):
-            if not any(item.get("id") == required_id and item.get("state") == "PASS"
-                       for item in probe_results):
-                raise AssertionError(f"Independent P0 case missing or failing: {required_id}")
+            raise AssertionError(f"Extracted V18 save-state probe is not 25/25 PASS: {nonpass}")
 
         # Start only the extracted local bridge, without COM ownership or browser.
         with socket.socket() as sock:

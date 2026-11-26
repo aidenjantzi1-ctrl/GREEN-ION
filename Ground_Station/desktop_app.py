@@ -129,20 +129,34 @@ def create_server(port):
 def heartbeat_watch(server,stop):
     while not stop.wait(10):
         if HEARTBEAT["seen"] and time.monotonic()-HEARTBEAT["at"]>HEARTBEAT_TIMEOUT_S:server.shutdown();return
+def ensure_cli_console():
+    if os.name!="nt":return
+    try:
+        ctypes.windll.kernel32.AttachConsole(-1)
+        if getattr(sys,"stdout",None) is None:sys.stdout=open("CONOUT$","w",encoding="utf-8",buffering=1)
+        if getattr(sys,"stderr",None) is None:sys.stderr=open("CONOUT$","w",encoding="utf-8",buffering=1)
+    except (OSError,AttributeError):pass
+def cli_print(value):
+    stream=getattr(sys,"stdout",None)
+    if stream is not None:
+        try:print(value,file=stream,flush=True)
+        except (OSError,AttributeError):pass
 def parse_args(argv=None):
     p=argparse.ArgumentParser(description="GREEN ION V18 Windows desktop application")
     for a in ("version","check-update","update","rollback"):p.add_argument("--"+a,action="store_true")
     p.add_argument("--no-browser",action="store_true",help=argparse.SUPPRESS);p.add_argument("--http-port",type=int,default=8765,help=argparse.SUPPRESS);p.add_argument("--test-exit-after",type=float,default=0,help=argparse.SUPPRESS);return p.parse_args(argv)
 def cli_action(a):
-    if a.version:print(DESKTOP_INFO.get("version","unknown"));return 0
+    if not (a.version or a.check_update or a.update or a.rollback):return None
+    ensure_cli_console()
+    if a.version:cli_print(DESKTOP_INFO.get("version","unknown"));return 0
     if a.check_update:
-        r=UPDATER.check();print(json.dumps(r,indent=2));return 0 if r.get("state")!="error" else 2
+        r=UPDATER.check();cli_print(json.dumps(r,indent=2));return 0 if r.get("state")!="error" else 2
     if a.update:
         r=UPDATER.check()
-        if not r.get("update_available"):print(json.dumps(r,indent=2));return 0 if r.get("state")!="error" else 2
-        try:print(json.dumps(UPDATER.download(),indent=2));print("Installer verified. Start installation from Settings while fresh Feather idle state is known.");return 0
-        except UpdateError as e:print(str(e));return 2
-    if a.rollback:print("For safety, rollback must be started from Settings while fresh Feather idle state is known.");return 3
+        if not r.get("update_available"):cli_print(json.dumps(r,indent=2));return 0 if r.get("state")!="error" else 2
+        try:cli_print(json.dumps(UPDATER.download(),indent=2));cli_print("Installer verified. Start installation from Settings while fresh Feather idle state is known.");return 0
+        except UpdateError as e:cli_print(str(e));return 2
+    if a.rollback:cli_print("For safety, rollback must be started from Settings while fresh Feather idle state is known.");return 3
     return None
 def main(argv=None):
     a=parse_args(argv);action=cli_action(a)
